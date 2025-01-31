@@ -32,8 +32,8 @@
   </Health>
   <Identity>
     <Civ>ptol</Civ>
-    <SpecificName>Arab Army Tent</SpecificName>
-    <GenericName>Tent</GenericName>
+    <GenericName>Arab Army Tent</GenericName>
+    <SpecificName>H̱n</SpecificName>
     <Icon>structures/mercenary_camp.png</Icon>
     <VisibleClasses datatype="tokens">Tent</VisibleClasses>
 	<Tooltip>A temporary shelter for soldiers. +5 population bonus.</Tooltip>

@@ -2,7 +2,8 @@
 <Entity parent="template_wallset">
   <Identity>
     <Civ>cart</Civ>
-    <SpecificName>Low Wall</SpecificName>
+    <SpecificName>Gadir</SpecificName>
+    <GenericName>Low Wall</GenericName>
     <Icon>structures/palisade_wall.png</Icon>
     <Requirements>
       <Techs datatype="tokens">-phase_town phase_village</Techs>

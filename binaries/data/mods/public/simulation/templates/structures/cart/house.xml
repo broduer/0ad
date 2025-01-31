@@ -5,7 +5,7 @@
   </Footprint>
   <Identity>
     <Civ>cart</Civ>
-    <SpecificName>Bet</SpecificName>
+    <SpecificName>Bēth</SpecificName>
   </Identity>
   <Obstruction>
     <Static width="13.0" depth="13.0"/>
@@ -13,7 +13,7 @@
   <Upgrade>
     <Apartment>
       <Entity>structures/cart/apartment</Entity>
-      <Tooltip>Add a second story to make an Apartment with a greater population bonus.</Tooltip>
+      <Tooltip>Add a second story to make an Apartment, with a greater population bonus.</Tooltip>
       <Cost>
         <wood>50</wood>
         <stone>50</stone>

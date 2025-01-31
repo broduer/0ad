@@ -44,6 +44,7 @@
     <Unhealable>true</Unhealable>
   </Health>
   <Identity>
+    <GenericName>Fighter Plane</GenericName>
     <SpecificName>P-51 Mustang</SpecificName>
     <Tooltip>A World War II American fighter plane.</Tooltip>
     <Icon>units/global/mustang.png</Icon>

@@ -32,8 +32,8 @@
   </Health>
   <Identity>
     <Civ>pers</Civ>
-    <SpecificName>Bedouin Tent</SpecificName>
-    <GenericName>Tent</GenericName>
+    <GenericName>Bedouin Tent</GenericName>
+    <SpecificName>Wiyān</SpecificName>
     <Icon>structures/mercenary_camp.png</Icon>
     <VisibleClasses datatype="tokens">Tent</VisibleClasses>
 	<Tooltip>A temporary shelter for soldiers. +5 population bonus.</Tooltip>

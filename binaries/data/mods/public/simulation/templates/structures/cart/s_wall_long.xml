@@ -7,8 +7,8 @@
   <Identity>
     <Civ>cart</Civ>
     <SelectionGroupName>structures/cart/wallset_short</SelectionGroupName>
-    <SpecificName>Low Wall</SpecificName>
-    <GenericName>Stone Wall</GenericName>
+    <SpecificName>Gādīr</SpecificName>
+    <GenericName>Low Wall</GenericName>
   </Identity>
   <Obstruction>
     <Static width="14.0" depth="2.0"/>

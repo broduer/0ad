@@ -5,6 +5,7 @@
     <Height>10.0</Height>
   </Footprint>
   <Identity>
+    <GenericName>Ñoldor Ship</GenericName>
     <SpecificName>Mankar Cirya</SpecificName>
     <Icon>units/noldor_ship_bireme.png</Icon>
   </Identity>

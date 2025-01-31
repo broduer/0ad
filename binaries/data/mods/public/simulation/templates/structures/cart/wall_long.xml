@@ -6,7 +6,8 @@
   </Footprint>
   <Identity>
     <Civ>cart</Civ>
-    <SpecificName>Homah</SpecificName>
+    <SpecificName>Gādēr</SpecificName>
+    <GenericName>City Wall</GenericName>
   </Identity>
   <Obstruction>
     <Static width="36.0" depth="7.0"/>

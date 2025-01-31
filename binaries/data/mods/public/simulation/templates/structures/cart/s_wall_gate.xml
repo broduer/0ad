@@ -2,5 +2,7 @@
 <Entity parent="structures/palisades_gate">
   <Identity>
     <Civ>cart</Civ>
+    <SpecificName>Šaʿar</SpecificName>
+    <GenericName>Wall Gate</GenericName>
   </Identity>
 </Entity>

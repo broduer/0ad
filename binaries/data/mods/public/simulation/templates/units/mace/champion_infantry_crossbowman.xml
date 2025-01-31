@@ -3,6 +3,7 @@
   <Identity>
     <Civ>mace</Civ>
     <Lang>greek</Lang>
+    <GenericName>Siege Crossbowman</GenericName>
     <SpecificName>Gastraphetophoros</SpecificName>
     <Icon>units/mace/champion_infantry_crossbowman.png</Icon>
   </Identity>

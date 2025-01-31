@@ -1,6 +1,7 @@
 {
 	"pair": "pair_gather_food_maur",
-	"genericName": "Ahimsa",
+	"genericName": "Do No Harm",
+	"specificName": { "maur": "Ahiṃsā"},
 	"description": "Ahimsa is the ancient Indian principle of nonviolence which applies to actions towards all living beings. It is a key virtue in Indian religions like Jainism, Buddhism, Hinduism, and Sikhism.",
 	"cost": {
 		"wood": 100

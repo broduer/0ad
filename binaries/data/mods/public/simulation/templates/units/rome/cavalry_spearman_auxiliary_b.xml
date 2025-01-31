@@ -3,7 +3,7 @@
   <Identity>
     <Civ>rome</Civ>
     <Lang>latin</Lang>
-    <GenericName>Auxiliary Cavalry Spearman</GenericName>
+    <GenericName>Auxiliary Allied Cavalry</GenericName>
     <SpecificName>Eques Alaris</SpecificName>
     <VisibleClasses datatype="tokens">Auxiliary</VisibleClasses>
     <SelectionGroupName>units/rome/cavalry_spearman_auxiliary_b</SelectionGroupName>

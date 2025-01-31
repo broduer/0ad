@@ -32,8 +32,8 @@
   </Health>
   <Identity>
     <Civ>rome</Civ>
-    <SpecificName>Roman Army Tent</SpecificName>
-    <GenericName>Tent</GenericName>
+    <GenericName>Roman Army Tent</GenericName>
+    <SpecificName>Tentōrium</SpecificName>
     <Icon>structures/mercenary_camp.png</Icon>
     <VisibleClasses datatype="tokens">Tent</VisibleClasses>
 	<Tooltip>A temporary shelter for soldiers. +5 population bonus.</Tooltip>

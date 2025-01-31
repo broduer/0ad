@@ -6,6 +6,7 @@
   </Footprint>
   <Identity>
     <Civ>rome</Civ>
+    <GenericName>Onager</GenericName>
     <SpecificName>Onager</SpecificName>
     <Icon>units/rome/siege_onager.png</Icon>
     <Requirements>

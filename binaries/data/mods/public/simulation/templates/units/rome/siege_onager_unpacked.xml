@@ -6,7 +6,6 @@
   </Footprint>
   <Identity>
     <Civ>rome</Civ>
-    <SpecificName>Onager</SpecificName>
   </Identity>
   <Pack>
     <Entity>units/rome/siege_onager_packed</Entity>

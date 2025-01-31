@@ -2,8 +2,8 @@
 <Entity parent="merc_cav|template_unit_cavalry_melee_swordsman">
   <Identity>
     <Civ>cart</Civ>
-    <GenericName>Gallic Mercenary Cavalry</GenericName>
-    <SpecificName>Ḥayyāl Ḥerev Raḫūv</SpecificName>
+    <SpecificName>Ḥayyāl Ḥārav Raḫūv</SpecificName>
+    <GenericName>Gallic Cavalry</GenericName>
     <SelectionGroupName>units/cart/cavalry_swordsman_gaul_b</SelectionGroupName>
     <Icon>units/cart/cavalry_swordsman_2.png</Icon>
     <Requirements>

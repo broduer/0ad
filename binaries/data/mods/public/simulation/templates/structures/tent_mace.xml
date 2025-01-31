@@ -32,8 +32,8 @@
   </Health>
   <Identity>
     <Civ>mace</Civ>
-    <SpecificName>Macedonian Army Tent</SpecificName>
-    <GenericName>Tent</GenericName>
+    <GenericName>Macedonian Army Tent</GenericName>
+    <SpecificName>Skēnē</SpecificName>
     <Icon>structures/mercenary_camp.png</Icon>
     <VisibleClasses datatype="tokens">Tent</VisibleClasses>
 	<Tooltip>A temporary shelter for soldiers. +5 population bonus.</Tooltip>

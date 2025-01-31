@@ -8,8 +8,8 @@
     <Max>1200</Max>
   </Health>
   <Identity>
-    <GenericName>Obelisk</GenericName>
-    <SpecificName>Egyptian Obelisk</SpecificName>
+    <GenericName>Egyptian Obelisk</GenericName>
+    <SpecificName>Obeliskos</SpecificName>
     <Icon>gaia/special_obelisk.png</Icon>
   </Identity>
   <Loot>

@@ -20,6 +20,7 @@
   <Identity>
     <Civ>kush</Civ>
     <GenericName>Noba Village</GenericName>
+    <SpecificName>Wḥyt-nḥst</SpecificName>
     <Tooltip>Train Noba Mercenaries.</Tooltip>
     <Classes datatype="tokens">CivSpecific</Classes>
     <Icon>structures/mercenary_camp.png</Icon>
