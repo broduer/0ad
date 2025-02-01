@@ -20,7 +20,6 @@
 #include "MessageHandler.h"
 #include "gui/CGUI.h"
 #include "gui/GUIManager.h"
-#include "lib/external_libraries/libsdl.h"
 #include "lib/path.h"
 #include "lib/types.h"
 #include "maths/MathUtil.h"
@@ -41,9 +40,9 @@
 #include "tools/atlas/GameInterface/SharedTypes.h"
 #include "tools/atlas/GameInterface/View.h"
 
-#include <SDL_events.h>
-#include <SDL_keyboard.h>
-#include <SDL_keycode.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_keyboard.h>
+#include <SDL3/SDL_keycode.h>
 #include <cstddef>
 #include <js/CallArgs.h>
 #include <js/RootingAPI.h>
@@ -122,9 +121,9 @@ MESSAGEHANDLER(GuiMouseButtonEvent)
 		return;
 
 	SDL_Event ev{};
-	ev.type = msg->pressed ? SDL_MOUSEBUTTONDOWN : SDL_MOUSEBUTTONUP;
+	ev.type = msg->pressed ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
 	ev.button.button = msg->button;
-	ev.button.state = msg->pressed ? SDL_PRESSED : SDL_RELEASED;
+	ev.button.down = msg->pressed;
 	ev.button.clicks = msg->clicks;
 	float x, y;
 	msg->pos->GetScreenSpace(x, y);
@@ -139,7 +138,7 @@ MESSAGEHANDLER(GuiMouseMotionEvent)
 		return;
 
 	SDL_Event ev{};
-	ev.type = SDL_MOUSEMOTION;
+	ev.type = SDL_EVENT_MOUSE_MOTION;
 	float x, y;
 	msg->pos->GetScreenSpace(x, y);
 	ev.motion.x = static_cast<u16>(Clamp<int>(x, 0, g_VideoMode.GetWindowWidth()));
@@ -153,9 +152,9 @@ MESSAGEHANDLER(GuiKeyEvent)
 		return;
 
 	SDL_Event ev{};
-	ev.type = msg->pressed ? SDL_KEYDOWN : SDL_KEYUP;
-	ev.key.keysym.sym = static_cast<SDL_Keycode>(static_cast<int>(msg->sdlkey));
-	ev.key.keysym.scancode = SDL_GetScancodeFromKey(static_cast<SDL_Keycode>(static_cast<int>(msg->sdlkey)));
+	ev.type = msg->pressed ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+	ev.key.key = static_cast<SDL_Keycode>(static_cast<int>(msg->sdlkey));
+	ev.key.scancode = SDL_GetScancodeFromKey(static_cast<SDL_Keycode>(static_cast<int>(msg->sdlkey)), nullptr);
 	g_VideoMode.m_InputManager.DispatchEvent(ev);
 }
 
@@ -168,16 +167,15 @@ MESSAGEHANDLER(GuiCharEvent)
 	// This isn't quite compatible with WXWidget's handling,
 	// so to avoid trouble we only send 'letter-like' ASCII input.
 	SDL_Event ev{};
-	ev.type = SDL_TEXTEDITING;
-	ev.text.type = SDL_TEXTEDITING;
-	ev.text.text[0] = static_cast<char>(msg->sdlkey);
-	ev.text.text[1] = '\0';
+	ev.type = SDL_EVENT_TEXT_EDITING;
+	ev.text.type = SDL_EVENT_TEXT_EDITING;
+	const char text[] = { static_cast<char>(msg->sdlkey), '\0' };
+	ev.text.text = text;
 	g_VideoMode.m_InputManager.DispatchEvent(ev);
 
-	ev.type = SDL_TEXTINPUT;
-	ev.text.type = SDL_TEXTINPUT;
-	ev.text.text[0] = static_cast<char>(msg->sdlkey);
-	ev.text.text[1] = '\0';
+	ev.type = SDL_EVENT_TEXT_INPUT;
+	ev.text.type = SDL_EVENT_TEXT_INPUT;
+	ev.text.text = text;
 	g_VideoMode.m_InputManager.DispatchEvent(ev);
 }
 

@@ -27,7 +27,6 @@
 #include "gui/GUIManager.h"
 #include "lib/code_generation.h"
 #include "lib/debug.h"
-#include "lib/external_libraries/libsdl.h"
 #include "lib/file/io/write_buffer.h"
 #include "lib/file/vfs/vfs.h"
 #include "lib/status.h"
@@ -52,12 +51,12 @@
 #include "scriptinterface/Interface.h"
 #include "scriptinterface/Request.h"
 
-#include <SDL_clipboard.h>
-#include <SDL_events.h>
-#include <SDL_keyboard.h>
-#include <SDL_keycode.h>
-#include <SDL_scancode.h>
-#include <SDL_stdinc.h>
+#include <SDL3/SDL_clipboard.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_keyboard.h>
+#include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_scancode.h>
+#include <SDL3/SDL_stdinc.h>
 #include <algorithm>
 #include <cmath>
 #include <concepts>
@@ -106,10 +105,10 @@ void SetVisible(const bool visible, bool& quitHotkeyWasShown, Function insertMes
 	if (visible)
 	{
 		ShowQuitHotkeys(quitHotkeyWasShown, std::move(insertMessage));
-		SDL_StartTextInput();
+		SDL_StartTextInput(g_VideoMode.GetWindow());
 		return;
 	}
-	SDL_StopTextInput();
+	SDL_StopTextInput(g_VideoMode.GetWindow());
 }
 } // anonymous namespace
 
@@ -672,9 +671,9 @@ void CConsole::SaveHistory()
 		debug_printf("FILES| Failed to write console command history to '%s'\n", m_HistoryFile.string8().c_str());
 }
 
-static bool isUnprintableChar(SDL_Keysym key)
+static bool isUnprintableChar(SDL_Keycode key)
 {
-	switch (key.sym)
+	switch (key)
 	{
 	// We want to allow some, which are handled specially
 	case SDLK_RETURN: case SDLK_TAB:
@@ -734,7 +733,7 @@ Input::Reaction CConsole::InputHandler::operator()(const SDL_Event& ev)
 
 	// In SDL2, we no longer get Unicode wchars via SDL_Keysym
 	// we use text input events instead and they provide UTF-8 chars
-	if (ev.type == SDL_TEXTINPUT)
+	if (ev.type == SDL_EVENT_TEXT_INPUT)
 	{
 		// TODO: this could be more efficient with an interface to insert UTF-8 strings directly
 		std::wstring wstr = wstring_from_utf8(ev.text.text);
@@ -744,16 +743,16 @@ Input::Reaction CConsole::InputHandler::operator()(const SDL_Event& ev)
 	}
 	// TODO: text editing events for IME support
 
-	if (ev.type != SDL_KEYDOWN && ev.type != SDL_KEYUP)
+	if (ev.type != SDL_EVENT_KEY_DOWN && ev.type != SDL_EVENT_KEY_UP)
 		return Input::Reaction::PASS;
 
-	int sym = ev.key.keysym.sym;
+	int key = ev.key.key;
 
 	// Stop unprintable characters (ctrl+, alt+ and escape).
-	if (ev.type == SDL_KEYDOWN && isUnprintableChar(ev.key.keysym) &&
+	if (ev.type == SDL_EVENT_KEY_DOWN && isUnprintableChar(ev.key.key) &&
 		!HotkeyIsPressed("console.toggle"))
 	{
-		console.InsertChar(sym, 0);
+		console.InsertChar(key, 0);
 		return Input::Reaction::HANDLED;
 	}
 

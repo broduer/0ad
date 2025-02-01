@@ -21,7 +21,6 @@
 
 #include "graphics/Camera.h"
 #include "graphics/Terrain.h"
-#include "lib/external_libraries/libsdl.h"
 #include "maths/MathUtil.h"
 #include "maths/Matrix3D.h"
 #include "maths/Quaternion.h"
@@ -42,7 +41,7 @@
 #include "simulation2/components/ICmpRangeManager.h"
 #include "simulation2/system/Component.h"
 
-#include <SDL_events.h>
+#include <SDL3/SDL_events.h>
 #include <algorithm>
 #include <numbers>
 #include <functional>

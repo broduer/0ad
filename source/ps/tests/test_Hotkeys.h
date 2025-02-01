@@ -22,7 +22,6 @@
 
 #include "lib/self_test.h"
 
-#include "lib/external_libraries/libsdl.h"
 #include "lib/file/file_system.h"
 #include "lib/file/vfs/vfs.h"
 #include "lib/path.h"
@@ -33,8 +32,8 @@
 #include "ps/Hotkey.h"
 #include "ps/VideoMode.h"
 
-#include <SDL_events.h>
-#include <SDL_keyboard.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_keyboard.h>
 #include <initializer_list>
 #include <memory>
 #include <unordered_map>
@@ -54,9 +53,9 @@ private:
 	{
 		{
 			SDL_Event ev;
-			ev.type = keyDown ? SDL_KEYDOWN : SDL_KEYUP;
+			ev.type = keyDown ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
 			ev.key.repeat = 0;
-			ev.key.keysym.scancode = SDL_GetScancodeFromName(key);
+			ev.key.scancode = SDL_GetScancodeFromName(key);
 			GlobalsInputHandler(ev);
 			HotkeyInputPrepHandler(ev);
 			HotkeyInputActualHandler(ev);

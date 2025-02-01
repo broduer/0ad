@@ -17,9 +17,10 @@
 
 #include "lib/self_test.h"
 
-#include "lib/external_libraries/libsdl.h"
 #include "ps/Input.h"
 
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_init.h>
 #include <iterator>
 
 class TestInput : public CxxTest::TestSuite

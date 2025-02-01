@@ -44,7 +44,7 @@
 #include "simulation2/Simulation2.h"
 #include "simulation2/system/TurnManager.h"
 
-#include <SDL_timer.h>
+#include <SDL3/SDL_timer.h>
 #include <algorithm>
 #include <functional>
 #include <iterator>

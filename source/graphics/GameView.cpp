@@ -35,7 +35,6 @@
 #include "graphics/TerritoryTexture.h"
 #include "graphics/Unit.h"
 #include "graphics/UnitManager.h"
-#include "lib/external_libraries/libsdl.h"
 #include "lib/posix/posix_types.h"
 #include "lib/timer.h"
 #include "lobby/XmppClient.h"
@@ -57,7 +56,7 @@
 #include "renderer/WaterManager.h"
 #include "simulation2/Simulation2.h"
 
-#include <SDL_events.h>
+#include <SDL3/SDL_events.h>
 #include <memory>
 #include <string>
 

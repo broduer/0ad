@@ -623,25 +623,20 @@ extern_lib_defs = {
 	sdl = {
 		compile_settings = function()
 			if os.istarget("windows") then
-				includedirs { libraries_dir .. "sdl2/include/SDL" }
+				includedirs { libraries_dir .. "sdl3/include" }
 			elseif not _OPTIONS["android"] then
-				pkgconfig.add_includes("sdl2")
+				pkgconfig.add_includes("sdl3")
 			end
 		end,
 		link_settings = function()
 			if os.istarget("windows") then
-				add_default_lib_paths("sdl2")
+				add_default_lib_paths("sdl3")
 				add_default_links({
-					win_names  = { "SDL2", "SDL2main" },
+					win_names  = { "SDL3" },
 					no_delayload = 1,
 				})
-
-				-- SDL2maind.pdb dont provide debug info, so we ignore the warning
-				filter { "system:windows", "configurations:Debug" }
-					linkoptions { "/IGNORE:4099" }
-				filter{}
 			elseif not _OPTIONS["android"] then
-				pkgconfig.add_links("sdl2")
+				pkgconfig.add_links("sdl3")
 			end
 		end,
 	},

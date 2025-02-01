@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,8 +18,8 @@
 #ifndef INCLUDED_KEYNAME
 #define INCLUDED_KEYNAME
 
-#include <SDL_mouse.h>
-#include <SDL_scancode.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_scancode.h>
 
 class CStr8;
 
@@ -32,7 +32,7 @@ extern CStr8 FindKeyName(SDL_Scancode scancode);
 enum {
 	// Start sequential IDs in the right place
 	// Pick a code which is greater than any scancodes used by SDL itself
-	EXTRA_KEYS_BASE = SDL_NUM_SCANCODES,
+	EXTRA_KEYS_BASE = SDL_SCANCODE_COUNT,
 	// 'Keycodes' for the unified modifier keys
 	UNIFIED_SHIFT,
 	UNIFIED_CTRL,

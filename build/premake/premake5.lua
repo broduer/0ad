@@ -1518,11 +1518,6 @@ function setup_tests()
 	local test_root_include_files = {
 		"precompiled.h",
 	}
-	if os.istarget("windows") then
-		-- This is required to build against SDL 2.0.12 (starting from 2.0.4) on Windows.
-		-- Refs #3138
-		table.insert(test_root_include_files, "lib/external_libraries/libsdl.h")
-	end
 
 	cxxtest.init(true, true, nil, include_files, test_root_include_files)
 

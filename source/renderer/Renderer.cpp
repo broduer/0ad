@@ -77,7 +77,7 @@
 #include "tools/atlas/GameInterface/GameLoop.h"
 #include "tools/atlas/GameInterface/View.h"
 
-#include <SDL_events.h>
+#include <SDL3/SDL_events.h>
 #include <cstdlib>
 #include <string>
 #include <unordered_map>

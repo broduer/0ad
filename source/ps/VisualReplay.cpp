@@ -40,8 +40,7 @@
 #include "scriptinterface/Object.h"
 #include "scriptinterface/Request.h"
 
-#include <SDL_events.h>
-#include <SDL_quit.h>
+#include <SDL3/SDL_events.h>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -180,9 +179,11 @@ JS::HandleObject VisualReplay::ReloadReplayCache(const Script::Interface& script
 	{
 		// This cannot use IsQuitRequested(), because the current loop and that function both run in the main thread.
 		// So SDL events are not processed unless called explicitly here.
-		if (SDL_QuitRequested())
+		if ((SDL_PumpEvents(), SDL_PeepEvents(nullptr, 0, SDL_PEEKEVENT, SDL_EVENT_QUIT, SDL_EVENT_QUIT) > 0))
+		{
 			// Don't return, because we want to save our progress
 			break;
+		}
 
 		const OsPath replayFile = GetDirectoryPath() / directory / L"commands.txt";
 

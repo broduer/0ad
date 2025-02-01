@@ -23,7 +23,7 @@
 #include "ps/CStr.h"
 #include "ps/Input.h"
 
-#include <SDL_scancode.h>
+#include <SDL3/SDL_scancode.h>
 #include <vector>
 
 class CGUI;

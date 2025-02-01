@@ -20,10 +20,9 @@
 #include "Globals.h"
 
 #include "lib/code_annotation.h"
-#include "lib/external_libraries/libsdl.h"
 
-#include <SDL_events.h>
-#include <SDL_video.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_video.h>
 #include <cstddef>
 #include "network/NetClient.h"
 #include "ps/GameSetup/Config.h"
@@ -50,41 +49,36 @@ Input::Reaction GlobalsInputHandler(const SDL_Event& ev)
 
 	switch(ev.type)
 	{
-	case SDL_WINDOWEVENT:
-		switch(ev.window.event)
-		{
-		case SDL_WINDOWEVENT_MINIMIZED:
-			g_app_minimized = true;
-			break;
-		case SDL_WINDOWEVENT_EXPOSED:
-		case SDL_WINDOWEVENT_RESTORED:
-			g_app_minimized = false;
-			break;
-		case SDL_WINDOWEVENT_FOCUS_GAINED:
-			g_app_has_focus = true;
-			break;
-		case SDL_WINDOWEVENT_FOCUS_LOST:
-			g_app_has_focus = false;
-			break;
-		case SDL_WINDOWEVENT_ENTER:
-			g_mouse_active = true;
-			break;
-		case SDL_WINDOWEVENT_LEAVE:
-			g_mouse_active = false;
-			break;
-		}
+	case SDL_EVENT_WINDOW_MINIMIZED:
+		g_app_minimized = true;
+		return Input::Reaction::PASS;
+	case SDL_EVENT_WINDOW_EXPOSED:
+	case SDL_EVENT_WINDOW_RESTORED:
+		g_app_minimized = false;
+		return Input::Reaction::PASS;
+	case SDL_EVENT_WINDOW_FOCUS_GAINED:
+		g_app_has_focus = true;
+		return Input::Reaction::PASS;
+	case SDL_EVENT_WINDOW_FOCUS_LOST:
+		g_app_has_focus = false;
+		return Input::Reaction::PASS;
+	case SDL_EVENT_WINDOW_MOUSE_ENTER:
+		g_mouse_active = true;
+		return Input::Reaction::PASS;
+	case SDL_EVENT_WINDOW_MOUSE_LEAVE:
+		g_mouse_active = false;
 		return Input::Reaction::PASS;
 
-	case SDL_MOUSEMOTION:
+	case SDL_EVENT_MOUSE_MOTION:
 		g_mouse_x = ev.motion.x;
 		g_mouse_y = ev.motion.y;
 		return Input::Reaction::PASS;
 
-	case SDL_MOUSEBUTTONDOWN:
-	case SDL_MOUSEBUTTONUP:
+	case SDL_EVENT_MOUSE_BUTTON_DOWN:
+	case SDL_EVENT_MOUSE_BUTTON_UP:
 		c = ev.button.button;
 		if(c < ARRAY_SIZE(g_mouse_buttons))
-			g_mouse_buttons[c] = (ev.type == SDL_MOUSEBUTTONDOWN);
+			g_mouse_buttons[c] = (ev.type == SDL_EVENT_MOUSE_BUTTON_DOWN);
 		else
 		{
 			// don't complain: just ignore people with too many mouse buttons
@@ -92,9 +86,9 @@ Input::Reaction GlobalsInputHandler(const SDL_Event& ev)
 		}
 		return Input::Reaction::PASS;
 
-	case SDL_KEYDOWN:
-	case SDL_KEYUP:
-		g_scancodes[ev.key.keysym.scancode] = (ev.type == SDL_KEYDOWN);
+	case SDL_EVENT_KEY_DOWN:
+	case SDL_EVENT_KEY_UP:
+		g_scancodes[ev.key.scancode] = (ev.type == SDL_EVENT_KEY_DOWN);
 		return Input::Reaction::PASS;
 
 	default:

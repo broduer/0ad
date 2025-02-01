@@ -39,7 +39,7 @@
 #include "scriptinterface/Request.h"
 #include "simulation2/system/TurnManager.h"
 
-#include <SDL_timer.h>
+#include <SDL3/SDL_timer.h>
 #include <cstddef>
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>

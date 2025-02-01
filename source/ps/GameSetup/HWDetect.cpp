@@ -24,7 +24,6 @@
 #include "lib/external_libraries/curl.h"
 #include "lib/external_libraries/enet.h"
 #include "lib/external_libraries/png.h"
-#include "lib/external_libraries/libsdl.h"
 #include "lib/path.h"
 #include "lib/posix/posix_utsname.h"
 #include "lib/sysdep/arch.h"
@@ -57,9 +56,9 @@
 #include "scriptinterface/StructuredClone.h"
 #include "soundmanager/ISoundManager.h"
 
-#include <SDL_cpuinfo.h>
-#include <SDL_version.h>
-#include <SDL_video.h>
+#include <SDL3/SDL_cpuinfo.h>
+#include <SDL3/SDL_version.h>
+#include <SDL3/SDL_video.h>
 #include <boost/version.hpp>
 #include <cstdio>
 #include <ctime>
@@ -152,24 +151,28 @@ JS::Value MakeSDLReport(const Script::Request& rq)
 {
 	LibraryReporter reporter{rq, "sdl"};
 
-	SDL_version build, runtime;
-	SDL_VERSION(&build);
-
 	char version[16];
-	snprintf(version, ARRAY_SIZE(version), "%d.%d.%d", build.major, build.minor, build.patch);
+	snprintf(version, ARRAY_SIZE(version), "%d.%d.%d",
+		SDL_VERSIONNUM_MAJOR(SDL_VERSION),
+		SDL_VERSIONNUM_MINOR(SDL_VERSION),
+		SDL_VERSIONNUM_MICRO(SDL_VERSION));
 	reporter.Add("build_version", version);
 
-	SDL_GetVersion(&runtime);
-	snprintf(version, ARRAY_SIZE(version), "%d.%d.%d", runtime.major, runtime.minor, runtime.patch);
+	const int runtime = SDL_GetVersion();
+	snprintf(version, ARRAY_SIZE(version), "%d.%d.%d",
+		SDL_VERSIONNUM_MAJOR(runtime),
+		SDL_VERSIONNUM_MINOR(runtime),
+		SDL_VERSIONNUM_MICRO(runtime));
 	reporter.Add("runtime_version", version);
 
 	// This is null in atlas (and further the call triggers an assertion).
-	const char* backend = g_VideoMode.GetWindow() ? GetSDLSubsystem(g_VideoMode.GetWindow()) : "none";
-	reporter.Add("video_backend", backend ? backend : "unknown");
+	reporter.Add("video_backend", SDL_GetCurrentVideoDriver());
 
-	reporter.Add("display_count", SDL_GetNumVideoDisplays());
+	int num_displays{0};
+	SDL_GetDisplays(&num_displays);
+	reporter.Add("display_count", num_displays);
 
-	reporter.Add("cpu_count", SDL_GetCPUCount());
+	reporter.Add("cpu_count", SDL_GetNumLogicalCPUCores());
 	reporter.Add("system_ram", SDL_GetSystemRAM());
 
 	return reporter.MakeReport();

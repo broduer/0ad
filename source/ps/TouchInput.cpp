@@ -22,15 +22,14 @@
 #include "graphics/Camera.h"
 #include "graphics/GameView.h"
 #include "lib/debug.h"
-#include "lib/external_libraries/libsdl.h"
 #include "lib/sysdep/os.h"
 #include "lib/timer.h"
 #include "maths/Matrix3D.h"
 #include "ps/Game.h"
 #include "ps/VideoMode.h"
 
-#include <SDL_events.h>
-#include <SDL_mouse.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_mouse.h>
 #include <cinttypes>
 
 // When emulation is enabled:
@@ -99,12 +98,12 @@ void CTouchInput::OnFingerUp(int id, int x, int y)
 		ev.button.x = m_Pos[0].X;
 		ev.button.y = m_Pos[0].Y;
 
-		ev.type = SDL_MOUSEBUTTONDOWN;
-		ev.button.state = SDL_PRESSED;
+		ev.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+		ev.button.down = true;
 		SDL_PushEvent(&ev);
 
-		ev.type = SDL_MOUSEBUTTONUP;
-		ev.button.state = SDL_RELEASED;
+		ev.type = SDL_EVENT_MOUSE_BUTTON_UP;
+		ev.button.down = false;
 		SDL_PushEvent(&ev);
 	}
 	else if (m_State == STATE_ZOOMING && id == 1)
@@ -178,12 +177,12 @@ void CTouchInput::Frame()
 		ev.button.x = m_Pos[0].X;
 		ev.button.y = m_Pos[0].Y;
 
-		ev.type = SDL_MOUSEBUTTONDOWN;
-		ev.button.state = SDL_PRESSED;
+		ev.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+		ev.button.down = true;
 		SDL_PushEvent(&ev);
 
-		ev.type = SDL_MOUSEBUTTONUP;
-		ev.button.state = SDL_RELEASED;
+		ev.type = SDL_EVENT_MOUSE_BUTTON_UP;
+		ev.button.down = false;
 		SDL_PushEvent(&ev);
 	}
 }
@@ -196,7 +195,7 @@ Input::Reaction CTouchInput::HandleEvent(const SDL_Event& ev)
 #if EMULATE_FINGERS_WITH_MOUSE
 	switch(ev.type)
 	{
-	case SDL_MOUSEBUTTONDOWN:
+	case SDL_EVENT_MOUSE_BUTTON_DOWN:
 	{
 		int button;
 		if (ev.button.button == SDL_BUTTON_LEFT)
@@ -219,7 +218,7 @@ Input::Reaction CTouchInput::HandleEvent(const SDL_Event& ev)
 		return IN_HANDLED;
 	}
 
-	case SDL_MOUSEBUTTONUP:
+	case SDL_EVENT_MOUSE_BUTTON_UP:
 	{
 		int button;
 		if (ev.button.button == SDL_BUTTON_LEFT)
@@ -249,7 +248,7 @@ Input::Reaction CTouchInput::HandleEvent(const SDL_Event& ev)
 		return IN_HANDLED;
 	}
 
-	case SDL_MOUSEMOTION:
+	case SDL_EVENT_MOUSE_MOTION:
 	{
 		for (size_t i = 0; i < MAX_MOUSE; ++i)
 		{
@@ -265,24 +264,24 @@ Input::Reaction CTouchInput::HandleEvent(const SDL_Event& ev)
 
 	switch(ev.type)
 	{
-	case SDL_FINGERDOWN:
-	case SDL_FINGERUP:
-	case SDL_FINGERMOTION:
+	case SDL_EVENT_FINGER_DOWN:
+	case SDL_EVENT_FINGER_UP:
+	case SDL_EVENT_FINGER_MOTION:
 	{
 		// Map finger events onto the mouse, for basic testing
 		debug_printf("finger %s tid=%" PRId64 " fid=%" PRId64 " x=%f y=%f dx=%f dy=%f p=%f\n",
-			ev.type == SDL_FINGERDOWN ? "down" :
-			ev.type == SDL_FINGERUP ? "up" :
-			ev.type == SDL_FINGERMOTION ? "motion" : "?",
-			ev.tfinger.touchId, ev.tfinger.fingerId,
+			ev.type == SDL_EVENT_FINGER_DOWN ? "down" :
+			ev.type == SDL_EVENT_FINGER_UP ? "up" :
+			ev.type == SDL_EVENT_FINGER_MOTION ? "motion" : "?",
+			ev.tfinger.touchID, ev.tfinger.fingerID,
 			ev.tfinger.x, ev.tfinger.y, ev.tfinger.dx, ev.tfinger.dy, ev.tfinger.pressure);
 
-		if (ev.type == SDL_FINGERDOWN)
-			OnFingerDown(ev.tfinger.fingerId, g_VideoMode.GetWindowWidth() * ev.tfinger.x, g_VideoMode.GetWindowHeight() * ev.tfinger.y);
-		else if (ev.type == SDL_FINGERUP)
-			OnFingerUp(ev.tfinger.fingerId, g_VideoMode.GetWindowWidth() * ev.tfinger.x, g_VideoMode.GetWindowHeight() * ev.tfinger.y);
-		else if (ev.type == SDL_FINGERMOTION)
-			OnFingerMotion(ev.tfinger.fingerId, g_VideoMode.GetWindowWidth() * ev.tfinger.x, g_VideoMode.GetWindowHeight() * ev.tfinger.y);
+		if (ev.type == SDL_EVENT_FINGER_DOWN)
+			OnFingerDown(ev.tfinger.fingerID, g_VideoMode.GetWindowWidth() * ev.tfinger.x, g_VideoMode.GetWindowHeight() * ev.tfinger.y);
+		else if (ev.type == SDL_EVENT_FINGER_UP)
+			OnFingerUp(ev.tfinger.fingerID, g_VideoMode.GetWindowWidth() * ev.tfinger.x, g_VideoMode.GetWindowHeight() * ev.tfinger.y);
+		else if (ev.type == SDL_EVENT_FINGER_MOTION)
+			OnFingerMotion(ev.tfinger.fingerID, g_VideoMode.GetWindowWidth() * ev.tfinger.x, g_VideoMode.GetWindowHeight() * ev.tfinger.y);
 		return Input::Reaction::HANDLED;
 	}
 	}

@@ -19,7 +19,6 @@
 
 #include "Hotkey.h"
 
-#include "lib/external_libraries/libsdl.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "ps/ConfigDB.h"
@@ -28,9 +27,9 @@
 #include "ps/Profiler2.h"
 #include "ps/VideoMode.h"
 
-#include <SDL_events.h>
-#include <SDL_mouse.h>
-#include <SDL_scancode.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_scancode.h>
 #include <algorithm>
 #include <boost/iterator/iterator_categories.hpp>
 #include <boost/iterator/iterator_facade.hpp>
@@ -84,7 +83,7 @@ namespace {
 }
 
 static_assert(std::is_integral<std::underlying_type<SDL_Scancode>::type>::value, "SDL_Scancode is not an integral enum.");
-static_assert(SDL_USEREVENT_ == SDL_USEREVENT, "SDL_USEREVENT_ is not the same type as the real SDL_USEREVENT");
+static_assert(SDL_EVENT_USER_ == SDL_EVENT_USER, "SDL_EVENT_USER_ is not the same type as the real SDL_EVENT_USER");
 
 // Look up each key binding in the config file and set the mappings for
 // all key combinations that trigger it.
@@ -168,7 +167,7 @@ bool isPressed(const SKey& key)
 	else if ((int)key.code < MOUSE_LAST && (int)key.code > MOUSE_BASE)
 		return g_mouse_buttons[key.code - MOUSE_BASE];
 	// Modifier keycodes are between the normal keys and the mouse 'keys'
-	else if ((int)key.code < UNIFIED_LAST && (int)key.code > SDL_NUM_SCANCODES)
+	else if ((int)key.code < UNIFIED_LAST && (int)key.code > SDL_SCANCODE_COUNT)
 		return unified[key.code - UNIFIED_SHIFT];
 	// This codepath shouldn't be taken, but not having it triggers warnings.
 	else
@@ -194,13 +193,13 @@ Input::Reaction HotkeyInputPrepHandler(const SDL_Event& ev)
 
 	switch(ev.type)
 	{
-	case SDL_KEYDOWN:
-	case SDL_KEYUP:
-		scancode = ev.key.keysym.scancode;
+	case SDL_EVENT_KEY_DOWN:
+	case SDL_EVENT_KEY_UP:
+		scancode = ev.key.scancode;
 		break;
 
-	case SDL_MOUSEBUTTONDOWN:
-	case SDL_MOUSEBUTTONUP:
+	case SDL_EVENT_MOUSE_BUTTON_DOWN:
+	case SDL_EVENT_MOUSE_BUTTON_UP:
 		// Mousewheel events are no longer buttons, but we want to maintain the order
 		// expected by g_mouse_buttons for compatibility
 		if (ev.button.button >= SDL_BUTTON_X1)
@@ -209,7 +208,7 @@ Input::Reaction HotkeyInputPrepHandler(const SDL_Event& ev)
 			scancode = MOUSE_BASE + static_cast<int>(ev.button.button);
 		break;
 
-	case SDL_MOUSEWHEEL:
+	case SDL_EVENT_MOUSE_WHEEL:
 		if (ev.wheel.y > 0)
 		{
 			scancode = MOUSE_WHEELUP;
@@ -242,32 +241,32 @@ Input::Reaction HotkeyInputPrepHandler(const SDL_Event& ev)
 	// Just send them to this handler; don't let the imaginary event codes leak back to real SDL.
 
 	SDL_Event phantom{};
-	phantom.type = ((ev.type == SDL_KEYDOWN) || (ev.type == SDL_MOUSEBUTTONDOWN)) ? SDL_KEYDOWN : SDL_KEYUP;
-	if (phantom.type == SDL_KEYDOWN)
-		phantom.key.repeat = ev.type == SDL_KEYDOWN ? ev.key.repeat : 0;
+	phantom.type = ((ev.type == SDL_EVENT_KEY_DOWN) || (ev.type == SDL_EVENT_MOUSE_BUTTON_DOWN)) ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+	if (phantom.type == SDL_EVENT_KEY_DOWN)
+		phantom.key.repeat = ev.type == SDL_EVENT_KEY_DOWN ? ev.key.repeat : 0;
 
 	if (scancode == SDL_SCANCODE_LSHIFT || scancode == SDL_SCANCODE_RSHIFT)
 	{
-		phantom.key.keysym.scancode = static_cast<SDL_Scancode>(UNIFIED_SHIFT);
-		unified[0] = (phantom.type == SDL_KEYDOWN);
+		phantom.key.scancode = static_cast<SDL_Scancode>(UNIFIED_SHIFT);
+		unified[0] = (phantom.type == SDL_EVENT_KEY_DOWN);
 		return HotkeyInputPrepHandler(phantom);
 	}
 	else if (scancode == SDL_SCANCODE_LCTRL || scancode == SDL_SCANCODE_RCTRL)
 	{
-		phantom.key.keysym.scancode = static_cast<SDL_Scancode>(UNIFIED_CTRL);
-		unified[1] = (phantom.type == SDL_KEYDOWN);
+		phantom.key.scancode = static_cast<SDL_Scancode>(UNIFIED_CTRL);
+		unified[1] = (phantom.type == SDL_EVENT_KEY_DOWN);
 		return HotkeyInputPrepHandler(phantom);
 	}
 	else if (scancode == SDL_SCANCODE_LALT || scancode == SDL_SCANCODE_RALT)
 	{
-		phantom.key.keysym.scancode = static_cast<SDL_Scancode>(UNIFIED_ALT);
-		unified[2] = (phantom.type == SDL_KEYDOWN);
+		phantom.key.scancode = static_cast<SDL_Scancode>(UNIFIED_ALT);
+		unified[2] = (phantom.type == SDL_EVENT_KEY_DOWN);
 		return HotkeyInputPrepHandler(phantom);
 	}
 	else if (scancode == SDL_SCANCODE_LGUI || scancode == SDL_SCANCODE_RGUI)
 	{
-		phantom.key.keysym.scancode = static_cast<SDL_Scancode>(UNIFIED_SUPER);
-		unified[3] = (phantom.type == SDL_KEYDOWN);
+		phantom.key.scancode = static_cast<SDL_Scancode>(UNIFIED_SUPER);
+		unified[3] = (phantom.type == SDL_EVENT_KEY_DOWN);
 		return HotkeyInputPrepHandler(phantom);
 	}
 
@@ -300,9 +299,9 @@ Input::Reaction HotkeyInputPrepHandler(const SDL_Event& ev)
 	 * ...Yes, this is all surprisingly complex.
 	 */
 
-	bool isReleasedKey = ev.type == SDL_KEYUP || ev.type == SDL_MOUSEBUTTONUP;
+	bool isReleasedKey = ev.type == SDL_EVENT_KEY_UP || ev.type == SDL_EVENT_MOUSE_BUTTON_UP;
 	// Wheel events are pressed & released in the same go.
-	bool isInstantaneous = ev.type == SDL_MOUSEWHEEL;
+	bool isInstantaneous = ev.type == SDL_EVENT_MOUSE_WHEEL;
 
 	if (!isInstantaneous)
 	{
@@ -365,7 +364,7 @@ Input::Reaction HotkeyInputActualHandler(const SDL_Event& ev)
 	if (!currentEvent)
 		return Input::Reaction::PASS;
 
-	bool isInstantaneous = ev.type == SDL_MOUSEWHEEL;
+	bool isInstantaneous = ev.type == SDL_EVENT_MOUSE_WHEEL;
 
 	// TODO: it's probably possible to break hotkeys somewhat if the "Up" event that would release a hotkey is handled
 	// by a priori handler - it might be safer to do that in the 'Prep' phase.
@@ -425,7 +424,7 @@ Input::Reaction HotkeyInputActualHandler(const SDL_Event& ev)
 	for (const PressedHotkey& hotkey : isInstantaneous ? newPressedHotkeys : pressedHotkeys)
 	{
 		// Send a KeyPress event when a hotkey is pressed initially and on mouseButton and mouseWheel events.
-		if (ev.type != SDL_KEYDOWN || ev.key.repeat == 0)
+		if (ev.type != SDL_EVENT_KEY_DOWN || ev.key.repeat == 0)
 		{
 			SDL_Event hotkeyPressNotification{};
 			hotkeyPressNotification.type = hotkey.retriggered ? SDL_HOTKEYPRESS_SILENT : SDL_HOTKEYPRESS;

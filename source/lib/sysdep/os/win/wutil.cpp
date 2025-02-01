@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -34,8 +34,8 @@
 
 #include <shlobj.h>	// SHGetFolderPath
 
-#include <SDL_loadso.h>
-#include <SDL_syswm.h>
+#include <SDL3/SDL_loadso.h>
+#include <SDL3/SDL_video.h>
 
 
 //-----------------------------------------------------------------------------
@@ -237,10 +237,7 @@ static HWND hAppWindow;
 
 void wutil_SetAppWindow(SDL_Window* window)
 {
-	SDL_SysWMinfo wmInfo;
-	SDL_VERSION(&wmInfo.version);
-	if (SDL_GetWindowWMInfo(window, &wmInfo) && wmInfo.subsystem == SDL_SYSWM_WINDOWS)
-		hAppWindow = wmInfo.info.win.window;
+	hAppWindow = (HWND)SDL_GetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
 }
 
 void* wutil_GetAppHDC()
@@ -287,7 +284,7 @@ void wutil_EnableHiDPIOnWindows()
 
 	// https://docs.microsoft.com/en-us/windows/win32/api/shellscalingapi/nf-shellscalingapi-setprocessdpiawareness
 	using SetProcessDpiAwarenessFunc = HRESULT(WINAPI *)(PROCESS_DPI_AWARENESS);
-	void* shcoreDLL = SDL_LoadObject("SHCORE.DLL");
+	SDL_SharedObject* shcoreDLL = SDL_LoadObject("SHCORE.DLL");
 	if (!shcoreDLL)
 		return;
 

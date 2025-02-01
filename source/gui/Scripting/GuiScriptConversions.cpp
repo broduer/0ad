@@ -29,7 +29,6 @@
 #include "gui/SettingTypes/EAlign.h"
 #include "gui/SettingTypes/EScrollOrientation.h"
 #include "lib/code_generation.h"
-#include "lib/external_libraries/libsdl.h"
 #include "maths/Rect.h"
 #include "maths/Size2D.h"
 #include "maths/Vector2D.h"
@@ -39,13 +38,13 @@
 #include "scriptinterface/Exceptions.h"
 #include "scriptinterface/Request.h"
 
+#include <SDL3/SDL_events.h>
 #include <js/CallArgs.h>
 #include <js/PropertyAndElement.h>
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
 #include <js/Value.h>
 #include <jsapi.h>
-#include <SDL_events.h>
 #include <string>
 #include <vector>
 
@@ -61,13 +60,12 @@ template<> void Script::ToJSVal<SDL_Event>(const Script::Request& rq, JS::Mutabl
 
 	switch (ev.type)
 	{
-	case SDL_WINDOWEVENT: typeName = "windowevent"; break;
-	case SDL_KEYDOWN: typeName = "keydown"; break;
-	case SDL_KEYUP: typeName = "keyup"; break;
-	case SDL_MOUSEMOTION: typeName = "mousemotion"; break;
-	case SDL_MOUSEBUTTONDOWN: typeName = "mousebuttondown"; break;
-	case SDL_MOUSEBUTTONUP: typeName = "mousebuttonup"; break;
-	case SDL_QUIT: typeName = "quit"; break;
+	case SDL_EVENT_KEY_DOWN: typeName = "keydown"; break;
+	case SDL_EVENT_KEY_UP: typeName = "keyup"; break;
+	case SDL_EVENT_MOUSE_MOTION: typeName = "mousemotion"; break;
+	case SDL_EVENT_MOUSE_BUTTON_DOWN: typeName = "mousebuttondown"; break;
+	case SDL_EVENT_MOUSE_BUTTON_UP: typeName = "mousebuttonup"; break;
+	case SDL_EVENT_QUIT: typeName = "quit"; break;
 	case SDL_HOTKEYPRESS: typeName = "hotkeypress"; break;
 	case SDL_HOTKEYDOWN: typeName = "hotkeydown"; break;
 	case SDL_HOTKEYUP: typeName = "hotkeyup"; break;
@@ -87,8 +85,8 @@ template<> void Script::ToJSVal<SDL_Event>(const Script::Request& rq, JS::Mutabl
 
 	switch (ev.type)
 	{
-	case SDL_KEYDOWN:
-	case SDL_KEYUP:
+	case SDL_EVENT_KEY_DOWN:
+	case SDL_EVENT_KEY_UP:
 	{
 		// SET(obj, "which", static_cast<int>(ev.key.which)); // (not in wsdl.h)
 		// SET(obj, "state", static_cast<int>(ev.key.state)); // (not in wsdl.h)
@@ -103,7 +101,7 @@ template<> void Script::ToJSVal<SDL_Event>(const Script::Request& rq, JS::Mutabl
 		JS_SetProperty(rq.cx, obj, "keysym", keysymVal);
 
 		// SET(keysym, "scancode", static_cast<int>(ev.key.keysym.scancode)); // (not in wsdl.h)
-		SET(keysym, "sym", static_cast<int>(ev.key.keysym.sym));
+		SET(keysym, "sym", static_cast<int>(ev.key.key));
 		// SET(keysym, "mod", static_cast<int>(ev.key.keysym.mod)); // (not in wsdl.h)
 		{
 			SET(keysym, "unicode", JS::UndefinedHandleValue);
@@ -113,7 +111,7 @@ template<> void Script::ToJSVal<SDL_Event>(const Script::Request& rq, JS::Mutabl
 
 		break;
 	}
-	case SDL_MOUSEMOTION:
+	case SDL_EVENT_MOUSE_MOTION:
 	{
 		// SET(obj, "which", static_cast<int>(ev.motion.which)); // (not in wsdl.h)
 		// SET(obj, "state", static_cast<int>(ev.motion.state)); // (not in wsdl.h)
@@ -123,12 +121,12 @@ template<> void Script::ToJSVal<SDL_Event>(const Script::Request& rq, JS::Mutabl
 		// SET(obj, "yrel", static_cast<int>(ev.motion.yrel)); // (not in wsdl.h)
 		break;
 	}
-	case SDL_MOUSEBUTTONDOWN:
-	case SDL_MOUSEBUTTONUP:
+	case SDL_EVENT_MOUSE_BUTTON_DOWN:
+	case SDL_EVENT_MOUSE_BUTTON_UP:
 	{
 		// SET(obj, "which", static_cast<int>(ev.button.which)); // (not in wsdl.h)
 		SET(obj, "button", static_cast<int>(ev.button.button));
-		SET(obj, "state", static_cast<int>(ev.button.state));
+		SET(obj, "state", static_cast<int>(ev.button.down));
 		SET(obj, "x", static_cast<int>(ev.button.x));
 		SET(obj, "y", static_cast<int>(ev.button.y));
 		SET(obj, "clicks", static_cast<int>(ev.button.clicks));

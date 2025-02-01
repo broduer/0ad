@@ -121,9 +121,10 @@ public:
 	Renderer::Backend::ISwapChain* GetOrCreateSwapChain();
 
 private:
-	void ReadConfig();
 	int GetBestBPP();
-	bool SetVideoMode(int w, int h, int bpp, bool fullscreen);
+	void ReadConfig();
+	void InitGLContext();
+	bool InitWindow(int width, int heigth);
 
 	bool TryCreateBackendDevice(SDL_Window* window);
 	void DowngradeBackendSettingAfterCreationFailure();
@@ -163,16 +164,14 @@ private:
 	bool m_ConfigEnableHiDPI = false;
 	bool m_ConfigVSync = false;
 
+	bool m_ConfigBorderlessWindow = false;
+
+	bool m_ConfigMouseGrabInFullscreen = true;
+	bool m_ConfigMouseGrabInWindowMode = false;
+
 	// (m_ConfigFullscreen defaults to false, so users don't get stuck if
 	// e.g. half the filesystem is missing and the config files aren't loaded).
 	bool m_ConfigFullscreen = false;
-
-	// If we're fullscreen, size/position of window when we were last windowed (or the default window
-	// size/position if we started fullscreen), to support switching back to the old window size/position
-	int m_WindowedW;
-	int m_WindowedH;
-	int m_WindowedX;
-	int m_WindowedY;
 
 	// The last mode selected
 	int m_CurrentW;

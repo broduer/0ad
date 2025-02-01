@@ -27,7 +27,7 @@
 #include "ps/Profile.h"
 #include "renderer/backend/gl/Device.h"
 
-#include <SDL_video.h>
+#include <SDL3/SDL_video.h>
 
 namespace Renderer
 {

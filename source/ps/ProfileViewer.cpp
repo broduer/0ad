@@ -24,7 +24,6 @@
 #include "graphics/Color.h"
 #include "graphics/FontMetrics.h"
 #include "graphics/TextRenderer.h"
-#include "lib/external_libraries/libsdl.h"
 #include "lib/os_path.h"
 #include "lib/path.h"
 #include "maths/Rect.h"
@@ -39,8 +38,8 @@
 #include "scriptinterface/Object.h"
 #include "scriptinterface/Request.h"
 
-#include <SDL_events.h>
-#include <SDL_keycode.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_keycode.h>
 #include <algorithm>
 #include <ctime>
 #include <fstream>
@@ -293,12 +292,12 @@ Input::Reaction CProfileViewerInternals::InputHandler::operator()(const SDL_Even
 {
 	switch(ev.type)
 	{
-	case SDL_KEYDOWN:
+	case SDL_EVENT_KEY_DOWN:
 	{
 		if (!profileViewer.profileVisible)
 			break;
 
-		int k = ev.key.keysym.sym;
+		SDL_Keycode k = ev.key.key;
 		if (k >= SDLK_0 && k <= SDLK_9)
 		{
 			profileViewer.NavigateTree(k - SDLK_0);

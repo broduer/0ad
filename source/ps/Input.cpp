@@ -20,13 +20,13 @@
 #include "ps/Input.h"
 
 #include "lib/debug.h"
-#include "lib/external_libraries/libsdl.h"
 #include "ps/Profile.h"
 #include "ps/TouchInput.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Conversions.h"
 #include "scriptinterface/Request.h"
 
+#include <SDL3/SDL_events.h>
 #include <utility>
 
 namespace Input

@@ -35,11 +35,11 @@
 #include "renderer/backend/vulkan/Texture.h"
 #include "renderer/backend/vulkan/Utilities.h"
 
+#include <SDL3/SDL_video.h>
 #include <algorithm>
 #include <cstdio>
 #include <iterator>
 #include <limits>
-#include <SDL_video.h>
 #include <utility>
 
 namespace Renderer

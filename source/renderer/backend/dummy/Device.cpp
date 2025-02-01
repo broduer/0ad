@@ -30,7 +30,7 @@
 #include "renderer/backend/dummy/Texture.h"
 #include "scriptinterface/Object.h"
 
-#include <SDL_video.h>
+#include <SDL3/SDL_video.h>
 #include <initializer_list>
 #include <js/RootingAPI.h>
 

@@ -20,7 +20,6 @@
 #include "gui/GUIManager.h"
 
 #include "gui/CGUI.h"
-#include "lib/external_libraries/libsdl.h"
 #include "lib/file/file_system.h"
 #include "lib/file/vfs/vfs.h"
 #include "lib/path.h"
@@ -40,8 +39,8 @@
 #include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"
 
-#include <SDL_events.h>
-#include <SDL_scancode.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_scancode.h>
 #include <array>
 #include <js/CallArgs.h>
 #include <js/RootingAPI.h>
@@ -162,8 +161,8 @@ public:
 
 		// Press 'a'.
 		SDL_Event hotkeyNotification;
-		hotkeyNotification.type = SDL_KEYDOWN;
-		hotkeyNotification.key.keysym.scancode = SDL_SCANCODE_A;
+		hotkeyNotification.type = SDL_EVENT_KEY_DOWN;
+		hotkeyNotification.key.scancode = SDL_SCANCODE_A;
 		hotkeyNotification.key.repeat = 0;
 
 		// Init input and poll the event.
@@ -205,7 +204,7 @@ public:
 		Script::FromJSVal(prq, js_hotkey_pressed_value, hotkey_pressed_value);
 		TS_ASSERT_EQUALS(hotkey_pressed_value, true);
 
-		hotkeyNotification.type = SDL_KEYUP;
+		hotkeyNotification.type = SDL_EVENT_KEY_UP;
 		g_VideoMode.m_InputManager.PushPriorityEvent(hotkeyNotification);
 		for (SDL_Event& ev : g_VideoMode.m_InputManager.PollEvents())
 			g_VideoMode.m_InputManager.DispatchEvent(ev);

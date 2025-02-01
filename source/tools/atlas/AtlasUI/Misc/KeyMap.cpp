@@ -19,7 +19,7 @@
 
 #include "KeyMap.h"
 
-#include <SDL_keycode.h>
+#include <SDL3/SDL_keycode.h>
 #include <wx/event.h>
 
 int GetSDLKeyFromWxKeyCode(int wxkey)

@@ -25,12 +25,11 @@
 #include "gui/SettingTypes/CGUIColor.h"
 #include "gui/SettingTypes/CGUIList.h"
 #include "gui/SettingTypes/CGUIString.h"
-#include "lib/external_libraries/libsdl.h"
 #include "lib/timer.h"
 #include "maths/Size2D.h"
 
-#include <SDL_events.h>
-#include <SDL_keycode.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_keycode.h>
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -277,9 +276,9 @@ Input::Reaction CDropDown::ManuallyHandleKeys(const SDL_Event& ev)
 	Input::Reaction result{Input::Reaction::PASS};
 	bool update_highlight = false;
 
-	if (ev.type == SDL_KEYDOWN)
+	if (ev.type == SDL_EVENT_KEY_DOWN)
 	{
-		int szChar = ev.key.keysym.sym;
+		SDL_Keycode szChar = ev.key.key;
 
 		switch (szChar)
 		{
@@ -305,7 +304,7 @@ Input::Reaction CDropDown::ManuallyHandleKeys(const SDL_Event& ev)
 		default:
 			// If we have typed a character try to get the closest element to it.
 			// TODO: not too nice and doesn't deal with dashes.
-			if (m_Open && ((szChar >= SDLK_a && szChar <= SDLK_z) || szChar == SDLK_SPACE
+			if (m_Open && ((szChar >= SDLK_A && szChar <= SDLK_Z) || szChar == SDLK_SPACE
 						   || (szChar >= SDLK_0 && szChar <= SDLK_9)
 						   || (szChar >= SDLK_KP_1 && szChar <= SDLK_KP_0)))
 			{

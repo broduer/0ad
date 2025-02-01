@@ -91,11 +91,11 @@
 #include "simulation2/system/Component.h"
 #include "soundmanager/ISoundManager.h"
 
-#include <SDL.h>
-#include <SDL_error.h>
-#include <SDL_hints.h>
-#include <SDL_keyboard.h>
-#include <SDL_version.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_hints.h>
+#include <SDL3/SDL_keyboard.h>
+#include <SDL3/SDL_version.h>
 #include <algorithm>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/constants.hpp>
@@ -282,20 +282,15 @@ static void ShutdownPs()
 
 static void InitSDL()
 {
-	if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER|SDL_INIT_NOPARACHUTE) < 0)
+	if(!SDL_Init(SDL_INIT_VIDEO))
 	{
 		LOGERROR("SDL library initialization failed: %s", SDL_GetError());
 		throw PSERROR_System_SDLInitFailed();
 	}
 	atexit(SDL_Quit);
 
-	// Text input is active by default, disable it until it is actually needed.
-	SDL_StopTextInput();
-
-#if SDL_VERSION_ATLEAST(2, 0, 9)
 	// SDL2 >= 2.0.9 defaults to 32 pixels (to support touch screens) but that can break our double-clicking.
 	SDL_SetHint(SDL_HINT_MOUSE_DOUBLE_CLICK_RADIUS, "1");
-#endif
 
 #if OS_MACOSX
 	// Some Mac mice only have one button, so they can't right-click

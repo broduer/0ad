@@ -34,7 +34,6 @@
 #include "i18n/L10n.h"
 #include "lib/bits.h"
 #include "lib/debug.h"
-#include "lib/external_libraries/libsdl.h"
 #include "lib/file/vfs/vfs_util.h"
 #include "lib/path.h"
 #include "lib/timer.h"
@@ -56,12 +55,12 @@
 #include "scriptinterface/Interface.h"
 #include "scriptinterface/Request.h"
 
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_mouse.h>
 #include <algorithm>
 #include <js/CallAndConstruct.h>
 #include <js/Promise.h>
 #include <optional>
-#include <SDL_events.h>
-#include <SDL_mouse.h>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -146,7 +145,7 @@ Input::Reaction CGUI::HandleEvent(const SDL_Event& ev)
 			}
 	}
 
-	else if (ev.type == SDL_MOUSEMOTION)
+	else if (ev.type == SDL_EVENT_MOUSE_MOTION)
 	{
 		// Yes the mouse position is stored as float to avoid
 		//  constant conversions when operating in a
@@ -158,7 +157,7 @@ Input::Reaction CGUI::HandleEvent(const SDL_Event& ev)
 	}
 
 	// Update m_MouseButtons. (BUTTONUP is handled later.)
-	else if (ev.type == SDL_MOUSEBUTTONDOWN)
+	else if (ev.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
 	{
 		switch (ev.button.button)
 		{
@@ -174,7 +173,7 @@ Input::Reaction CGUI::HandleEvent(const SDL_Event& ev)
 
 	// Update m_MousePos (for delayed mouse button events)
 	CVector2D oldMousePos = m_MousePos;
-	if (ev.type == SDL_MOUSEBUTTONDOWN || ev.type == SDL_MOUSEBUTTONUP)
+	if (ev.type == SDL_EVENT_MOUSE_BUTTON_DOWN || ev.type == SDL_EVENT_MOUSE_BUTTON_UP)
 	{
 		m_MousePos = CVector2D(static_cast<float>(ev.button.x) / g_VideoMode.GetScale(), static_cast<float>(ev.button.y) / g_VideoMode.GetScale());
 	}
@@ -194,7 +193,7 @@ Input::Reaction CGUI::HandleEvent(const SDL_Event& ev)
 		// update their own data and send messages accordingly
 		m_BaseObject->RecurseObject(&IGUIObject::IsHiddenOrGhostOrOutOfBoundaries, &IGUIObject::UpdateMouseOver, static_cast<IGUIObject* const&>(pNearest));
 
-		if (ev.type == SDL_MOUSEBUTTONDOWN)
+		if (ev.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
 		{
 			switch (ev.button.button)
 			{
@@ -215,7 +214,7 @@ Input::Reaction CGUI::HandleEvent(const SDL_Event& ev)
 				break;
 			}
 		}
-		else if (ev.type == SDL_MOUSEWHEEL && pNearest)
+		else if (ev.type == SDL_EVENT_MOUSE_WHEEL && pNearest)
 		{
 			if (ev.wheel.y < 0)
 				ret = pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_DOWN, EventNameMouseWheelDown);
@@ -227,7 +226,7 @@ Input::Reaction CGUI::HandleEvent(const SDL_Event& ev)
 			else if (ev.wheel.x > 0)
 				ret = pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_RIGHT, EventNameMouseWheelRight);
 		}
-		else if (ev.type == SDL_MOUSEBUTTONUP)
+		else if (ev.type == SDL_EVENT_MOUSE_BUTTON_UP)
 		{
 			switch (ev.button.button)
 			{
@@ -266,7 +265,7 @@ Input::Reaction CGUI::HandleEvent(const SDL_Event& ev)
 	// BUTTONUP's effect on m_MouseButtons is handled after
 	// everything else, so that e.g. 'press' handlers (activated
 	// on button up) see which mouse button had been pressed.
-	if (ev.type == SDL_MOUSEBUTTONUP)
+	if (ev.type == SDL_EVENT_MOUSE_BUTTON_UP)
 	{
 		switch (ev.button.button)
 		{
@@ -281,15 +280,15 @@ Input::Reaction CGUI::HandleEvent(const SDL_Event& ev)
 	}
 
 	// Restore m_MousePos (for delayed mouse button events)
-	if (ev.type == SDL_MOUSEBUTTONDOWN || ev.type == SDL_MOUSEBUTTONUP)
+	if (ev.type == SDL_EVENT_MOUSE_BUTTON_DOWN || ev.type == SDL_EVENT_MOUSE_BUTTON_UP)
 		m_MousePos = oldMousePos;
 
 	// Let GUI items handle keys after everything else, e.g. for input boxes.
 	if (ret == Input::Reaction::PASS && GetFocusedObject())
 	{
-		if (ev.type == SDL_KEYUP || ev.type == SDL_KEYDOWN ||
+		if (ev.type == SDL_EVENT_KEY_UP || ev.type == SDL_EVENT_KEY_DOWN ||
 			ev.type == SDL_HOTKEYUP || ev.type == SDL_HOTKEYDOWN ||
-			ev.type == SDL_TEXTINPUT || ev.type == SDL_TEXTEDITING)
+			ev.type == SDL_EVENT_TEXT_INPUT || ev.type == SDL_EVENT_TEXT_EDITING)
 			ret = GetFocusedObject()->ManuallyHandleKeys(ev);
 		// else will return IN_PASS because we never used the button.
 	}

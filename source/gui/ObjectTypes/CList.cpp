@@ -27,14 +27,13 @@
 #include "gui/SettingTypes/CGUIColor.h"
 #include "gui/SettingTypes/CGUIList.h"
 #include "gui/SettingTypes/CGUIString.h"
-#include "lib/external_libraries/libsdl.h"
 #include "lib/timer.h"
 #include "maths/Size2D.h"
 #include "maths/Vector2D.h"
 #include "ps/XMB/XMBData.h"
 
-#include <SDL_events.h>
-#include <SDL_keycode.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_keycode.h>
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -264,9 +263,9 @@ Input::Reaction CList::ManuallyHandleKeys(const SDL_Event& ev)
 {
 	Input::Reaction result{Input::Reaction::PASS};
 
-	if (ev.type == SDL_KEYDOWN)
+	if (ev.type == SDL_EVENT_KEY_DOWN)
 	{
-		int szChar = ev.key.keysym.sym;
+		SDL_Keycode szChar = ev.key.key;
 
 		switch (szChar)
 		{

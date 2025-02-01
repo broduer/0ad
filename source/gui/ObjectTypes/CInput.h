@@ -30,7 +30,7 @@
 #include "ps/CStr.h"
 #include "ps/Input.h"
 
-#include <SDL_keycode.h>
+#include <SDL3/SDL_keycode.h>
 #include <list>
 #include <vector>
 

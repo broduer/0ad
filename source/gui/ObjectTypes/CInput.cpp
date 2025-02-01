@@ -28,7 +28,6 @@
 #include "gui/SGUIMessage.h"
 #include "gui/SettingTypes/EAlign.h"
 #include "lib/debug.h"
-#include "lib/external_libraries/libsdl.h"
 #include "lib/timer.h"
 #include "lib/utf8.h"
 #include "maths/Size2D.h"
@@ -38,14 +37,15 @@
 #include "ps/Globals.h"
 #include "ps/Hotkey.h"
 #include "ps/Input.h"
+#include "ps/VideoMode.h"
 
-#include <SDL_clipboard.h>
-#include <SDL_events.h>
-#include <SDL_keyboard.h>
-#include <SDL_mouse.h>
-#include <SDL_rect.h>
-#include <SDL_scancode.h>
-#include <SDL_stdinc.h>
+#include <SDL3/SDL_clipboard.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_keyboard.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_scancode.h>
+#include <SDL3/SDL_stdinc.h>
 #include <algorithm>
 #include <cstring>
 #include <cwchar>
@@ -133,7 +133,7 @@ Input::Reaction CInput::ManuallyHandleKeys(const SDL_Event& ev)
 	}
 	// SDL2 has a new method of text input that better supports Unicode and CJK
 	// see https://wiki.libsdl.org/Tutorials/TextInput
-	case SDL_TEXTINPUT:
+	case SDL_EVENT_TEXT_INPUT:
 	{
 		if (m_Readonly)
 			return Input::Reaction::PASS;
@@ -172,7 +172,7 @@ Input::Reaction CInput::ManuallyHandleKeys(const SDL_Event& ev)
 
 		return Input::Reaction::HANDLED;
 	}
-	case SDL_TEXTEDITING:
+	case SDL_EVENT_TEXT_EDITING:
 	{
 		if (m_Readonly)
 			return Input::Reaction::PASS;
@@ -220,13 +220,13 @@ Input::Reaction CInput::ManuallyHandleKeys(const SDL_Event& ev)
 
 		return Input::Reaction::HANDLED;
 	}
-	case SDL_KEYDOWN:
-	case SDL_KEYUP:
+	case SDL_EVENT_KEY_DOWN:
+	case SDL_EVENT_KEY_UP:
 	{
 		// Since the GUI framework doesn't handle to set settings
 		//  in Unicode (CStrW), we'll simply retrieve the actual
 		//  pointer and edit that.
-		SDL_Keycode keyCode = ev.key.keysym.sym;
+		SDL_Keycode keyCode = ev.key.key;
 
 		// We have a probably printable key - we should return HANDLED so it can't trigger hotkeys.
 		// However, if Ctrl/Meta modifiers are active, just pass it through instead,
@@ -243,7 +243,7 @@ Input::Reaction CInput::ManuallyHandleKeys(const SDL_Event& ev)
 		if (m_ComposingText)
 			return Input::Reaction::HANDLED;
 
-		if (ev.type == SDL_KEYDOWN)
+		if (ev.type == SDL_EVENT_KEY_DOWN)
 		{
 			ManuallyImmutableHandleKeyDownEvent(keyCode);
 			ManuallyMutableHandleKeyDownEvent(keyCode);
@@ -346,7 +346,7 @@ void CInput::ManuallyMutableHandleKeyDownEvent(const SDL_Keycode keyCode)
 	}
 	default: // Insert a character
 	{
-		// Regular input is handled via SDL_TEXTINPUT, so we should ignore it here.
+		// Regular input is handled via SDL_EVENT_TEXT_INPUT, so we should ignore it here.
 		if (cooked == 0)
 			return;
 
@@ -1153,8 +1153,8 @@ void CInput::HandleMessage(SGUIMessage& Message)
 		rect.w = GetActualSize().GetSize().Width;
 		rect.x = GetActualSize().TopLeft().X;
 		rect.y = GetActualSize().TopLeft().Y;
-		SDL_SetTextInputRect(&rect);
-		SDL_StartTextInput();
+		SDL_SetTextInputArea(g_VideoMode.GetWindow(), &rect, 0);
+		SDL_StartTextInput(g_VideoMode.GetWindow());
 		break;
 	}
 	case GUIM_LOST_FOCUS:
@@ -1163,13 +1163,13 @@ void CInput::HandleMessage(SGUIMessage& Message)
 		{
 			// Simulate a final text editing event to clear the composition
 			SDL_Event ev{};
-			ev.type = SDL_TEXTEDITING;
+			ev.type = SDL_EVENT_TEXT_EDITING;
 			ev.edit.length = 0;
 			ev.edit.start = 0;
-			ev.edit.text[0] = '\0';
+			ev.edit.text = "";
 			ManuallyHandleKeys(ev);
 		}
-		SDL_StopTextInput();
+		SDL_StopTextInput(g_VideoMode.GetWindow());
 
 		m_iBufferPos = -1;
 		m_iBufferPos_Tail = -1;

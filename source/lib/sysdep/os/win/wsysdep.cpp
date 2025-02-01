@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -29,7 +29,7 @@
 
 #include "lib/alignment.h"
 #include "lib/sysdep/os/win/win.h"	// includes windows.h; must come before shlobj
-#include <SDL_clipboard.h>	// SDL_SetClipboardText
+#include <SDL3/SDL_clipboard.h>	// SDL_SetClipboardText
 #include <shlobj.h>	// pick_dir
 #include <shellapi.h>	// open_url
 #include <Wincrypt.h>

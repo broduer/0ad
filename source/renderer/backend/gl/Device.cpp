@@ -23,7 +23,6 @@
 #include "lib/code_generation.h"
 #include "lib/config2.h"
 #include "lib/debug.h"
-#include "lib/external_libraries/libsdl.h"
 #include "lib/secure_crt.h"
 #include "ps/CLogger.h"
 #include "ps/ConfigDB.h"
@@ -46,10 +45,9 @@
 #include <glad/gl.h>
 #endif
 
-#include <SDL_config.h>
-#include <SDL_error.h>
-#include <SDL_version.h>
-#include <SDL_video.h>
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_version.h>
+#include <SDL3/SDL_video.h>
 #include <algorithm>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/constants.hpp>
@@ -467,7 +465,7 @@ CDevice::~CDevice()
 #endif
 
 	if (m_Context)
-		SDL_GL_DeleteContext(m_Context);
+		SDL_GL_DestroyContext(m_Context);
 }
 
 void CDevice::Report(const Script::Request& rq, JS::HandleValue settings)
@@ -639,9 +637,6 @@ void CDevice::Report(const Script::Request& rq, JS::HandleValue settings)
 	INTEGER(MAX_RENDERBUFFER_SIZE);
 
 #endif // CONFIG2_GLES
-
-
-// TODO: Support OpenGL platforms which don't use GLX as well.
 }
 
 std::unique_ptr<IDeviceCommandContext> CDevice::CreateCommandContext()
@@ -659,7 +654,7 @@ std::unique_ptr<ISwapChain> CDevice::CreateSwapChain(
 	oldSwapChain.reset();
 	ENSURE(window == m_Window);
 	if (window)
-		SDL_GL_GetDrawableSize(window, &surfaceDrawableWidth, &surfaceDrawableHeight);
+		SDL_GetWindowSizeInPixels(window, &surfaceDrawableWidth, &surfaceDrawableHeight);
 	return CSwapChain::Create(
 		this, window, surfaceDrawableWidth, surfaceDrawableHeight, vsync);
 }

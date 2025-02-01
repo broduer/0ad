@@ -6,6 +6,7 @@
 #include <cxxtest/XmlPrinter.h>
 #include <iostream>
 #include <ps/DllLoader.h>
+#include <SDL3/SDL_main.h>
 #include <string>
 
 void usage(const char* prog) {

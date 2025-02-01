@@ -44,7 +44,7 @@
 #include "scriptinterface/StructuredClone.h"
 #include "simulation2/system/Component.h"
 
-#include <SDL_events.h>
+#include <SDL3/SDL_events.h>
 #include <algorithm>
 #include <iterator>
 #include <js/Equality.h>

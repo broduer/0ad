@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -23,8 +23,8 @@
 
 #include "ps/CStr.h"
 
-#include <SDL_keyboard.h>
-#include <SDL_keycode.h>
+#include <SDL3/SDL_keyboard.h>
+#include <SDL3/SDL_keycode.h>
 #include <algorithm>
 #include <cstring>
 #include <string>
@@ -137,9 +137,9 @@ static const std::unordered_map<SDL_Keycode, CStr> keyNames {{
 	{ SDLK_PLUS, "Plus" },
 	{ SDLK_MINUS, "Minus" },
 
-	{ SDLK_QUOTE, "SingleQuote" },
-	{ SDLK_QUOTEDBL, "DoubleQuote" },
-	{ SDLK_BACKQUOTE, "BackQuote" },
+	{ SDLK_APOSTROPHE, "SingleQuote" },
+	{ SDLK_DBLAPOSTROPHE, "DoubleQuote" },
+	{ SDLK_GRAVE, "BackQuote" },
 
 	{ SDLK_LEFTPAREN, { "LeftParen" } },
 
@@ -198,7 +198,8 @@ CStr FindKeyName(SDL_Scancode scancode)
 	else if (static_cast<int>(scancode) == MOUSE_X2)
 		return "WheelRight";
 
-	SDL_Keycode code = SDL_GetKeyFromScancode(scancode);
+	SDL_Keymod modstate{0};
+	SDL_Keycode code = SDL_GetKeyFromScancode(scancode, modstate, true);
 
 	if (keyNames.find(code) != keyNames.end())
 		return keyNames.at(code);

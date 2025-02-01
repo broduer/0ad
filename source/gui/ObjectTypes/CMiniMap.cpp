@@ -50,7 +50,7 @@
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"
 
-#include <SDL_mouse.h>
+#include <SDL3/SDL_mouse.h>
 #include <algorithm>
 #include <array>
 #include <cmath>

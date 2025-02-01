@@ -47,7 +47,7 @@ namespace Renderer::Backend::GL { class CDeviceCommandContext; }
 namespace Renderer::Backend::GL { class CFramebuffer; }
 
 typedef struct SDL_Window SDL_Window;
-typedef void* SDL_GLContext;
+typedef struct SDL_GLContextState *SDL_GLContext;
 
 namespace Renderer
 {

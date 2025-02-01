@@ -37,7 +37,6 @@ that of Atlas depending on commandline parameters.
 #include "gui/GUIManager.h"
 #include "lib/config2.h"
 #include "lib/debug.h"
-#include "lib/external_libraries/libsdl.h"
 #include "lib/file/file_system.h"
 #include "lib/file/vfs/vfs.h"
 #include "lib/frequency_filter.h"
@@ -89,10 +88,11 @@ that of Atlas depending on commandline parameters.
 #include "simulation2/system/TurnManager.h"
 #include "soundmanager/ISoundManager.h"
 
-#include <SDL_events.h>
-#include <SDL_stdinc.h>
-#include <SDL_timer.h>
-#include <SDL_video.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_main.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_timer.h>
+#include <SDL3/SDL_video.h>
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
@@ -192,17 +192,16 @@ static Input::Reaction MainInputHandler(const SDL_Event& ev)
 {
 	switch(ev.type)
 	{
-	case SDL_QUIT:
+	case SDL_EVENT_QUIT:
 		QuitEngine(EXIT_SUCCESS);
 		break;
 
-	case SDL_DROPFILE:
+	case SDL_EVENT_DROP_FILE:
 	{
-		char* dropped_filedir = ev.drop.file;
+		const char* dropped_filedir = ev.drop.data;
 		const Paths paths(g_CmdLineArgs);
 		CModInstaller installer(paths.UserData() / "mods", paths.Cache());
 		installer.Install(std::string(dropped_filedir), g_ScriptContext, true);
-		SDL_free(dropped_filedir);
 		if (installer.GetInstalledMods().empty())
 			LOGERROR("Failed to install mod %s", dropped_filedir);
 		else

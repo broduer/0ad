@@ -21,7 +21,6 @@
 
 #include "gui/GUIManager.h"
 #include "lib/debug.h"
-#include "lib/external_libraries/libsdl.h"
 #include "lib/sysdep/os.h"
 #include "lib/timer.h"
 #include "ps/CLogger.h"
@@ -45,10 +44,10 @@
 #include "tools/atlas/GameInterface/SharedTypes.h"
 #include "tools/atlas/GameInterface/View.h"
 
-#include <SDL.h>
-#include <SDL_error.h>
-#include <SDL_events.h>
-#include <SDL_video.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_video.h>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -125,7 +124,7 @@ MESSAGEHANDLER(InitSDL)
 	// Refs:
 	//   http://trac.wxwidgets.org/ticket/9213
 	//   http://trac.wxwidgets.org/ticket/9215
-	if (SDL_GL_LoadLibrary(nullptr) && g_Logger)
+	if (!SDL_GL_LoadLibrary(nullptr) && g_Logger)
 		LOGERROR("SDL failed to load GL library: '%s'", SDL_GetError());
 }
 

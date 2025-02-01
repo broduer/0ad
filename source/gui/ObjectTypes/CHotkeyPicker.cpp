@@ -22,15 +22,14 @@
 #include "gui/CGUI.h"
 #include "gui/ObjectBases/IGUIObject.h"
 #include "gui/SGUIMessage.h"
-#include "lib/external_libraries/libsdl.h"
 #include "lib/timer.h"
 #include "ps/CLogger.h"
 #include "ps/KeyName.h"
 #include "scriptinterface/Conversions.h"
 #include "scriptinterface/Request.h"
 
-#include <SDL_events.h>
-#include <SDL_mouse.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_mouse.h>
 #include <algorithm>
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
@@ -110,13 +109,13 @@ Input::Reaction CHotkeyPicker::PreemptEvent(const SDL_Event& ev)
 	switch (ev.type)
 	{
 	// Handle the same mouse events that hotkeys handle
-	case SDL_MOUSEBUTTONDOWN:
-	case SDL_MOUSEBUTTONUP:
-	case SDL_MOUSEWHEEL:
+	case SDL_EVENT_MOUSE_BUTTON_DOWN:
+	case SDL_EVENT_MOUSE_BUTTON_UP:
+	case SDL_EVENT_MOUSE_WHEEL:
 	{
 		SDL_Scancode scancode;
 
-		if (ev.type != SDL_MOUSEWHEEL)
+		if (ev.type != SDL_EVENT_MOUSE_WHEEL)
 		{
 			// Wait a little bit -> this gets triggered when clicking on a button,
 			// but after the button click is processed, thus immediately triggering...
@@ -150,10 +149,10 @@ Input::Reaction CHotkeyPicker::PreemptEvent(const SDL_Event& ev)
 
 		return Input::Reaction::HANDLED;
 	}
-	case SDL_KEYDOWN:
-	case SDL_KEYUP:
+	case SDL_EVENT_KEY_DOWN:
+	case SDL_EVENT_KEY_UP:
 	{
-		SDL_Scancode scancode = ev.key.keysym.scancode;
+		SDL_Scancode scancode = ev.key.scancode;
 
 		// Don't handle caps-lock, it doesn't really work in-game and it's a weird hotkey.
 		if (scancode == SDL_SCANCODE_CAPSLOCK)
@@ -168,7 +167,7 @@ Input::Reaction CHotkeyPicker::PreemptEvent(const SDL_Event& ev)
 		else if (scancode == SDL_SCANCODE_LGUI || scancode == SDL_SCANCODE_RGUI)
 			scancode = static_cast<SDL_Scancode>(UNIFIED_SUPER);
 
-		if (ev.type == SDL_KEYDOWN)
+		if (ev.type == SDL_EVENT_KEY_DOWN)
 		{
 			std::vector<Key>::const_iterator it = \
 				std::find_if(m_KeysPressed.begin(), m_KeysPressed.end(), [&scancode](Key& k) { return k.code == scancode; });
