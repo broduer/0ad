@@ -4,6 +4,7 @@ project(0ad VERSION 0.29.0)
 
 # Available Options
 option(android "Use non-working Android cross-compiling mode")
+option(build-docs "Enable building the doxygen documentation(requires Network access)")
 option(coverage "Enable code coverage data collection (GCC only)")
 option(gles "Use non-working OpenGL ES 2.0 mode")
 option(jenkins-tests "Configure CxxTest to use the XmlPrinter runner which produces Jenkins-compatible output")
@@ -145,4 +146,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	include(SetupWindowsLibs)
 elseif(UNIX)
 	include(SetupUnixLibs)
+endif()
+
+# Add doxygen target
+if(build-docs)
+	add_subdirectory(${CMAKE_SOURCE_DIR}/docs/doxygen)
 endif()

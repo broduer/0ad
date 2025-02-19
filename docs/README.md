@@ -6,7 +6,11 @@
 
 ## Building the Doxygen documentation
 
-To generate the Doxygen documentation: run "cmake -S . -B output && cmake --build output".
+To generate the Doxygen documentation:
+
+```console
+cmake -S 0ad/rootdir -B output && cmake --build output --target docs
+```
 
 If you build the documentation with cmake, the output is located in the folder html inside your
 specified build directory.
