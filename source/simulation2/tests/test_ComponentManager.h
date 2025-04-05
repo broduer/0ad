@@ -698,7 +698,7 @@ public:
 		);
 
 		std::string hash;
-		TS_ASSERT(man.ComputeStateHash(hash, false));
+		TS_ASSERT(man.ComputeStateHash(hash, 0));
 		TS_ASSERT_EQUALS(hash.length(), (size_t)16);
 		TS_ASSERT_SAME_DATA(hash.data(), "\x3c\x25\x6e\x22\x58\x23\x09\x58\x38\xca\xb2\x1e\x0b\x8c\xac\xcf", 16);
 		// echo -en "\x05\x00\x00\x0078606\x02\0\0\0\x01\0\0\0\x0a\0\0\0\xf8\x2a\0\0\x14\0\0\0\xd2\x04\0\0\x04\0\0\0\x0a\0\0\0\x08\x52\0\0" | md5sum | perl -pe 's/([0-9a-f]{2})/\\x$1/g'

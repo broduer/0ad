@@ -85,8 +85,7 @@ Advanced / diagnostic:
                     less complete. It should be enough for debugging most rejoin OOSes.
 -unique-logs        adds unix timestamp and process id to the filename of mainlog.html, interestinglog.html
                     and oos_dump.txt to prevent these files from becoming overwritten by another pyrogenesis process.
--hashtest-full=X    whether to enable computation of full hashes in replaymode (default true). Can be disabled to improve performance.
--hashtest-quick=X   whether to enable computation of quick hashes in replaymode (default false). Can be enabled for debugging purposes.
+-hashtest=X         whether to enable computation of hashes in replaymode (default true). Can be disabled to improve performance.
 
 -fixed-frame-frequency=F fixes the frame time. With that flags it equals to 1/F. For example,
                          if F=60 it means the game behaves like it's always running with 60 FPS.

@@ -656,8 +656,8 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 				args.Has("serializationtest"),
 				args.Has("rejointest") ? args.Get("rejointest").ToInt() : -1,
 				args.Has("ooslog"),
-				!args.Has("hashtest-full") || args.Get("hashtest-full") == "true",
-				args.Has("hashtest-quick") && args.Get("hashtest-quick") == "true");
+				!args.Has("hashtest") || args.Get("hashtest") == "true"
+			);
 		}
 
 		g_VFS.reset();

@@ -290,7 +290,12 @@ public:
 	void SetRNGSeed(u32 seed);
 
 	// Various state serialization functions:
-	bool ComputeStateHash(std::string& outHash, bool quick) const;
+	/**
+	 * Compute a hash of the complete entity-component state, for synchronisation purposes.
+	 * If turn == 0, computes a hash of the complete state.
+	 * Otherwise computes an incremental hash based on the turn number, checking a subset of entities.
+	 */
+	bool ComputeStateHash(std::string& outHash, u32 turn) const;
 	bool DumpDebugState(std::ostream& stream, bool includeDebugInfo) const;
 	// FlushDestroyedComponents must be called before SerializeState (since the destruction queue
 	// won't get serialized)

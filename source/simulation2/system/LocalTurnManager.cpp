@@ -51,11 +51,8 @@ void CLocalTurnManager::NotifyFinishedUpdate(u32 /*turn*/, const UpdateCallback&
 {
 #if 0 // this hurts performance and is only useful for verifying log replays
 	std::string hash;
-	{
-		PROFILE3("state hash check");
-		ENSURE(m_Simulation2.ComputeStateHash(hash));
-	}
-	m_Replay.Hash(hash);
+	ENSURE(m_Simulation2.ComputeStateHash(hash, 0));
+	m_Replay.Hash(hash, 0);
 #endif
 }
 

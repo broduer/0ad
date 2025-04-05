@@ -169,12 +169,12 @@ int CGame::LoadVisualReplayData()
 			std::getline(*m_ReplayStream, line);
 			replayTurnMgr->StoreReplayCommand(currentTurn, player, line);
 		}
-		else if (type == "hash" || type == "hash-quick")
+		else if (type == "hash")
 		{
-			bool quick = (type == "hash-quick");
+			u32 turn = 0;
 			std::string replayHash;
-			*m_ReplayStream >> replayHash;
-			replayTurnMgr->StoreReplayHash(currentTurn, replayHash, quick);
+			*m_ReplayStream >> turn >> replayHash;
+			replayTurnMgr->StoreReplayHash(turn, replayHash);
 		}
 		else if (type == "end")
 			++currentTurn;

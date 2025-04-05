@@ -248,20 +248,11 @@ void CTurnManager::FinishedAllCommands(u32 turn, u32 turnLength)
 	m_TurnLength = turnLength;
 }
 
-bool CTurnManager::TurnNeedsFullHash(u32 turn) const
+bool CTurnManager::TurnNeedsFullHash(u32 turn)
 {
 	// Check immediately for errors caused by e.g. inconsistent game versions
 	// (The hash is computed after the first sim update, so we start at turn == 1)
-	if (turn == 1)
-		return true;
-
-	// Otherwise check the full state every ~10 seconds in multiplayer games
-	// (TODO: should probably remove this when we're reasonably sure the game
-	// isn't too buggy, since the full hash is still pretty slow)
-	if (turn % 20 == 0)
-		return true;
-
-	return false;
+	return turn == 1;
 }
 
 void CTurnManager::EnableTimeWarpRecording(size_t numTurns)

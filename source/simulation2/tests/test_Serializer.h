@@ -937,7 +937,7 @@ public:
 		for (size_t i = 0; i < reps; ++i)
 		{
 			std::string hash;
-			sim2.ComputeStateHash(hash, false);
+			sim2.ComputeStateHash(hash, 0);
 		}
 #if CONFIG2_VALGRIND
 		CALLGRIND_STOP_INSTRUMENTATION;

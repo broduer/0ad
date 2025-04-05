@@ -403,7 +403,7 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 		if (serializationTestDebugDump)
 			ENSURE(m_ComponentManager.DumpDebugState(primaryStateBefore.debug, false));
 		if (serializationTestHash)
-			ENSURE(m_ComponentManager.ComputeStateHash(primaryStateBefore.hash, false));
+			ENSURE(m_ComponentManager.ComputeStateHash(primaryStateBefore.hash, 0));
 	}
 
 	UpdateComponents(m_SimContext, turnLengthFixed, commands);
@@ -476,7 +476,7 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 		if (serializationTestDebugDump)
 			ENSURE(m_SecondaryComponentManager->DumpDebugState(secondaryStateBefore.debug, false));
 		if (serializationTestHash)
-			ENSURE(m_SecondaryComponentManager->ComputeStateHash(secondaryStateBefore.hash, false));
+			ENSURE(m_SecondaryComponentManager->ComputeStateHash(secondaryStateBefore.hash, 0));
 
 		if (primaryStateBefore.state.str() != secondaryStateBefore.state.str() ||
 			primaryStateBefore.hash != secondaryStateBefore.hash)
@@ -487,14 +487,14 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 		SerializationTestState primaryStateAfter;
 		ENSURE(m_ComponentManager.SerializeState(primaryStateAfter.state));
 		if (serializationTestHash)
-			ENSURE(m_ComponentManager.ComputeStateHash(primaryStateAfter.hash, false));
+			ENSURE(m_ComponentManager.ComputeStateHash(primaryStateAfter.hash, 0));
 
 		UpdateComponents(*m_SecondaryContext, turnLengthFixed,
 			CloneCommandsFromOtherCompartment(m_SecondaryComponentManager->GetScriptInterface(), scriptInterface, commands));
 		SerializationTestState secondaryStateAfter;
 		ENSURE(m_SecondaryComponentManager->SerializeState(secondaryStateAfter.state));
 		if (serializationTestHash)
-			ENSURE(m_SecondaryComponentManager->ComputeStateHash(secondaryStateAfter.hash, false));
+			ENSURE(m_SecondaryComponentManager->ComputeStateHash(secondaryStateAfter.hash, 0));
 
 		if (primaryStateAfter.state.str() != secondaryStateAfter.state.str() ||
 			primaryStateAfter.hash != secondaryStateAfter.hash)
@@ -626,7 +626,7 @@ void CSimulation2Impl::DumpState()
 
 	file << "State hash: " << std::hex;
 	std::string hashRaw;
-	m_ComponentManager.ComputeStateHash(hashRaw, false);
+	m_ComponentManager.ComputeStateHash(hashRaw, 0);
 	for (size_t i = 0; i < hashRaw.size(); ++i)
 		file << std::setfill('0') << std::setw(2) << (int)(unsigned char)hashRaw[i];
 	file << std::dec << "\n";
@@ -848,9 +848,9 @@ void CSimulation2::ResetState(bool skipScriptedComponents, bool skipAI)
 	m->ResetState(skipScriptedComponents, skipAI);
 }
 
-bool CSimulation2::ComputeStateHash(std::string& outHash, bool quick)
+bool CSimulation2::ComputeStateHash(std::string& outHash, u32 turn)
 {
-	return m->m_ComponentManager.ComputeStateHash(outHash, quick);
+	return m->m_ComponentManager.ComputeStateHash(outHash, turn);
 }
 
 bool CSimulation2::DumpDebugState(std::ostream& stream)

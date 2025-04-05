@@ -44,7 +44,7 @@ public:
 
 	void StoreReplayTurnLength(u32 turn, u32 turnLength);
 
-	void StoreReplayHash(u32 turn, const std::string& hash, bool quick);
+	void StoreReplayHash(u32 turn, const std::string& hash);
 
 	void StoreFinalReplayTurn(u32 turn);
 
@@ -64,8 +64,8 @@ private:
 	// Contains the length of every turn
 	std::map<u32, u32> m_ReplayTurnLengths;
 
-	// Contains all replay hash values and weather or not the quick hash method was used
-	std::map<u32, std::pair<std::string, bool>> m_ReplayHash;
+	// Contains all replay hash values keyed by their turn number.
+	std::map<u32, std::string> m_ReplayHash;
 };
 
 #endif // INCLUDED_REPLAYTURNMANAGER

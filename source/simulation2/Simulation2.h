@@ -232,7 +232,12 @@ public:
 	const CSimContext& GetSimContext() const;
 	ScriptInterface& GetScriptInterface() const;
 
-	bool ComputeStateHash(std::string& outHash, bool quick);
+	/**
+	 * Compute a hash of the complete entity-component state, for synchronisation purposes.
+	 * If turn == 0, computes a hash of the complete state.
+	 * Otherwise computes an incremental hash based on the turn number, checking a subset of entities.
+	 */
+	bool ComputeStateHash(std::string& outHash, u32 turn);
 	bool DumpDebugState(std::ostream& stream);
 	bool SerializeState(std::ostream& stream);
 	bool DeserializeState(std::istream& stream);

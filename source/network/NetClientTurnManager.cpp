@@ -81,16 +81,13 @@ void CNetClientTurnManager::NotifyFinishedOwnCommands(u32 turn)
 
 void CNetClientTurnManager::NotifyFinishedUpdate(u32 turn, const UpdateCallback&)
 {
-	bool quick = !TurnNeedsFullHash(turn);
+	const bool shouldDoFullHash = TurnNeedsFullHash(turn);
 	std::string hash;
-	{
-		PROFILE3("state hash check");
-		ENSURE(m_Simulation2.ComputeStateHash(hash, quick));
-	}
+	ENSURE(m_Simulation2.ComputeStateHash(hash, shouldDoFullHash ? 0 : turn));
 
 	NETCLIENTTURN_LOG("NotifyFinishedUpdate(%d, %hs)\n", turn, Hexify(hash).c_str());
 
-	m_Replay.Hash(hash, quick);
+	m_Replay.Hash(hash, turn);
 
 	// Send message to the server
 	CSyncCheckMessage msg;
@@ -119,7 +116,7 @@ void CNetClientTurnManager::OnSyncError(u32 turn, const CStr& expectedHash, cons
 	NETCLIENTTURN_LOG("OnSyncError(%d, %hs)\n", turn, expectedHashHex.c_str());
 
 	std::string hash;
-	ENSURE(m_Simulation2.ComputeStateHash(hash, !TurnNeedsFullHash(turn)));
+	ENSURE(m_Simulation2.ComputeStateHash(hash, TurnNeedsFullHash(turn) ? 0 : turn));
 
 	OsPath oosdumpPath(psLogDir() / (L"oos_dump" + g_UniqueLogPostfix + L".txt"));
 	std::ofstream file (OsString(oosdumpPath), std::ofstream::out | std::ofstream::trunc);

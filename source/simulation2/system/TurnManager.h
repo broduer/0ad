@@ -166,6 +166,12 @@ public:
 	u32 GetCurrentTurn() const { return m_CurrentTurn; }
 
 	/**
+	 * Returns whether we should compute a complete state hash for the given turn,
+	 * instead of an incremental less-complete hash.
+	 */
+	static bool TurnNeedsFullHash(u32 turn);
+
+	/**
 	 * @return how many turns are ready to be computed.
 	 * (used to detect players/observers that fall behind the live game.
 	 */
@@ -186,12 +192,6 @@ protected:
 	 * Called when this client has finished a simulation update.
 	 */
 	virtual void NotifyFinishedUpdate(u32 turn, const UpdateCallback& sendEventToAll) = 0;
-
-	/**
-	 * Returns whether we should compute a complete state hash for the given turn,
-	 * instead of a quick less-complete hash.
-	 */
-	bool TurnNeedsFullHash(u32 turn) const;
 
 	CSimulation2& m_Simulation2;
 

@@ -56,7 +56,7 @@ public:
 	/**
 	 * Optional hash of simulation state (for sync checking).
 	 */
-	virtual void Hash(const std::string& hash, bool quick) = 0;
+	virtual void Hash(const std::string& hash, u32 turn) = 0;
 
 	/**
 	 * Saves metadata.json containing part of the simulation state used for the summary screen.
@@ -77,7 +77,7 @@ class CDummyReplayLogger : public IReplayLogger
 public:
 	virtual void StartGame(JS::MutableHandleValue /*attribs*/) { }
 	virtual void Turn(u32 /*n*/, u32 /*turnLength*/, std::vector<SimulationCommand>&) { }
-	virtual void Hash(const std::string& /*hash*/, bool /*quick*/) { }
+	virtual void Hash(const std::string& /*hash*/, u32 /*turn*/) { }
 	virtual void SaveMetadata(const CSimulation2&) { };
 	virtual OsPath GetDirectory() const { return OsPath(); }
 };
@@ -94,7 +94,7 @@ public:
 
 	virtual void StartGame(JS::MutableHandleValue attribs);
 	virtual void Turn(u32 n, u32 turnLength, std::vector<SimulationCommand>& commands);
-	virtual void Hash(const std::string& hash, bool quick);
+	virtual void Hash(const std::string& hash, u32 turn);
 	virtual void SaveMetadata(const CSimulation2& simulation);
 	virtual OsPath GetDirectory() const;
 
@@ -114,11 +114,11 @@ public:
 	~CReplayPlayer();
 
 	void Load(const OsPath& path);
-	void Replay(const bool serializationtest, const int rejointestturn, const bool ooslog, const bool testHashFull, const bool testHashQuick);
+	void Replay(const bool serializationtest, const int rejointestturn, const bool ooslog, const bool testHash);
 
 private:
 	std::istream* m_Stream;
-	void TestHash(const std::string& hashType, const std::string& replayHash, const bool testHashFull, const bool testHashQuick);
+	void TestHash(u32 turn, const std::string& replayHash, const bool testHash);
 };
 
 #endif // INCLUDED_REPLAY

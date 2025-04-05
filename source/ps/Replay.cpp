@@ -51,6 +51,7 @@
 #include "simulation2/helpers/SimulationCommand.h"
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"
+#include "simulation2/system/TurnManager.h"
 
 #include <ctime>
 #include <fstream>
@@ -105,12 +106,9 @@ void CReplayLogger::Turn(u32 n, u32 turnLength, std::vector<SimulationCommand>& 
 	m_Stream->flush();
 }
 
-void CReplayLogger::Hash(const std::string& hash, bool quick)
+void CReplayLogger::Hash(const std::string& hash, u32 turn)
 {
-	if (quick)
-		*m_Stream << "hash-quick " << Hexify(hash) << "\n";
-	else
-		*m_Stream << "hash " << Hexify(hash) << "\n";
+	*m_Stream << "hash " << turn << " " << Hexify(hash) << "\n";
 }
 
 void CReplayLogger::SaveMetadata(const CSimulation2& simulation)
@@ -191,7 +189,7 @@ void CheckReplayMods(const std::vector<Mod::ModData>& replayMods)
 }
 } // anonymous namespace
 
-void CReplayPlayer::Replay(const bool serializationtest, const int rejointestturn, const bool ooslog, const bool testHashFull, const bool testHashQuick)
+void CReplayPlayer::Replay(const bool serializationtest, const int rejointestturn, const bool ooslog, const bool testHash)
 {
 	ENSURE(m_Stream);
 
@@ -291,11 +289,12 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 			Script::DeepFreezeObject(rq, data);
 			commands.emplace_back(SimulationCommand(player, rq.cx, data));
 		}
-		else if (type == "hash" || type == "hash-quick")
+		else if (type == "hash")
 		{
+			u32 hashTurn = 0;
 			std::string replayHash;
-			*m_Stream >> replayHash;
-			TestHash(type, replayHash, testHashFull, testHashQuick);
+			*m_Stream >> hashTurn >> replayHash;
+			TestHash(hashTurn, replayHash, testHash);
 		}
 		else if (type == "end")
 		{
@@ -324,7 +323,7 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 	g_Profiler2.SaveToFile();
 
 	std::string hash;
-	bool ok = g_Game->GetSimulation2()->ComputeStateHash(hash, false);
+	bool ok = g_Game->GetSimulation2()->ComputeStateHash(hash, 0);
 	ENSURE(ok);
 	debug_printf("# Final state: %s\n", Hexify(hash).c_str());
 	timer_DisplayClientTotals();
@@ -340,19 +339,18 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 	SAFE_DELETE(g_ScriptStatsTable);
 }
 
-void CReplayPlayer::TestHash(const std::string& hashType, const std::string& replayHash, const bool testHashFull, const bool testHashQuick)
+void CReplayPlayer::TestHash(u32 turn, const std::string& replayHash, const bool testHash)
 {
-	bool quick = (hashType == "hash-quick");
-	if ((quick && !testHashQuick) || (!quick && !testHashFull))
+	if (!testHash)
 		return;
 
 	std::string hash;
-	ENSURE(g_Game->GetSimulation2()->ComputeStateHash(hash, quick));
+	ENSURE(g_Game->GetSimulation2()->ComputeStateHash(hash, CTurnManager::TurnNeedsFullHash(turn) ? 0 : turn));
 
 	std::string hexHash = Hexify(hash);
 
 	if (hexHash == replayHash)
-		debug_printf("%s ok (%s)\n", hashType.c_str(), hexHash.c_str());
+		debug_printf("hash (%i) ok (%s)\n", turn, hexHash.c_str());
 	else
-		debug_printf("%s MISMATCH (%s != %s)\n", hashType.c_str(), hexHash.c_str(), replayHash.c_str());
+		debug_printf("hash (%i) MISMATCH (%s != %s)\n", turn, hexHash.c_str(), replayHash.c_str());
 }

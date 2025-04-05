@@ -53,9 +53,9 @@ void CReplayTurnManager::StoreReplayCommand(u32 turn, int player, const std::str
 	m_ReplayCommands[turn].emplace_back(player, command);
 }
 
-void CReplayTurnManager::StoreReplayHash(u32 turn, const std::string& hash, bool quick)
+void CReplayTurnManager::StoreReplayHash(u32 turn, const std::string& hash)
 {
-	m_ReplayHash[turn] = std::make_pair(hash, quick);
+	m_ReplayHash[turn] = hash;
 }
 
 void CReplayTurnManager::StoreReplayTurnLength(u32 turn, u32 turnLength)
@@ -83,16 +83,15 @@ void CReplayTurnManager::NotifyFinishedUpdate(u32 turn, const UpdateCallback& se
 	DoTurn(turn, sendEventToAll);
 
 	// Compare hash if it exists in the replay and if we didn't have an OOS already
-	std::map<u32, std::pair<std::string, bool>>::iterator turnHashIt = m_ReplayHash.find(turn);
+	std::map<u32, std::string>::iterator turnHashIt = m_ReplayHash.find(turn);
 	if (m_HasSyncError || turnHashIt == m_ReplayHash.end())
 		return;
 
-	std::string expectedHash = turnHashIt->second.first;
-	bool quickHash = turnHashIt->second.second;
+	std::string expectedHash = turnHashIt->second;
 
 	// Compute hash
 	std::string hash;
-	ENSURE(m_Simulation2.ComputeStateHash(hash, quickHash));
+	ENSURE(m_Simulation2.ComputeStateHash(hash, TurnNeedsFullHash(turn) ? 0 : turn));
 	hash = Hexify(hash);
 
 	if (hash == expectedHash)
