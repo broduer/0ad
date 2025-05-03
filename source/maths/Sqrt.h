@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,8 +21,9 @@
 #include "lib/types.h"
 
 /**
- * 64-bit integer square root.
- * Returns r such that r^2 <= n < (r+1)^2, for the complete u64 range.
+ * Fast approximate 64-bit integer square root.
+ * Returns an estimate for sqrt(n) over the complete u64 range.
+ * The current implementation is expected to stay within about 1 of floor(sqrt(n)).
  */
 u32 isqrt64(u64 n);
 
