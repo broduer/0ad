@@ -23,6 +23,8 @@ GL_ARB_texture_compression_bptc
 GL_ARB_texture_float
 GL_ARB_texture_multisample
 GL_ARB_texture_rectangle
+GL_ARB_texture_rg
+GL_ARB_texture_swizzle
 GL_ARB_timer_query
 GL_ARB_uniform_buffer_object
 GL_ARB_vertex_buffer_object
