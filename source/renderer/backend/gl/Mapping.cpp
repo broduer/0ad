@@ -23,6 +23,7 @@
 #include "lib/debug.h"
 #include "renderer/backend/CompareOp.h"
 #include "renderer/backend/PipelineState.h"
+#include "renderer/backend/Sampler.h"
 
 namespace Renderer
 {
@@ -127,6 +128,53 @@ GLenum FromBlendOp(const BlendOp blendOp)
 	};
 	return mode;
 }
+
+#if !CONFIG2_GLES
+GLint FromComponentSwizzle(const GLenum channel, const Sampler::ComponentSwizzle componentSwizzle)
+{
+	GLint swizzle = GL_ONE;
+	switch (componentSwizzle)
+	{
+	case Sampler::ComponentSwizzle::IDENTITY:
+		switch (channel)
+		{
+		case GL_TEXTURE_SWIZZLE_R:
+			swizzle = GL_RED;
+			break;
+		case GL_TEXTURE_SWIZZLE_G:
+			swizzle = GL_GREEN;
+			break;
+		case GL_TEXTURE_SWIZZLE_B:
+			swizzle = GL_BLUE;
+			break;
+		case GL_TEXTURE_SWIZZLE_A:
+			swizzle = GL_ALPHA;
+			break;
+		}
+		break;
+	case Sampler::ComponentSwizzle::ZERO:
+		swizzle = GL_ZERO;
+		break;
+	case Sampler::ComponentSwizzle::ONE:
+		swizzle = GL_ONE;
+		break;
+	case Sampler::ComponentSwizzle::R:
+		swizzle = GL_RED;
+		break;
+	case Sampler::ComponentSwizzle::G:
+		swizzle = GL_GREEN;
+		break;
+	case Sampler::ComponentSwizzle::B:
+		swizzle = GL_BLUE;
+		break;
+	case Sampler::ComponentSwizzle::A:
+		swizzle = GL_ALPHA;
+		break;
+	}
+
+	return swizzle;
+}
+#endif
 
 } // namespace Mapping
 

@@ -209,10 +209,10 @@ std::unique_ptr<CTexture> CTexture::Create(
 	}
 	else
 	{
-		imageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-		imageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-		imageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-		imageViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+		imageViewCreateInfo.components.r = Mapping::FromComponentSwizzle(defaultSamplerDesc.componentMapping.r);
+		imageViewCreateInfo.components.g = Mapping::FromComponentSwizzle(defaultSamplerDesc.componentMapping.g);
+		imageViewCreateInfo.components.b = Mapping::FromComponentSwizzle(defaultSamplerDesc.componentMapping.b);
+		imageViewCreateInfo.components.a = Mapping::FromComponentSwizzle(defaultSamplerDesc.componentMapping.a);
 	}
 
 	if ((usage & Usage::COLOR_ATTACHMENT) || (usage & Usage::DEPTH_STENCIL_ATTACHMENT))

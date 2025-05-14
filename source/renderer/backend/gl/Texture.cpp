@@ -196,7 +196,7 @@ std::unique_ptr<CTexture> CTexture::Create(
 			break;
 #if !CONFIG2_GLES
 		case Format::R8_UNORM:
-			internalFormat = GL_RED;
+			internalFormat = GL_R8;
 			pixelFormat = GL_RED;
 			pixelType = GL_UNSIGNED_BYTE;
 			break;
@@ -297,6 +297,14 @@ std::unique_ptr<CTexture> CTexture::Create(
 		}
 		else
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_NONE);
+	}
+
+	if (device->GetCapabilities().textureSwizzle && device->IsTextureFormatSupported(Format::R8_UNORM))
+	{
+		glTexParameteri(target, GL_TEXTURE_SWIZZLE_R, Mapping::FromComponentSwizzle(GL_TEXTURE_SWIZZLE_R, defaultSamplerDesc.componentMapping.r));
+		glTexParameteri(target, GL_TEXTURE_SWIZZLE_G, Mapping::FromComponentSwizzle(GL_TEXTURE_SWIZZLE_G, defaultSamplerDesc.componentMapping.g));
+		glTexParameteri(target, GL_TEXTURE_SWIZZLE_B, Mapping::FromComponentSwizzle(GL_TEXTURE_SWIZZLE_B, defaultSamplerDesc.componentMapping.b));
+		glTexParameteri(target, GL_TEXTURE_SWIZZLE_A, Mapping::FromComponentSwizzle(GL_TEXTURE_SWIZZLE_A, defaultSamplerDesc.componentMapping.a));
 	}
 #endif
 

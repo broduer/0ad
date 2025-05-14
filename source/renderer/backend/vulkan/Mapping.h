@@ -30,7 +30,7 @@ namespace Renderer::Backend { enum class CullMode; }
 namespace Renderer::Backend { enum class Format; }
 namespace Renderer::Backend { enum class PolygonMode; }
 namespace Renderer::Backend { enum class StencilOp; }
-namespace Renderer::Backend::Sampler { enum class AddressMode; }
+namespace Renderer::Backend::Sampler { enum class AddressMode; enum class ComponentSwizzle; }
 
 namespace Renderer
 {
@@ -71,6 +71,8 @@ VkAttachmentStoreOp FromAttachmentStoreOp(const AttachmentStoreOp storeOp);
 VkPipelineStageFlags FromPipelineStageMask(const uint32_t mask);
 
 VkAccessFlags FromAccessMask(const uint32_t mask);
+
+VkComponentSwizzle FromComponentSwizzle(const Sampler::ComponentSwizzle componentSwizzle);
 
 } // namespace Mapping
 

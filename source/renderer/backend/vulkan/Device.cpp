@@ -611,6 +611,7 @@ std::unique_ptr<CDevice> CDevice::Create(SDL_Window* window)
 		capabilities.timestampMultiplier =
 			device->m_ChoosenDevice.properties.limits.timestampPeriod / 1e9;
 	}
+	capabilities.textureSwizzle = true;
 
 	device->m_RenderPassManager =
 		std::make_unique<CRenderPassManager>(device.get());

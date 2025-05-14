@@ -483,6 +483,10 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window, const bool arb)
 	capabilities.timestamps = !device->m_ARB && ogl_HaveExtension("GL_ARB_timer_query");
 	if (capabilities.timestamps)
 		capabilities.timestampMultiplier = 1.0 / 1e9;
+	capabilities.textureSwizzle =
+		!device->m_ARB &&
+		(ogl_HaveVersion(3, 3) ||
+		ogl_HaveExtension("GL_ARB_texture_swizzle"));
 #endif
 
 	return device;
@@ -1039,7 +1043,11 @@ bool CDevice::IsTextureFormatSupported(const Format format) const
 	{
 	case Format::UNDEFINED:
 		break;
-
+#if !CONFIG2_GLES
+	case Format::R8_UNORM:
+		supported = !this->m_ARB;
+		break;
+#endif
 	case Format::R8G8B8_UNORM:
 	case Format::R8G8B8A8_UNORM:
 	case Format::A8_UNORM:

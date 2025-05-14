@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,6 +24,7 @@ namespace Renderer::Backend { enum class BlendFactor; }
 namespace Renderer::Backend { enum class BlendOp; }
 namespace Renderer::Backend { enum class CompareOp; }
 namespace Renderer::Backend { enum class StencilOp; }
+namespace Renderer::Backend::Sampler { enum class ComponentSwizzle; }
 
 namespace Renderer
 {
@@ -44,6 +45,8 @@ GLenum FromStencilOp(const StencilOp stencilOp);
 GLenum FromBlendFactor(const BlendFactor blendFactor);
 
 GLenum FromBlendOp(const BlendOp blendOp);
+
+GLint FromComponentSwizzle(const GLenum channel, const Sampler::ComponentSwizzle componentSwizzle);
 
 } // namespace Mapping
 

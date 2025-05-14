@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Wildfire Games.
+/* Copyright (C) 2025 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -50,6 +50,25 @@ enum class BorderColor
 	OPAQUE_WHITE
 };
 
+enum class ComponentSwizzle
+{
+	IDENTITY,
+	ZERO,
+	ONE,
+	R,
+	G,
+	B,
+	A
+};
+
+struct ComponentMapping
+{
+	ComponentSwizzle r;
+	ComponentSwizzle g;
+	ComponentSwizzle b;
+	ComponentSwizzle a;
+};
+
 struct Desc
 {
 	Filter magFilter;
@@ -65,6 +84,7 @@ struct Desc
 	BorderColor borderColor;
 	bool compareEnabled;
 	CompareOp compareOp;
+	ComponentMapping componentMapping;
 };
 
 Desc MakeDefaultSampler(Filter filter, AddressMode addressMode);

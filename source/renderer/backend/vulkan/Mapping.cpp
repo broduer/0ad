@@ -346,6 +346,36 @@ VkAccessFlags FromAccessMask(const uint32_t mask)
 	return flags;
 }
 
+VkComponentSwizzle FromComponentSwizzle(const Sampler::ComponentSwizzle componentSwizzle)
+{
+	VkComponentSwizzle swizzle = VK_COMPONENT_SWIZZLE_IDENTITY;
+	switch (componentSwizzle)
+	{
+	case Sampler::ComponentSwizzle::IDENTITY:
+		swizzle = VK_COMPONENT_SWIZZLE_IDENTITY;
+		break;
+	case Sampler::ComponentSwizzle::ZERO:
+		swizzle = VK_COMPONENT_SWIZZLE_ZERO;
+		break;
+	case Sampler::ComponentSwizzle::ONE:
+		swizzle = VK_COMPONENT_SWIZZLE_ONE;
+		break;
+	case Sampler::ComponentSwizzle::R:
+		swizzle = VK_COMPONENT_SWIZZLE_R;
+		break;
+	case Sampler::ComponentSwizzle::G:
+		swizzle = VK_COMPONENT_SWIZZLE_G;
+		break;
+	case Sampler::ComponentSwizzle::B:
+		swizzle = VK_COMPONENT_SWIZZLE_B;
+		break;
+	case Sampler::ComponentSwizzle::A:
+		swizzle = VK_COMPONENT_SWIZZLE_A;
+		break;
+	}
+	return swizzle;
+}
+
 } // namespace Mapping
 
 } // namespace Vulkan
