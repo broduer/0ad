@@ -351,28 +351,44 @@ export const mainMenuItems = [
 		]
 	},
 	{
-		"caption": translate("Scenario Editor"),
-		"tooltip": translate('Open the Atlas Scenario Editor in a new window. You can run this more reliably by starting the game with the command-line argument "-editor".'),
-		"onPress": async(closePageCallback) =>
-		{
-			if (!Engine.AtlasIsAvailable())
+		"caption": translate("Map Editors"),
+		"tooltip": translate('Create / Edit maps with legacy Atlas or with Map editor alpha version'),
+		"submenu": [
 			{
-				messageBox(
-					400, 200,
-					translate("The scenario editor is not available or failed to load. See the game logs for additional information."),
-					translate("Error"));
-				return;
+				"caption": translate("Scenario Editor"),
+				"tooltip": translate('Open the Atlas Scenario Editor in a new window. You can run this more reliably by starting the game with the command-line argument "-editor".'),
+				"onPress": async(closePageCallback) =>
+				{
+					if (!Engine.AtlasIsAvailable())
+					{
+						messageBox(
+							400, 200,
+							translate("The scenario editor is not available or failed to load. See the game logs for additional information."),
+							translate("Error"));
+						return;
+					}
+
+					const buttonIndex = await messageBox(
+						400, 200,
+						translate("Are you sure you want to quit 0 A.D. and open the Scenario Editor?"),
+						translate("Confirmation"),
+						[translate("No"), translate("Yes")]);
+
+					if (buttonIndex === 1)
+						closePageCallback(Engine.startAtlas);
+				}
+			},
+			{
+				"caption": translate("Map Editor (Alpha)"),
+				"tooltip": translate('Map editor alpha version'),
+				"onPress": (closePageCallback) =>
+				{
+					closePageCallback({ [Engine.openRequest]: {
+						"page": "page_editor.xml"
+					} });
+				}
 			}
-
-			const buttonIndex = await messageBox(
-				400, 200,
-				translate("Are you sure you want to quit 0 A.D. and open the Scenario Editor?"),
-				translate("Confirmation"),
-				[translate("No"), translate("Yes")]);
-
-			if (buttonIndex === 1)
-				closePageCallback(Engine.startAtlas);
-		}
+		]
 	},
 	{
 		"caption": translate("Credits"),

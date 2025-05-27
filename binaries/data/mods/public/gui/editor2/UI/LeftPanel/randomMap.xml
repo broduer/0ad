@@ -1,0 +1,37 @@
+<object name="randomMap" type="image" size="0 0 100% 100%" hidden="true" sprite="leftPaintPanel">
+    <object type="text" style="EditorTitle" size="0 4 100% 29">
+        <translatableAttribute id="caption">Random Map</translatableAttribute>
+    </object>
+
+    <object type="text" style="EditorSubTitle" size="4 33 100%-4 53">
+		<translatableAttribute id="caption">Script</translatableAttribute>
+	</object>
+    <object name="rmScript" type="dropdown" style="ModernDropDown" size="4 55 100%-4 80" />
+
+    <object type="text" style="EditorSubTitle" size="4 84 100%-4 104">
+		<translatableAttribute id="caption">Size</translatableAttribute>
+	</object>
+    <object name="rmSize" type="dropdown" style="ModernDropDown" size="4 106 100%-4 131" />
+
+    <object type="text" style="EditorSubTitle" size="4 135 100%-4 155">
+		<translatableAttribute id="caption">Players</translatableAttribute>
+	</object>
+    <object name="rmPlayers" type="dropdown" style="ModernDropDown" size="4 157 100%-4 182" />
+
+    <object type="text" style="EditorSubTitle" size="4 186 100%-4 206">
+		<translatableAttribute id="caption">Biome</translatableAttribute>
+	</object>
+    <object name="rmBiome" type="dropdown" style="ModernDropDown" size="4 208 100%-4 233" />
+
+    <object type="text" style="EditorSubTitle" size="4 237 100%-4 257">
+		<translatableAttribute id="caption">Placements</translatableAttribute>
+	</object>
+    <object name="rmPlacements" type="dropdown" style="ModernDropDown" size="4 259 100%-4 284" />
+
+    <object type="text" style="EditorSubTitle" size="4 287 100%-4 307">
+		<translatableAttribute id="caption">Seed</translatableAttribute>
+	</object>
+    <object name="rmSeed" type="input" style="ModernInput" size="4 309 100%-4 334" />
+    <object name="rmReroll" type="button" style="ModernButtonRed" size="4 336 100%-4 366" />
+    <object name="rmGenerate" type="button" style="ModernButtonRed" size="4 368 100%-4 398" />
+</object>

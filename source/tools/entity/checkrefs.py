@@ -805,6 +805,7 @@ class CheckRefs:
     def add_gui_data(self):
         self.logger.info("Loading GUI data...")
         self.files.extend([fp for (fp, ffp) in self.find_files("gui", "js")])
+        self.files.extend([fp for (fp, ffp) in self.find_files("editorsettings", "js")])
         self.files.extend([fp for (fp, ffp) in self.find_files("gamesettings", "js")])
         self.files.extend([fp for (fp, ffp) in self.find_files("autostart", "js")])
         self.roots.extend([fp for (fp, ffp) in self.find_files("autostart", "js")])
