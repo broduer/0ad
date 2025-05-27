@@ -898,3 +898,9 @@ float CMiniMapTexture::GetShallowPassageHeight()
 		shallowPassageHeight = pathingSettings.GetChild("default").GetChild("MaxWaterDepth").ToFloat();
 	return shallowPassageHeight;
 }
+
+void CMiniMapTexture::MakeDirty()
+{
+	m_TerrainTextureDirty = true;
+	m_FinalTextureDirty = true;
+}

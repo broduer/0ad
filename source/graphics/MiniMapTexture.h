@@ -83,6 +83,7 @@ public:
 	// Returns icons for corresponding entities on the minimap texture.
 	const std::vector<Icon>& GetIcons() { return m_Icons; }
 
+	void MakeDirty();
 private:
 	void CreateTextures(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,

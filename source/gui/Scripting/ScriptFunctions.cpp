@@ -42,6 +42,7 @@
 #include "scriptinterface/Request.h"
 #include "simulation2/scripting/JSInterface_Simulation.h"
 #include "soundmanager/scripting/JSInterface_Sound.h"
+#include "tools/atlas/MapEditorInterface/JSInterface_MapEditor.h"
 
 /*
  * This file defines a set of functions that are available to GUI scripts, to allow
@@ -58,6 +59,7 @@ void GuiScriptingInit(Script::Interface& scriptInterface)
 	JSI_ConfigDB::RegisterScriptFunctions(rq);
 	JSI_Console::RegisterScriptFunctions(rq);
 	JSI_Debug::RegisterScriptFunctions(rq);
+	JSI_MapEditor::RegisterScriptFunctions(rq, scriptInterface);
 	JSI_GUIManager::RegisterScriptFunctions(rq);
 	JSI_Game::RegisterScriptFunctions(rq);
 	JSI_GameView::RegisterScriptFunctions(rq);

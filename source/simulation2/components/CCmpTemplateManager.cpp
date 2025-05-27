@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -121,6 +121,8 @@ public:
 
 	std::vector<std::string> FindAllTemplates(bool includeActors) const override;
 
+	std::vector<std::string> FindAllTemplatesType(ETemplatesType templatesType) const override;
+
 	std::vector<std::vector<std::wstring>> GetCivData() override;
 
 	std::vector<std::string> FindUsedTemplates() const override;
@@ -222,6 +224,11 @@ std::string CCmpTemplateManager::GetCurrentTemplateName(entity_id_t ent) const
 std::vector<std::string> CCmpTemplateManager::FindAllTemplates(bool includeActors) const
 {
 	ETemplatesType templatesType = includeActors ? ALL_TEMPLATES : SIMULATION_TEMPLATES;
+	return m_templateLoader.FindTemplates("", true, templatesType);
+}
+
+std::vector<std::string> CCmpTemplateManager::FindAllTemplatesType(ETemplatesType templatesType) const
+{
 	return m_templateLoader.FindTemplates("", true, templatesType);
 }
 
