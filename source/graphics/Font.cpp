@@ -251,14 +251,24 @@ Renderer::Backend::Sampler::Desc CFont::ChooseTextureFormatAndSampler()
 	if (m_StrokeWidth > 0)
 		return defaultSamplerDesc;
 
-	// TODO: Add Support for R8_UNORM.
-	// for R8 we will use texture swizzling to convert to RGBA.
-	// and sampler will be changed
-
-	// Legacy Format
-	m_TextureFormat = Renderer::Backend::Format::A8_UNORM;
 	m_TextureFormatStride = 1;
 	m_HasRGB = false;
+
+	// For R8 we will use texture swizzling to convert to RGBA and sampler will be changed.
+	Renderer::Backend::IDevice* backendDevice = g_Renderer.GetDeviceCommandContext()->GetDevice();
+	if (backendDevice->GetCapabilities().textureSwizzle && backendDevice->IsTextureFormatSupported(Renderer::Backend::Format::R8_UNORM))
+	{
+		defaultSamplerDesc.componentMapping.r = Renderer::Backend::Sampler::ComponentSwizzle::ONE;
+		defaultSamplerDesc.componentMapping.g = Renderer::Backend::Sampler::ComponentSwizzle::ONE;
+		defaultSamplerDesc.componentMapping.b = Renderer::Backend::Sampler::ComponentSwizzle::ONE;
+		defaultSamplerDesc.componentMapping.a = Renderer::Backend::Sampler::ComponentSwizzle::R;
+		m_TextureFormat = Renderer::Backend::Format::R8_UNORM;
+		return defaultSamplerDesc;
+	}
+
+	// TODO: Remove A8 as soon as all backends always support texture swizzle.
+	// Legacy Format
+	m_TextureFormat = Renderer::Backend::Format::A8_UNORM;
 
 	return defaultSamplerDesc;
 }
