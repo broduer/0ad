@@ -530,6 +530,9 @@
       <optional>
         <attribute name="min_height"/>
       </optional>
+      <optional>
+        <attribute name="texture_name"/>
+      </optional>
     </interleave>
   </define>
   <define name="objects">

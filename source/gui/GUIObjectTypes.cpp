@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -33,6 +33,7 @@
 #include "gui/ObjectTypes/CRadioButton.h"
 #include "gui/ObjectTypes/CSlider.h"
 #include "gui/ObjectTypes/CScrollPanel.h"
+#include "gui/ObjectTypes/CTextureViewer.h"
 #include "gui/ObjectTypes/CText.h"
 #include "gui/ObjectTypes/CTooltip.h"
 #include "gui/Scripting/JSInterface_GUIProxy.h"
@@ -71,4 +72,5 @@ void CGUI::AddObjectTypes()
 	AddObjectType("text", &CText::ConstructObject);
 	AddObjectType("tooltip", &CTooltip::ConstructObject);
 	AddObjectType("scrollpanel", &CScrollPanel::ConstructObject);
+	AddObjectType("texture", &CTextureViewer::ConstructObject);
 }
