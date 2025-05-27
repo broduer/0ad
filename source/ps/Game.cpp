@@ -91,6 +91,7 @@ CGame::CGame(bool replayLog, const SimulationDebugOptions debugOptions):
 	m_PlayerID(-1),
 	m_ViewedPlayerID(-1),
 	m_IsVisualReplay(false),
+	m_IsMapEditor(false),
 	m_ReplayStream(NULL)
 {
 	// TODO: should use CDummyReplayLogger unless activated by cmd-line arg, perhaps?
@@ -247,6 +248,8 @@ void CGame::RegisterInit(const JS::HandleValue attribs, const std::string& saved
 		else
 			LOGERROR("GameSpeed could not be parsed.");
 	}
+
+	m_IsMapEditor = Script::HasProperty(rq, attribs, "editorType");
 
 	PS::Loader::BeginRegistering();
 
@@ -453,7 +456,9 @@ void CGame::Update(const double deltaRealTime, bool doInterpolate)
 			g_Renderer.GetTimeManager().Update(deltaSimTime);
 	}
 
-	if (doInterpolate)
+	if (m_IsMapEditor)
+		m_TurnManager->Interpolate(deltaRealTime * 1.0, deltaRealTime);
+	else if (doInterpolate)
 		m_TurnManager->Interpolate(deltaSimTime, deltaRealTime);
 }
 

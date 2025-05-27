@@ -165,6 +165,16 @@ public:
 	{	return m_IsVisualReplay; }
 
 	/**
+	 * Get is current instance is a MapEditor.
+	 *
+	 * @return bool the value of m_IsMapEditor.
+	 **/
+	inline bool IsMapEditor() const
+	{
+		return m_IsMapEditor;
+	}
+
+	/**
 	 * Get the pointer to the game world object.
 	 *
 	 * @return CWorld * the value of m_World.
@@ -234,6 +244,7 @@ private:
 	bool m_IsVisualReplay;
 	std::istream* m_ReplayStream;
 	u32 m_FinalReplayTurn;
+	bool m_IsMapEditor;
 };
 
 extern CGame *g_Game;
