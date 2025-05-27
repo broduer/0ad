@@ -1,0 +1,8 @@
+{
+	"name": "mapeditor",
+	"version": "0.0.1",
+	"label": "Map Editor",
+	"url": "https://play0ad.com",
+	"description": "Map editor for Pyrogenesis",
+	"dependencies": []
+}

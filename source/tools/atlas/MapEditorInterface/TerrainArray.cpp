@@ -175,7 +175,7 @@ std::vector<int> TerrainTileArray::ReplaceTilesFromJs(const std::wstring& textur
 		{
 			if (this->GetTexEntry(i, j) != replacedTex)
 				continue;
-			
+
 			m_i0 = std::min(m_i0, i - 1);
 			m_j0 = std::min(m_j0, j - 1);
 			m_i1 = std::max(m_i1, i + 2);
@@ -234,7 +234,7 @@ std::vector<int> TerrainTileArray::FillTilesFromJs(const std::wstring& textureNa
 
 		if (this->GetTexEntry(i, j) != replacedTex)
 			continue;
-		
+
 		// Found a tile to replace: adjust bounds and paint it
 		m_i0 = std::min(m_i0, (ssize_t)i - 1);
 		m_j0 = std::min(m_j0, (ssize_t)j - 1);

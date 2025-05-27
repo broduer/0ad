@@ -1,0 +1,14 @@
+import { StateNames } from "gui/editor2/Constants/ToolsAtlasController.js";
+export const transitionOptions = {
+	[StateNames.IDLE]: [],
+	[StateNames.PAINT_TERRAIN]: [StateNames.PAINT_TERRAIN_WITH_PRIORITY, StateNames.PAINT_TERRAIN_EYEDROPPER, StateNames.FILL_TERRAIN, StateNames.REPLACE_TERRAIN],
+	[StateNames.PAINT_TERRAIN_WITH_PRIORITY]: [StateNames.PAINT_TERRAIN],
+	[StateNames.PAINT_TERRAIN_EYEDROPPER]: [StateNames.PAINT_TERRAIN],
+	[StateNames.FILL_TERRAIN]: [StateNames.PAINT_TERRAIN, StateNames.REPLACE_TERRAIN],
+	[StateNames.REPLACE_TERRAIN]: [StateNames.PAINT_TERRAIN, StateNames.FILL_TERRAIN],
+	[StateNames.ALTER_ELEVATION]: [StateNames.ELEVATION_TOOL, StateNames.FLATTEN_ELEVATION, StateNames.SMOOTH_ELEVATION, StateNames.PICK_ELEVATION],
+	[StateNames.ELEVATION_TOOL]: [StateNames.ALTER_ELEVATION, StateNames.FLATTEN_ELEVATION, StateNames.SMOOTH_ELEVATION, StateNames.PICK_ELEVATION],
+	[StateNames.FLATTEN_ELEVATION]: [StateNames.ELEVATION_TOOL, StateNames.SMOOTH_ELEVATION, StateNames.PICK_ELEVATION, StateNames.ALTER_ELEVATION],
+	[StateNames.SMOOTH_ELEVATION]: [StateNames.ELEVATION_TOOL, StateNames.FLATTEN_ELEVATION, StateNames.PICK_ELEVATION, StateNames.ALTER_ELEVATION],
+	[StateNames.PICK_ELEVATION]: [StateNames.ELEVATION_TOOL, StateNames.FLATTEN_ELEVATION, StateNames.SMOOTH_ELEVATION, StateNames.ALTER_ELEVATION],
+};

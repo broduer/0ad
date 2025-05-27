@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<objects>
+
+	<script directory="gui/common/" />
+	<script module="gui/editor2/editor.js" />
+
+	<object name="setupWindow">
+		<object name="topPanel" type="image" sprite="topPanel" size="-3 0 100%+3 36">
+			<include directory="gui/editor2/UI/TopPanel/" />
+		</object>
+		<object name="leftPanel" size="0 36 200 100%-200">
+			<include directory="gui/editor2/UI/LeftPanel/" />
+		</object>
+		<object name="rightPanel" size="100%-220 36 100% 100%-224" hidden="true">
+			<include directory="gui/editor2/UI/RightPanel/" />
+		</object>
+		<object name="statusBar" size="200 100%-224 100% 100%-200">
+			<include file="gui/editor2/UI/General/statusBar.xml" />
+		</object>
+		<object name="bottomPanel" size="200 100%-200 100% 100%">
+			<include directory="gui/editor2/UI/BottomPanel/" />
+		</object>
+		<include directory="gui/editor2/UI/Center/" />
+		<object name="bandbox" type="image" sprite="bandbox" ghost="true" hidden="true" z="200" />
+	</object>
+</objects>

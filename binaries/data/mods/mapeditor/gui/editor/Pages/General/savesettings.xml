@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<object name="saveSettingsWindow" hidden="true" z="100">
+	<script directory="gui/editor/Pages/General/SaveSettings/" />
+
+	<!-- Add a translucent black background to fade out the menu page -->
+	<object type="image" sprite="ModernFade"/>
+
+	<!-- Save Settings Window -->
+	<object name="saveOptions" type="image" style="ModernDialog" size="50%-200 50%-72 50%+200 50%+72">
+
+		<object style="ModernLabelText" type="text" size="50%-128 -16 50%+128 16" name="saveSettigsWindowTitle" />
+
+		<object size="18 18 100%-18 100%-62">
+			<object size="0 2 100% 32">
+				<object
+					name="mapFolderLabel"
+					type="text"
+					size="0 0 170 30"
+					style="ModernRightLabelText"
+					z="1"
+				/>
+				<object
+					name="mapFolderCtrl"
+					type="dropdown"
+					size="175 0 100% 28"
+					style="ModernDropDown"
+					tooltip_style="onscreenToolTip"
+					z="1"
+				/>
+			</object>
+			<object size="0 34 100% 64">
+				<object
+					name="mapNameLabel"
+					type="text"
+					size="0 0 170 30"
+					style="ModernRightLabelText"
+					z="1"
+				/>
+				<object
+					name="mapNameCtrl"
+					type="input"
+					size="175 0 100% 28"
+					style="ModernInput"
+					tooltip_style="onscreenToolTip"
+					z="1"
+				/>
+			</object>
+		</object>
+
+		<object name="saveSettingsWindowSaveButton" type="button" style="ModernButtonRed" size="25%-82 100%-44 25%+82 100%-16" />
+
+		<object name="saveSettingsWindowCancelButton" type="button" style="ModernButtonRed" size="75%-82 100%-44 75%+82 100%-16" hotkey="cancel" />
+	</object>
+</object>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity>
+	<Identity>
+		<Classes datatype="tokens">Player</Classes>
+		<Undeletable>true</Undeletable>
+		<Civ>editor</Civ>
+		<GenericName>player_editor</GenericName>
+	</Identity>
+	<Player />
+</Entity>

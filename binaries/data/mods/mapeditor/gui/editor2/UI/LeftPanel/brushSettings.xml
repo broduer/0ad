@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<object name="brushSettings" type="image" size="0 0 100% 100%" hidden="true" sprite="leftPaintPanel">
+	<object type="text" style="EditorTitle" size="0 4 100% 29">
+		<translatableAttribute id="caption">Brush Settings</translatableAttribute>
+	</object>
+
+	<object type="text" style="EditorSubTitle" size="4 33 100%-4 53">
+		<translatableAttribute id="caption">Brush Tool</translatableAttribute>
+	</object>
+	<object name="brushTool" type="dropdown" style="ModernDropDown" size="4 55 100%-4 80" tooltip_style="editorToolTip"/>
+
+	<object type="text" style="EditorSubTitle" size="4 84 100%-4 104">
+		<translatableAttribute id="caption">Shape</translatableAttribute>
+	</object>
+
+	<object name="brushShape" type="dropdown" style="ModernDropDown" size="4 106 100%-4 131" tooltip_style="editorToolTip"/>
+
+	<object type="text" style="EditorSubTitle" size="4 135 100%-4 155">
+		<translatableAttribute id="caption">Size</translatableAttribute>
+	</object>
+
+	<object name="brushSize" type="slider" style="ModernSlider" size="4 157 100%-4 182" tooltip_style="editorToolTip"/>
+
+	<object type="text" style="EditorSubTitle" size="4 186 100%-4 206">
+		<translatableAttribute id="caption">Strength</translatableAttribute>
+	</object>
+
+	<object name="brushStrength" type="slider" style="ModernSlider" size="4 208 100%-4 233" tooltip_style="tooltipInstant"/>
+</object>

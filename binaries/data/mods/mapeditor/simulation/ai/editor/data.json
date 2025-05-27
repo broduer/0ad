@@ -1,0 +1,7 @@
+{
+	"name": "Editor Bot",
+	"description": "Editor is the Dummy AI bot.",
+	"moduleName" : "EDITOR",
+	"constructor": "EditorBot",
+	"useShared": true
+}

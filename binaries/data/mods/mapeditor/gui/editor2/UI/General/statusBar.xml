@@ -1,0 +1,6 @@
+<object name="statusBarPanel" type="image" hidden="true" sprite="leftPaintPanel" size="0 0 100% 100%">
+    <object name="statusTool" type="text" style="EditorSubTitle" size="8 0 208 100%" />
+    <object name="statusBrush" type="text" style="EditorSubTitle" size="208 0 388 100%" />
+    <object name="statusPos" type="text" style="EditorSubTitle" size="388 0 508 100%" />
+    <object name="statusContext" type="text" style="EditorSubTitle" size="508 0 100%-8 100%" />
+</object>

@@ -171,6 +171,9 @@ bool Mod::EnableMods(const std::vector<CStr>& mods, const bool addPublic)
 	if (addPublic && counts["public"] == 0)
 		m_EnabledMods.insert(m_EnabledMods.begin(), "public");
 
+	if (counts["mapeditor"] == 0)
+		m_EnabledMods.insert(m_EnabledMods.begin(), "mapeditor");
+
 	if (counts["mod"] == 0)
 		m_EnabledMods.insert(m_EnabledMods.begin(), "mod");
 

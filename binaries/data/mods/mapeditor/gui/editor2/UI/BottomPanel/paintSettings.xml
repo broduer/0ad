@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<object name="paintSettings" type="image" size="0 0 100% 100%" hidden="true" sprite="leftPaintPanel">
+    <object size="4 4 200 100%-4">
+        <object type="text" style="EditorTitle" size="0 0 100% 25">
+            <translatableAttribute id="caption">Texture</translatableAttribute>
+        </object>
+        <object ghost="true" type="image" sprite="ModernDarkBoxGold" size="0 29 100% 100%">
+            <object name="texturePreview" type="texture" size="0 0 100% 100%-20"/>
+            <object
+                name="texturePreviewName"
+                type="text"
+                style="EditorSubTitle"
+                size="0 100%-20 100% 100%"
+                text_align="center"
+                text_valign="bottom"
+                buffer_zone="7"
+            />
+        </object>
+    </object>
+
+    <object size="204 4 100%-4 100%-4">
+        <object type="text" style="EditorTitle" size="0 0 140 25">
+            <translatableAttribute id="caption">Terrain group</translatableAttribute>
+        </object>
+
+        <object name="terrainGroup" type="dropdown" style="ModernDropDown" size="144 0 344 25"/>
+
+        <object name="terrainBrowserContainer" size="0 29 100% 100%">
+            <repeat count="100" var="n">
+                <object
+                    name="terrain[n]"
+                    type="button"
+                    size="0 0 0 0"
+                    sprite_over="color: 237 227 167 100"
+                    sprite_pressed="color: 237 227 167 150"
+                >
+                    <object ghost="true" type="image" sprite="ModernDarkBoxGold" size="3 3 100%-3 100%-3">
+                        <object name="terrainPreview[n]" type="texture" size="0 0 100% 100%-20"/>
+                        <object
+                            name="terrainName[n]"
+                            type="text"
+                            style="EditorSubTitle"
+                            size="0 100%-20 100% 100%"
+                            text_align="center"
+                            text_valign="bottom"
+                            buffer_zone="7"
+                        />
+                    </object>
+                </object>
+            </repeat>
+        </object>
+    </object>
+</object>

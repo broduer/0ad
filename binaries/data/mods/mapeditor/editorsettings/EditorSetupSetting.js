@@ -1,0 +1,4 @@
+class EditorSetupSetting extends BaseSetting
+{
+
+}

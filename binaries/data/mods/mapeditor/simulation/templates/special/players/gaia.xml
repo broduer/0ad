@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity>
+	<Identity>
+		<Undeletable>true</Undeletable>
+		<Civ>gaia</Civ>
+		<GenericName>Gaia</GenericName>
+	</Identity>
+	<Player />
+</Entity>

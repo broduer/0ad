@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<objects>
+
+	<script directory="gui/common/"/>
+	<script module="gui/pregame/mainmenu.js"/>
+
+	<object name="setupWindow" type="image" style="ModernWindow">
+		<!-- Page Title -->
+		<object name="setupWindowTitle" style="ModernLabelText" type="text" size="50%-128 4 50%+128 36" />
+
+		<object name="panelButtons" size="50%-120 50%-42 50%+120 50%+42">
+			<object type="image" sprite="ModernDarkBoxGold"/>
+			<object name="modButton" type="button" size="4 4 100%-4 40" style="ModernButtonRed"></object>
+			<object name="editorButton" type="button" size="4 44 100%-4 80" style="ModernButtonRed"></object>
+		</object>
+	</object>
+</objects>

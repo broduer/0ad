@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<object name="previewSettings" type="image" size="0 0 100% 100%" hidden="true" sprite="leftPaintPanel">
+    <object size="4 4 200 100%-4">
+        <object type="text" style="EditorTitle" size="0 0 100% 25">
+            <translatableAttribute id="caption">Player</translatableAttribute>
+        </object>
+        <object name="playerPreviewSetting" type="dropdown" style="ModernDropDown" size="0 27 100% 53"/>
+    </object>
+    <script file="gui/editor/Pages/BottomPanel/PreviewSettings.js"/>
+</object>

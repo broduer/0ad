@@ -1,0 +1,15 @@
+<object name="menuButtonPanel"
+    style="ModernPanelThinBorder"
+    type="image"
+    z="70"
+    size="100%-164 0 100% 0">
+    <repeat count="15">
+        <object
+            type="button"
+            size="4 4 100%-4 32"
+            style="ModernButtonRed"
+            tooltip_style="editorToolTip"
+            hidden="true"
+        />
+    </repeat>
+</object>

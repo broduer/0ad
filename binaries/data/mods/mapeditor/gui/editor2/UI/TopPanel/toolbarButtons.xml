@@ -1,0 +1,32 @@
+<object>
+    <object name="topToolbarButtonsPanel" type="image" size="50%-140 0 50%+140 0">
+        <repeat count="7">
+            <object type="button" size="4 4 32 32" style="iconButton"
+                tooltip_style="editorToolTip" hidden="true" name="topToolbarButton[n]">
+                <object name="topToolbarButtonIcon[n]" type="image" ghost="true"
+                    size="3 3 100%-4 100%-4" />
+                <object name="topToolbarButtonSelection[n]" hidden="true" type="image" ghost="true"
+                    size="3 3 100%-4 100%-4" sprite="stretched:editor/icons/corners.png" />
+            </object>
+        </repeat>
+    </object>
+    <!-- NEW: panel visibility toggles. Three CButtons, one hidden flag each. -->
+    <object name="panelToggles" type="image" size="100%-336 0 100%-176 0">
+        <repeat count="3" var="n">
+            <object name="panelToggle[n]" type="button" size="4 4 48 32"
+                style="ModernButtonRed" tooltip_style="editorToolTip" />
+        </repeat>
+    </object>
+    <!-- left group: save, play, stop -->
+    <object name="leftToolbarButtonsPanel" type="image" size="5 0 50%-145 0">
+        <repeat count="5">
+            <object type="button" size="4 4 32 32" style="iconButton" hidden="true"
+                name="leftToolbarButton[n]" />
+        </repeat>
+    </object>
+    <object type="button" name="menuButton" size="100%-164 4 100%-8 32"
+        tooltip_style="editorToolTip"
+        style="ModernButtonRed" hotkey="session.gui.menu.toggle" z="100">
+        <object size="0 -4 100% 0" type="image" sprite="horizontalThinBorder" ghost="true" />
+    </object>
+</object>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<object name="objectSettings" type="image" size="0 0 100% 100%" hidden="true" sprite="leftPaintPanel">
+	<object type="text" style="EditorTitle" size="0 4 100% 29">
+		<translatableAttribute id="caption">Object Settings</translatableAttribute>
+	</object>
+
+	<object type="text" style="EditorSubTitle" size="4 33 100%-4 53">
+		<translatableAttribute id="caption">Filter</translatableAttribute>
+	</object>
+
+	<object name="objectFilter" type="input" style="ModernInput" size="4 55 100%-4 80" tooltip_style="editorToolTip"/>
+
+	<object type="text" style="EditorSubTitle" size="24 84 100%-4 104">
+		<translatableAttribute id="caption">Exact Search</translatableAttribute>
+	</object>
+	<object name="objectExactMatch" type="checkbox" style="ModernTickBox" size="4 84 100%-4 104" checked="true" tooltip_style="editorToolTip"/>
+
+	<object type="text" style="EditorSubTitle" size="4 108 100%-4 128">
+		<translatableAttribute id="caption">Object tool</translatableAttribute>
+	</object>
+
+	<object name="objectTool" type="dropdown" style="ModernDropDown" size="4 130 100%-4 155" tooltip_style="editorToolTip"/>
+
+	<object name="objectToolOptions" type="list" size="4 159 100%-4 100%-4" style="ModernList" tooltip_style="editorToolTip"/>
+
+	<script file="gui/editor/Pages/LeftPanel/ObjectSettings.js"/>
+	<script directory="gui/editor/ToolsAtlas/ObjectTools/"/>
+</object>
