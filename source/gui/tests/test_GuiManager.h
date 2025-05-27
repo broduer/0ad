@@ -109,7 +109,7 @@ public:
 		// third and enable the fourth. So ticking once will only call the
 		// first and second object. We don't want the fourth object to be
 		// called, to avoid infinite additions of objects.
-		g_GUI->TickObjects();
+		g_GUI->TickObjects(0);
 		Script::GetProperty(prq, global, "called1", &js_called_value);
 		Script::FromJSVal(prq, js_called_value, called_value);
 		TS_ASSERT_EQUALS(called_value, 1);
@@ -127,7 +127,7 @@ public:
 		TS_ASSERT_EQUALS(called_value, 0);
 
 		// Ticking again will still call the second object, but also the fourth.
-		g_GUI->TickObjects();
+		g_GUI->TickObjects(0);
 		Script::GetProperty(prq, global, "called1", &js_called_value);
 		Script::FromJSVal(prq, js_called_value, called_value);
 		TS_ASSERT_EQUALS(called_value, 1);
@@ -229,7 +229,7 @@ public:
 		JS::RootedValue global{rq.cx, rq.globalValue()};
 		TS_ASSERT(Script::Function::CallVoid(rq, global, "closePageCallback"));
 		// Check whether promises are settled in the page stack and flush the stack.
-		g_GUI->TickObjects();
+		g_GUI->TickObjects(0);
 	}
 
 	void test_PageRegainedFocusEvent()
@@ -277,7 +277,7 @@ public:
 				g_GUI->OpenChildPage(L"resolveReject/page_resolveReject.xml", clonedValue)};
 
 			// Check whether promises are settled in the page stack and flush the stack.
-			g_GUI->TickObjects();
+			g_GUI->TickObjects(0);
 			const JS::RootedObject promiseObject{rq.cx, &promise.toObject()};
 			TS_ASSERT_EQUALS(JS::GetPromiseState(promiseObject), result);
 		}
@@ -301,11 +301,11 @@ public:
 		const Script::Request rq{g_GUI->GetScriptInterface()};
 		g_GUI->OpenChildPage(L"Result/page_Result.xml",
 			Script::WriteStructuredClone(rq, JS::FalseHandleValue));
-		TS_ASSERT(!g_GUI->TickObjects().value());
+		TS_ASSERT(!g_GUI->TickObjects(0).value());
 
 		g_GUI->OpenChildPage(L"Result/page_Result.xml",
 			Script::WriteStructuredClone(rq, JS::TrueHandleValue));
-		TS_ASSERT(g_GUI->TickObjects().value());
+		TS_ASSERT(g_GUI->TickObjects(0).value());
 	}
 
 	void test_MultipleRootModules()
@@ -333,7 +333,7 @@ public:
 			Script::WriteStructuredClone(rq, JS::UndefinedHandleValue));
 		TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 2);
 
-		g_GUI->TickObjects();
+		g_GUI->TickObjects(0.0f);
 
 		const Script::Request pageRq{g_GUI->GetActiveGUI()->GetScriptInterface()};
 		JS::RootedValue global{pageRq.cx, pageRq.globalValue()};

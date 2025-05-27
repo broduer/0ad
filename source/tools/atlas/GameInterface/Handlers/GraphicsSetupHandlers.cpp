@@ -260,7 +260,7 @@ QUERYHANDLER(RenderLoop)
 		g_VideoMode.m_InputManager.DispatchEvent(ev);
 
 	if (g_GUI)
-		g_GUI->TickObjects();
+		g_GUI->TickObjects(g_AtlasGameLoop->realFrameLength);
 
 	g_AtlasGameLoop->view->Update(g_AtlasGameLoop->realFrameLength);
 

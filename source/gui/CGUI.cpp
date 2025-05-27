@@ -67,7 +67,9 @@
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
+#include <memory>
 #include <utility>
+#include <map>
 
 const double SELECT_DBLCLICK_RATE = 0.5;
 const u32 MAX_OBJECT_DEPTH = 100; // Max number of nesting for GUI includes. Used to detect recursive inclusion
@@ -336,7 +338,7 @@ JSObject* CGUI::CallPageInit(const Script::Request& rq, Script::StructuredClone 
 }
 
 JSObject* CGUI::TickObjects(const Script::Request& rq, Script::StructuredClone initData,
-	const std::string_view scriptName)
+	const std::string_view scriptName, const float realTimeSinceLastFrame)
 {
 	JS::RootedObject sendingPromise{rq.cx};
 	if (m_LoadModuleResult.has_value() && m_LoadModuleResult->iterator->IsDone())
@@ -355,7 +357,14 @@ JSObject* CGUI::TickObjects(const Script::Request& rq, Script::StructuredClone i
 	}
 
 	m_BaseObject->RecurseObject(&IGUIObject::IsHiddenOrGhostOrOutOfBoundaries, &IGUIObject::Tick);
-	SendEventToAll(EventNameTick);
+
+	// Send tick event to all objects
+	JS::RootedValueVector paramData{rq.cx};
+	JS::RootedValue valRealTime{rq.cx};
+	valRealTime.setDouble(realTimeSinceLastFrame);
+	(void)paramData.append(valRealTime);
+	SendEventToAll(EventNameTick, paramData);
+
 	m_Tooltip.Update(FindObjectUnderMouse(), m_MousePos, *this);
 	return sendingPromise;
 }

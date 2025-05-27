@@ -423,7 +423,7 @@ void CGUIManager::SendEventToAll(const CStr& eventName,
 	}
 }
 
-std::optional<bool> CGUIManager::TickObjects()
+std::optional<bool> CGUIManager::TickObjects(const float realTimeSinceLastFrame)
 {
 	PROFILE3("gui tick");
 
@@ -437,7 +437,7 @@ std::optional<bool> CGUIManager::TickObjects()
 	{
 		const Script::Request rq{p.gui->GetScriptInterface()};
 		JS::RootedObject newSendingPromise{rq.cx, p.gui->TickObjects(rq, p.initData,
-			utf8_from_wstring(p.m_Name))};
+			utf8_from_wstring(p.m_Name), realTimeSinceLastFrame)};
 		if (newSendingPromise)
 			(*p.sendingPromise) = newSendingPromise;
 	}

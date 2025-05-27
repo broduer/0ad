@@ -104,7 +104,7 @@ public:
 	 * (including sending the "Tick" event to scripts)
 	 */
 	JSObject* TickObjects(const Script::Request& rq, Script::StructuredClone initData,
-		const std::string_view scriptName);
+		const std::string_view scriptName, const float realTimeSinceLastFrame);
 
 	/**
 	 * Sends a specified script event to every object

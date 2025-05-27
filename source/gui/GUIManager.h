@@ -111,7 +111,7 @@ public:
 	 * When the root page is closed it's returned wheter Atlas should be
 	 * started.
 	 */
-	std::optional<bool> TickObjects();
+	std::optional<bool> TickObjects(const float realTimeSinceLastFrame);
 
 	/**
 	 * See CGUI::Draw; applies to @em all loaded pages.
