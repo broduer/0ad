@@ -71,6 +71,8 @@ newoption { category = "Pyrogenesis", trigger = "bindir", description = "Directo
 newoption { category = "Pyrogenesis", trigger = "datadir", description = "Directory for data files (typically '/usr/share/games/0ad'); default is ../data/ relative to executable" }
 newoption { category = "Pyrogenesis", trigger = "libdir", description = "Directory for libraries (typically '/usr/lib/games/0ad'); default is ./ relative to executable" }
 
+require "export-compile-commands"
+
 -- Root directory of project checkout relative to this .lua file
 rootdir = "../.."
 
