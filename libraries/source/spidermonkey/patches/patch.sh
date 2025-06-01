@@ -12,7 +12,9 @@ PATCHES="../patches"
 patch -p1 <"${PATCHES}"/FixRustLinkage.diff
 
 # Differentiate debug/release library names.
-patch -p1 <"${PATCHES}"/FixLibNames.diff
+if [ "${OS}" = "Windows_NT" ]; then
+	patch -p1 <"${PATCHES}"/FixLibNames.diff
+fi
 
 # Add needed debug define in pkg-config file.
 # https://bugzilla.mozilla.org/show_bug.cgi?id=1935346

@@ -108,7 +108,7 @@ fi
 if [ "$with_system_mozjs" = "false" ]; then
 	# shellcheck disable=SC2086
 	./source/spidermonkey/build.sh $build_sh_options || die "SpiderMonkey build failed"
-	cp source/spidermonkey/lib/* ../binaries/system/
+	cp source/spidermonkey/lib/*so ../binaries/system/
 fi
 if [ "$with_spirv_reflect" = "true" ]; then
 	# shellcheck disable=SC2086

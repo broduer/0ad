@@ -68,6 +68,10 @@ if os.istarget("macosx") then
 	pkgconfig.set_static_link_libs(true)
 end
 
+if not _OPTIONS["with-system-mozjs"] then
+	pkgconfig.add_pkg_config_path(path.getabsolute(rootdir .. "/libraries/source/spidermonkey/lib/pkgconfig"))
+end
+
 local function add_delayload(name, suffix, def)
 
 	if def["no_delayload"] then
@@ -639,27 +643,21 @@ extern_lib_defs = {
 				defines { "MOZ_DIAGNOSTIC_ASSERT_ENABLED" }
 			filter {}
 
-			if _OPTIONS["with-system-mozjs"] then
-				if not _OPTIONS["android"] then
-					pkgconfig.add_includes_after("mozjs-128")
-				end
-			else
+			if os.istarget("windows") then
 				filter "Debug"
 					externalincludedirs { libraries_source_dir.."spidermonkey/include-debug" }
 					defines { "DEBUG" }
 				filter "Release"
 					externalincludedirs { libraries_source_dir.."spidermonkey/include-release" }
 				filter { }
+			elseif not _OPTIONS["android"] then
+				pkgconfig.add_includes_after("mozjs-128")
 			end
 		end,
 		link_settings = function()
-			if _OPTIONS["with-system-mozjs"] then
-				if _OPTIONS["android"] then
-					links { "mozjs-128" }
-				else
-					pkgconfig.add_links("mozjs-128")
-				end
-			else
+			if _OPTIONS["android"] then
+				links { "mozjs-128" }
+			elseif os.istarget("windows") then
 				filter { "Debug" }
 					links { "mozjs128-debug" }
 				filter { "Release" }
@@ -667,6 +665,8 @@ extern_lib_defs = {
 				filter { }
 				links { "mozjs128-rust" }
 				add_source_lib_paths("spidermonkey")
+			else
+				pkgconfig.add_links("mozjs-128")
 			end
 		end,
 	},
