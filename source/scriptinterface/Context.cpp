@@ -20,7 +20,6 @@
 #include "Context.h"
 
 #include "js/Modules.h"
-#include "js/friend/PerformanceHint.h"
 #include "lib/alignment.h"
 #include "lib/debug.h"
 #include "ps/Profile.h"
@@ -137,6 +136,9 @@ Context::Context(int contextSize, uint32_t heapGrowthBytesGCTrigger):
 	JS_SetGCParameter(m_cx, JSGC_SLICE_TIME_BUDGET_MS, 6);
 	JS_SetGCParameter(m_cx, JSGC_MIN_LAST_DITCH_GC_PERIOD, 0);
 
+	// Turn off nursery size heuristic.
+	// See https://gitea.wildfiregames.com/0ad/0ad/issues/7714 for details.
+	JS_SetGCParameter(m_cx, JSGC_NURSERY_MAX_TIME_GOAL_MS, 0);
 
 	JS_SetOffthreadIonCompilationEnabled(m_cx, true);
 
@@ -154,10 +156,6 @@ Context::Context(int contextSize, uint32_t heapGrowthBytesGCTrigger):
 	JS_SetGlobalJitCompilerOption(m_cx, JSJITCOMPILER_SPECTRE_VALUE_MASKING, 0);
 	JS_SetGlobalJitCompilerOption(m_cx, JSJITCOMPILER_SPECTRE_STRING_MITIGATIONS, 0);
 	JS_SetGlobalJitCompilerOption(m_cx, JSJITCOMPILER_SPECTRE_OBJECT_MITIGATIONS, 0);
-
-	// Workaround to turn off nursery size heuristic.
-	// See https://gitea.wildfiregames.com/0ad/0ad/issues/7714 for details.
-	js::gc::SetPerformanceHint(m_cx, js::gc::PerformanceHint::InPageLoad);
 
 	Engine::GetSingleton().RegisterContext(m_cx);
 
@@ -178,9 +176,6 @@ Context::~Context()
 	JS::SetModuleDynamicImportHook(runtime, nullptr);
 	JS::SetModuleResolveHook(runtime, nullptr);
 	JS::SetModuleMetadataHook(runtime, nullptr);
-
-	// Switch back to normal performance mode to avoid assertion in debug mode.
-	js::gc::SetPerformanceHint(m_cx, js::gc::PerformanceHint::Normal);
 
 	JS_DestroyContext(m_cx);
 	Engine::GetSingleton().UnRegisterContext(m_cx);
