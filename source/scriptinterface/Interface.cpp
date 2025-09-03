@@ -43,6 +43,7 @@
 #include <js/ComparisonOperators.h>
 #include <js/CompilationAndEvaluation.h>
 #include <js/CompileOptions.h>
+#include <js/EnvironmentChain.h>
 #include <js/GCVector.h>
 #include <js/GlobalObject.h>
 #include <js/PropertyAndElement.h>
@@ -674,7 +675,7 @@ bool Interface::LoadScript(const VfsPath& filename, const std::string& code) con
 
 	JS::SourceText<mozilla::Utf8Unit> src;
 	ENSURE(src.init(rq.cx, code.c_str(), code.length(), JS::SourceOwnership::Borrowed));
-	JS::RootedObjectVector emptyScopeChain(rq.cx);
+	JS::EnvironmentChain emptyScopeChain{ rq.cx, JS::SupportUnscopables::No };
 	JS::RootedFunction func(rq.cx, JS::CompileFunction(rq.cx, emptyScopeChain, options, NULL, 0, NULL, src));
 	if (func == nullptr)
 	{

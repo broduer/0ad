@@ -46,7 +46,7 @@
 	JS::HandleValue ICmp##iname::GetJSInstance() const \
 	{ \
 		if (m_CachedInstance) \
-			return JS::HandleValue::fromMarkedLocation(m_CachedInstance.address()); \
+			return JS::HandleValue::fromMarkedLocation(m_CachedInstance.unsafeAddress()); \
 		\
 		const Script::Interface& si = GetSimContext().GetScriptInterface(); \
 		Script::Request rq(si); \
@@ -55,7 +55,7 @@
 		m_CachedInstance.setObject(*obj); \
 		\
 		GetSimContext().GetComponentManager().RegisterTrace(GetEntityId(), m_CachedInstance); \
-		return JS::HandleValue::fromMarkedLocation(m_CachedInstance.address()); \
+		return JS::HandleValue::fromMarkedLocation(m_CachedInstance.unsafeAddress()); \
 	} \
 	void RegisterComponentInterface_##iname(Script::Interface& scriptInterface) { \
 		ICmp##iname::InterfaceInit(scriptInterface); \

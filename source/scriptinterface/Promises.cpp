@@ -69,9 +69,10 @@ void JobQueue::runJobs(JSContext*)
 	}
 }
 
-JSObject* JobQueue::getIncumbentGlobal(JSContext* cx)
+bool JobQueue::getHostDefinedData(JSContext* cx, JS::MutableHandle<JSObject*> data) const
 {
-	return JS::CurrentGlobalOrNull(cx);
+	data.set(JS::CurrentGlobalOrNull(cx));
+	return true;
 }
 
 bool JobQueue::enqueuePromiseJob(JSContext* cx, JS::HandleObject, JS::HandleObject job, JS::HandleObject,

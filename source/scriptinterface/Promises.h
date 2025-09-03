@@ -40,7 +40,7 @@ public:
 	void runJobs(JSContext*) final;
 
 private:
-	JSObject* getIncumbentGlobal(JSContext* cx) final;
+	bool getHostDefinedData(JSContext* cx, JS::MutableHandle<JSObject*> data) const final;
 
 	bool enqueuePromiseJob(JSContext* cx, JS::HandleObject, JS::HandleObject job, JS::HandleObject,
 		JS::HandleObject) final;

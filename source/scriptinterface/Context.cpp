@@ -257,7 +257,7 @@ void Context::MaybeIncrementalGC()
 #endif
 
 		// There is a tradeoff between this time and the number of frames we must run GCs on, but overall we should prioritize smooth framerates.
-		const js::SliceBudget GCSliceTimeBudget = js::SliceBudget(js::TimeBudget(6)); // Milliseconds an incremental slice is allowed to run. SM respects this fairly well.
+		const JS::SliceBudget GCSliceTimeBudget = JS::SliceBudget(JS::TimeBudget(6)); // Milliseconds an incremental slice is allowed to run. SM respects this fairly well.
 
 		PrepareZonesForIncrementalGC();
 		if (!JS::IsIncrementalGCInProgress(m_cx))

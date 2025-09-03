@@ -37,8 +37,8 @@ class CComponentTypeScript
 public:
 	CComponentTypeScript(const Script::Interface& scriptInterface, JS::HandleValue instance);
 
-	JS::HandleValue GetInstance() const { return JS::HandleValue::fromMarkedLocation(m_Instance.address()); }
-	JS::MutableHandleValue GetMutInstance() { return JS::MutableHandleValue::fromMarkedLocation(const_cast<JS::Value*>(m_Instance.address())); }
+	JS::HandleValue GetInstance() const { return JS::HandleValue::fromMarkedLocation(m_Instance.unsafeAddress()); }
+	JS::MutableHandleValue GetMutInstance() { return JS::MutableHandleValue::fromMarkedLocation(const_cast<JS::Value*>(m_Instance.unsafeAddress())); }
 	static void Trace(JSTracer* trc, void* data);
 
 	void Init(CComponentManager& cmpMgr, const CParamNode& paramNode, entity_id_t ent);

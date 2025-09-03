@@ -39,6 +39,7 @@
 #include <js/ComparisonOperators.h>
 #include <js/CompilationAndEvaluation.h>
 #include <js/CompileOptions.h>
+#include <js/EnvironmentChain.h>
 #include <js/GCAPI.h>
 #include <js/GCVector.h>
 #include <js/SourceText.h>
@@ -342,7 +343,7 @@ void IGUIObject::RegisterScriptHandler(const CStr& eventName, const CStr& Code, 
 
 	JS::SourceText<mozilla::Utf8Unit> src;
 	ENSURE(src.init(rq.cx, Code.c_str(), Code.length(), JS::SourceOwnership::Borrowed));
-	JS::RootedObjectVector emptyScopeChain(rq.cx);
+	JS::EnvironmentChain emptyScopeChain{ rq.cx, JS::SupportUnscopables::No };
 	JS::RootedFunction func(rq.cx, JS::CompileFunction(rq.cx, emptyScopeChain, options, buf, paramCount, paramNames, src));
 	if (func == nullptr)
 	{
