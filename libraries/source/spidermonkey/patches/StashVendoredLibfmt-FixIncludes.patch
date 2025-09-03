@@ -1,0 +1,26 @@
+diff --git a/js/experimental/LoggingInterface.h b/js/experimental/LoggingInterface.h
+index 6774755..f1039c1 100644
+--- a/js/experimental/LoggingInterface.h
++++ b/js/experimental/LoggingInterface.h
+@@ -13,7 +13,7 @@
+ #include "mozilla/LoggingCore.h"
+ 
+ #include "jstypes.h"
+-#include "fmt/format.h"
++#include "mozfmt/format.h"
+ #include "js/GCAPI.h"
+ 
+ struct JSContext;
+diff --git a/mozilla/Casting.h b/mozilla/Casting.h
+index e6b1206..d07d2a8 100644
+--- a/mozilla/Casting.h
++++ b/mozilla/Casting.h
+@@ -12,7 +12,7 @@
+ #include "mozilla/Assertions.h"
+ #include "mozilla/Sprintf.h"
+ 
+-#include "fmt/format.h"
++#include "mozfmt/format.h"
+ 
+ #include <cinttypes>
+ #include <cstring>

@@ -18,10 +18,6 @@ patch -p1 <"${PATCHES}"/FixLibNames.diff
 # https://bugzilla.mozilla.org/show_bug.cgi?id=1935346
 patch -p1 <"${PATCHES}"/FixPkgConfigDebug.diff
 
-# Fix a regression in GC tracing, which creates segfaults during GCs
-# https://bugzilla.mozilla.org/show_bug.cgi?id=1982134
-patch -p1 <"${PATCHES}"/FixExtraGCTracing.diff
-
 # There is an issue on 32-bit linux builds sometimes.
 # NB: the patch here is Comment 21 modified by Comment 25
 # but that seems to imperfectly fix the issue with GCC.
@@ -41,12 +37,17 @@ if [ "${OS}" = "Darwin" ]; then
 	patch -p1 <"${PATCHES}"/FixMacOSBuild.diff
 fi
 
-# Supress warning on newer GCC compilers.
-# https://bugzilla.mozilla.org/show_bug.cgi?id=1953622
-patch -p1 <"${PATCHES}"/SuppressDanglingPointerWarning.patch
-
 # Fix building with python 3.14
 patch -p1 <"${PATCHES}"/FixPython3_14.diff
+
+# Fix conflicts between vendored fmtlib in SM and our own use of fmtlib.
+# This is not upstreamable and can be dropped when we use std::format (can be done in R30 when
+# we move to ESR153 which requires C++20 anyway).
+# Note: after building SM, it is still needed to rename the fmt include directory so that our
+# compiler doesn't mix up the vendored fmtlib headers and the actual ones. The -FixIncludes patch
+# is applied to dist/include after building.
+# https://bugzilla.mozilla.org/show_bug.cgi?id=1987410
+patch -p1 <"${PATCHES}"/StashVendoredLibfmt.patch
 
 # Cherry-pick an upstream commit to allow passing custom flags to ar
 patch -p1 <"${PATCHES}"/UpstreamCustomARFlags.patch

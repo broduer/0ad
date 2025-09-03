@@ -6,11 +6,11 @@ set -e
 cd "$(dirname "$0")"
 
 # This should match the version in config/milestone.txt
-PV=128.13.0
+PV=140.13.0
 FOLDER="mozjs-${PV}"
 # If same-version changes are needed, increment this.
-LIB_VERSION="${PV}+wfg5"
-LIB_NAME="mozjs128"
+LIB_VERSION="${PV}+wfg0"
+LIB_NAME="mozjs-140"
 
 build_archive()
 {
@@ -195,6 +195,20 @@ else
 		LIB_SUFFIX=.a
 	fi
 fi
+
+# Bug #1987410
+# SpiderMonkey vendors a patched fmtlib, and it copies it to include dirs, so we have to rename it
+# to not have it conflicting with the regular fmtlib
+(
+	cd "${FOLDER}"/build-debug/dist/include
+	mv fmt/ mozfmt/
+	patch -p1 <../../../../patches/StashVendoredLibfmt-FixIncludes.patch
+)
+(
+	cd "${FOLDER}"/build-release/dist/include
+	mv fmt/ mozfmt/
+	patch -p1 <../../../../patches/StashVendoredLibfmt-FixIncludes.patch
+)
 
 if [ "${OS}" = "Windows_NT" ]; then
 	# Bug #776126

@@ -51,7 +51,7 @@ newoption { category = "Pyrogenesis", trigger = "strip-binaries", description = 
 newoption { category = "Pyrogenesis", trigger = "with-system-cpp-httplib", description = "Search standard paths for cpp-httplib, instead of using bundled copy" }
 newoption { category = "Pyrogenesis", trigger = "with-system-cxxtest", description = "Search standard paths for cxxtest, instead of using bundled copy" }
 newoption { category = "Pyrogenesis", trigger = "with-lto", description = "Enable Link Time Optimization (LTO)" }
-newoption { category = "Pyrogenesis", trigger = "with-system-mozjs", description = "Search standard paths for libmozjs128, instead of using bundled copy" }
+newoption { category = "Pyrogenesis", trigger = "with-system-mozjs", description = "Search standard paths for libmozjs140, instead of using bundled copy" }
 newoption { category = "Pyrogenesis", trigger = "with-system-nvtt", description = "Search standard paths for nvidia-texture-tools library, instead of using bundled copy" }
 newoption { category = "Pyrogenesis", trigger = "with-valgrind", description = "Enable Valgrind support (non-Windows only)" }
 newoption { category = "Pyrogenesis", trigger = "without-audio", description = "Disable use of OpenAL/Ogg/Vorbis APIs" }
@@ -170,7 +170,7 @@ end
 -- The pc file doesn't specify the required -DDEBUG needed in that case
 local mozjs_is_debug_build = false
 if _OPTIONS["with-system-mozjs"] then
-	local _, errorCode = os.outputof(cc .. " $(pkg-config mozjs-128 --cflags) ./tests/mozdebug.c -o /dev/null")
+	local _, errorCode = os.outputof(cc .. " $(pkg-config mozjs-140 --cflags) ./tests/mozdebug.c -o /dev/null")
 	if errorCode ~= 0 then
 		mozjs_is_debug_build = true
 	end

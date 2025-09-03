@@ -660,7 +660,7 @@ extern_lib_defs = {
 
 			if _OPTIONS["with-system-mozjs"] then
 				if not _OPTIONS["android"] then
-					pkgconfig.add_includes_after("mozjs-128")
+					pkgconfig.add_includes_after("mozjs-140")
 				end
 			else
 				filter "Debug"
@@ -674,17 +674,17 @@ extern_lib_defs = {
 		link_settings = function()
 			if _OPTIONS["with-system-mozjs"] then
 				if _OPTIONS["android"] then
-					links { "mozjs-128" }
+					links { "mozjs-140" }
 				else
-					pkgconfig.add_links("mozjs-128")
+					pkgconfig.add_links("mozjs-140")
 				end
 			else
 				filter { "Debug" }
-					links { "mozjs128-debug" }
+					links { "mozjs-140-debug" }
 				filter { "Release" }
-					links { "mozjs128-release" }
+					links { "mozjs-140-release" }
 				filter { }
-				links { "mozjs128-rust" }
+				links { "mozjs-140-rust" }
 				add_source_lib_paths("spidermonkey")
 			end
 		end,
