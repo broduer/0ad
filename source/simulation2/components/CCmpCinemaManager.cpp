@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,6 +25,7 @@
 #include "maths/NUSpline.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
+#include "ps/Game.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/ICmpOverlayRenderer.h"
 #include "simulation2/components/ICmpRangeManager.h"
@@ -131,8 +132,11 @@ public:
 			if (!m_Enabled)
 				break;
 
-			m_ElapsedTime += msgData.turnLength;
-			m_CurrentPathElapsedTime += msgData.turnLength;
+			// The paths play at a fixed speed, no matter the sim rate.
+			// The turn length we have received here, however, is scaled by that rate.
+			const fixed realTurnLength{msgData.turnLength / fixed::FromFloat(g_Game ? g_Game->GetSimRate() : 1.0f)};
+			m_ElapsedTime += realTurnLength;
+			m_CurrentPathElapsedTime += realTurnLength;
 			if (m_CurrentPathElapsedTime >= m_PathQueue.front().GetDuration())
 			{
 				CMessageCinemaPathEnded msgCinemaPathEnded(m_PathQueue.front().GetName());
