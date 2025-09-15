@@ -20,7 +20,7 @@ class ChatPanel
 			gameSettingControlManager, setupWindow.controls.gameSettingsController, setupWindow.controls.playerAssignmentsController);
 
 		this.chatInputPanel = new ChatInputPanel(
-			setupWindow.controls.netMessages, this.chatInputAutocomplete);
+			setupWindow.controls.netMessages, this.chatInputAutocomplete, this.chatMessagesPanel);
 
 		this.chatMessageEvents = [];
 		for (const name in ChatMessageEvents)

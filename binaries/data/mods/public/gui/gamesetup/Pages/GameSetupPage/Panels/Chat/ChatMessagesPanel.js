@@ -19,11 +19,6 @@ class ChatMessagesPanel
 		this.chatPanel = Engine.GetGUIObjectByName("chatPanel");
 		this.chatPanel.onWindowResized = this.onWindowResized.bind(this);
 		gameSettingsPanel.registerGameSettingsPanelResizeHandler(this.onGameSettingsPanelResize.bind(this));
-
-		// TODO: Remove global requirements by gui/common/network.js
-		g_NetworkCommands["/list"] = () => { this.addText(getUsernameList()); };
-		g_NetworkCommands["/clear"] = this.clearChatMessages.bind(this);
-		global.kickError = () => {};
 	}
 
 	addText(text)

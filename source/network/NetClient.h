@@ -265,9 +265,9 @@ public:
 	void SendRejoinedMessage();
 
 	/**
-	 * Call to kick/ban a client
+	 * Call to perform moderation actions (such as kick/ban/mute a player)
 	 */
-	void SendKickPlayerMessage(const CStrW& playerName, bool ban);
+	void SendModerationMessage(const u32 action, const CStrW& playerName);
 
 	/**
 	 * Call when the client has paused or unpaused the game.
@@ -304,7 +304,8 @@ private:
 	static bool OnJoinSyncEndCommandBatch(CNetClient* client, CFsmEvent<CNetMessage*>* event);
 	static bool OnFlare(CNetClient* client, CFsmEvent<CNetMessage*>* event);
 	static bool OnRejoined(CNetClient* client, CFsmEvent<CNetMessage*>* event);
-	static bool OnKicked(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnModeration(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnModerationListing(CNetClient* client, CFsmEvent<CNetMessage*>* event);
 	static bool OnClientTimeout(CNetClient* client, CFsmEvent<CNetMessage*>* event);
 	static bool OnClientPerformance(CNetClient* client, CFsmEvent<CNetMessage*>* event);
 	static bool OnClientsLoading(CNetClient* client, CFsmEvent<CNetMessage*>* event);

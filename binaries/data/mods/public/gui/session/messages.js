@@ -82,11 +82,18 @@ var g_NetMessageTypes = {
 			"guid": msg.guid
 		});
 	},
-	"kicked": msg => {
+	"moderation": msg => {
 		addChatMessage({
-			"type": "kicked",
-			"username": msg.username,
-			"banned": msg.banned
+			"type": "moderation",
+			"targetPlayer": msg.targetPlayer,
+			"originPlayer": msg.originPlayer,
+			"code": msg.code
+		});
+	},
+	"moderation-listing": msg => {
+		addChatMessage({
+			"type": "moderationlisting",
+			"json": msg.json
 		});
 	},
 	"chat": msg => {
@@ -497,11 +504,6 @@ function onClientLeave(guid)
 function addChatMessage(msg)
 {
 	g_Chat.ChatMessageHandler.handleMessage(msg);
-}
-
-function clearChatMessages()
-{
-	g_Chat.ChatOverlay.clearChatMessages();
 }
 
 function handleFlare(data)

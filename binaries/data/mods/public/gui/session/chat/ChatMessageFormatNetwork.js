@@ -41,22 +41,32 @@ ChatMessageFormatNetwork.disconnect = class
 	}
 };
 
-ChatMessageFormatNetwork.kicked = class
+ChatMessageFormatNetwork.moderation = class
 {
 	parse(msg)
 	{
 		return {
 			"text": sprintf(
-				msg.banned ?
-					translate("%(username)s has been banned") :
-					translate("%(username)s has been kicked"),
+				formatModerationResponse(msg.code),
 				{
-					"username": colorizePlayernameHelper(
-						msg.username,
-						g_Players.findIndex(p => p.name == msg.username)
+					"targetPlayer": colorizePlayernameHelper(
+						msg.targetPlayer,
+						g_Players.findIndex(p => p.name == msg.targetPlayer)
+					),
+					"originPlayer": colorizePlayernameHelper(
+						msg.originPlayer,
+						g_Players.findIndex(p => p.name == msg.originPlayer)
 					)
 				})
 		};
+	}
+};
+
+ChatMessageFormatNetwork.moderationlisting = class
+{
+	parse(msg)
+	{
+		return { "text": formatModerationListing(msg.json, true) };
 	}
 };
 

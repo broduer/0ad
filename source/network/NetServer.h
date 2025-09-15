@@ -217,11 +217,6 @@ public:
 	bool SendMessage(ENetPeer* peer, const CNetMessage* message);
 
 	/**
-	 * Disconnects a player from gamesetup or session.
-	 */
-	void KickPlayer(const CStrW& playerName, const bool ban);
-
-	/**
 	 * Send a message to all clients who match one of the given states.
 	 */
 	bool Multicast(const CNetMessage* message, const std::vector<NetServerSessionState>& targetStates,
@@ -256,6 +251,28 @@ private:
 	 * game. This method is called by StartGame and StartSavedGame
 	 */
 	void PreStartGame(const CStr& initAttribs);
+
+	/**
+	 * Perform a moderation action towards a player (such as kicking, banning,
+	 * muting them, or granting them moderation privileges).
+	 * This will do nothing if the target player is the host.
+	 * @param session The network session of the peer requesting the moderation action
+	 * @param action One of the values defined in the enum NetModerationAction
+	 * @param playerName The name of the player targetted by the action
+	 */
+	void Moderation(CNetServerSession* session, const u32 action, const CStrW& playerName);
+
+	/**
+	 * Generate a JSON listing containing:
+	 * - moderation helpers' GUIDs
+	 * - muted player names
+	 * - banned player names
+	 * Additionally, if @param includeIPs is true, it contains:
+	 * - muted player IPs
+	 * - banned player IPs
+	 * (this should only be sent to the host, for privacy reasons)
+	 */
+	CStr GenerateJSONModerationListing(bool includeIPs = false) const;
 
 	/**
 	 * Switch in game mode and notify all clients to start the game.
@@ -317,7 +334,7 @@ private:
 	static bool OnLoadedGame(CNetServerSession* session, CFsmEvent<CNetMessage*>* event);
 	static bool OnJoinSyncingLoadedGame(CNetServerSession* session, CFsmEvent<CNetMessage*>* event);
 	static bool OnRejoined(CNetServerSession* session, CFsmEvent<CNetMessage*>* event);
-	static bool OnKickPlayer(CNetServerSession* session, CFsmEvent<CNetMessage*>* event);
+	static bool OnModeration(CNetServerSession* session, CFsmEvent<CNetMessage*>* event);
 	static bool OnDisconnect(CNetServerSession* session, CFsmEvent<CNetMessage*>* event);
 	static bool OnClientPaused(CNetServerSession* session, CFsmEvent<CNetMessage*>* event);
 
@@ -376,8 +393,28 @@ private:
 
 	CStrW m_ServerName;
 
+	/*
+	 * The lists of banned IP addresses and usernames. Both lists do not necessarily match.
+	 * Banned IPs will be denied at session creation.
+	 * Banned usernames will be disconnected at authentication.
+	 */
 	std::vector<u32> m_BannedIPs;
 	std::vector<CStrW> m_BannedPlayers;
+
+	/*
+	 * The lists of muted IP addresses and usernames. Both lists do not necessarily match.
+	 * CChatMessages from a session matching an item in those lists will be ignored by the server.
+	 */
+	std::vector<u32> m_MutedIPs;
+	std::vector<CStrW> m_MutedPlayers;
+
+	/*
+	 * Holds the GUIDs of all users designated by the host to be moderation helpers.
+	 * Moderation helpers can perform all moderation actions except adding/removing helpers.
+	 * To avoid impersonation, this list is not updated after a rejoin: when a helper's GUID
+	 * changes, they have to be designated as helpers again by the server host.
+	 */
+	std::vector<CStr> m_ModerationHelperGUIDs;
 
 	CStr m_Password;
 

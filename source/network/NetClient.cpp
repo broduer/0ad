@@ -29,6 +29,7 @@
 #include "network/NetEnet.h"
 #include "network/NetFileTransfer.h"
 #include "network/NetMessage.h"
+#include "network/NetModeration.h"
 #include "network/NetProtocol.h"
 #include "network/NetSession.h"
 #include "network/StunClient.h"
@@ -55,15 +56,15 @@
 #include <sstream>
 #include <utility>
 
-/**
- * Once ping goes above turn length * command delay,
- * the game will start 'freezing' for other clients while we catch up.
- * Since commands are sent client -> server -> client, divide by 2.
- * (duplicated in NetServer.cpp to avoid having to fetch the constants in a header file)
- */
+ /**
+  * Once ping goes above turn length * command delay,
+  * the game will start 'freezing' for other clients while we catch up.
+  * Since commands are sent client -> server -> client, divide by 2.
+  * (duplicated in NetServer.cpp to avoid having to fetch the constants in a header file)
+  */
 constexpr u32 NETWORK_BAD_PING = DEFAULT_TURN_LENGTH * COMMAND_DELAY_MP / 2;
 
-CNetClient *g_NetClient = NULL;
+CNetClient* g_NetClient = NULL;
 
 CNetClient::CNetClient(CGame* game) :
 	m_Session(NULL),
@@ -92,7 +93,8 @@ CNetClient::CNetClient(CGame* game) :
 	AddTransition(NCS_PREGAME, (uint)NMT_READY, NCS_PREGAME, &OnReady, this);
 	AddTransition(NCS_PREGAME, (uint)NMT_GAME_SETUP, NCS_PREGAME, &OnGameSetup, this);
 	AddTransition(NCS_PREGAME, (uint)NMT_PLAYER_ASSIGNMENT, NCS_PREGAME, &OnPlayerAssignment, this);
-	AddTransition(NCS_PREGAME, (uint)NMT_KICKED, NCS_PREGAME, &OnKicked, this);
+	AddTransition(NCS_PREGAME, (uint)NMT_MODERATION, NCS_PREGAME, &OnModeration, this);
+	AddTransition(NCS_PREGAME, (uint)NMT_MODERATION_LISTING, NCS_PREGAME, &OnModerationListing, this);
 	AddTransition(NCS_PREGAME, (uint)NMT_CLIENT_TIMEOUT, NCS_PREGAME, &OnClientTimeout, this);
 	AddTransition(NCS_PREGAME, (uint)NMT_CLIENT_PERFORMANCE, NCS_PREGAME, &OnClientPerformance, this);
 	AddTransition(NCS_PREGAME, (uint)NMT_GAME_START, NCS_LOADING, &OnGameStart, this);
@@ -102,7 +104,8 @@ CNetClient::CNetClient(CGame* game) :
 	AddTransition(NCS_JOIN_SYNCING, (uint)NMT_CHAT, NCS_JOIN_SYNCING, &OnChat, this);
 	AddTransition(NCS_JOIN_SYNCING, (uint)NMT_GAME_SETUP, NCS_JOIN_SYNCING, &OnGameSetup, this);
 	AddTransition(NCS_JOIN_SYNCING, (uint)NMT_PLAYER_ASSIGNMENT, NCS_JOIN_SYNCING, &OnPlayerAssignment, this);
-	AddTransition(NCS_JOIN_SYNCING, (uint)NMT_KICKED, NCS_JOIN_SYNCING, &OnKicked, this);
+	AddTransition(NCS_JOIN_SYNCING, (uint)NMT_MODERATION, NCS_JOIN_SYNCING, &OnModeration, this);
+	AddTransition(NCS_JOIN_SYNCING, (uint)NMT_MODERATION_LISTING, NCS_JOIN_SYNCING, &OnModerationListing, this);
 	AddTransition(NCS_JOIN_SYNCING, (uint)NMT_CLIENT_TIMEOUT, NCS_JOIN_SYNCING, &OnClientTimeout, this);
 	AddTransition(NCS_JOIN_SYNCING, (uint)NMT_CLIENT_PERFORMANCE, NCS_JOIN_SYNCING, &OnClientPerformance, this);
 	AddTransition(NCS_JOIN_SYNCING, (uint)NMT_GAME_START, NCS_JOIN_SYNCING, &OnGameStart, this);
@@ -114,14 +117,16 @@ CNetClient::CNetClient(CGame* game) :
 	AddTransition(NCS_LOADING, (uint)NMT_CHAT, NCS_LOADING, &OnChat, this);
 	AddTransition(NCS_LOADING, (uint)NMT_GAME_SETUP, NCS_LOADING, &OnGameSetup, this);
 	AddTransition(NCS_LOADING, (uint)NMT_PLAYER_ASSIGNMENT, NCS_LOADING, &OnPlayerAssignment, this);
-	AddTransition(NCS_LOADING, (uint)NMT_KICKED, NCS_LOADING, &OnKicked, this);
+	AddTransition(NCS_LOADING, (uint)NMT_MODERATION, NCS_LOADING, &OnModeration, this);
+	AddTransition(NCS_LOADING, (uint)NMT_MODERATION_LISTING, NCS_LOADING, &OnModerationListing, this);
 	AddTransition(NCS_LOADING, (uint)NMT_CLIENT_TIMEOUT, NCS_LOADING, &OnClientTimeout, this);
 	AddTransition(NCS_LOADING, (uint)NMT_CLIENT_PERFORMANCE, NCS_LOADING, &OnClientPerformance, this);
 	AddTransition(NCS_LOADING, (uint)NMT_CLIENTS_LOADING, NCS_LOADING, &OnClientsLoading, this);
 	AddTransition(NCS_LOADING, (uint)NMT_LOADED_GAME, NCS_INGAME, &OnLoadedGame, this);
 
 	AddTransition(NCS_INGAME, (uint)NMT_REJOINED, NCS_INGAME, &OnRejoined, this);
-	AddTransition(NCS_INGAME, (uint)NMT_KICKED, NCS_INGAME, &OnKicked, this);
+	AddTransition(NCS_INGAME, (uint)NMT_MODERATION, NCS_INGAME, &OnModeration, this);
+	AddTransition(NCS_INGAME, (uint)NMT_MODERATION_LISTING, NCS_INGAME, &OnModerationListing, this);
 	AddTransition(NCS_INGAME, (uint)NMT_CLIENT_TIMEOUT, NCS_INGAME, &OnClientTimeout, this);
 	AddTransition(NCS_INGAME, (uint)NMT_CLIENT_PERFORMANCE, NCS_INGAME, &OnClientPerformance, this);
 	AddTransition(NCS_INGAME, (uint)NMT_CLIENTS_LOADING, NCS_INGAME, &OnClientsLoading, this);
@@ -148,7 +153,7 @@ CNetClient::~CNetClient()
 	JS_RemoveExtraGCRootsTracer(GetScriptInterface().GetGeneralJSContext(), CNetClient::Trace, this);
 }
 
-void CNetClient::TraceMember(JSTracer *trc)
+void CNetClient::TraceMember(JSTracer* trc)
 {
 	for (JS::Heap<JS::Value>& guiMessage : m_GuiMessageQueue)
 		JS::TraceEdge(trc, &guiMessage, "m_GuiMessageQueue");
@@ -455,17 +460,18 @@ void CNetClient::HandleDisconnect(u32 reason)
 		const auto& mismatch = CheckHandshake(m_ServerHandshake, CreateHandshake<CCliHandshakeMessage>());
 		ENSURE(mismatch.has_value());
 		PushGuiMessage(
-					"type", "netstatus",
-					"status", "disconnected",
-					"reason", reason,
-					"mismatch_type", mismatch->componentType,
-					"client_mismatch_component", mismatch->clientComponent,
-					"server_mismatch_component", mismatch->serverComponent);
-	} else
+			"type", "netstatus",
+			"status", "disconnected",
+			"reason", reason,
+			"mismatch_type", mismatch->componentType,
+			"client_mismatch_component", mismatch->clientComponent,
+			"server_mismatch_component", mismatch->serverComponent);
+	}
+	else
 		PushGuiMessage(
-					"type", "netstatus",
-					"status", "disconnected",
-					"reason", reason);
+			"type", "netstatus",
+			"status", "disconnected",
+			"reason", reason);
 
 	DestroyConnection();
 
@@ -498,7 +504,7 @@ void CNetClient::SendChatMessage(const std::wstring& text,
 		std::transform(receivers->begin(), receivers->end(), std::back_inserter(chat.m_Receivers),
 			[](std::string& receiver)
 			{
-				return CChatMessage::S_m_Receivers{std::move(receiver)};
+				return CChatMessage::S_m_Receivers{ std::move(receiver) };
 			});
 	SendMessage(&chat);
 }
@@ -547,12 +553,13 @@ void CNetClient::SendRejoinedMessage()
 	SendMessage(&rejoinedMessage);
 }
 
-void CNetClient::SendKickPlayerMessage(const CStrW& playerName, bool ban)
+void CNetClient::SendModerationMessage(const u32 action, const CStrW& playerName)
 {
-	CKickedMessage kickPlayer;
-	kickPlayer.m_Name = playerName;
-	kickPlayer.m_Ban = ban;
-	SendMessage(&kickPlayer);
+	CModerationMessage moderation;
+	moderation.m_Action = action;
+	if (!playerName.empty())
+		moderation.m_TargetPlayer = playerName;
+	SendMessage(&moderation);
 }
 
 void CNetClient::SendPausedMessage(bool pause)
@@ -576,7 +583,7 @@ bool CNetClient::HandleMessage(CNetMessage* message)
 	{
 		CFileTransferRequestMessage* reqMessage = static_cast<CFileTransferRequestMessage*>(message);
 
-		std::string uncompressedGameState{[&]
+		std::string uncompressedGameState{ [&]
 			{
 				if (static_cast<CNetFileTransferer::RequestType>(reqMessage->m_RequestType) ==
 					CNetFileTransferer::RequestType::LOADGAME)
@@ -593,7 +600,7 @@ bool CNetClient::HandleMessage(CNetMessage* message)
 				bool ok = m_Game->GetSimulation2()->SerializeState(stream);
 				ENSURE(ok);
 				return stream.str();
-			}()};
+			}() };
 
 		// Compress the content with zlib to save bandwidth
 		// (TODO: if this is still too large, compressing with e.g. LZMA works much better)
@@ -665,10 +672,10 @@ void CNetClient::SendAuthenticateMessage()
 void CNetClient::StartGame(const JS::MutableHandleValue initAttributes, const std::string& savedState)
 {
 	const auto foundPlayer = m_PlayerAssignments.find(m_GUID);
-	const i32 player{foundPlayer != m_PlayerAssignments.end() ? foundPlayer->second.m_PlayerID : -1};
+	const i32 player{ foundPlayer != m_PlayerAssignments.end() ? foundPlayer->second.m_PlayerID : -1 };
 
-	m_ClientTurnManager = new CNetClientTurnManager{*m_Game->GetSimulation2(), *this,
-		static_cast<int>(m_HostID), m_Game->GetReplayLogger()};
+	m_ClientTurnManager = new CNetClientTurnManager{ *m_Game->GetSimulation2(), *this,
+		static_cast<int>(m_HostID), m_Game->GetReplayLogger() };
 
 	m_Game->SetPlayerID(player);
 	m_Game->StartGame(initAttributes, savedState);
@@ -827,9 +834,9 @@ bool CNetClient::OnGameStart(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 
 	CGameStartMessage* message = static_cast<CGameStartMessage*>(event->GetParamRef());
 
-	const ScriptInterface& scriptInterface{client->m_Game->GetSimulation2()->GetScriptInterface()};
-	ScriptRequest rq{scriptInterface};
-	JS::RootedValue initAttribs{rq.cx};
+	const ScriptInterface& scriptInterface{ client->m_Game->GetSimulation2()->GetScriptInterface() };
+	ScriptRequest rq{ scriptInterface };
+	JS::RootedValue initAttribs{ rq.cx };
 	Script::ParseJSON(rq, message->m_InitAttributes, &initAttribs);
 
 	client->PushGuiMessage("type", "start", "initAttributes", initAttribs);
@@ -840,11 +847,11 @@ bool CNetClient::OnGameStart(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 bool CNetClient::OnSavedGameStart(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == static_cast<uint>(NMT_SAVED_GAME_START));
-	CGameSavedStartMessage* message{static_cast<CGameSavedStartMessage*>(event->GetParamRef())};
+	CGameSavedStartMessage* message{ static_cast<CGameSavedStartMessage*>(event->GetParamRef()) };
 
-	const ScriptInterface& scriptInterface{client->m_Game->GetSimulation2()->GetScriptInterface()};
-	ScriptRequest rq{scriptInterface};
-	const std::shared_ptr<JS::RootedValue> initAttribs{std::make_shared<JS::RootedValue>(rq.cx)};
+	const ScriptInterface& scriptInterface{ client->m_Game->GetSimulation2()->GetScriptInterface() };
+	ScriptRequest rq{ scriptInterface };
+	const std::shared_ptr<JS::RootedValue> initAttribs{ std::make_shared<JS::RootedValue>(rq.cx) };
 	Script::ParseJSON(rq, message->m_InitAttributes, &*initAttribs);
 
 	client->PushGuiMessage("type", "start", "initAttributes", *initAttribs);
@@ -870,7 +877,7 @@ bool CNetClient::OnJoinSyncStart(CNetClient* client, CFsmEvent<CNetMessage*>* ev
 	// The server wants us to start downloading the game state from it, so do so
 	client->m_Session->GetFileTransferer().StartTask(CNetFileTransferer::RequestType::REJOIN,
 		[client, initAttributes = std::move(joinSyncStartMessage->m_InitAttributes)](std::string buffer)
-			mutable
+		mutable
 		{
 			// We've received the game state from the server.
 
@@ -913,19 +920,39 @@ bool CNetClient::OnRejoined(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 	return true;
 }
 
-bool CNetClient::OnKicked(CNetClient* client, CFsmEvent<CNetMessage*>* event)
+bool CNetClient::OnModeration(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
-	ENSURE(event->GetType() == (uint)NMT_KICKED);
+	ENSURE(event->GetType() == (uint)NMT_MODERATION);
 
-	CKickedMessage* message = static_cast<CKickedMessage*>(event->GetParamRef());
+	CModerationMessage* message = static_cast<CModerationMessage*>(event->GetParamRef());
+
+	// Ignore server-related moderation actions
+	if (message->m_Action != NMA_RESPONSE)
+		return true;
 
 	client->PushGuiMessage(
-		"username", message->m_Name,
-		"type", "kicked",
-		"banned", message->m_Ban != 0);
+		"type", "moderation",
+		"originPlayer", message->m_OriginPlayer,
+		"targetPlayer", message->m_TargetPlayer,
+		"code", message->m_ResponseCode);
+
+	return true;
+
+}
+
+bool CNetClient::OnModerationListing(CNetClient* client, CFsmEvent<CNetMessage*>* event)
+{
+	ENSURE(event->GetType() == (uint)NMT_MODERATION_LISTING);
+
+	CModerationListingMessage* message = static_cast<CModerationListingMessage*>(event->GetParamRef());
+
+	client->PushGuiMessage(
+		"type", "moderation-listing",
+		"json", message->m_JSONModerationListing);
 
 	return true;
 }
+
 
 bool CNetClient::OnClientTimeout(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
@@ -968,7 +995,7 @@ bool CNetClient::OnClientPerformance(CNetClient* client, CFsmEvent<CNetMessage*>
 	return true;
 }
 
-bool CNetClient::OnClientsLoading(CNetClient* client, CFsmEvent<CNetMessage*> *event)
+bool CNetClient::OnClientsLoading(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_CLIENTS_LOADING);
 
@@ -985,7 +1012,7 @@ bool CNetClient::OnClientsLoading(CNetClient* client, CFsmEvent<CNetMessage*> *e
 	return true;
 }
 
-bool CNetClient::OnClientPaused(CNetClient* client, CFsmEvent<CNetMessage*> *event)
+bool CNetClient::OnClientPaused(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == (uint)NMT_CLIENT_PAUSED);
 

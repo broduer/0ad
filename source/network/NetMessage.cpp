@@ -135,8 +135,12 @@ CNetMessage* CNetMessageFactory::CreateMessage(const void* pData,
 		pNewMessage = new CRejoinedMessage;
 		break;
 
-	case NMT_KICKED:
-		pNewMessage = new CKickedMessage;
+	case NMT_MODERATION:
+		pNewMessage = new CModerationMessage;
+		break;
+
+	case NMT_MODERATION_LISTING:
+		pNewMessage = new CModerationListingMessage;
 		break;
 
 	case NMT_CLIENT_TIMEOUT:

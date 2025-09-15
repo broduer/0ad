@@ -312,6 +312,7 @@
                 "filemasks": [
                     "globalscripts/**.js",
                     "gui/common/**.js",
+                    "gui/common/moderation/**.js",
                     "gui/credits/**.js",
                     "gui/hotkeys/**.js",
                     "gui/loadgame/**.js",

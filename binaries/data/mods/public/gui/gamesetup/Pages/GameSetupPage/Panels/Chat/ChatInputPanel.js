@@ -1,8 +1,9 @@
 class ChatInputPanel
 {
-	constructor(netMessages, chatInputAutocomplete)
+	constructor(netMessages, chatInputAutocomplete, chatMessagesPanel)
 	{
 		this.chatInputAutocomplete = chatInputAutocomplete;
+		this.chatMessagesPanel = chatMessagesPanel;
 
 		this.chatSubmitButton = Engine.GetGUIObjectByName("chatSubmitButton");
 		resizeGUIObjectToCaption(this.chatSubmitButton, { "horizontal": "left" }, { "horizontal": 8 });
@@ -50,7 +51,13 @@ class ChatInputPanel
 
 		this.chatInput.caption = "";
 
-		if (!executeNetworkCommand(text))
+		if (text.split(" ", 1)[0] == "/clear")
+			this.chatMessagesPanel.clearChatMessages();
+
+		else if (text.split(" ", 1)[0] == "/list")
+			this.chatMessagesPanel.addText(getUsernameList());
+
+		else if (!executeModerationCommand(text))
 			Engine.SendNetworkChat(text);
 
 		this.chatInput.focus();

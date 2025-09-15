@@ -26,6 +26,7 @@
 #include "lobby/IXmppClient.h"
 #include "network/NetClient.h"
 #include "network/NetMessage.h"
+#include "network/NetModeration.h"
 #include "network/NetServer.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
@@ -89,7 +90,7 @@ void StartNetworkHost(const CStrW& playerName, const u16 serverPort, const CStr&
 	if (!g_NetServer->SetupConnection(serverPort))
 	{
 		SAFE_DELETE(g_NetServer);
-		throw std::runtime_error{"Failed to start server"};
+		throw std::runtime_error{ "Failed to start server" };
 	}
 
 	// In lobby, we send our public ip and port on request to the players who want to connect.
@@ -97,7 +98,7 @@ void StartNetworkHost(const CStrW& playerName, const u16 serverPort, const CStr&
 	if (hasLobby && !g_NetServer->SetConnectionData())
 	{
 		SAFE_DELETE(g_NetServer);
-		throw std::runtime_error{"Failed to resolve public IP-address."};
+		throw std::runtime_error{ "Failed to resolve public IP-address." };
 	}
 
 	// Generate a secret to identify the host client.
@@ -113,21 +114,21 @@ void StartNetworkHost(const CStrW& playerName, const u16 serverPort, const CStr&
 		CStr hostJID = g_XmppClient->GetJID();
 
 		/**
-		 * Password security - we want 0 A.D. to protect players from malicious hosts. We assume that clients
-		 * might mistakenly send a personal password instead of the game password (e.g. enter their mail account's password on autopilot).
-		 * Malicious dedicated servers might be set up to farm these failed logins and possibly obtain user credentials.
-		 * Therefore, we hash the passwords on the client side before sending them to the server.
-		 * This still makes the passwords potentially recoverable, but makes it much harder at scale.
-		 * To prevent the creation of rainbow tables, hash with:
-		 * - the host name
-		 * - the client name (this makes rainbow tables completely unworkable unless a specific user is targeted,
-		 *   but that would require both computing the matching rainbow table _and_ for that specific user to mistype a personal password,
-		 *   at which point we assume the attacker would/could probably just rather use another means of obtaining the password).
-		 * - the password itself
-		 * - the engine version (so that the hashes change periodically)
-		 * TODO: it should be possible to implement SRP or something along those lines to completely protect from this,
-		 * but the cost/benefit ratio is probably not worth it.
-		 */
+			* Password security - we want 0 A.D. to protect players from malicious hosts. We assume that clients
+			* might mistakenly send a personal password instead of the game password (e.g. enter their mail account's password on autopilot).
+			* Malicious dedicated servers might be set up to farm these failed logins and possibly obtain user credentials.
+			* Therefore, we hash the passwords on the client side before sending them to the server.
+			* This still makes the passwords potentially recoverable, but makes it much harder at scale.
+			* To prevent the creation of rainbow tables, hash with:
+			* - the host name
+			* - the client name (this makes rainbow tables completely unworkable unless a specific user is targeted,
+			*   but that would require both computing the matching rainbow table _and_ for that specific user to mistype a personal password,
+			*   at which point we assume the attacker would/could probably just rather use another means of obtaining the password).
+			* - the password itself
+			* - the engine version (so that the hashes change periodically)
+			* TODO: it should be possible to implement SRP or something along those lines to completely protect from this,
+			* but the cost/benefit ratio is probably not worth it.
+			*/
 		CStr hashedPass = HashCryptographically(password, hostJID + password + engine_version);
 		g_NetServer->SetPassword(hashedPass);
 		g_NetClient->SetHostJID(hostJID);
@@ -141,7 +142,7 @@ void StartNetworkHost(const CStrW& playerName, const u16 serverPort, const CStr&
 	{
 		SAFE_DELETE(g_NetClient);
 		SAFE_DELETE(g_Game);
-		throw std::runtime_error{"Failed to connect to server"};
+		throw std::runtime_error{ "Failed to connect to server" };
 	}
 }
 
@@ -160,15 +161,15 @@ void StartNetworkJoin(const CStrW& playerName, const CStr& serverAddress, u16 se
 	{
 		SAFE_DELETE(g_NetClient);
 		SAFE_DELETE(g_Game);
-		throw std::runtime_error{"Failed to connect to server"};
+		throw std::runtime_error{ "Failed to connect to server" };
 	}
 }
 
 /**
- * Requires XmppClient to send iq request to the server to get server's ip and port based on passed password.
- * This is needed to not force server to share it's public ip with all potential clients in the lobby.
- * XmppClient will also handle logic after receiving the answer.
- */
+	* Requires XmppClient to send iq request to the server to get server's ip and port based on passed password.
+	* This is needed to not force server to share it's public ip with all potential clients in the lobby.
+	* XmppClient will also handle logic after receiving the answer.
+	*/
 void StartNetworkJoinLobby(const CStrW& playerName, const CStr& hostJID, const CStr& password)
 {
 	ENSURE(!!g_XmppClient);
@@ -232,11 +233,46 @@ void AssignNetworkPlayer(int playerID, const CStr& guid)
 	g_NetClient->SendAssignPlayerMessage(playerID, guid);
 }
 
-void KickPlayer(const CStrW& playerName, bool ban)
+void QueryModerationList()
 {
-	if (!g_NetClient)
-		throw std::logic_error{"g_NetClient is null."};
-	g_NetClient->SendKickPlayerMessage(playerName, ban);
+	ENSURE(g_NetClient);
+
+	g_NetClient->SendModerationMessage((u32)NMA_LIST, L"");
+}
+
+void ClearModerationList()
+{
+	ENSURE(g_NetClient);
+
+	g_NetClient->SendModerationMessage((u32)NMA_CLEAR, L"");
+}
+
+void MutePlayer(const CStrW& playerName, bool toggle)
+{
+	ENSURE(g_NetClient);
+
+	g_NetClient->SendModerationMessage((u32)(toggle ? NMA_MUTE : NMA_UNMUTE), playerName);
+}
+
+void KickPlayer(const CStrW& playerName)
+{
+	ENSURE(g_NetClient);
+
+	g_NetClient->SendModerationMessage((u32)NMA_KICK, playerName);
+}
+
+void BanPlayer(const CStrW& playerName, bool toggle)
+{
+	ENSURE(g_NetClient);
+
+	g_NetClient->SendModerationMessage((u32)(toggle ? NMA_BAN : NMA_UNBAN), playerName);
+}
+
+void SetModerationHelper(const CStrW& playerName, bool toggle)
+{
+	ENSURE(g_NetClient);
+
+	g_NetClient->SendModerationMessage((u32)(toggle ? NMA_HELPER : NMA_UNHELPER), playerName);
 }
 
 void SendNetworkChat(const ScriptRequest& rq, const CStrW& message, JS::HandleValue handle)
@@ -252,8 +288,8 @@ void SendNetworkChat(const ScriptRequest& rq, const CStrW& message, JS::HandleVa
 	auto receivers = std::make_optional<std::vector<std::string>>();
 	if (!Script::FromJSVal(rq, handle, *receivers))
 	{
-		throw std::invalid_argument{"The second argument to `SendNetworkChat` has to be either an "
-			"Array or a nullish value."};
+		throw std::invalid_argument{ "The second argument to `SendNetworkChat` has to be either an "
+			"Array or a nullish value." };
 		return;
 	}
 
@@ -267,7 +303,7 @@ void SendNetworkReady(int message)
 	g_NetClient->SendReadyMessage(message);
 }
 
-void ClearAllPlayerReady ()
+void ClearAllPlayerReady()
 {
 	ENSURE(g_NetClient);
 
@@ -281,7 +317,7 @@ void StartNetworkGame(const ScriptInterface& scriptInterface, JS::HandleValue sa
 	ScriptRequest rq(scriptInterface);
 
 	JS::RootedValue attribs(rq.cx, attribs1);
-	std::string attributesAsString{Script::StringifyJSON(rq, &attribs)};
+	std::string attributesAsString{ Script::StringifyJSON(rq, &attribs) };
 
 	if (savegame.isUndefined())
 	{
@@ -292,13 +328,13 @@ void StartNetworkGame(const ScriptInterface& scriptInterface, JS::HandleValue sa
 	std::wstring savegameID;
 	Script::FromJSVal(rq, savegame, savegameID);
 
-	const std::optional<SavedGames::LoadResult> loadResult{SavedGames::Load(scriptInterface, savegameID)};
+	const std::optional<SavedGames::LoadResult> loadResult{ SavedGames::Load(scriptInterface, savegameID) };
 	if (loadResult)
 		g_NetClient->SendStartSavedGameMessage(attributesAsString, loadResult->savedState);
 	else
 	{
-		throw std::runtime_error{fmt::format("Failed to load the saved game: \"{}\"",
-			utf8_from_wstring(savegameID).c_str())};
+		throw std::runtime_error{ fmt::format("Failed to load the saved game: \"{}\"",
+			utf8_from_wstring(savegameID).c_str()) };
 	}
 }
 
@@ -347,7 +383,12 @@ void RegisterScriptFunctions(const ScriptRequest& rq)
 	ScriptFunction::Register<&PollNetworkClient>(rq, "PollNetworkClient");
 	ScriptFunction::Register<&SendGameSetupMessage>(rq, "SendGameSetupMessage");
 	ScriptFunction::Register<&AssignNetworkPlayer>(rq, "AssignNetworkPlayer");
+	ScriptFunction::Register<&QueryModerationList>(rq, "QueryModerationList");
+	ScriptFunction::Register<&ClearModerationList>(rq, "ClearModerationList");
+	ScriptFunction::Register<&MutePlayer>(rq, "MutePlayer");
 	ScriptFunction::Register<&KickPlayer>(rq, "KickPlayer");
+	ScriptFunction::Register<&BanPlayer>(rq, "BanPlayer");
+	ScriptFunction::Register<&SetModerationHelper>(rq, "SetModerationHelper");
 	ScriptFunction::Register<&SendNetworkChat>(rq, "SendNetworkChat");
 	ScriptFunction::Register<&SendNetworkReady>(rq, "SendNetworkReady");
 	ScriptFunction::Register<&ClearAllPlayerReady>(rq, "ClearAllPlayerReady");

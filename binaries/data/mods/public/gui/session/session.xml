@@ -4,6 +4,7 @@
 
 <script directory="gui/common/"/>
 <script directory="gui/common/campaigns/"/>
+<script directory="gui/common/moderation/"/>
 <script directory="gui/maps/"/>
 <script directory="gui/session/"/>
 <script directory="gui/session/campaigns/"/>

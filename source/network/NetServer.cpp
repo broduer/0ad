@@ -31,6 +31,7 @@
 #include "network/NetFileTransfer.h"
 #include "network/NetHost.h"
 #include "network/NetMessage.h"
+#include "network/NetModeration.h"
 #include "network/NetProtocol.h"
 #include "network/NetServerTurnManager.h"
 #include "network/NetSession.h"
@@ -69,12 +70,12 @@
 #include <miniupnpc/upnperrors.h>
 #endif
 
-/**
- * Number of peers to allocate for the enet host.
- * Limited by ENET_PROTOCOL_MAXIMUM_PEER_ID (4096).
- *
- * At most 8 players, 32 observers and 1 temporary connection to send the "server full" disconnect-reason.
- */
+ /**
+  * Number of peers to allocate for the enet host.
+  * Limited by ENET_PROTOCOL_MAXIMUM_PEER_ID (4096).
+  *
+  * At most 8 players, 32 observers and 1 temporary connection to send the "server full" disconnect-reason.
+  */
 #define MAX_CLIENTS 41
 
 #define	DEFAULT_SERVER_NAME			L"Unnamed Server"
@@ -114,7 +115,7 @@ static CStr DebugName(CNetServerSession* session)
  */
 
 CNetServerWorker::CNetServerWorker(const bool continueSavedGame, const bool useLobbyAuth) :
-	m_ContinuesSavedGame{continueSavedGame},
+	m_ContinuesSavedGame{ continueSavedGame },
 	m_LobbyAuth(useLobbyAuth),
 	m_Shutdown(false),
 	m_ScriptInterface(NULL),
@@ -243,15 +244,15 @@ void CNetServerWorker::SetupUPnP(const u16 port)
 
 	// Make sure everything is properly freed.
 	std::function<void()> freeUPnP = [&allocatedUrls, &urls, &devlist]()
-	{
-		if (allocatedUrls)
-			FreeUPNPUrls(&urls);
-		freeUPNPDevlist(devlist);
-		// IGDdatas does not need to be freed according to UPNP_GetIGDFromUrl
-	};
+		{
+			if (allocatedUrls)
+				FreeUPNPUrls(&urls);
+			freeUPNPDevlist(devlist);
+			// IGDdatas does not need to be freed according to UPNP_GetIGDFromUrl
+		};
 
 	// Cached root descriptor URL.
-	const std::string rootDescURL{g_ConfigDB.Get("network.upnprootdescurl", std::string{})};
+	const std::string rootDescURL{ g_ConfigDB.Get("network.upnprootdescurl", std::string{}) };
 	if (!rootDescURL.empty())
 		LOGMESSAGE("Net server: attempting to use cached root descriptor URL: %s", rootDescURL.c_str());
 
@@ -325,24 +326,24 @@ void CNetServerWorker::SetupUPnP(const u16 port)
 
 	// Try to setup port forwarding.
 	ret = UPNP_AddPortMapping(urls.controlURL, data.first.servicetype, psPort, psPort,
-							internalIPAddress, description, protocall, 0, leaseDuration);
+		internalIPAddress, description, protocall, 0, leaseDuration);
 	if (ret != UPNPCOMMAND_SUCCESS)
 	{
 		LOGMESSAGE("Net server: AddPortMapping(%s, %s, %s) failed with code %d (%s)",
-			   psPort, psPort, internalIPAddress, ret, strupnperror(ret));
+			psPort, psPort, internalIPAddress, ret, strupnperror(ret));
 		freeUPnP();
 		return;
 	}
 
 	// Check that the port was actually forwarded.
 	ret = UPNP_GetSpecificPortMappingEntry(urls.controlURL,
-									 data.first.servicetype,
-									 psPort, protocall,
+		data.first.servicetype,
+		psPort, protocall,
 #if defined(MINIUPNPC_API_VERSION) && MINIUPNPC_API_VERSION >= 10
-									 NULL/*remoteHost*/,
+		NULL/*remoteHost*/,
 #endif
-									 intClient, intPort, NULL/*desc*/,
-									 NULL/*enabled*/, duration);
+		intClient, intPort, NULL/*desc*/,
+		NULL/*enabled*/, duration);
 
 	if (ret != UPNPCOMMAND_SUCCESS)
 	{
@@ -352,7 +353,7 @@ void CNetServerWorker::SetupUPnP(const u16 port)
 	}
 
 	LOGMESSAGE("Net server: External %s:%s %s is redirected to internal %s:%s (duration=%s)",
-				   externalIPAddress, psPort, protocall, intClient, intPort, duration);
+		externalIPAddress, psPort, protocall, intClient, intPort, duration);
 
 	// Cache root descriptor URL to try to avoid discovery next time.
 	g_ConfigDB.SetValueString(CFG_USER, "network.upnprootdescurl", urls.rootdescURL);
@@ -633,8 +634,8 @@ void CNetServerWorker::CheckClientConnections()
 			for (size_t j = 0; j < m_Sessions.size(); ++j)
 			{
 				if (i != j && (
-				    (m_Sessions[j]->GetCurrState() == NSS_PREGAME && m_State == SERVER_STATE_PREGAME) ||
-				    m_Sessions[j]->GetCurrState() == NSS_INGAME))
+					(m_Sessions[j]->GetCurrState() == NSS_PREGAME && m_State == SERVER_STATE_PREGAME) ||
+					m_Sessions[j]->GetCurrState() == NSS_INGAME))
 				{
 					m_Sessions[j]->SendMessage(message);
 				}
@@ -662,7 +663,7 @@ void CNetServerWorker::HandleMessageReceive(CNetMessage* message, CNetServerSess
 
 		session->GetFileTransferer().StartResponse(reqMessage->m_RequestID,
 			static_cast<CNetFileTransferer::RequestType>(reqMessage->m_RequestType) ==
-				CNetFileTransferer::RequestType::LOADGAME ? m_SavedState : m_JoinSyncFile);
+			CNetFileTransferer::RequestType::LOADGAME ? m_SavedState : m_JoinSyncFile);
 
 		return;
 	}
@@ -693,17 +694,17 @@ void CNetServerWorker::SetupSession(CNetServerSession* session)
 	session->AddTransition(NSS_PREGAME, (uint)NMT_CLEAR_ALL_READY, NSS_PREGAME, &OnClearAllReady, session);
 	session->AddTransition(NSS_PREGAME, (uint)NMT_GAME_SETUP, NSS_PREGAME, &OnGameSetup, session);
 	session->AddTransition(NSS_PREGAME, (uint)NMT_ASSIGN_PLAYER, NSS_PREGAME, &OnAssignPlayer, session);
-	session->AddTransition(NSS_PREGAME, (uint)NMT_KICKED, NSS_PREGAME, &OnKickPlayer, session);
+	session->AddTransition(NSS_PREGAME, (uint)NMT_MODERATION, NSS_PREGAME, &OnModeration, session);
 	session->AddTransition(NSS_PREGAME, (uint)NMT_GAME_START, NSS_PREGAME, &OnGameStart, session);
 	session->AddTransition(NSS_PREGAME, (uint)NMT_SAVED_GAME_START, NSS_PREGAME, &OnSavedGameStart, session);
 	session->AddTransition(NSS_PREGAME, (uint)NMT_LOADED_GAME, NSS_INGAME, &OnLoadedGame, session);
 
-	session->AddTransition(NSS_JOIN_SYNCING, (uint)NMT_KICKED, NSS_JOIN_SYNCING, &OnKickPlayer, session);
+	session->AddTransition(NSS_JOIN_SYNCING, (uint)NMT_MODERATION, NSS_JOIN_SYNCING, &OnModeration, session);
 	session->AddTransition(NSS_JOIN_SYNCING, (uint)NMT_CONNECTION_LOST, NSS_UNCONNECTED, &OnDisconnect, session);
 	session->AddTransition(NSS_JOIN_SYNCING, (uint)NMT_LOADED_GAME, NSS_INGAME, &OnJoinSyncingLoadedGame, session);
 
 	session->AddTransition(NSS_INGAME, (uint)NMT_REJOINED, NSS_INGAME, &OnRejoined, session);
-	session->AddTransition(NSS_INGAME, (uint)NMT_KICKED, NSS_INGAME, &OnKickPlayer, session);
+	session->AddTransition(NSS_INGAME, (uint)NMT_MODERATION, NSS_INGAME, &OnModeration, session);
 	session->AddTransition(NSS_INGAME, (uint)NMT_CLIENT_PAUSED, NSS_INGAME, &OnClientPaused, session);
 	session->AddTransition(NSS_INGAME, (uint)NMT_CONNECTION_LOST, NSS_UNCONNECTED, &OnDisconnect, session);
 	session->AddTransition(NSS_INGAME, (uint)NMT_CHAT, NSS_INGAME, &OnChat, session);
@@ -724,8 +725,8 @@ bool CNetServerWorker::HandleConnect(CNetServerSession* session)
 		return false;
 	}
 
-    const CSrvHandshakeMessage handshake(CreateHandshake<CSrvHandshakeMessage>());
-    return session->SendMessage(&handshake);
+	const CSrvHandshakeMessage handshake(CreateHandshake<CSrvHandshakeMessage>());
+	return session->SendMessage(&handshake);
 }
 
 void CNetServerWorker::OnUserJoin(CNetServerSession* session)
@@ -820,37 +821,219 @@ void CNetServerWorker::ClearAllPlayerReady()
 	SendPlayerAssignments();
 }
 
-void CNetServerWorker::KickPlayer(const CStrW& playerName, const bool ban)
+// TODO: playerName should be replaced by a playerIdentifier that can be either a name or an IP
+void CNetServerWorker::Moderation(CNetServerSession* session, const u32 action, const CStrW& playerName)
 {
-	// Find the user with that name
+	// If the moderation action is a request to reset the lists, check one more time that the request
+	// comes from the host, perform the clearing, and notify everyone.
+	if (action == NMA_CLEAR)
+	{
+		ENSURE(session->GetGUID() == m_ControllerGUID);
+		m_MutedPlayers.clear();
+		m_MutedIPs.clear();
+		m_BannedPlayers.clear();
+		m_BannedIPs.clear();
+		m_ModerationHelperGUIDs.clear();
+
+		CModerationMessage response;
+		response.m_Action = NMA_RESPONSE;
+		response.m_ResponseCode = NMRC_CLEARED;
+		Multicast(&response, { NSS_PREGAME, NSS_JOIN_SYNCING, NSS_INGAME });
+		return;
+	}
+
+	// If the moderation action is a request for the moderation lists, generate the requested JSON
+	// and send it. Don't include IPs except if the request comes from the host.
+	if (action == NMA_LIST)
+	{
+		CModerationListingMessage listing;
+		listing.m_JSONModerationListing = GenerateJSONModerationListing(session->GetGUID() == m_ControllerGUID);
+		session->SendMessage(&listing);
+		return;
+	}
+
+	// In other cases, the playerName should not be empty
+	if (playerName.empty())
+		return;
+
+	// Find the session where the user has that name
 	std::vector<CNetServerSession*>::iterator it = std::find_if(m_Sessions.begin(), m_Sessions.end(),
 		[&](CNetServerSession* session) { return session->GetUserName() == playerName; });
 
-	// and return if no one or the host has that name
-	if (it == m_Sessions.end() || (*it)->GetGUID() == m_ControllerGUID)
+	// If this is the host's session, do nothing
+	if (it != m_Sessions.end() && (*it)->GetGUID() == m_ControllerGUID)
 		return;
 
-	if (ban)
-	{
-		// Remember name
-		if (std::find(m_BannedPlayers.begin(), m_BannedPlayers.end(), playerName) == m_BannedPlayers.end())
-			m_BannedPlayers.push_back(m_LobbyAuth ? CStrW(playerName.substr(0, playerName.find(L" ("))) : playerName);
+	// Prepare a post-moderation response message
+	CModerationMessage responseMessage;
+	responseMessage.m_Action = NMA_RESPONSE;
+	responseMessage.m_OriginPlayer = session->GetUserName();
+	responseMessage.m_TargetPlayer = playerName;
 
-		// Remember IP address
-		u32 ipAddress = (*it)->GetIPAddress();
-		if (std::find(m_BannedIPs.begin(), m_BannedIPs.end(), ipAddress) == m_BannedIPs.end())
-			m_BannedIPs.push_back(ipAddress);
+	// Format the player name for moderation lists
+	CStrW name = m_LobbyAuth ? CStrW(playerName.substr(0, playerName.find(L" ("))) : playerName;
+
+	u32 ipAddress = 0;
+	// If we found the session, we can get the IP of the target player and add it to moderation lists as well
+	if (it != m_Sessions.end())
+		ipAddress = (*it)->GetIPAddress();
+	// If no session was found, we only allow the (un)mute and (un)ban actions to be performed. In this case, we will
+	// only update the related player names list, not the IPs list
+	else if (action != NMA_MUTE && action != NMA_UNMUTE && action != NMA_BAN && action != NMA_UNBAN)
+	{
+
+		responseMessage.m_ResponseCode = NMRC_PLAYERNOTFOUND;
+		session->SendMessage(&responseMessage);
+		return;
+
 	}
 
-	// Disconnect that user
-	(*it)->Disconnect(ban ? NDR_BANNED : NDR_KICKED);
+	std::vector<CStrW>::iterator playersIt;
+	std::vector<u32>::iterator addressesIt;
+	std::vector<CStr>::iterator GUIDsIt;
 
-	// Send message notifying other clients
-	CKickedMessage kickedMessage;
-	kickedMessage.m_Name = playerName;
-	kickedMessage.m_Ban = ban;
-	Multicast(&kickedMessage, { NSS_PREGAME, NSS_JOIN_SYNCING, NSS_INGAME });
+	switch (action)
+	{
+	case NMA_MUTE:
+		if (std::find(m_MutedPlayers.begin(), m_MutedPlayers.end(), name) == m_MutedPlayers.end())
+			m_MutedPlayers.push_back(name);
+		if (ipAddress && std::find(m_MutedIPs.begin(), m_MutedIPs.end(), ipAddress) == m_MutedIPs.end())
+			m_MutedIPs.push_back(ipAddress);
+
+		responseMessage.m_ResponseCode = NMRC_MUTE_SUCCESS;
+		Multicast(&responseMessage, { NSS_PREGAME, NSS_JOIN_SYNCING, NSS_INGAME });
+		return;
+
+	case NMA_UNMUTE:
+		playersIt = std::find(m_MutedPlayers.begin(), m_MutedPlayers.end(), name);
+		addressesIt = std::find(m_MutedIPs.begin(), m_MutedIPs.end(), ipAddress);
+		if (playersIt == m_MutedPlayers.end() && addressesIt == m_MutedIPs.end())
+		{
+			responseMessage.m_ResponseCode = NMRC_UNMUTE_NOTFOUND;
+			session->SendMessage(&responseMessage);
+		}
+		else
+		{
+			if (playersIt != m_MutedPlayers.end())
+				m_MutedPlayers.erase(playersIt);
+			if (addressesIt != m_MutedIPs.end())
+				m_MutedIPs.erase(addressesIt);
+			responseMessage.m_ResponseCode = NMRC_UNMUTE_SUCCESS;
+			Multicast(&responseMessage, { NSS_PREGAME, NSS_JOIN_SYNCING, NSS_INGAME });
+		}
+		return;
+
+	case NMA_KICK:
+		ENSURE(it != m_Sessions.end());
+
+		// Disconnect the user
+		(*it)->Disconnect(NDR_KICKED);
+
+		responseMessage.m_ResponseCode = NMRC_KICK_SUCCESS;
+		Multicast(&responseMessage, { NSS_PREGAME, NSS_JOIN_SYNCING, NSS_INGAME });
+		return;
+
+	case NMA_BAN:
+		if (std::find(m_BannedPlayers.begin(), m_BannedPlayers.end(), name) == m_BannedPlayers.end())
+			m_BannedPlayers.push_back(name);
+		if (ipAddress && std::find(m_BannedIPs.begin(), m_BannedIPs.end(), ipAddress) == m_BannedIPs.end())
+			m_BannedIPs.push_back(ipAddress);
+
+		// Disconnect the user if it is present
+		if (it != m_Sessions.end())
+			(*it)->Disconnect(NDR_BANNED);
+
+		responseMessage.m_ResponseCode = NMRC_BAN_SUCCESS;
+		Multicast(&responseMessage, { NSS_PREGAME, NSS_JOIN_SYNCING, NSS_INGAME });
+		return;
+
+	case NMA_UNBAN:
+		playersIt = std::find(m_BannedPlayers.begin(), m_BannedPlayers.end(), name);
+		addressesIt = std::find(m_BannedIPs.begin(), m_BannedIPs.end(), ipAddress);
+		if (playersIt == m_BannedPlayers.end() && addressesIt == m_BannedIPs.end())
+		{
+			responseMessage.m_ResponseCode = NMRC_UNBAN_NOTFOUND;
+			session->SendMessage(&responseMessage);
+		}
+		else
+		{
+			if (playersIt != m_BannedPlayers.end())
+				m_BannedPlayers.erase(playersIt);
+			if (addressesIt != m_BannedIPs.end())
+				m_BannedIPs.erase(addressesIt);
+			responseMessage.m_ResponseCode = NMRC_UNBAN_SUCCESS;
+			Multicast(&responseMessage, { NSS_PREGAME, NSS_JOIN_SYNCING, NSS_INGAME });
+		}
+		return;
+
+	case NMA_HELPER:
+		ENSURE(it != m_Sessions.end());
+
+		// Add the helper's GUID to the helpers list (if they are disconnected and get a new GUID, they will have to be designated again)
+		if (std::find(m_ModerationHelperGUIDs.begin(), m_ModerationHelperGUIDs.end(), (*it)->GetGUID()) == m_ModerationHelperGUIDs.end())
+			m_ModerationHelperGUIDs.push_back((*it)->GetGUID());
+
+		responseMessage.m_ResponseCode = NMRC_HELPER_SUCCESS;
+		Multicast(&responseMessage, { NSS_PREGAME, NSS_JOIN_SYNCING, NSS_INGAME });
+		return;
+
+	case NMA_UNHELPER:
+		ENSURE(it != m_Sessions.end());
+
+		GUIDsIt = std::find(m_ModerationHelperGUIDs.begin(), m_ModerationHelperGUIDs.end(), (*it)->GetGUID());
+		if (GUIDsIt == m_ModerationHelperGUIDs.end())
+		{
+			responseMessage.m_ResponseCode = NMRC_UNHELPER_NOTFOUND;
+			session->SendMessage(&responseMessage);
+		}
+		else
+		{
+			m_ModerationHelperGUIDs.erase(GUIDsIt);
+			responseMessage.m_ResponseCode = NMRC_UNHELPER_SUCCESS;
+			Multicast(&responseMessage, { NSS_PREGAME, NSS_JOIN_SYNCING, NSS_INGAME });
+		}
+		return;
+
+	default:
+		return;
+	}
+
 }
+
+CStr CNetServerWorker::GenerateJSONModerationListing(bool includeIPs/* = false */) const
+{
+	ScriptRequest rq(m_ScriptInterface);
+	JS::RootedValue listing(rq.cx);
+	Script::CreateObject(rq, &listing);
+
+	JS::RootedValue helpers(rq.cx);
+	Script::ToJSVal(rq, &helpers, m_ModerationHelperGUIDs);
+	Script::SetProperty(rq, listing, "moderation-helper-guids", helpers);
+
+
+	JS::RootedValue mutedPlayers(rq.cx);
+	Script::ToJSVal(rq, &mutedPlayers, m_MutedPlayers);
+	Script::SetProperty(rq, listing, "muted-players", mutedPlayers);
+
+
+	JS::RootedValue bannedPlayers(rq.cx);
+	Script::ToJSVal(rq, &bannedPlayers, m_BannedPlayers);
+	Script::SetProperty(rq, listing, "banned-players", bannedPlayers);
+
+	if (includeIPs)
+	{
+		JS::RootedValue mutedIPs(rq.cx);
+		Script::ToJSVal(rq, &mutedIPs, m_MutedIPs);
+		Script::SetProperty(rq, listing, "muted-ips", mutedIPs);
+
+		JS::RootedValue bannedIPs(rq.cx);
+		Script::ToJSVal(rq, &bannedIPs, m_BannedIPs);
+		Script::SetProperty(rq, listing, "banned-ips", bannedIPs);
+	}
+
+	return Script::StringifyJSON(rq, &listing, false);
+}
+
 
 void CNetServerWorker::AssignPlayer(int playerID, const CStr& guid)
 {
@@ -942,9 +1125,9 @@ bool CNetServerWorker::OnClientHandshake(CNetServerSession* session, CFsmEvent<C
 	CStr guid = ps_generate_guid();
 	int count = 0;
 	// Ensure unique GUID
-	while(std::find_if(
+	while (std::find_if(
 		server.m_Sessions.begin(), server.m_Sessions.end(),
-		[&guid] (const CNetServerSession* session)
+		[&guid](const CNetServerSession* session)
 		{ return session->GetGUID() == guid; }) != server.m_Sessions.end())
 	{
 		if (++count > 100)
@@ -1010,7 +1193,7 @@ bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent<CNet
 		// so this might be someone targeting the host for some reason
 		// (or TODO a dedicated server and we do want to log anyways)
 		LOGERROR("Net server: user %s tried joining with the wrong password",
-				 session->GetUserName().ToUTF8());
+			session->GetUserName().ToUTF8());
 		session->Disconnect(NDR_SERVER_REFUSED);
 		return true;
 	}
@@ -1024,7 +1207,7 @@ bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent<CNet
 	{
 		std::vector<CNetServerSession*>::iterator it = std::find_if(
 			server.m_Sessions.begin(), server.m_Sessions.end(),
-			[&username] (const CNetServerSession* session)
+			[&username](const CNetServerSession* session)
 			{ return session->GetUserName() == username; });
 
 		if (it != server.m_Sessions.end() && (*it) != session)
@@ -1077,7 +1260,7 @@ bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent<CNet
 		if (!isRejoining)
 		{
 			const std::string observerLateJoin{
-				g_ConfigDB.Get("network.lateobservers", std::string{})};
+				g_ConfigDB.Get("network.lateobservers", std::string{}) };
 
 			if (observerLateJoin == "everyone")
 			{
@@ -1108,9 +1291,9 @@ bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent<CNet
 
 		// Ensure all players will be able to rejoin
 		serverFull = isObserver && (
-			(int) server.m_Sessions.size() - connectedPlayers >
-				g_ConfigDB.Get("network.observerlimit", 0) ||
-			(int) server.m_Sessions.size() + disconnectedPlayers >= MAX_CLIENTS);
+			(int)server.m_Sessions.size() - connectedPlayers >
+			g_ConfigDB.Get("network.observerlimit", 0) ||
+			(int)server.m_Sessions.size() + disconnectedPlayers >= MAX_CLIENTS);
 	}
 
 	if (serverFull)
@@ -1185,7 +1368,7 @@ bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent<CNet
 			// started.
 			CJoinSyncStartMessage message;
 			message.m_InitAttributes = Script::StringifyJSON(
-				ScriptRequest{server.GetScriptInterface()}, &server.m_InitAttributes);
+				ScriptRequest{ server.GetScriptInterface() }, &server.m_InitAttributes);
 			(*sessionIt)->SendMessage(&message);
 		});
 
@@ -1273,12 +1456,30 @@ bool CNetServerWorker::OnChat(CNetServerSession* session, CFsmEvent<CNetMessage*
 
 	CNetServerWorker& server = session->GetServer();
 
+	// If the chat message sender is muted, refuse
+	const std::vector<CStrW>& mutedPlayers = server.m_MutedPlayers;
+	const CStrW& senderName = session->GetUserName();
+	const std::vector<u32>& mutedIPs = server.m_MutedIPs;
+	const u32 senderIP = session->GetIPAddress();
+
+	if (std::find(mutedPlayers.begin(), mutedPlayers.end(), senderName) != mutedPlayers.end() ||
+		std::find(mutedIPs.begin(), mutedIPs.end(), senderIP) != mutedIPs.end())
+	{
+		CModerationMessage response;
+		response.m_Action = NMA_RESPONSE;
+		response.m_ResponseCode = NMRC_MUTED;
+		session->SendMessage(&response);
+		return true;
+	}
+
+	// Else broadcast the message
+
 	CChatMessage* message = (CChatMessage*)event->GetParamRef();
 
 	message->m_SenderGUID = session->GetGUID();
 
-	const std::vector<NetServerSessionState> receivingStates{NSS_PREGAME, NSS_INGAME};
-	const std::vector messageReceivers{std::exchange(message->m_Receivers, {})};
+	const std::vector<NetServerSessionState> receivingStates{ NSS_PREGAME, NSS_INGAME };
+	const std::vector messageReceivers{ std::exchange(message->m_Receivers, {}) };
 
 	if (messageReceivers.empty())
 		server.Multicast(message, receivingStates);
@@ -1377,7 +1578,7 @@ bool CNetServerWorker::OnGameStart(CNetServerSession* session, CFsmEvent<CNetMes
 bool CNetServerWorker::OnSavedGameStart(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == static_cast<uint>(NMT_SAVED_GAME_START));
-	CNetServerWorker& server{session->GetServer()};
+	CNetServerWorker& server{ session->GetServer() };
 
 	if (session->GetGUID() != server.m_ControllerGUID)
 		return true;
@@ -1451,7 +1652,7 @@ bool CNetServerWorker::OnJoinSyncingLoadedGame(CNetServerSession* session, CFsmE
 
 	// Send them all commands received since their saved state,
 	// and turn-ended messages for any turns that have already been processed
-	for (size_t i = turn + 1; i < std::max(readyTurn+1, (u32)server.m_SavedCommands.size()); ++i)
+	for (size_t i = turn + 1; i < std::max(readyTurn + 1, (u32)server.m_SavedCommands.size()); ++i)
 	{
 		if (i < server.m_SavedCommands.size())
 			for (size_t j = 0; j < server.m_SavedCommands[i].size(); ++j)
@@ -1503,16 +1704,46 @@ bool CNetServerWorker::OnRejoined(CNetServerSession* session, CFsmEvent<CNetMess
 	return true;
 }
 
-bool CNetServerWorker::OnKickPlayer(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
+bool CNetServerWorker::OnModeration(CNetServerSession* session, CFsmEvent<CNetMessage*>* event)
 {
-	ENSURE(event->GetType() == (uint)NMT_KICKED);
+	ENSURE(event->GetType() == (uint)NMT_MODERATION);
 
 	CNetServerWorker& server = session->GetServer();
 
+	CModerationMessage* message = (CModerationMessage*)event->GetParamRef();
+
+	// The server should not receive moderation responses, it might be flood from a malevolent peer, ignore it
+	if (message->m_Action == NMA_RESPONSE)
+		return true;
 	if (session->GetGUID() == server.m_ControllerGUID)
+		server.Moderation(session, message->m_Action, message->m_TargetPlayer);
+	else
 	{
-		CKickedMessage* message = (CKickedMessage*)event->GetParamRef();
-		server.KickPlayer(message->m_Name, message->m_Ban);
+
+		// Moderation helpers can perform moderation actions except clearing the lists and granting/revoking helper privileges
+		const std::vector<CStr>& moderationHelpers = server.m_ModerationHelperGUIDs;
+		if (std::find(moderationHelpers.begin(), moderationHelpers.end(), session->GetGUID()) != moderationHelpers.end() &&
+			message->m_Action != NMA_CLEAR && message->m_Action != NMA_HELPER && message->m_Action != NMA_UNHELPER)
+		{
+			// Prevent attempts to hog the server's memory by making it remember long dummy usernames
+			if (message->m_TargetPlayer.length() > 255)
+				return true;
+			// Prevent attempts to hog the server's memory by making it remember long lists of dummy usernames/IPs
+			if (server.m_BannedIPs.size() > 255 ||
+				server.m_BannedPlayers.size() > 255 ||
+				server.m_MutedIPs.size() > 255 ||
+				server.m_MutedPlayers.size() > 255)
+				return true;
+
+			server.Moderation(session, message->m_Action, message->m_TargetPlayer);
+			return true;
+		}
+
+		// The user sending the command is not allowed to perform the moderation action, notify them.
+		CModerationMessage disallowedMessage;
+		disallowedMessage.m_Action = NMA_RESPONSE;
+		disallowedMessage.m_ResponseCode = NMRC_DISALLOWED;
+		session->SendMessage(&disallowedMessage);
 	}
 	return true;
 }
@@ -1704,7 +1935,7 @@ void CNetServerWorker::SendHolePunchingMessage(const CStr& ipStr, u16 port)
 
 
 CNetServer::CNetServer(const bool continueSavedGame, const bool useLobbyAuth) :
-	m_Worker{new CNetServerWorker{continueSavedGame, useLobbyAuth}},
+	m_Worker{ new CNetServerWorker{continueSavedGame, useLobbyAuth} },
 	m_LobbyAuth(useLobbyAuth), m_PublicIp(""), m_PublicPort(20595), m_Password()
 {
 }

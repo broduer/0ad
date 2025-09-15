@@ -36,15 +36,6 @@ var g_NetworkWarningTexts = {
 		})
 };
 
-var g_NetworkCommands = {
-	"/kick": argument => kickPlayer(argument, false),
-	"/ban": argument => kickPlayer(argument, true),
-	"/kickspecs": argument => kickObservers(false),
-	"/banspecs": argument => kickObservers(true),
-	"/list": argument => addChatMessage({ "type": "clientlist" }),
-	"/clear": argument => clearChatMessages()
-};
-
 var g_ValidPorts = { "min": 1024, "max": 65535 };
 // TODO: This check should be performed exclusively on the C++ side, currently this is sort of redundant.
 function getValidPort(port)
@@ -159,52 +150,6 @@ function reportMismatchingSoftwareVersions(mismatchType, clientMismatch, serverM
 	);
 }
 
-function kickError()
-{
-	addChatMessage({
-		"type": "system",
-		"text": translate("Only the host can kick clients!")
-	});
-}
-
-function kickPlayer(username, ban)
-{
-	if (!g_IsController)
-	{
-		kickError();
-		return;
-	}
-	if (!g_IsNetworked)
-	{
-		addChatMessage({
-			"type": "system",
-			"text": translate("Offline game! Can not kick or ban.")
-		});
-		return;
-	}
-	Engine.KickPlayer(username, ban);
-}
-
-function kickObservers(ban)
-{
-	if (!g_IsController)
-	{
-		kickError();
-		return;
-	}
-	if (!g_IsNetworked)
-	{
-		addChatMessage({
-			"type": "system",
-			"text": translate("Offline game! No spectators to kick or ban.")
-		});
-		return;
-	}
-	for (const guid in g_PlayerAssignments)
-		if (g_PlayerAssignments[guid].player == -1)
-			Engine.KickPlayer(g_PlayerAssignments[guid].name, ban);
-}
-
 /**
  * Sort GUIDs of connected users sorted by playerindex, observers last.
  * Requires g_PlayerAssignments.
@@ -238,26 +183,6 @@ function getUsernameList()
 		"users": usernames.join(translate(", ")),
 		"num": usernames.length
 	});
-}
-
-/**
- * Execute a command locally. Requires addChatMessage.
- *
- * @param {string} input
- * @returns {boolean} whether a command was executed
- */
-function executeNetworkCommand(input)
-{
-	if (input.indexOf("/") != 0)
-		return false;
-
-	const command = input.split(" ", 1)[0];
-	const argument = input.substr(command.length + 1);
-
-	if (g_NetworkCommands[command])
-		g_NetworkCommands[command](argument);
-
-	return !!g_NetworkCommands[command];
 }
 
 /**

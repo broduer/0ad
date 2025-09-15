@@ -15,7 +15,8 @@ class Chat
 		const alignmentHelper = new AlignmentHelper("max");
 
 		this.ChatInput = new ChatInput(alignmentHelper);
-		this.ChatInput.registerChatSubmitHandler(executeNetworkCommand);
+
+		this.ChatInput.registerChatSubmitHandler(executeModerationCommand);
 		this.ChatInput.registerChatSubmitHandler(cheats.executeCheat.bind(cheats));
 		this.ChatInput.registerChatSubmitHandler(this.submitChat.bind(this));
 		this.ChatInput.registerChatSubmittedHandler(this.closePage.bind(this));
@@ -87,7 +88,11 @@ class Chat
 
 		const msg = command ? command + " " + text : text;
 
-		if (Engine.HasNetClient())
+		if (msg.split(" ", 1)[0] == "/clear")
+			this.ChatOverlay.clearChatMessages();
+		else if (msg.split(" ", 1)[0] == "/list")
+			this.ChatMessageHandler.handleMessage({ "type": "clientlist" });
+		else if (Engine.HasNetClient())
 			Engine.SendNetworkChat(msg, this.getReceiverGUIDs(text, command));
 		else
 			this.ChatMessageHandler.handleMessage({

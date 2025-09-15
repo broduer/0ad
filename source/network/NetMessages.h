@@ -27,7 +27,7 @@
 
 #define PS_PROTOCOL_MAGIC                         0x5073013f	// 'P', 's', 0x01, '?'
 #define PS_PROTOCOL_MAGIC_RESPONSE                0x50630121	// 'P', 'c', 0x01, '!'
-#define PS_PROTOCOL_VERSION                       0x01010019	// Arbitrary protocol
+#define PS_PROTOCOL_VERSION                       0x0101001a	// Arbitrary protocol
 #define PS_DEFAULT_PORT                           0x5073		// 'P', 's'
 
 // Set when lobby authentication is required. Used in the SrvHandshakeResponseMessage.
@@ -65,7 +65,9 @@ enum NetMessageType
 	NMT_JOIN_SYNC_START,
 
 	NMT_REJOINED,
-	NMT_KICKED,
+
+	NMT_MODERATION,
+	NMT_MODERATION_LISTING,
 
 	NMT_CLIENT_TIMEOUT,
 	NMT_CLIENT_PERFORMANCE,
@@ -202,9 +204,15 @@ START_NMT_CLASS_(Rejoined, NMT_REJOINED)
 	NMT_FIELD(CStr, m_GUID)
 END_NMT_CLASS()
 
-START_NMT_CLASS_(Kicked, NMT_KICKED)
-	NMT_FIELD(CStrW, m_Name)
-	NMT_FIELD_INT(m_Ban, u8, 1)
+START_NMT_CLASS_(Moderation, NMT_MODERATION)
+	NMT_FIELD_INT(m_Action, u32, 4)
+	NMT_FIELD_INT(m_ResponseCode, u32, 4)
+	NMT_FIELD(CStrW, m_OriginPlayer)
+	NMT_FIELD(CStrW, m_TargetPlayer)
+END_NMT_CLASS()
+
+START_NMT_CLASS_(ModerationListing, NMT_MODERATION_LISTING)
+	NMT_FIELD(CStr, m_JSONModerationListing)
 END_NMT_CLASS()
 
 START_NMT_CLASS_(ClientTimeout, NMT_CLIENT_TIMEOUT)
