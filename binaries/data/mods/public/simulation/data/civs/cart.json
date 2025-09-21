@@ -21,14 +21,19 @@
 	],
 	"CivBonuses": [
 		{
-			"Name": "Commercial Acumen",
-			"History": "",
-			"Description": "Merchant Ships +25% trade gain."
+			"Name": "Trademasters",
+			"History": "The Carthaginians were broadly known for their extensive trade over the Mediterranean Sea.",
+			"Description": "Trade ships are available in the Village Phase."
 		},
 		{
-			"Name": "Desirable Products",
-			"History": "",
-			"Description": "Docks and Markets +10% international trade bonus."
+			"Name": "Mining Economy",
+			"History": "The Carthaginian economy was centered around mining, with stone comprising much of Carthage's structures.",
+			"Description": "Stone mining technologies are free and instant."
+		},
+		{
+			"Name": "Numidian Cavalry",
+			"History": "The Numidian cavalry's horses, ancestors of the Berber horse, were small compared with other horses of the era, and were well adapted for faster movement over long distances.",
+			"Description": "Cavalry Javelineers +10% walk speed."
 		}
 	],
 	"WallSets": [

@@ -10,6 +10,9 @@
   <Promotion>
     <Entity>units/cart/cavalry_javelineer_a</Entity>
   </Promotion>
+  <UnitMotion>
+    <WalkSpeed op="mul">1.1</WalkSpeed>
+  </UnitMotion>
   <VisualActor>
     <Actor>units/carthaginians/cavalry_javelinist_b_m.xml</Actor>
   </VisualActor>

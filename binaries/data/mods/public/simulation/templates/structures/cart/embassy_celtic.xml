@@ -25,6 +25,11 @@
   <Obstruction>
     <Static width="15.0" depth="12.0"/>
   </Obstruction>
+  <Researcher>
+    <Technologies datatype="tokens">
+     celtic_auxiliaries
+    </Technologies>
+  </Researcher>
   <Trainer>
     <Entities datatype="tokens">
       units/{native}/infantry_swordsman_gaul_b

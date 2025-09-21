@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Entity parent="merc_inf|template_unit_infantry_ranged_slinger">
+  <Attack>
+    <Ranged>
+	  <Damage>
+        <Pierce op="mul">1.15</Pierce>
+      </Damage>
+      <MaxRange>50</MaxRange>
+      <RepeatTime>1750</RepeatTime>
+    </Ranged>
+  </Attack>
   <Builder>
     <Entities datatype="tokens">
       structures/{civ}/super_dock
@@ -8,6 +17,11 @@
       structures/{civ}/embassy_italic
     </Entities>
   </Builder>
+  <Cost>
+    <Resources>
+      <metal>75</metal>
+    </Resources>
+  </Cost>
   <Identity>
     <Civ>cart</Civ>
     <GenericName>Balearic Slinger</GenericName>
@@ -18,6 +32,9 @@
       <Techs datatype="tokens">phase_town</Techs>
     </Requirements>
   </Identity>
+  <Loot>
+    <metal>7</metal>
+  </Loot>
   <Promotion>
     <Entity>units/cart/infantry_slinger_iber_a</Entity>
   </Promotion>

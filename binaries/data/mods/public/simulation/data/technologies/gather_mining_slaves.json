@@ -14,7 +14,12 @@
 		"stone": 300
 	},
 	"supersedes": "gather_mining_serfs",
-	"requirements": { "tech": "phase_city" },
+	"requirements": {
+		"all": [
+			{ "tech": "phase_city" },
+			{ "notciv": "cart" }
+		]
+	},
 	"requirementsTooltip": "Unlocked in City Phase.",
 	"icon": "mining_stone_03.png",
 	"researchTime": 60,
