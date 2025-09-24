@@ -26,5 +26,6 @@
 		{ "value": "Health/Max", "multiply": 1.1 }
 	],
 	"affects": ["Infantry Spearman !Hero"],
+	"placeBelow": "{AffectedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

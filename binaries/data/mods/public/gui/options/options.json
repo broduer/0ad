@@ -641,6 +641,12 @@
 				"config": "showdetailedtooltips"
 			},
 			{
+				"type": "boolean",
+				"label": "Tech arrows",
+				"tooltip": "Show an arrow above specific techs that points to the unit that they affect or unlock.",
+				"config": "gui.session.techarrows"
+			},
+			{
 				"type": "dropdown",
 				"label": "Naming of entities",
 				"tooltip": "How to show entity names.",

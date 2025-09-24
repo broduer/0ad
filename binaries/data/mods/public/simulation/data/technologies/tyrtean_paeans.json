@@ -19,5 +19,6 @@
 		{ "value": "UnitMotion/WalkSpeed", "multiply": 1.1 }
 	],
 	"affects": ["Champion Melee Infantry !Hero"],
+	"placeBelow": "{AffectedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

@@ -23,5 +23,6 @@
 		{ "value": "Cost/BuildTime", "multiply": 0.5 }
 	],
 	"affects": ["Minister"],
+	"placeBelow": "{AffectedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

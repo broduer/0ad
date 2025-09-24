@@ -95,7 +95,7 @@
 
 			<!-- Commands Panel (right). -->
 			<object name="unitCommands"
-				size="50%+110 100%-166 50%+512 100%"
+				size="50%+110 100%-173 50%+512 100%"
 				sprite="unitCommandsPanel"
 				type="image"
 				z="20"

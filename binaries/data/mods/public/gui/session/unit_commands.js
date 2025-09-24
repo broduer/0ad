@@ -22,12 +22,12 @@ var g_unitPanelButtons = {
  * Will wrap around to subsequent rows if the index
  * is larger than rowLength.
  */
-function setPanelObjectPosition(object, index, rowLength, vMargin = 1, hMargin = 1)
+function setPanelObjectPosition(object, index, rowLength, vMargin = 1, hMargin = 1, vOffset = 0, hOffset = 0)
 {
 	const oWidth = object.size.right - object.size.left;
 	const oHeight = object.size.bottom - object.size.top;
-	const left = (index % rowLength) * (oWidth + vMargin);
-	const top = (Math.floor(index / rowLength)) * (oHeight + hMargin);
+	const left = (index % rowLength) * (oWidth + hMargin) + hOffset;
+	const top = (Math.floor(index / rowLength)) * (oHeight + vMargin) + vOffset;
 
 	Object.assign(object.size, {
 		// horizontal position
@@ -55,15 +55,11 @@ function setupUnitPanel(guiName, unitEntStates, playerState)
 		return;
 	}
 
-	const items = g_SelectionPanels[guiName].getItems(unitEntStates);
-
-	if (!items || !items.length)
-		return;
-
+	const items = g_SelectionPanels[guiName].getItems(unitEntStates) || [];
 	const numberOfItems = Math.min(items.length, g_SelectionPanels[guiName].getMaxNumberOfItems());
 	const rowLength = g_SelectionPanels[guiName].rowLength || 8;
 
-	if (g_SelectionPanels[guiName].resizePanel)
+	if (numberOfItems && g_SelectionPanels[guiName].resizePanel)
 		g_SelectionPanels[guiName].resizePanel(numberOfItems, rowLength);
 
 	for (let i = 0; i < numberOfItems; ++i)
@@ -105,10 +101,13 @@ function setupUnitPanel(guiName, unitEntStates, playerState)
 		if (g_SelectionPanels[guiName].hideItem)
 			g_SelectionPanels[guiName].hideItem(i, rowLength);
 		else
-			Engine.GetGUIObjectByName("unit" + guiName + "Button[" + i + "]").hidden = true;
+		{
+			const button = Engine.TryGetGUIObjectByName("unit" + guiName + "Button[" + i + "]");
+			if (button) button.hidden = true;
+		}
 
 	g_unitPanelButtons[guiName] = numberOfItems;
-	g_SelectionPanels[guiName].used = true;
+	g_SelectionPanels[guiName].used = numberOfItems > 0;
 }
 
 /**
@@ -126,7 +125,10 @@ function setupUnitPanel(guiName, unitEntStates, playerState)
 function updateUnitCommands(entStates, supplementalDetailsPanel, commandsPanel)
 {
 	for (const panel in g_SelectionPanels)
+	{
 		g_SelectionPanels[panel].used = false;
+		g_SelectionPanels[panel].reset?.();
+	}
 
 	// Get player state to check some constraints
 	// e.g. presence of a hero or build limits.
@@ -140,11 +142,9 @@ function updateUnitCommands(entStates, supplementalDetailsPanel, commandsPanel)
 	{
 		for (const guiName of g_PanelsOrder)
 		{
-			if (g_SelectionPanels[guiName].conflictsWith &&
-			    g_SelectionPanels[guiName].conflictsWith.some(p => g_SelectionPanels[p].used))
-				continue;
-
-			setupUnitPanel(guiName, entStates, playerStates[entStates[0].player]);
+			if (!g_SelectionPanels[guiName].conflictsWith ||
+			    g_SelectionPanels[guiName].conflictsWith.every(p => !g_SelectionPanels[p].used))
+				setupUnitPanel(guiName, entStates, playerStates[entStates[0].player]);
 		}
 
 		supplementalDetailsPanel.hidden = false;

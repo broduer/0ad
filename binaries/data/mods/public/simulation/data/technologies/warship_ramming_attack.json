@@ -34,5 +34,6 @@
 		{ "value": "Attack/Melee/Damage/Hack", "multiply": 1.3 }
 	],
 	"affects": ["NavalRam"],
+	"placeBelow": "{AffectedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

@@ -20,5 +20,6 @@
 		{ "value": "Attack/Melee/Damage/Pierce", "multiply": 1.1, "affects": "Champion" },
 		{ "value": "Cost/BuildTime", "multiply": 1.3, "affects": "Citizen Infantry Javelineer" }
 	],
+	"placeBelow": "Champion Spearman",
     "soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

@@ -24,5 +24,6 @@
 	"icon": "helmet_corinthian_crest.png",
 	"researchTime": 60,
 	"tooltip": "Unlock Champions Infantry at the Barracks.",
+	"placeBelow": "{UnlockedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

@@ -13,5 +13,6 @@
 		{ "value": "Health/Max", "multiply": 2 }
 	],
 	"affects": ["Civilian"],
+	"placeBelow": "{AffectedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

@@ -23,5 +23,6 @@
 		{ "value": "Health/Max", "multiply": 1.5 }
 	],
 	"affects": ["Minister"],
+	"placeBelow": "{AffectedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

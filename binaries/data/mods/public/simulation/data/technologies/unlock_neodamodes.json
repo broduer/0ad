@@ -14,5 +14,6 @@
 	"icon": "helmet_corinthian_bronze_old.png",
 	"researchTime": 60,
 	"tooltip": "Unlock the ability to train Spearman Neodamodes at the Barracks.",
+	"placeBelow": "{UnlockedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

@@ -18,5 +18,6 @@
 		{ "value": "ResourceGatherer/Rates/food.grain", "multiply": 2 }
 	],
 	"affects": ["Infantry Javelineer"],
+	"placeBelow": "{AffectedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

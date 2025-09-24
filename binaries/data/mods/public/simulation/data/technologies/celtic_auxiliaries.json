@@ -21,5 +21,6 @@
 		{ "value": "Loot/food", "add": 5 }
 	],
 	"affects": ["Mercenary Swordsman"],
+	"placeBelow": "{AffectedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

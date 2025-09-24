@@ -592,6 +592,8 @@ function GetTechnologyDataHelper(template, civ, resources)
 
 	ret.tooltip = template.tooltip;
 	ret.requirementsTooltip = template.requirementsTooltip || "";
+	if (template.placeBelow)
+		ret.placeBelow = template.placeBelow;
 
 	return ret;
 }

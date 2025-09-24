@@ -18,5 +18,6 @@
 		{ "value": "Promotion/RequiredXp", "replace": 0 }
 	],
 	"affects": ["Champion Infantry"],
+	"placeBelow": "{AffectedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

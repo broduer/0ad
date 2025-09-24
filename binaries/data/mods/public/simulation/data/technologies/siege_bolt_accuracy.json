@@ -26,5 +26,6 @@
 		{ "value": "Attack/Ranged/Projectile/Spread", "multiply": 0.8 }
 	],
 	"affects": ["BoltShooter"],
+	"placeBelow": "{AffectedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

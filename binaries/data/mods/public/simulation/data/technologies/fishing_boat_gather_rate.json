@@ -13,5 +13,6 @@
 		{ "value": "ResourceGatherer/Rates/food.fish", "multiply": 1.3 }
 	],
 	"affects": ["FishingBoat"],
+	"placeBelow": "{AffectedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

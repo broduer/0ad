@@ -15,5 +15,6 @@
 		{ "value": "ResourceGatherer/Capacities/food", "add": 20 }
 	],
 	"affects": ["FishingBoat"],
+	"placeBelow": "{AffectedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

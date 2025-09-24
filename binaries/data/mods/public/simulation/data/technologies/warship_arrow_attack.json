@@ -28,5 +28,6 @@
 		{ "value": "Attack/Ranged/MaxRange", "multiply": 1.1 }
 	],
 	"affects": ["ArrowShip"],
+	"placeBelow": "{AffectedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

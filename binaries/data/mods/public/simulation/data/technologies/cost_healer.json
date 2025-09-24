@@ -16,5 +16,6 @@
 		{ "value": "Loot/metal", "replace": 0 }
 	],
 	"affects": ["Healer !Champion !Hero"],
+	"placeBelow": "{AffectedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

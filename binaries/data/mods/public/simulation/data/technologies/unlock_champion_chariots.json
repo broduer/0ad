@@ -21,5 +21,6 @@
 	"icon": "helmet_corinthian_crest.png",
 	"researchTime": 60,
 	"tooltip": "Unlock Champion Chariots at the Stable.",
+	"placeBelow": "{UnlockedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

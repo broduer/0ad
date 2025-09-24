@@ -18,5 +18,6 @@
 	"modifications": [
 		{ "value": "Health/Max", "multiply": 1.5, "affects": "Healer" }
 	],
+	"placeBelow": "Champion Healer",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

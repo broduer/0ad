@@ -647,8 +647,30 @@ g_SelectionPanels.Research = {
 		return 10;
 	},
 	"rowLength": 10,
+	"init": function()
+	{
+		const updateAffectsIconVisibility = () =>
+		{
+			this.helper.showAffectsIcons = Engine.ConfigDB_GetValue("user", "gui.session.techarrows") === "true";
+		};
+		registerConfigChangeHandler(changes =>
+		{
+			if (changes.has("gui.session.techarrows"))
+				updateAffectsIconVisibility();
+			// They will be rerendered with the new visibility next frame.
+		});
+		updateAffectsIconVisibility();
+	},
+	"reset": function()
+	{
+		this.helper.occupiedPositions = new Set();
+		this.helper.bottomRowButtonCount = 0;
+	},
 	"getItems": function(unitEntStates)
 	{
+		if (getNumberOfRightPanelButtons() >= this.rowLength * 2)
+			return [];
+
 		let ret = [];
 		if (unitEntStates.length == 1)
 		{
@@ -690,8 +712,7 @@ g_SelectionPanels.Research = {
 							k => item.techCostMultiplier[k] == state.researcher.techCostMultiplier[k])
 				));
 
-			if (filteredTechs.length + ret.length <= this.getMaxNumberOfItems() &&
-			    getNumberOfRightPanelButtons() <= this.getMaxNumberOfItems() * (filteredTechs.some(tech => !!tech.pair) ? 1 : 2))
+			if (filteredTechs.length + ret.length <= this.getMaxNumberOfItems())
 				ret = ret.concat(filteredTechs.map(tech => ({
 					"tech": tech,
 					"techCostMultiplier": state.researcher.techCostMultiplier,
@@ -704,77 +725,278 @@ g_SelectionPanels.Research = {
 	"hideItem": function(i, rowLength) // Called when no item is found
 	{
 		Engine.GetGUIObjectByName("unitResearchButton[" + i + "]").hidden = true;
-		// We also remove the paired tech and the pair symbol
-		Engine.GetGUIObjectByName("unitResearchButton[" + (i + rowLength) + "]").hidden = true;
-		Engine.GetGUIObjectByName("unitResearchPair[" + i + "]").hidden = true;
+		// Remove the button it would have been paired with as well.
+		Engine.GetGUIObjectByName("unitResearchButton[" + (i + this.getMaxNumberOfItems()) + "]").hidden = true;
 	},
 	"setupButton": function(data)
 	{
 		if (!data.item.tech)
 		{
-			g_SelectionPanels.Research.hideItem(data.i, data.rowLength);
+			this.hideItem(data.i, data.rowLength);
 			return false;
 		}
 
-		// Start position (start at the bottom)
-		let position = data.i + data.rowLength;
+		// There are twice as many button objects than this.getMaxNumberOfItems()
+		// This is because each item could be a tech pair and need a second one in addition to the one at data.i
+		data.j = data.i + this.getMaxNumberOfItems();
 
-		// Only show the top button for pairs
-		if (!data.item.tech.pair)
-			Engine.GetGUIObjectByName("unitResearchButton[" + data.i + "]").hidden = true;
+		const playerState = GetSimState().players[data.player];
 
-		// Set up the tech connector
-		const pair = Engine.GetGUIObjectByName("unitResearchPair[" + data.i + "]");
-		pair.hidden = data.item.tech.pair == null;
-		setPanelObjectPosition(pair, data.i, data.rowLength);
-
-		// Handle one or two techs (tech pair)
-		const player = data.player;
-		const playerState = GetSimState().players[player];
-		for (const tech of (data.item.tech.pair || [data.item.tech]))
+		if (data.item.tech.pair)
 		{
-			// Don't change the object returned by GetTechnologyData
-			const template = clone(GetTechnologyData(tech, playerState.civ));
-			if (!template)
-				return false;
+			const firstTemplate = GetTechnologyData(data.item.tech.pair[0], playerState.civ);
+			const secondTemplate = GetTechnologyData(data.item.tech.pair[1], playerState.civ);
 
-			// Not allowed by civ.
-			if (!template.reqs)
+			// template.reqs is false if the tech isn't researchable by the current civ.
+			const firstResearchable = !!firstTemplate?.reqs;
+			const secondResearchable = !!secondTemplate?.reqs;
+
+			if (firstResearchable && secondResearchable)
+				// Ideal/expected case: Display both techs in a pair.
+				return this.helper.setupButtonPair(data, data.item.tech.pair[0], data.item.tech.pair[1], firstTemplate,
+					secondTemplate, playerState);
+
+			// At least one of the two is not valid or researchable. If the other one is, display it as a single tech
+			// on its own.
+			if (firstResearchable && !secondResearchable)
+				return this.helper.setupSingleButton(data, data.item.tech.pair[0], firstTemplate, playerState);
+			if (!firstResearchable && secondResearchable)
+				return this.helper.setupSingleButton(data, data.item.tech.pair[1], secondTemplate, playerState);
+
+			// Neither of the two are valid and researchable.
+			this.hideItem(data.i, data.rowLength);
+			return false;
+		}
+
+		const template = GetTechnologyData(data.item.tech, playerState.civ);
+		// template.reqs is false if the tech isn't researchable by the current civ.
+		if (template?.reqs)
+			return this.helper.setupSingleButton(data, data.item.tech, template, playerState);
+
+		this.hideItem(data.i, data.rowLength);
+		return false;
+	},
+	"helper": {
+		// Techs can optionally define a placeBelow property that specifies a unit whose training button they want to be placed below.
+		// It can be:
+		// 		- "{UnlockedUnit}": the first unit whose requirements (of the Identity component) contain the tech.
+		// 		- "{AffectedUnit}": the first unit whose stats are modified (receives buffs or debuffs) by the tech.
+		// 		- class combination: the first unit whose identity classes match that combination.
+		"findTargetTrainingButton": function(data, techName, template)
+		{
+			// Also check whether the other right panel buttons (training, constructing, upgrading) reach the second row.
+			// In that case, we want to place all techs in the bottom row. Research buttons should never be placed in the
+			// same row as these.
+			if (!template.placeBelow || getNumberOfRightPanelButtons() > data.rowLength)
+				return -1;
+
+			const indices = [];
+			if (template.placeBelow === "{UnlockedUnit}")
 			{
-				// One of the pair may still be researchable by the current civ,
-				// hence don't hide everything.
-				Engine.GetGUIObjectByName("unitResearchButton[" + data.i + "]").hidden = true;
-				pair.hidden = true;
-				continue;
+				getAllTrainableEntitiesFromSelection().forEach((trainableTemplate, i) =>
+				{
+					if (GetTemplateData(trainableTemplate, data.player)?.requirements?.Techs?._string.split(/\s+/).includes(techName))
+						indices.push(i);
+				});
+			}
+			else
+			{
+				let targetClassList;
+				if (template.placeBelow === "{AffectedUnit}")
+				{
+					const affectsList = (template.affects || []);
+					for (const mod of template.modifications)
+						if (mod.affects)
+							affectsList.push(mod.affects);
+
+					targetClassList = affectsList.map(classes => classes.split(/\s+/));
+				}
+				else
+					targetClassList = [template.placeBelow.split(/\s+/)];
+
+				getAllTrainableEntitiesFromSelection().forEach((trainableTemplate, i) =>
+				{
+					if (MatchesClassList(GetTemplateData(trainableTemplate, data.player).visibleIdentityClasses, targetClassList))
+						indices.push(i);
+				});
+			}
+			// Only choose a training button if it's the only matching one.
+			if (indices.length !== 1)
+				return -1;
+
+			// Make sure to account for the other buttons placed before the unit training ones.
+			return indices[0] + ["Construction", "Pack", "Gate", "Upgrade"].reduce((total, panel) =>
+				total + g_unitPanelButtons[panel], 0
+			);
+
+		},
+		"setupSingleButton": function(data, techName, template, playerState)
+		{
+			// The item is not a tech pair. So hide the button that data.button would have been paired with.
+			Engine.GetGUIObjectByName("unitResearchButton[" + data.j + "]").hidden = true;
+
+			// Note: The GUI object container of the research buttons (unlike the one of the training buttons) only reaches up to the second row.
+			// This means that, for example, a research button with position 5 is located directly one row under a training button with position 5.
+			let position = this.findTargetTrainingButton(data, techName, template);
+
+			let placeInBottomRow = position == -1;
+			if (!placeInBottomRow && this.occupiedPositions.has(position))
+			{
+				// Try to fall back to the third (second-to-bottom) row.
+				position += data.rowLength;
+				if (this.occupiedPositions.has(position))
+					// Both positions below the target unit are already used by other techs.
+					// Note: Ideally this should never occur. Two techs per unit should be the limit. This here is just edge case handling.
+					placeInBottomRow = true;
+			}
+			if (placeInBottomRow)
+			{
+				// Try to move it to the fourth (bottom) row.
+				if (this.bottomRowButtonCount >= data.rowLength)
+					return false; // Bottom row is full, we can't display it.
+				position = this.bottomRowButtonCount + data.rowLength * 2;
 			}
 
-			for (const res in template.cost)
-				template.cost[res] *= data.item.techCostMultiplier[res] !== undefined ? data.item.techCostMultiplier[res] : 1;
+			Engine.GetGUIObjectByName("unitResearchVerticalPairIcon[" + data.i + "]").hidden = true;
+			Engine.GetGUIObjectByName("unitResearchHorizontalPairIcon[" + data.i + "]").hidden = true;
+
+			// When it's not "active", it's grayed out.
+			const buttonActive = this.buildButton(data, techName, template, position, playerState, data.button, data.icon);
+			this.buildAffectsIcon(data.i, !placeInBottomRow, buttonActive);
+
+			return true;
+		},
+		"setupButtonPair": function(data, firstTechName, secondTechName, firstTemplate, secondTemplate, playerState)
+		{
+			// Note: The GUI object container of the research buttons (unlike the one of the training buttons) only
+			// reaches up to the second row. This means that, for example, a research button with position 5 is located
+			// directly one row under a training button with position 5.
+			let firstPosition = this.findTargetTrainingButton(data, firstTechName, firstTemplate);
+			let secondPosition = this.findTargetTrainingButton(data, secondTechName, secondTemplate);
+
+			// Possible placements of tech pair with descending preference:
+			// 	- Vertically below a single unit.
+			//  - Horizontally below two adjacent units.
+			//  - Horizontally adjacent below no unit in the bottom row.
+
+			// Only ever place either below a unit, if the other can be too and below the same or an adjacent one.
+			let placeInBottomRow = firstPosition == -1 || secondPosition == -1 || Math.abs(firstPosition - secondPosition) > 1;
+			let placeHorizontally = true;
+			if (!placeInBottomRow && firstPosition === secondPosition)
+			{
+				// Both want to be placed under the same unit.
+				// Try to place the pair vertically by moving the second one down to the third (second-to-bottom) row,
+				// below the first one.
+				secondPosition += data.rowLength;
+				if (this.occupiedPositions.has(firstPosition) || this.occupiedPositions.has(secondPosition))
+					placeInBottomRow = true;
+				else
+					placeHorizontally = false;
+			}
+			else if (!placeInBottomRow && (this.occupiedPositions.has(firstPosition) || this.occupiedPositions.has(secondPosition)))
+			{
+				// At least one of the two respective positions in the second (third-to-bottom) row is occupied.
+				// So try move both to the third.
+				firstPosition += data.rowLength;
+				secondPosition += data.rowLength;
+				if (this.occupiedPositions.has(firstPosition) || this.occupiedPositions.has(secondPosition))
+					// Neither the two positions in the second row nor the third row below the target training buttons
+					// are available.
+					placeInBottomRow = true;
+			}
+
+			if (placeInBottomRow)
+			{
+				// Try to move both to the bottom row.
+				if (this.bottomRowButtonCount >= data.rowLength - 1)
+					// Not enough space in the bottom row for both of them. We can't display them.
+					return false;
+
+				firstPosition = this.bottomRowButtonCount + data.rowLength * 2;
+				secondPosition = firstPosition + 1;
+			}
+
+			// Note: the button indices here aren't related to positioning at all.
+			const firstButtonIndex = data.i;
+			const secondButtonIndex = data.j;
+			const firstButton = data.button;
+			const secondButton = Engine.GetGUIObjectByName("unitResearchButton[" + secondButtonIndex + "]");
+			const firstIcon = data.icon;
+			const secondIcon = Engine.GetGUIObjectByName("unitResearchIcon[" + secondButtonIndex + "]");
+
+			// When it's not "active", it's grayed out.
+			const firstButtonActive = this.buildButton(data, firstTechName, firstTemplate, firstPosition, playerState,
+				firstButton, firstIcon);
+			this.buildAffectsIcon(firstButtonIndex, !placeInBottomRow, firstButtonActive);
+
+			// When it's not "active", it's grayed out.
+			const secondButtonActive = this.buildButton(data, secondTechName, secondTemplate, secondPosition, playerState,
+				secondButton, secondIcon);
+			this.buildAffectsIcon(secondButtonIndex, !placeInBottomRow && placeHorizontally, secondButtonActive);
+
+			this.buildPairIcon(false, firstButtonIndex, placeHorizontally && secondPosition > firstPosition, firstButtonActive);
+			this.buildPairIcon(false, secondButtonIndex, placeHorizontally && secondPosition < firstPosition, secondButtonActive);
+			this.buildPairIcon(true, firstButtonIndex, !placeHorizontally, firstButtonActive);
+			this.buildPairIcon(true, secondButtonIndex, false, secondButtonActive);
+
+			// While hovering over either button, show a cross over the other one.
+			// TODO: The following lines have to be executed only once, technically, and not every this function is called.
+			const firstUnchosenIcon = Engine.GetGUIObjectByName("unitResearchUnchosenIcon[" + firstButtonIndex + "]");
+			const secondUnchosenIcon = Engine.GetGUIObjectByName("unitResearchUnchosenIcon[" + secondButtonIndex + "]");
+			firstButton.onMouseEnter = () => { secondUnchosenIcon.hidden = false; };
+			firstButton.onMouseLeave = () => { secondUnchosenIcon.hidden = true; };
+			secondButton.onMouseEnter = () => { firstUnchosenIcon.hidden = false; };
+			secondButton.onMouseLeave = () => { firstUnchosenIcon.hidden = true; };
+
+			return true;
+		},
+		"buildAffectsIcon": function(i, show, enable)
+		{
+			const icon = Engine.GetGUIObjectByName("unitResearchAffectsIcon[" + i + "]");
+			const hidden = !show || !this.showAffectsIcons;
+			icon.hidden = hidden;
+			if (!hidden)
+				icon.sprite = "stretched:session/icons/" + (enable ? "tech_affects.png" : "tech_affects_disabled.png");
+		},
+		"buildPairIcon": function(vertical, i, show, enable)
+		{
+			const icon = Engine.GetGUIObjectByName("unitResearch" + (vertical ? "Vertical" : "Horizontal") + "PairIcon[" + i + "]");
+			icon.hidden = !show;
+			if (show)
+				icon.sprite = "stretched:session/icons/" +
+					(vertical ?
+						enable ? "vertical_tech_pair.png" : "vertical_tech_pair_disabled.png" :
+						enable ? "horizontal_tech_pair.png" : "horizontal_tech_pair_disabled.png");
+		},
+		"buildButton": function(baseData, techName, template, position, playerState, button, icon)
+		{
+			// Make sure to not modify the original template.
+			const adaptedTemplate = clone(template);
+			for (const res in adaptedTemplate.cost)
+				adaptedTemplate.cost[res] *=
+					baseData.item.techCostMultiplier[res] !== undefined ? baseData.item.techCostMultiplier[res] : 1;
 
 			const neededResources = Engine.GuiInterfaceCall("GetNeededResources", {
-				"cost": template.cost,
-				"player": player
+				"cost": adaptedTemplate.cost,
+				"player": baseData.player
 			});
 
 			const requirementsPassed = Engine.GuiInterfaceCall("CheckTechnologyRequirements", {
-				"tech": tech,
-				"player": player
+				"tech": techName,
+				"player": baseData.player
 			});
-
-			const button = Engine.GetGUIObjectByName("unitResearchButton[" + position + "]");
-			const icon = Engine.GetGUIObjectByName("unitResearchIcon[" + position + "]");
 
 			const tooltips = [
 				getEntityNamesFormatted,
 				getEntityTooltip,
 				getEntityCostTooltip,
 				getTemplateViewerOnRightClickTooltip
-			].map(func => func(template));
+			].map(func => func(adaptedTemplate));
 
 			if (!requirementsPassed)
 			{
-				let tip = template.requirementsTooltip;
-				const reqs = template.reqs;
+				let tip = adaptedTemplate.requirementsTooltip;
+				const reqs = adaptedTemplate.reqs;
 				for (const req of reqs)
 				{
 					if (!req.entities)
@@ -819,39 +1041,27 @@ g_SelectionPanels.Research = {
 
 			button.onPress = (t => function()
 			{
-				addResearchToQueue(data.item.researchFacilityId, t);
-			})(tech);
+				addResearchToQueue(baseData.item.researchFacilityId, t);
+			})(techName);
 
 			const showTemplateFunc = (t => function()
 			{
 				showTemplateDetails(
 					t,
-					GetTemplateData(data.unitEntStates.find(state => state.id == data.item.researchFacilityId).template).nativeCiv);
+					GetTemplateData(baseData.unitEntStates.find(state => state.id == baseData.item.researchFacilityId).template).nativeCiv);
 			});
 
-			button.onPressRight = showTemplateFunc(tech);
-			button.onPressRightDisabled = showTemplateFunc(tech);
-
-			if (data.item.tech.pair)
-			{
-				// On mouse enter, show a cross over the other icon
-				const unchosenIcon = Engine.GetGUIObjectByName("unitResearchUnchosenIcon[" + (position + data.rowLength) % (2 * data.rowLength) + "]");
-				button.onMouseEnter = function()
-				{
-					unchosenIcon.hidden = false;
-				};
-				button.onMouseLeave = function()
-				{
-					unchosenIcon.hidden = true;
-				};
-			}
+			button.onPressRight = showTemplateFunc(techName);
+			button.onPressRightDisabled = showTemplateFunc(techName);
 
 			button.hidden = false;
 			let modifier = "";
+			let isActive = true;
 			if (!requirementsPassed)
 			{
 				button.enabled = false;
 				modifier += "color:0 0 0 127:grayscale:";
+				isActive = false;
 			}
 			else if (neededResources)
 			{
@@ -859,26 +1069,32 @@ g_SelectionPanels.Research = {
 				modifier += resourcesToAlphaMask(neededResources) + ":";
 			}
 			else
-				button.enabled = controlsPlayer(data.player);
+				button.enabled = controlsPlayer(baseData.player);
 
-			if (data.item.isUpgrading)
+			if (baseData.item.isUpgrading)
 			{
 				button.enabled = false;
 				modifier += "color:0 0 0 127:grayscale:";
+				isActive = false;
 				button.tooltip += "\n" + objectionFont(translate("Cannot research while upgrading."));
-
 			}
 
-			if (template.icon)
-				icon.sprite = modifier + "stretched:session/portraits/" + template.icon;
+			if (adaptedTemplate.icon)
+				icon.sprite = modifier + "stretched:session/portraits/" + adaptedTemplate.icon;
 
-			setPanelObjectPosition(button, position, data.rowLength);
+			this.occupiedPositions.add(position);
+			if (position >= 2 * baseData.rowLength)
+				this.bottomRowButtonCount++;
 
-			// Prepare to handle the top button (if any)
-			position -= data.rowLength;
+			// The panel is a bit higher than 4 * baseData.rowLength, which allows us to visibility anchor the buttons
+			// in the bottom row to the bottom by moving them down those few pixels. Else the gap would be at the bottom.
+			// This creates a small spatial separation between the "generic" techs in the bottom row and the "specific"
+			// techs above them.
+			const vOffset = position >= baseData.rowLength * 2 ? 6 : 0;
+			setPanelObjectPosition(button, position, baseData.rowLength, 1, 1, vOffset);
+
+			return isActive;
 		}
-
-		return true;
 	}
 };
 
@@ -1261,10 +1477,12 @@ g_SelectionPanels.Upgrade = {
 
 function initSelectionPanels()
 {
-
 	const unitBarterPanel = Engine.GetGUIObjectByName("unitBarterPanel");
 	if (BarterButtonManager.IsAvailable(unitBarterPanel))
 		g_SelectionPanelBarterButtonManager = new BarterButtonManager(unitBarterPanel);
+
+	for (const panel in g_SelectionPanels)
+		g_SelectionPanels[panel].init?.();
 }
 
 /**

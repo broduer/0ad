@@ -28,5 +28,6 @@
 	"icon": "wives_festival_african.png",
 	"researchTime": 60,
 	"tooltip": "Unlock the ability to train Civilians from houses.",
+	"placeBelow": "{UnlockedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

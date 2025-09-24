@@ -22,5 +22,6 @@
 		{ "value": "Vision/Range", "add": 5 }
 	],
 	"affects": ["Healer"],
+	"placeBelow": "{AffectedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

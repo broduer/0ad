@@ -29,5 +29,6 @@
 		{ "value": "Health/Max", "multiply": 1.1 }
 	],
 	"affects": ["Champion Cavalry Spearman"],
+	"placeBelow": "{AffectedUnit}",
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }
