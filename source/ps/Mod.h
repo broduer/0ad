@@ -18,6 +18,8 @@
 #ifndef INCLUDED_MOD
 #define INCLUDED_MOD
 
+#include "lib/file/vfs/vfs_path.h"
+#include "lib/status.h"
 #include "ps/CStr.h"
 
 #include <vector>
@@ -32,24 +34,30 @@ class Mod
 public:
 	// Singleton-like interface.
 	static Mod& Instance();
+	// Use Instance() instead of creating your own instances of Mod
+	Mod();
+	~Mod();
 
 	/**
-	 * Parsed mod.json data for C++ usage.
-	 * Note that converting to/from JS is lossy.
+	 * Data associated with an available mod, extracted from the mod.json
+	 * file. Additional data is used for tracking mod compatibility.
 	 */
 	struct ModData
 	{
 		// 'Folder name' of the mod, e.g. 'public' for the main 0 A.D. mod.
 		CStr m_Pathname;
-		// "name" property in the mod.json
+		// "name" property in the mod.json, e.g. '0ad' for the main 0 A.D. mod.
 		CStr m_Name;
 
 		CStr m_Version;
 		std::vector<CStr> m_Dependencies;
-		// If true, the mod is assumed to be 'GUI-only', i.e. ignored for MP or replay compatibility checks.
-		bool m_IgnoreInCompatibilityChecks;
 
-		// For convenience when exporting to JS, keep a record of the full file.
+		// True if the mod does not touch paths that can affect replay/multiplayer
+		// compatibility.
+		bool m_IsCosmetic = false;
+
+		// For convenience when the GUI asks for it, cache the contents of the mod.json file.
+		// This is dropped when converting to/from a JSVal.
 		CStr m_Text;
 	};
 
@@ -76,16 +84,10 @@ public:
 	bool EnableMods(const std::vector<CStr>& mods, const bool addPublic);
 
 	/**
-	 * Get data for the given mod.
-	 * @param the mod path name (e.g. 'public')
-	 * @return the mod data or nullptr if unavailable.
-	 * TODO: switch to std::optional or something related.
-	 */
-	const ModData* GetModData(const CStr& mod) const;
-
-	/**
 	 * Get a list of the enabled mod's data (intended for compatibility checks).
-	 * "user" mod and "mod" mod are ignored as they are irrelevant for compatibility checks.
+	 * The "mod" mod is ignored in the listing.
+	 * TODO: for checking against cheat-modding, all listed mods should be zipped
+	 * and hashed. The "mod" mod should be hashed as well.
 	 */
 	const std::vector<const Mod::ModData*> GetEnabledModsData() const;
 
@@ -93,6 +95,12 @@ public:
 	 * @return whether the two lists are compatible for replaying / MP play.
 	 */
 	static bool AreModsPlayCompatible(const std::vector<const Mod::ModData*>& modsA, const std::vector<const Mod::ModData*>& modsB);
+
+	/*
+	 * React to file modifications in the mounted mods.
+	 */
+	Status ReloadChangedFile(const VfsPath& path);
+
 private:
 
 	/**
@@ -106,6 +114,8 @@ private:
 	std::vector<CStr> m_IncompatibleMods;
 
 	std::vector<ModData> m_AvailableMods;
+	// The user mod does not have a parsable mod.json, but we must still evaluate if it is cosmetic
+	ModData m_UserModData;
 };
 
 #endif // INCLUDED_MOD

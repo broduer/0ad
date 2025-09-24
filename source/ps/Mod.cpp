@@ -21,10 +21,12 @@
 
 #include "lib/file/file_system.h"
 #include "lib/file/vfs/vfs.h"
+#include "lib/file/vfs/vfs_path.h"
 #include "lib/path.h"
 #include "lib/sysdep/os.h"
 #include "lib/utf8.h"
 #include "ps/CLogger.h"
+#include "ps/CStr.h"
 #include "ps/Errors.h"
 #include "ps/Filesystem.h"
 #include "ps/GameSetup/CmdLineArgs.h"
@@ -63,6 +65,17 @@ namespace
  * Global instance of Mod, always exists.
  */
 Mod g_ModInstance;
+
+/*
+ * Blacklist of VFS folders altering replay/multiplayer compatibility.
+ */
+std::function<bool(const VfsPath&)> const IsInNonCosmeticFolder = [](const VfsPath& path) {
+	std::vector<CStrW> blacklist{ L"autostart/", L"gamesettings/", L"globalscripts/", L"simulation/" };
+	for (const CStrW& name : blacklist)
+		if ((path / "").string().find(name) == 0)
+			return true;
+	return false;
+};
 
 bool LoadModJSON(const PIVFS& vfs, OsPath modsPath, OsPath mod, std::string& text)
 {
@@ -112,24 +125,53 @@ bool LoadModJSON(const PIVFS& vfs, OsPath modsPath, OsPath mod, std::string& tex
 	}
 }
 
-bool ParseModJSON(const ScriptRequest& rq, const PIVFS& vfs, OsPath modsPath, OsPath mod, Mod::ModData& data)
+bool DetectModCosmetic(const PIVFS& vfs, OsPath modsPath, OsPath mod, Mod::ModData& modData)
 {
+	vfs->Clear();
+	if (vfs->Mount(L"", modsPath / mod / "", VFS_MOUNT_MUST_EXIST, VFS_MIN_PRIORITY) < 0)
+		return false;
+
+	DirectoryNames subdirectoryNames;
+	if (vfs->GetDirectoryEntries(L"", nullptr, &subdirectoryNames) < 0)
+		return false;
+
+	modData.m_IsCosmetic = std::none_of(subdirectoryNames.begin(), subdirectoryNames.end(), IsInNonCosmeticFolder);
+
+	return true;
+}
+
+// Helper function for populating the fields of Mod::ModData
+bool LoadModData(const ScriptRequest& rq, const PIVFS& vfs, OsPath modsPath, OsPath mod, Mod::ModData& data)
+{
+	// Load contents of the "mod.json" file and parse them
 	std::string text;
 	if (!LoadModJSON(vfs, modsPath, mod, text))
 		return false;
-
 	JS::RootedValue json(rq.cx);
 	if (!Script::ParseJSON(rq, text, &json))
 		return false;
-
 	Script::FromJSVal(rq, json, data);
 
-	// Complete - FromJSVal won't convert everything.
-	data.m_Pathname = utf8_from_wstring(mod.string());
+	// Cache the contents of the file
 	data.m_Text = text;
-	if (!Script::GetProperty(rq, json, "dependencies", data.m_Dependencies))
+
+	// Save the "folder name" of the mod
+	data.m_Pathname = mod.string8();
+
+	// Detect if the mod can be enabled without replay/MP compatibility risks
+	// No need to waste time mounting the mod and public mods, they are not cosmetic
+	if (data.m_Pathname == "public" || data.m_Pathname == "mod")
+		return true;
+
+	if (!DetectModCosmetic(vfs, modsPath, mod, data))
 		return false;
+
 	return true;
+}
+
+Status ReloadChangedFileCB(void* param, const VfsPath& path)
+{
+	return static_cast<Mod*>(param)->ReloadChangedFile(path);
 }
 
 } // anonymous namespace
@@ -137,6 +179,16 @@ bool ParseModJSON(const ScriptRequest& rq, const PIVFS& vfs, OsPath modsPath, Os
 Mod& Mod::Instance()
 {
 	return g_ModInstance;
+}
+
+Mod::Mod()
+{
+	RegisterFileReloadFunc(ReloadChangedFileCB, this);
+}
+
+Mod::~Mod()
+{
+	UnregisterFileReloadFunc(ReloadChangedFileCB, this);
 }
 
 const std::vector<CStr>& Mod::GetEnabledMods() const
@@ -182,34 +234,28 @@ bool Mod::EnableMods(const std::vector<CStr>& mods, const bool addPublic)
 	return m_IncompatibleMods.empty();
 }
 
-const Mod::ModData* Mod::GetModData(const CStr& mod) const
-{
-	std::vector<ModData>::const_iterator it = std::find_if(m_AvailableMods.begin(), m_AvailableMods.end(),
-		[&mod](const ModData& modData) { return modData.m_Pathname == mod; });
-	if (it == m_AvailableMods.end())
-		return nullptr;
-	return std::addressof(*it);
-}
-
 const std::vector<const Mod::ModData*> Mod::GetEnabledModsData() const
 {
 	std::vector<const ModData*> loadedMods;
 	for (const CStr& mod : m_EnabledMods)
 	{
-		if (mod == "mod" || mod == "user")
+		if (mod == "mod")
 			continue;
 
-		const ModData* data = GetModData(mod);
-
-		// This ought be impossible, but let's handle it anyways since it's not a reason to crash.
-		if (!data)
+		std::vector<ModData>::const_iterator it = std::find_if(m_AvailableMods.begin(), m_AvailableMods.end(),
+			[&mod](const ModData& modData) { return modData.m_Pathname == mod; });
+		if (it == m_AvailableMods.end())
 		{
+			// This ought to be impossible, but let's handle it anyways since it's not a reason to crash.
 			LOGERROR("Unavailable mod '%s' was enabled.", mod);
 			continue;
 		}
 
-		loadedMods.emplace_back(data);
+		loadedMods.emplace_back(std::addressof(*it));
 	}
+
+	loadedMods.emplace_back(std::addressof(m_UserModData));
+
 	return loadedMods;
 }
 
@@ -221,12 +267,12 @@ bool Mod::AreModsPlayCompatible(const std::vector<const Mod::ModData*>& modsA, c
 
 	while (a != modsA.end() || b != modsB.end())
 	{
-		if (a != modsA.end() && (*a)->m_IgnoreInCompatibilityChecks)
+		if (a != modsA.end() && (*a)->m_IsCosmetic)
 		{
 			++a;
 			continue;
 		}
-		if (b != modsB.end() && (*b)->m_IgnoreInCompatibilityChecks)
+		if (b != modsB.end() && (*b)->m_IsCosmetic)
 		{
 			++b;
 			continue;
@@ -269,7 +315,7 @@ void Mod::UpdateAvailableMods(const ScriptInterface& scriptInterface)
 	for (DirectoryNames::iterator iter = modDirs.begin(); iter != modDirs.end(); ++iter)
 	{
 		ModData data;
-		if (!ParseModJSON(rq, vfs, modPath, *iter, data))
+		if (!LoadModData(rq, vfs, modPath, *iter, data))
 			continue;
 		// Valid mod data, add it to our structure
 		m_AvailableMods.emplace_back(std::move(data));
@@ -284,11 +330,56 @@ void Mod::UpdateAvailableMods(const ScriptInterface& scriptInterface)
 			continue;
 
 		ModData data;
-		if (!ParseModJSON(rq, vfs, modUserPath, *iter, data))
+		if (!LoadModData(rq, vfs, modUserPath, *iter, data))
 			continue;
 		// Valid mod data, add it to our structure
 		m_AvailableMods.emplace_back(std::move(data));
 	}
+
+	// Check if the user mod is cosmetic
+	m_UserModData = { "user", "user", "9999" };
+	DetectModCosmetic(vfs, modUserPath, L"user", m_UserModData);
+}
+
+Status Mod::ReloadChangedFile(const VfsPath& path)
+{
+	// We do not care if a file was hotloaded in a cosmetic path, since
+	// changes in cosmetic paths cannot make a cosmetic mod non-cosmetic.
+	// On the other hand, if a non-cosmetic path was touched, the
+	// responsible mod must be marked as non-cosmetic.
+	if (!IsInNonCosmeticFolder(path))
+		return INFO::OK;
+
+	// Find out in which mod the hotloaded file is located
+	OsPath realPath;
+	Status ret = g_VFS->GetOriginalPath(path, realPath);
+	if (ret != INFO::OK)
+		return ret;
+
+	CStr mod = realPath.BeforeCommon(path).Parent().Filename().string8();
+
+	// "mod" and "public" are not cosmetic anyway.
+	if (mod == "mod" || mod == "public")
+		return INFO::OK;
+
+	if (mod == "user")
+	{
+		m_UserModData.m_IsCosmetic = false;
+		return INFO::OK;
+	}
+
+	std::vector<ModData>::iterator it = std::find_if(m_AvailableMods.begin(), m_AvailableMods.end(),
+		[&mod](const ModData& modData) { return modData.m_Pathname == mod; });
+
+	if (it == m_AvailableMods.end())
+	{
+		LOGERROR("File %s was hotloaded, but mod %s is not available on disk.", path.string8().c_str(), mod.c_str());
+		return ERR::LOGIC;
+	}
+
+	it->m_IsCosmetic = false;
+
+	return INFO::OK;
 }
 
 std::vector<CStr> Mod::CheckForIncompatibleMods(const std::vector<CStr>& mods) const
@@ -298,7 +389,7 @@ std::vector<CStr> Mod::CheckForIncompatibleMods(const std::vector<CStr>& mods) c
 	std::unordered_map<CStr, CStr> modNameVersions;
 	for (const CStr& mod : mods)
 	{
-		if (mod == "mod" || mod == "user")
+		if (mod == "mod")
 			continue;
 
 		std::vector<ModData>::const_iterator it = std::find_if(m_AvailableMods.begin(), m_AvailableMods.end(),
@@ -317,7 +408,7 @@ std::vector<CStr> Mod::CheckForIncompatibleMods(const std::vector<CStr>& mods) c
 	static const std::vector<CStr> toCheck = { "<=", ">=", "=", "<", ">" };
 	for (const CStr& mod : mods)
 	{
-		if (mod == "mod" || mod == "user")
+		if (mod == "mod")
 			continue;
 
 		const std::unordered_map<CStr, std::vector<CStr>>::iterator res = modDependencies.find(mod);

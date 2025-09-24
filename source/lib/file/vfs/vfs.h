@@ -170,7 +170,7 @@ struct IVFS
 	 * This is distinct from the current 'real' path, since that depends on the parent directory's real path,
 	 * which may have been overwritten by a mod or another call to Mount().
 	 *
-	 * This is used by the caching to split by mod, and you also ought to call this to delete a file.
+	 * This is used to split by mod, and you also ought to call this to delete a file.
 	 * (note that deleting has other issues, see below).
 	 **/
 	virtual Status GetOriginalPath(const VfsPath& filename, OsPath& loadedPathname) = 0;

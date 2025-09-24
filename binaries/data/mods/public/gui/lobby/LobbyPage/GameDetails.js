@@ -108,11 +108,11 @@ class GameDetails
 				txt += setStringTags(this.ModsFormat, this.CaptionTags);
 
 			const sortedMods = game.mods;
-			sortedMods.sort((a, b) => a.ignoreInCompatibilityChecks - b.ignoreInCompatibilityChecks);
+			sortedMods.sort((a, b) => a.isCosmetic - b.isCosmetic);
 			for (const mod of sortedMods)
 			{
 				let modStr = escapeText(modToString(mod));
-				if (mod.ignoreInCompatibilityChecks)
+				if (mod.isCosmetic)
 					modStr = setStringTags(coloredText(modStr, "180 180 180"), {
 						"tooltip": translate("This mod does not affect MP compatibility"),
 					});

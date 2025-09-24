@@ -15,7 +15,7 @@ function hasSameMods(modsA, modsB)
 function modToString(mod)
 {
 	// Skip version for play-compatible mods.
-	if (mod.ignoreInCompatibilityChecks)
+	if (mod.isCosmetic)
 		return mod.name;
 	return sprintf(translateWithContext("Mod comparison", "%(mod)s (%(version)s)"), {
 		"mod": mod.name,

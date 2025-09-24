@@ -198,7 +198,7 @@ bool VfsDirectory::ShouldPopulate()
 
 void VfsDirectory::RequestRepopulate()
 {
-	m_shouldPopulate = 1;
+	m_shouldPopulate = true;
 }
 
 

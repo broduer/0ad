@@ -48,7 +48,7 @@ Message CreateHandshake() {
 
 	for (const Mod::ModData* mod : Mod::Instance().GetEnabledModsData())
 	{
-		if (mod->m_IgnoreInCompatibilityChecks)
+		if (mod->m_IsCosmetic)
 			continue;
 
 		typename Message::S_m_EnabledMods enabledMod;

@@ -89,7 +89,7 @@ function getHotloadData()
 
 function loadMods()
 {
-	g_Mods = Engine.GetAvailableMods();
+	g_Mods = Engine.GetAvailableModsJSON();
 	deepfreeze(g_Mods);
 }
 

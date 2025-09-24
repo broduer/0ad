@@ -58,7 +58,6 @@ extern const std::vector<CStr>& GetMods(const CmdLineArgs& args, int flags);
 
 /**
  * Mounts all files of the given mods in the global VFS.
- * Make sure to call CacheEnabledModVersions after every call to this.
  */
 extern void MountMods(const Paths& paths, const std::vector<CStr>& mods);
 

@@ -42,30 +42,6 @@ namespace JS { class CallArgs; }
 
 extern void RestartEngine();
 
-// To avoid copying data needlessly in GetEngineInfo, implement a ToJSVal for pointer types.
-using ModDataCPtr = const Mod::ModData*;
-
-template<>
-void Script::ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret, const ModDataCPtr& data)
-{
-	ret.set(Script::CreateObject(rq));
-	Script::SetProperty(rq, ret, "mod", data->m_Pathname);
-	Script::SetProperty(rq, ret, "name", data->m_Name);
-	Script::SetProperty(rq, ret, "version", data->m_Version);
-	Script::SetProperty(rq, ret, "ignoreInCompatibilityChecks", data->m_IgnoreInCompatibilityChecks);
-}
-
-// Required by JSVAL_VECTOR, but can't be implemented.
-template<>
-bool Script::FromJSVal(const ScriptRequest &, const JS::HandleValue, ModDataCPtr&)
-{
-	LOGERROR("Not implemented");
-	return false;
-}
-
-JSVAL_VECTOR(const Mod::ModData*);
-
-// Implement FromJSVal as a non-pointer type.
 template<>
 void Script::ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret, const Mod::ModData& data)
 {
@@ -73,49 +49,46 @@ void Script::ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret, const 
 	Script::SetProperty(rq, ret, "mod", data.m_Pathname);
 	Script::SetProperty(rq, ret, "name", data.m_Name);
 	Script::SetProperty(rq, ret, "version", data.m_Version);
-	Script::SetProperty(rq, ret, "ignoreInCompatibilityChecks", data.m_IgnoreInCompatibilityChecks);
+	Script::SetProperty(rq, ret, "dependencies", data.m_Dependencies);
+	Script::SetProperty(rq, ret, "isCosmetic", data.m_IsCosmetic);
 }
 
 template<>
 bool Script::FromJSVal(const ScriptRequest& rq, const JS::HandleValue val, Mod::ModData& data)
 {
-	// To avoid errors & for convenience, some retro-compatibility when reading
-	// TODO: remove this once we hit A26.
-	JS::RootedObject obj(rq.cx, val.toObjectOrNull());
-	bool isArray = false;
-	if (JS::IsArray(rq.cx, obj, &isArray) && isArray)
-	{
-		if (!Script::GetPropertyInt(rq, val, 0, data.m_Pathname))
-			return false;
-		if (!Script::GetPropertyInt(rq, val, 1, data.m_Version))
-			return false;
-		// Set a sane default for this.
-		data.m_Name = data.m_Pathname;
-		return true;
-	}
-
 	// This property is not set in mod.json files, so don't fail if it's not there.
 	if (Script::HasProperty(rq, val, "mod") && !Script::GetProperty(rq, val, "mod", data.m_Pathname))
 		return false;
-
-	if (!Script::GetProperty(rq, val, "version", data.m_Version))
-		return false;
 	if (!Script::GetProperty(rq, val, "name", data.m_Name))
 		return false;
-
-	// Optional - this makes the mod 'GUI-only'.
-	if (Script::HasProperty(rq, val, "ignoreInCompatibilityChecks"))
-	{
-		if (!Script::GetProperty(rq, val, "ignoreInCompatibilityChecks", data.m_IgnoreInCompatibilityChecks))
-			return false;
-	}
-	else
-		data.m_IgnoreInCompatibilityChecks = false;
+	if (!Script::GetProperty(rq, val, "version", data.m_Version))
+		return false;
+	if (!Script::GetProperty(rq, val, "dependencies", data.m_Dependencies))
+		return false;
+	// This property is not set in mod.json files, so don't fail if it's not there.
+	if (Script::HasProperty(rq, val, "isCosmetic") && !Script::GetProperty(rq, val, "isCosmetic", data.m_IsCosmetic))
+		return false;
 
 	return true;
 }
 
 JSVAL_VECTOR(Mod::ModData);
+
+// To avoid copying data needlessly in GetEngineInfo, implement To/FromJSVal for pointer types.
+using ModDataCPtr = const Mod::ModData*;
+template<>
+void Script::ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret, const ModDataCPtr& data)
+{
+	Script::ToJSVal(rq, ret, *data);
+}
+template<>
+bool Script::FromJSVal(const ScriptRequest&, const JS::HandleValue, ModDataCPtr&)
+{
+	// Required by JSVAL_VECTOR, but can't be implemented
+	LOGERROR("Not implemented");
+	return false;
+}
+JSVAL_VECTOR(const Mod::ModData*);
 
 namespace JSI_Mod
 {
@@ -143,7 +116,7 @@ JS::Value GetEngineInfo(const ScriptInterface& scriptInterface)
 	return metainfo;
 }
 
-JS::Value GetAvailableMods(const ScriptRequest& rq)
+JS::Value GetAvailableModsJSON(const ScriptRequest& rq)
 {
 	JS::RootedValue ret(rq.cx, Script::CreateObject(rq));
 	for (const Mod::ModData& data : g_Mods.GetAvailableMods())
@@ -188,7 +161,7 @@ bool HasIncompatibleMods()
 void RegisterScriptFunctions(const ScriptRequest& rq)
 {
 	ScriptFunction::Register<GetEngineInfo>(rq, "GetEngineInfo");
-	ScriptFunction::Register<GetAvailableMods>(rq, "GetAvailableMods");
+	ScriptFunction::Register<GetAvailableModsJSON>(rq, "GetAvailableModsJSON");
 	ScriptFunction::Register<&Mod::GetEnabledMods, ModGetter>(rq, "GetEnabledMods");
 	ScriptFunction::Register<AreModsPlayCompatible>(rq, "AreModsPlayCompatible");
 	ScriptFunction::Register<HasIncompatibleMods> (rq, "HasIncompatibleMods");
