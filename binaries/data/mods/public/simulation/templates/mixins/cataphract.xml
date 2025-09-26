@@ -23,14 +23,13 @@
   <Resistance>
     <Entity>
       <Damage>
-        <Hack op="add">1</Hack>
-        <Pierce op="add">1</Pierce>
-        <Crush op="add">1</Crush>
+        <Hack op="add">3</Hack>
+        <Pierce op="add">3</Pierce>
       </Damage>
     </Entity>
   </Resistance>
   <UnitMotion>
-    <WalkSpeed op="mul">0.95</WalkSpeed>
+    <WalkSpeed op="mul">0.80</WalkSpeed>
     <Acceleration op="mul">0.8</Acceleration>
   </UnitMotion>
 </Entity>
