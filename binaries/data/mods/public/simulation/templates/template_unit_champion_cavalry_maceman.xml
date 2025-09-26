@@ -14,7 +14,7 @@
     </Melee>
   </Attack>
   <Health>
-    <Max>300</Max>
+    <Max>260</Max>
   </Health>
   <Identity>
     <GenericName>Champion Cavalry Maceman</GenericName>
