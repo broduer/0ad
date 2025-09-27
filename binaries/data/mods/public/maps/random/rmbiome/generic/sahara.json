@@ -84,6 +84,7 @@
 			"min": 500,
 			"max": 1000,
 			"forestProbability": 0.4
-		}
+		},
+		"woodAvailability": 0.8
 	}
 }

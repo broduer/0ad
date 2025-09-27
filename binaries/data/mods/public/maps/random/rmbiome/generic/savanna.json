@@ -86,6 +86,8 @@
 			"min": 500,
 			"max": 1500,
 			"forestProbability": 0.3
-		}
+		},
+		"woodAvailability": 0.8,
+		"huntBerryRatio": 0.65
 	}
 }

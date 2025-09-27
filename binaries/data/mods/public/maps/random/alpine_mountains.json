@@ -1,0 +1,10 @@
+{
+	"settings" : {
+		"Name" : "Alpine Mountains",
+		"Script" : "alpine_mountains.js",
+		"Description" : "Players start in the middle of a mountain with unknown topography. Summer and Winter seasons are available.\n\n [color=\"yellow\"]Note: Since a good share of the area is covered by mountains, it is recommended to use a Map Size one size larger than a land map.\n\nPart of the Feldmap mod.[/color]",
+		"Preview" : "alpine_mountains_rnd.png",
+		"SupportedBiomes": "alpine_mountains/",
+		"CircularMap" : true
+	}
+}

@@ -1,0 +1,15 @@
+{
+	"settings" : {
+		"Name" : "Slopes balanced",
+		"Script" : "slopes_balanced.js",
+		"Description" : "Teams are placed in opposite sides, surrounded by plateaus with plenty of wood and fish from lakes.",
+		"Preview" : "slopes.png",
+		"SupportedBiomes": "generic/",
+		"Keywords": ["multiplayer"],
+		"CircularMap": false,
+		"PlayerPlacements": [
+			"stronghold",
+			"river"
+		]
+	}
+}
