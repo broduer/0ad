@@ -15,10 +15,9 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-// This pipeline is used to generate patched releases, suitable to be bundled and distributed.
-
-def visualStudioPath = '"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe"'
-def buildOptions = '/p:PlatformToolset=v143 /t:pyrogenesis /t:AtlasUI %JOBS% /nologo -clp:Warningsonly -clp:ErrorsOnly'
+// This pipeline is used to generate patch releases.
+// It starts by generating a patch file in a dedicated workspace, then it triggers a downstream job
+// which is an instance of the bundles pipeline, passing the patch file to it.
 
 pipeline {
     agent {
@@ -38,46 +37,9 @@ pipeline {
             steps {
                 checkout scmGit(branches: [[name: "${GIT_BRANCH}"]], extensions: [cleanAfterCheckout(), localBranch()])
                 bat 'cd build\\build_version && build_version.bat'
-                stash includes: 'build/build_version/build_version.txt', name: 'build_version'
+                archiveArtifacts artifacts: 'build/build_version/build_version.txt'
                 bat "git diff ${RELEASE_TAG}..HEAD > ${BUNDLE_VERSION}.patch"
-                stash includes: "${params.BUNDLE_VERSION}.patch", name: 'patch'
                 archiveArtifacts artifacts: "${params.BUNDLE_VERSION}.patch"
-            }
-        }
-
-        stage('Patch Windows Build') {
-            steps {
-                ws('workspace/patch-release-svn') {
-                    checkout changelog: false, poll: false, scm: [
-                        $class: 'SubversionSCM',
-                        locations: [[local: '.', remote: "https://svn.wildfiregames.com/nightly-build/trunk@${NIGHTLY_REVISION}"]],
-                        quietOperation: false,
-                        workspaceUpdater: [$class: 'UpdateWithCleanUpdater']]
-                    unstash 'patch'
-                    bat "svn patch ${params.BUNDLE_VERSION}.patch"
-
-                    unstash 'build_version'
-                    bat 'cd libraries && get-windows-libs.bat'
-
-                    bat '(robocopy E:\\wxWidgets-3.2.8\\lib libraries\\win32\\wxwidgets\\lib /MIR /NDL /NJH /NJS /NP /NS /NC) ^& IF %ERRORLEVEL% LEQ 1 exit 0'
-                    bat '(robocopy E:\\wxWidgets-3.2.8\\include libraries\\win32\\wxwidgets\\include /MIR /NDL /NJH /NJS /NP /NS /NC) ^& IF %ERRORLEVEL% LEQ 1 exit 0'
-                    bat 'cd build\\workspaces && update-workspaces.bat --without-pch --without-tests'
-                    bat "cd build\\workspaces\\vs2022 && ${visualStudioPath} pyrogenesis.sln /p:Configuration=Release ${buildOptions}"
-
-                    script {
-                        def modifiedFiles = bat(script:'@svn status', returnStdout: true).split('\n').collect { l -> l.drop(8).trim() }.join(', ')
-                        tar archive: true, compress: true, exclude: '*.orig, binaries/system/*.exp, binaries/system/*.lib, build/workspaces/vs2017, libraries/win32/wxwidgets/**', file: "${params.BUNDLE_VERSION}-nightly-patch.tar.gz", glob: modifiedFiles
-                    }
-                }
-            }
-
-            post {
-                cleanup {
-                    ws('workspace/patch-release-svn') {
-                        bat 'svn revert -R .'
-                        bat 'svn cleanup --remove-unversioned'
-                    }
-                }
             }
         }
 

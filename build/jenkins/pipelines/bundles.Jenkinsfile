@@ -17,6 +17,12 @@
 
 // This pipeline is used to generate bundles (Windows installer, macOS package, and source tarballs).
 
+// On macOS, binaries are built for both architectures, the native one is used for packaging archives.
+// On Windows, the win32 binary is rebuilt for patch releases.
+
+def visualStudioPath = '"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe"'
+def buildOptions = '/p:PlatformToolset=v143 /t:pyrogenesis /t:AtlasUI %JOBS% /nologo -clp:Warningsonly -clp:ErrorsOnly'
+
 pipeline {
     agent {
         node {
@@ -59,7 +65,6 @@ pipeline {
             steps {
                 copyArtifacts projectName: '0ad-patch-release', selector: upstream()
                 sh "svn patch ${BUNDLE_VERSION}.patch"
-                untar file: "${params.BUNDLE_VERSION}-nightly-patch.tar.gz", keepPermissions: false
             }
         }
 
@@ -186,8 +191,58 @@ pipeline {
         }
 
         stage('Create Windows Installer') {
-            steps {
-                sh "BUNDLE_VERSION=${params.BUNDLE_VERSION} source/tools/dist/build-win-installer.sh"
+            stages {
+                stage('32-bit rebuild') {
+                    when {
+                        expression { return params.PATCH_BUILD }
+                    }
+                    agent {
+                        node {
+                            label 'WindowsAgent'
+                            customWorkspace 'workspace/win32-bundle-build'
+                        }
+                    }
+                    steps {
+                        checkout changelog: false, poll: false, scm: [
+                            $class: 'SubversionSCM',
+                            locations: [[local: '.', remote: "https://svn.wildfiregames.com/nightly-build/trunk@${NIGHTLY_REVISION}"]],
+                            quietOperation: false,
+                            workspaceUpdater: [$class: 'UpdateWithCleanUpdater']]
+                        copyArtifacts projectName: '0ad-patch-release', selector: upstream()
+                        bat "svn patch ${params.BUNDLE_VERSION}.patch"
+
+                        bat 'cd libraries && get-windows-libs.bat'
+                        bat '(robocopy E:\\wxWidgets-3.2.8\\lib libraries\\win32\\wxwidgets\\lib /MIR /NDL /NJH /NJS /NP /NS /NC) ^& IF %ERRORLEVEL% LEQ 1 exit 0'
+                        bat '(robocopy E:\\wxWidgets-3.2.8\\include libraries\\win32\\wxwidgets\\include /MIR /NDL /NJH /NJS /NP /NS /NC) ^& IF %ERRORLEVEL% LEQ 1 exit 0'
+                        bat 'cd build\\workspaces && update-workspaces.bat --without-pch --without-tests'
+                        bat "cd build\\workspaces\\vs2022 && ${visualStudioPath} pyrogenesis.sln /p:Configuration=Release ${buildOptions}"
+
+                        script {
+                            def modifiedFiles = bat(script:'@svn status', returnStdout: true).split('\n').collect { l -> l.drop(8).trim() }.join(', ')
+                            tar archive: true, compress: true, exclude: '*.orig, binaries/system/*.exp, binaries/system/*.lib, build/workspaces/vs2022, libraries/win32/**, libraries/win64/**', file: 'win32-rebuild.tar.gz', glob: modifiedFiles
+                        }
+                        stash name: 'win32-rebuild', includes: 'win32-rebuild.tar.gz'
+                    }
+                    post {
+                        cleanup {
+                            bat 'svn revert -R .'
+                            bat 'svn cleanup --remove-unversioned'
+                        }
+                    }
+                }
+
+                stage('32-bit installer') {
+                    steps {
+                        script {
+                            if (params.PATCH_BUILD) {
+                                unstash 'win32-rebuild'
+                                untar file: 'win32-rebuild.tar.gz', keepPermissions: false
+                                sh 'rm win32-rebuild.tar.gz'
+                            }
+                        }
+                        sh "BUNDLE_VERSION=${params.BUNDLE_VERSION} source/tools/dist/build-win-installer.sh"
+                    }
+                }
             }
         }
 
@@ -206,7 +261,7 @@ pipeline {
 
     post {
         success {
-            archiveArtifacts '*AppImage,*.dmg,*.exe,*.tar.gz,*.tar.xz,*.minisig,*.md5sum,*.sha1sum,*.sha256sum'
+            archiveArtifacts artifacts: '*AppImage,*.dmg,*.exe,*.tar.gz,*.tar.xz,*.minisig,*.md5sum,*.sha1sum,*.sha256sum', excludes: 'win32-rebuild.tar.gz'
         }
         cleanup {
             sh 'svn revert -R .'
