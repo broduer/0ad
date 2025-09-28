@@ -1,7 +1,7 @@
 ; To generate the installer (on Linux):
 ;  Export the nightly build into a directory called e.g. "nightly-build"
 ;  Archivebuild the mod and public mods into e.g. "archives"
-;  makensis -nocd -dcheckoutpath=nightly-build -dversion=0.xxx.0 -dprefix=0ad-0.xxx.0 -darchive_path=archives nightly-build/source/tools/dist/0ad.nsi
+;  makensis -nocd -dcheckoutpath=nightly-build -dversion=0.xxx.0 -dprefix=0ad-0.xxx.0 -dwinarch=win32 -darchive_path=archives nightly-build/source/tools/dist/0ad.nsi
 
   SetCompressor /SOLID LZMA
 
@@ -23,7 +23,7 @@
 
   ;Name and file
   Name "0 A.D."
-  OutFile "${PREFIX}-win32.exe"
+  OutFile "${PREFIX}-${WINARCH}.exe"
 
   ;Default installation folder
   InstallDir "$LOCALAPPDATA\0 A.D."

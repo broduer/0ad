@@ -4,6 +4,8 @@ set -ev
 BUNDLE_VERSION=${BUNDLE_VERSION:="0.28.0dev"}
 PREFIX="0ad-${BUNDLE_VERSION}"
 
+WINARCH=${WINARCH:="win32"}
+
 # Create Windows installer
 # This needs nsisbi for files > 2GB
 # nsisbi 3.10.3 is used on the CD
@@ -17,8 +19,9 @@ LANG="en_GB.UTF-8" makensis -V4 -nocd \
 	-dcheckoutpath="." \
 	-dversion="${BUNDLE_VERSION}" \
 	-dprefix="${PREFIX}" \
+	-dwinarch="${WINARCH}" \
 	-darchive_path="archives/" \
 	source/tools/dist/0ad.nsi
 
 # Fix permissions
-chmod -f 644 "${PREFIX}-win32.exe"
+chmod -f 644 "${PREFIX}-${WINARCH}.exe"
