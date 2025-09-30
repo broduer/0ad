@@ -33,6 +33,7 @@ options:
 	--force-rebuild         - rebuild all
 	--without-nvtt          - don't build nvtt
 	--with-system-cxxtest   - don't build cxxtest
+	--with-system-libzip    - don't build libzip
 	--with-system-nvtt      - don't build nvtt
 	--with-system-mozjs     - don't build spidermonkey
 	--with-system-premake   - don't build premake
@@ -44,6 +45,7 @@ EOF
 without_nvtt=false
 with_system_cpp_httplib=false
 with_system_cxxtest=false
+with_system_libzip=false
 with_system_nvtt=false
 with_system_mozjs=false
 with_system_premake=false
@@ -62,6 +64,7 @@ while [ "$#" -gt 0 ]; do
 		--without-nvtt) without_nvtt=true ;;
 		--with-system-cpp-httplib) with_system_cpp_httplib=true ;;
 		--with-system-cxxtest) with_system_cxxtest=true ;;
+		--with-system-libzip) with_system_libzip=true ;;
 		--with-system-nvtt) with_system_nvtt=true ;;
 		--with-system-mozjs) with_system_mozjs=true ;;
 		--with-system-premake) with_system_premake=true ;;
@@ -102,6 +105,11 @@ if [ "$with_system_cxxtest" = "false" ]; then
 fi
 # shellcheck disable=SC2086
 ./source/fcollada/build.sh $build_sh_options || die "FCollada build failed"
+if [ "$with_system_libzip" = "false" ]; then
+	# shellcheck disable=SC2086
+	./source/libzip/build.sh $build_sh_options || die "libzip build failed"
+	cp source/libzip/lib/*so* ../binaries/system/
+fi
 if [ "$with_system_nvtt" = "false" ] && [ "$without_nvtt" = "false" ]; then
 	# shellcheck disable=SC2086
 	./source/nvtt/build.sh $build_sh_options || die "NVTT build failed"

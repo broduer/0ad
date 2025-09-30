@@ -17,6 +17,7 @@ libraries/win64
 libraries/source/cpp-httplib/*
 libraries/source/cxxtest-4.4/*
 libraries/source/fcollada/*
+libraries/source/libzip/*
 libraries/source/nvtt/*
 libraries/source/premake-core/*
 libraries/source/spidermonkey/*

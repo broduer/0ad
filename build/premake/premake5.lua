@@ -52,6 +52,7 @@ newoption { category = "Pyrogenesis", trigger = "with-system-cpp-httplib", descr
 newoption { category = "Pyrogenesis", trigger = "with-system-cxxtest", description = "Search standard paths for cxxtest, instead of using bundled copy" }
 newoption { category = "Pyrogenesis", trigger = "with-lto", description = "Enable Link Time Optimization (LTO)" }
 newoption { category = "Pyrogenesis", trigger = "with-system-mozjs", description = "Search standard paths for libmozjs128, instead of using bundled copy" }
+newoption { category = "Pyrogenesis", trigger = "with-system-libzip", description = "Search standard paths for libzip, instead of using bundled copy" }
 newoption { category = "Pyrogenesis", trigger = "with-system-nvtt", description = "Search standard paths for nvidia-texture-tools library, instead of using bundled copy" }
 newoption { category = "Pyrogenesis", trigger = "with-valgrind", description = "Enable Valgrind support (non-Windows only)" }
 newoption { category = "Pyrogenesis", trigger = "without-audio", description = "Disable use of OpenAL/Ogg/Vorbis APIs" }
@@ -994,6 +995,7 @@ function setup_all_libs ()
 		"valgrind",
 		"cxxtest",
 		"fmt",
+		"libzip",
 	}
 
 	-- CPU architecture-specific
@@ -1090,6 +1092,7 @@ used_extern_libs = {
 
 	"libpng",
 	"zlib",
+	"libzip",
 
 	"spidermonkey",
 	"libxml2",

@@ -68,6 +68,10 @@ if os.istarget("macosx") then
 	pkgconfig.set_static_link_libs(true)
 end
 
+if not  _OPTIONS["with-system-libzip"] then
+	pkgconfig.add_pkg_config_path(libraries_source_dir .. "libzip/lib/pkgconfig/")
+end
+
 local function add_delayload(name, suffix, def)
 
 	if def["no_delayload"] then
@@ -529,6 +533,25 @@ extern_lib_defs = {
 				filter { }
 			else
 				pkgconfig.add_links("libxml-2.0")
+			end
+		end,
+	},
+	libzip = {
+		compile_settings = function()
+			if os.istarget("windows") then
+				add_default_include_paths("libzip")
+			else
+				pkgconfig.add_includes("libzip")
+			end
+		end,
+		link_settings = function()
+			if os.istarget("windows") then
+				add_default_lib_paths("libzip")
+				add_default_links({
+					win_names  = { "zip" },
+				})
+			else
+				pkgconfig.add_links("libzip")
 			end
 		end,
 	},

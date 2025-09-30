@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -33,6 +33,7 @@
 
 #include <cstdint>
 #include <iterator>
+#include <memory>
 #include <string>
 
 namespace
@@ -108,10 +109,44 @@ public:
 		TS_ASSERT_EQUALS("buildzipwithcomment.sh", g_ResultBuffer);
 	}
 
+	void test_round_trip()
+	{
+		OsPath testDir = MOD_PATH / "file" / "archive";
+		OsPath testPath = testDir / "test.zip";
+
+		TS_ASSERT_EQUALS(INFO::OK, CreateDirectories(testDir, 0700, false));
+
+		{
+			u8 buf[5] = { 'h', 'e', 'l', 'l', 'o' };
+			PIArchiveWriter zWriter = CreateArchiveWriter_Zip(testPath, false);
+			zWriter->AddMemory(buf, std::size(buf), 0, "world/hello");
+		}
+
+		{
+			PIArchiveReader zReader = CreateArchiveReader_Zip(testPath);
+			TS_ASSERT_DIFFERS(nullptr, zReader);
+
+			TS_ASSERT_EQUALS(INFO::OK, zReader->ReadEntries(TestArchiveZip::ReadWorldCallback, 0));
+			TS_ASSERT_EQUALS("hello", g_ResultBuffer);
+		}
+	}
+
+
 private:
 	static void ArchiveEntryCallback(const VfsPath& path, const CFileInfo&, PIArchiveFile,
 		uintptr_t /*cbData*/)
 	{
 		g_ResultBuffer = path.string8();
+	}
+
+	static void ReadWorldCallback(const VfsPath& path, const CFileInfo&, PIArchiveFile file,
+		uintptr_t /*cbData*/)
+	{
+		if (path.string8() == "world/hello")
+		{
+			std::shared_ptr<u8> buf = std::make_shared<u8>(5);
+			file->Load("", buf, 5);
+			g_ResultBuffer = std::string(buf.get(), buf.get() + 5);
+		}
 	}
 };
