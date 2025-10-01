@@ -123,9 +123,10 @@ public:
 		m_CurrentTime = 0.f;
 		m_TotalSinkDepth = -1.f;
 
-		m_SinkProb < 1.f ? m_Stochastic = true : m_Stochastic = false;
+		m_Stochastic = m_SinkProb < 1.0f;
 
-		std::negative_binomial_distribution<int>::param_type new_params(6, m_SinkProb*4);
+		std::negative_binomial_distribution<int>::param_type new_params(
+			6, Clamp(m_SinkProb, 1e-3f, 1.0f));
 		m_Distribution.param(new_params);
 
 		// Detect unsafe misconfiguration
