@@ -4,7 +4,7 @@ cd /D "%~dp0"
 
 rem **SVN revision to checkout for windows-libs or windows-libs-amd64**
 rem **Update this line when you commit an update to windows-libs or windows-libs-amd64**
-set "svnrev=28274"
+set "svnrev=28275"
 
 if "%1" == "--amd64" (
     set "LIBS_PATH=win64"
