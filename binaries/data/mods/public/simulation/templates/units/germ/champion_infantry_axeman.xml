@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Entity parent="template_unit_champion_infantry_axeman">
+<Entity parent="spec_champ|template_unit_champion_infantry_axeman">
   <Cost>
     <Resources>
-      <food op="add">10</food>
-      <metal op="add">-10</metal>
+      <food op="add">-20</food>
+      <metal op="add">20</metal>
     </Resources>
   </Cost>
+  <Health>
+    <Max op="add">-40</Max>
+  </Health>
   <Identity>
     <Civ>germ</Civ>
     <GenericName>Cimbri Raider</GenericName>
@@ -19,10 +22,15 @@
       </Techs>
     </Requirements>
   </Identity>
+  <Loot>
+    <food op="add">-2</food>
+    <metal op="add">2</metal>
+  </Loot>
   <Resistance>
     <Entity>
       <Damage>
-        <Hack op="add">-1</Hack>
+        <Hack op="add">1</Hack>
+        <Pierce op="add">-1</Pierce>
       </Damage>
     </Entity>
   </Resistance>
