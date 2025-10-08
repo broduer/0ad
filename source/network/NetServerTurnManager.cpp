@@ -69,6 +69,7 @@ void CNetServerTurnManager::NotifyFinishedClientCommands(CNetServerSession& sess
 			m_ClientsData[client].readyTurn + 1);
 
 		session.Disconnect(NDR_INCORRECT_READY_TURN_COMMANDS);
+		return;
 	}
 
 	m_ClientsData[client].readyTurn = turn;
@@ -124,6 +125,7 @@ void CNetServerTurnManager::NotifyFinishedClientUpdate(CNetServerSession& sessio
 			m_ClientsData[client].simulatedTurn + 1);
 
 		session.Disconnect(NDR_INCORRECT_READY_TURN_SIMULATED);
+		return;
 	}
 
 	m_ClientsData[client].simulatedTurn = turn;
