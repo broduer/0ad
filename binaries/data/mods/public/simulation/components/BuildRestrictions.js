@@ -144,8 +144,22 @@ BuildRestrictions.prototype.CheckPlacement = function()
 	let ret;
 	if (this.template.Category == "Wall")
 	{
+		// allow walls to be built on top of trees
+		const collisions = cmpObstruction.GetEntitiesBlockingConstruction();
+		let areWoodEnts = collisions.length > 0;
+		for (const ent of collisions)
+		{
+			// don't let entities with unitmotion prevent us from laying a foundation
+			const cmpUnitMotion = Engine.QueryInterface(ent, IID_UnitMotion);
+			const cmpResource = Engine.QueryInterface(ent, IID_ResourceSupply);
+			if ((!cmpResource || cmpResource.GetType().generic !== "wood") && !cmpUnitMotion)
+			{
+				areWoodEnts = false;
+				break;
+			}
+		}
 		// for walls, only test the center point
-		ret = cmpObstruction.CheckFoundation(passClassName, true);
+		ret = areWoodEnts ? "success" : cmpObstruction.CheckFoundation(passClassName, true);
 	}
 	else
 	{
@@ -324,6 +338,12 @@ BuildRestrictions.prototype.GetTerritories = function()
 BuildRestrictions.prototype.HasTerritory = function(territory)
 {
 	return (this.GetTerritories().indexOf(territory) != -1);
+};
+
+BuildRestrictions.prototype.IsWoodEntity = function(entity)
+{
+	const cmpResource = Engine.QueryInterface(entity, IID_ResourceSupply);
+	return cmpResource && cmpResource.GetType().generic === "wood";
 };
 
 // Translation: Territory types being displayed as part of a list like "Valid territories: own, ally".

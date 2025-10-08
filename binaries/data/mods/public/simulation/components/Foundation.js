@@ -21,6 +21,7 @@ Foundation.prototype.Init = function()
 	this.buildTimeModifier = +this.template.BuildTimeModifier;
 
 	this.previewEntity = INVALID_ENTITY;
+	this.entsToDestroy = [];
 };
 
 Foundation.prototype.Serialize = function()
@@ -103,7 +104,11 @@ Foundation.prototype.GetNumBuilders = function()
 
 Foundation.prototype.IsFinished = function()
 {
-	return (this.GetBuildProgress() == 1.0);
+	if (this.GetBuildProgress() == 1.0 && this.entsToDestroy.length)
+		for (const ent of this.entsToDestroy)
+			Engine.DestroyEntity(ent);
+
+	return this.GetBuildProgress() == 1.0;
 };
 
 Foundation.prototype.OnOwnershipChanged = function(msg)
@@ -254,17 +259,25 @@ Foundation.prototype.Commit = function()
 	const cmpObstruction = Engine.QueryInterface(this.entity, IID_Obstruction);
 	if (cmpObstruction && cmpObstruction.GetBlockMovementFlag(true))
 	{
-		for (const ent of cmpObstruction.GetEntitiesDeletedUponConstruction())
-			Engine.DestroyEntity(ent);
+		this.entsToDestroy = cmpObstruction.GetEntitiesDeletedUponConstruction();
 
 		const collisions = cmpObstruction.GetEntitiesBlockingConstruction();
+		const movableCollisions = [];
 		if (collisions.length)
 		{
 			for (const ent of collisions)
 			{
 				const cmpUnitAI = Engine.QueryInterface(ent, IID_UnitAI);
 				if (cmpUnitAI)
+				{
 					cmpUnitAI.LeaveFoundation(this.entity);
+					movableCollisions.push(ent);
+				}
+				const cmpResourceSupply = Engine.QueryInterface(ent, IID_ResourceSupply);
+				if (cmpResourceSupply && cmpResourceSupply.GetType().generic == "wood")
+				{
+					this.entsToDestroy.push(ent);
+				}
 
 				// TODO: What if an obstruction has no UnitAI?
 			}
@@ -273,7 +286,8 @@ Foundation.prototype.Commit = function()
 			// animation to indicate they're waiting for people to get
 			// out the way
 
-			return false;
+			if (movableCollisions.length)
+				return false;
 		}
 	}
 

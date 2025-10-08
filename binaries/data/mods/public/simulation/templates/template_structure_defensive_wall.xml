@@ -20,6 +20,7 @@
   </Identity>
   <Obstruction>
     <Static width="6.0" depth="6.0"/>
+	<BlockConstruction>true</BlockConstruction>
   </Obstruction>
   <Repairable>
     <RepairTimeRatio>4.5</RepairTimeRatio>
