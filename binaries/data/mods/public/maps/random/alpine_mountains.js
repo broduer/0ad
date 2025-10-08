@@ -126,7 +126,7 @@ export function* generateMap(mapSettings)
 
 	yield 5;
 
-	while(true)
+	while (true)
 	{
 		g_Map = new RandomMap(heightLand, tGrassA);
 
@@ -231,7 +231,7 @@ export function* generateMap(mapSettings)
 				continue;
 			}
 			playerIDs = players.playerIDs;
-			playerPosition = players.playerPosition
+			playerPosition = players.playerPosition;
 		}
 
 		if (!mapSettings.Nomad)

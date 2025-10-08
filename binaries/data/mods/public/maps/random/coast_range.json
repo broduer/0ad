@@ -2,6 +2,7 @@
 	"settings": {
 		"Name": "Coast Range",
 		"Script": "coast_range.js",
+		"BalancedScript": true,
 		"Description": "All players starts on a continent surrounded by water.\n\n[color=\"red\"]IMPORTANT NOTE: This map is designed and balanced for 2 teams only.[/color]\n",
 		"Preview": "coast_range.png",
 		"Keywords": ["multiplayer"],

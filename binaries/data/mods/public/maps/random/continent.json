@@ -2,6 +2,7 @@
 	"settings" : {
 		"Name" : "Continent",
 		"Script" : "continent.js",
+		"BalancedScript" : true,
 		"Description" : "All players starts on a continent surrounded by water.",
 		"Preview" : "continent.png",
 		"Keywords": ["multiplayer"],

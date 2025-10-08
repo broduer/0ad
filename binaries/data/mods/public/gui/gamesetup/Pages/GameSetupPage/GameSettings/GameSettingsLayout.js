@@ -18,6 +18,7 @@ var g_GameSettingsLayout = [
 			"SeaLevelRiseTime",
 			"Daytime",
 			"TriggerDifficulty",
+			"Balanced",
 			"Nomad",
 			"Treasures",
 			"ExploredMap",

@@ -1,5 +1,6 @@
 Engine.LoadLibrary("rmgen");
 Engine.LoadLibrary("rmgen-common");
+Engine.LoadLibrary("rmgen-balanced");
 Engine.LoadLibrary("rmbiome");
 
 export function* generateMap(mapSettings)
@@ -52,6 +53,10 @@ export function* generateMap(mapSettings)
 		tForestFloor1
 	];
 
+	const terrainSet = [tMainTerrain, tForestFloor1, tForestFloor2, pForest1, pForest2];
+
+	const stragglerBerriesPresent = Engine.GetTemplate(oTree3).ResourceSupply.Type == "food.fruit";
+
 	const heightSeaGround = -5;
 	const heightLand = 3;
 
@@ -68,6 +73,7 @@ export function* generateMap(mapSettings)
 	const clRock = g_Map.createTileClass();
 	const clMetal = g_Map.createTileClass();
 	const clFood = g_Map.createTileClass();
+	const clFish = g_Map.createTileClass();
 	const clBaseResource = g_Map.createTileClass();
 	const clLand = g_Map.createTileClass();
 
@@ -145,26 +151,60 @@ export function* generateMap(mapSettings)
 	});
 	yield 30;
 
+	var teams = getTeamsArray();
+	var numTeams = teams.filter(team => team).length;
+
+	const balanceManager = new BalanceManager(playerIDs, playerPosition);
+
+	let playerAreas;
+	if (!mapSettings.Nomad)
+	{
+		playerAreas = getSurroundingAreas(playerPosition);
+	}
+
 	createBumps([avoidClasses(clPlayer, 10), stayClasses(clLand, 5)]);
 
 	if (randBool())
 		createHills([tMainTerrain, tCliff, tHill],
 			[avoidClasses(clPlayer, 20, clHill, 15, clBaseResource, 3), stayClasses(clLand, 5)],
 			clHill,
-			scaleByMapSize(1, 4) * numPlayers);
+			scaleByMapSize(1, 4));
 	else
 		createMountains(tCliff,
 			[avoidClasses(clPlayer, 20, clHill, 15, clBaseResource, 3), stayClasses(clLand, 5)],
 			clHill,
-			scaleByMapSize(1, 4) * numPlayers);
+			scaleByMapSize(1, 4));
 
-	const [forestTrees, stragglerTrees] = getTreeCounts(...rBiomeTreeCount(1));
-	createDefaultForests(
-		[tMainTerrain, tForestFloor1, tForestFloor2, pForest1, pForest2],
-		[avoidClasses(clPlayer, 20, clForest, 17, clHill, 0, clBaseResource, 2), stayClasses(clLand, 4)],
-		clForest,
-		forestTrees);
+	let forestTrees;
+	let stragglerTrees;
+	if (mapSettings.Balanced)
+	{
+		if (!mapSettings.Nomad)
+		{
+			let numTrees = scaleByMapArea(30, 200, g_Map.getArea(128), g_Map.getArea(512));
+			numTrees *= g_ResourceCounts.woodAvailability;
+			const auxConstraint = avoidClasses(clPlayer, 20, clForest, 18, clHill, 0);
+			const constraint = new AndConstraint([auxConstraint, stayClasses(clLand, 4), new AvoidMapBoundsConstraint(7)]);
+			placePlayerWoodBalanced(playerAreas, terrainSet, constraint, clForest, numTrees, 0.2);
+		}
 
+		g_DefaultNumberOfForests = scaleByMapSize(6, 30);
+		[forestTrees, stragglerTrees] = getTreeCounts(...rBiomeTreeCount(1));
+		createDefaultForests(
+			terrainSet,
+			[avoidClasses(clPlayer, 38, clForest, 18, clHill, 0), stayClasses(clLand, 4)],
+			clForest,
+			forestTrees);
+	}
+	else
+	{
+		[forestTrees, stragglerTrees] = getTreeCounts(...rBiomeTreeCount(1));
+		createDefaultForests(
+			[tMainTerrain, tForestFloor1, tForestFloor2, pForest1, pForest2],
+			[avoidClasses(clPlayer, 20, clForest, 17, clHill, 0, clBaseResource, 2), stayClasses(clLand, 4)],
+			clForest,
+			forestTrees);
+	}
 	yield 50;
 
 	g_Map.log("Creating dirt patches");
@@ -185,28 +225,47 @@ export function* generateMap(mapSettings)
 		clDirt);
 	yield 55;
 
-	g_Map.log("Creating metal mines");
-	createBalancedMetalMines(
-		oMetalSmall,
-		oMetalLarge,
-		clMetal,
-		[
-			stayClasses(clLand, 6),
-			avoidClasses(clForest, 1, clPlayer, scaleByMapSize(20, 35), clHill, 1)
-		]
-	);
+	if (mapSettings.Balanced)
+	{
+		g_Map.log("Creating balanced metal and stone mines");
+		const metalConstraints = new AndConstraint([avoidClasses(clForest, 1, clHill, 1, clMetal, 7), stayClasses(clLand, 4), new PassableMapAreaConstraint()]);
+		const metalGroupManager = balanceManager.createObjectGroupManager(25, 100, 15, 4, undefined, metalConstraints);
 
-	g_Map.log("Creating stone mines");
-	createBalancedStoneMines(
-		oStoneSmall,
-		oStoneLarge,
-		clRock,
-		[
-			stayClasses(clLand, 6),
-			avoidClasses(clForest, 1, clPlayer, scaleByMapSize(20, 35), clHill, 1, clMetal, 10)
-		]
-	);
+		metalGroupManager.addResourceObject(new ResourceObject(oMetalLarge, 1, 1, 0, 1));
+		metalGroupManager.addResourceObject(new ResourceObject(oMetalSmall, 1, 3, 0, 2));
+		metalGroupManager.place(clMetal);
 
+		const stoneConstraints = new AndConstraint([avoidClasses(clForest, 1, clHill, 1, clMetal, 7, clRock, 7), stayClasses(clLand, 4), new PassableMapAreaConstraint()]);
+		const stoneGroupManager = balanceManager.createObjectGroupManager(25, 100, 15, 3.5, undefined, stoneConstraints);
+
+		stoneGroupManager.addResourceObject(new ResourceObject(oStoneLarge, 1, 1, 0, 1));
+		stoneGroupManager.addResourceObject(new ResourceObject(oStoneSmall, 1, 3, 0, 2));
+		stoneGroupManager.place(clRock);
+	}
+	else
+	{
+		g_Map.log("Creating metal mines");
+		createBalancedMetalMines(
+			oMetalSmall,
+			oMetalLarge,
+			clMetal,
+			[
+				stayClasses(clLand, 6),
+				avoidClasses(clForest, 1, clPlayer, scaleByMapSize(20, 35), clHill, 1)
+			]
+		);
+
+		g_Map.log("Creating stone mines");
+		createBalancedStoneMines(
+			oStoneSmall,
+			oStoneLarge,
+			clRock,
+			[
+				stayClasses(clLand, 6),
+				avoidClasses(clForest, 1, clPlayer, scaleByMapSize(20, 35), clHill, 1, clMetal, 10)
+			]
+		);
+	}
 	yield 65;
 
 	// create decoration
@@ -234,38 +293,109 @@ export function* generateMap(mapSettings)
 
 	yield 70;
 
-	createFood(
-		[
-			[new SimpleObject(oMainHuntableAnimal, 5, 7, 0, 4)],
-			[new SimpleObject(oSecondaryHuntableAnimal, 2, 3, 0, 2)]
-		],
-		[
-			3 * numPlayers,
-			3 * numPlayers
-		],
-		[avoidClasses(clForest, 0, clPlayer, 20, clHill, 1, clFood, 20), stayClasses(clLand, 5)],
-		clFood);
+	if (mapSettings.Balanced)
+	{
+		if (!mapSettings.Nomad)
+		{
+			const oBerryStraggler = stragglerBerriesPresent ? oTree3 : null;
 
-	createFood(
-		[
-			[new SimpleObject(oFruitBush, 5, 7, 0, 4)]
-		],
-		[
-			3 * numPlayers
-		],
-		[avoidClasses(clForest, 0, clPlayer, 20, clHill, 1, clFood, 10), stayClasses(clLand, 5)],
-		clFood);
+			placePlayerFoodBalanced(playerAreas, oFruitBush, oBerryStraggler, oMainHuntableAnimal, oSecondaryHuntableAnimal, clFood,
+				[avoidClasses(clForest, 2, clPlayer, 25, clHill, 1, clMetal, 4, clRock, 4, clFood, 15), stayClasses(clLand, 4)], g_ResourceCounts.huntBerryRatio ?? 0.5);
 
-	createFood(
-		[
-			[new SimpleObject(oFish, 2, 3, 0, 2)]
-		],
-		[
-			50 * numPlayers
-		],
-		avoidClasses(clLand, 2, clFood, 10),
-		clFood);
+			if (oBerryStraggler)
+			{
+				const stragglerConstraints = avoidClasses(clForest, 8, clPlayer, 18, clHill, 1, clMetal, 4, clRock, 4, clFood, 12);
+				const distribution = [0.3, 0.5, 0.7, 0.8, 0.9];
+				let numStragglerBerries = 0;
+				const rand = Math.random();
+				while (numStragglerBerries < distribution.length)
+				{
+					if (rand < distribution[numStragglerBerries])
+						break;
 
+					numStragglerBerries++;
+				}
+
+				for (const area of playerAreas)
+				{
+					for (let i = 0; i < numStragglerBerries; i++)
+					{
+						const group = new SimpleGroup(
+							[new SimpleObject(oBerryStraggler, 1, 1, 0, 4)],
+							true, clFood
+						);
+						createObjectGroupsByAreas(group, 0, stragglerConstraints, 1, 100, [area]);
+					}
+				}
+			}
+		}
+
+		createFood(
+			[
+				[new SimpleObject(oFish, 2, 3, 0, 2)]
+			],
+			[
+				50 * numPlayers
+			],
+			avoidClasses(clLand, 2, clFish, 10),
+			clFish);
+
+		createFood(
+			[
+				[new SimpleObject(oMainHuntableAnimal, 5, 7, 0, 4)],
+				[new SimpleObject(oSecondaryHuntableAnimal, 2, 3, 0, 2)]
+			],
+			[
+				3 * numPlayers,
+				3 * numPlayers
+			],
+			[avoidClasses(clForest, 0, clPlayer, 40, clHill, 1, clFood, 20), stayClasses(clLand, 5)],
+			clFood);
+
+		createFood(
+			[
+				[new SimpleObject(oFruitBush, 5, 7, 0, 4)]
+			],
+			[
+				3 * numPlayers
+			],
+			[avoidClasses(clForest, 0, clPlayer, 45, clHill, 1, clFood, 10), stayClasses(clLand, 5)],
+			clFood);
+	}
+	else
+	{
+		createFood(
+			[
+				[new SimpleObject(oMainHuntableAnimal, 5, 7, 0, 4)],
+				[new SimpleObject(oSecondaryHuntableAnimal, 2, 3, 0, 2)]
+			],
+			[
+				3 * numPlayers,
+				3 * numPlayers
+			],
+			[avoidClasses(clForest, 0, clPlayer, 20, clHill, 1, clFood, 20), stayClasses(clLand, 5)],
+			clFood);
+
+		createFood(
+			[
+				[new SimpleObject(oFruitBush, 5, 7, 0, 4)]
+			],
+			[
+				3 * numPlayers
+			],
+			[avoidClasses(clForest, 0, clPlayer, 20, clHill, 1, clFood, 10), stayClasses(clLand, 5)],
+			clFood);
+
+		createFood(
+			[
+				[new SimpleObject(oFish, 2, 3, 0, 2)]
+			],
+			[
+				50 * numPlayers
+			],
+			avoidClasses(clLand, 2, clFood, 10),
+			clFood);
+	}
 	yield 85;
 
 	createStragglerTrees(

@@ -2,6 +2,7 @@
 	"settings" : {
 		"Name" : "Foothills",
 		"Script" : "foothills.js",
+		"BalancedScript" : true,
 		"Description" : "A land map with rolling hills and no obstructions.",
 		"Preview" : "foothills.png",
 		"Keywords": ["multiplayer"],

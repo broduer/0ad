@@ -184,19 +184,19 @@ function sortPointsShortestCycle(points)
  */
 function floodFill(start, constraints)
 {
-	let constraint = new AndConstraint(constraints);
-	let processedTiles = new Uint8Array(g_Map.getSize() * g_Map.getSize());
-	let tilesStack = [start];
-	let connectedArea = [];
+	const constraint = new AndConstraint(constraints);
+	const processedTiles = new Uint8Array(g_Map.getSize() * g_Map.getSize());
+	const tilesStack = [start];
+	const connectedArea = [];
 
 	while (tilesStack.length > 0)
 	{
-		let position = tilesStack.pop();
+		const position = tilesStack.pop();
 
 		if (!g_Map.validTile(position))
 			continue;
 
-		let idx = position.x * g_Map.getSize() + position.y; // The above check enforces that this would never be out of bounds.
+		const idx = position.x * g_Map.getSize() + position.y; // The above check enforces that this would never be out of bounds.
 
 		if (processedTiles[idx] != 0)
 			continue;

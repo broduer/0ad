@@ -2,6 +2,7 @@
 	"settings" : {
 		"Name" : "Mainland",
 		"Script" : "mainland.js",
+		"BalancedScript" : true,
 		"Description" : "A typical map without any water.",
 		"Preview" : "mainland.png",
 		"Keywords": ["multiplayer"],

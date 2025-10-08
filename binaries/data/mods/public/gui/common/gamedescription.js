@@ -354,6 +354,15 @@ function getGameDescription(initAttributes, mapCache)
 					translate("Players start with a Civic Center.")
 		});
 
+	if (initAttributes.settings.Balanced !== undefined)
+		titles.push({
+			"label": initAttributes.settings.Balanced ? translate("Balanced Resources") : translate("Random Resources"),
+			"value":
+				initAttributes.settings.Balanced ?
+					translate("Resources are distributed fairly between players.") :
+					translate("Resources are placed with greater randomness.")
+		});
+
 	if (initAttributes.settings.StartingResources !== undefined)
 		titles.push({
 			"label": translate("Starting Resources"),

@@ -15,6 +15,7 @@ class GameDescription
 	{
 		const update = () => this.updateGameDescription();
 		g_GameSettings.biome.watch(update, ["biome"]);
+		g_GameSettings.balanced.watch(update, ["enabled"]);
 		g_GameSettings.ceasefire.watch(update, ["value"]);
 		g_GameSettings.cheats.watch(update, ["enabled"]);
 		g_GameSettings.disableTreasures.watch(update, ["enabled"]);
