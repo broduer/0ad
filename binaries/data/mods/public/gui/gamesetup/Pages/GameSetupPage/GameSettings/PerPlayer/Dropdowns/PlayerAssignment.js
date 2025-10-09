@@ -88,11 +88,17 @@ PlayerSettingControls.PlayerAssignment = class PlayerAssignment extends GameSett
 		if (this.assignedGUID === newGUID)
 			return;
 		this.assignedGUID = newGUID;
-		// Remove the AI from the slot if there was one.
-		if (this.assignedGUID && g_GameSettings.playerAI.get(this.playerIndex))
+		if (this.assignedGUID)
 		{
-			g_GameSettings.playerAI.setAI(this.playerIndex, undefined);
-			this.gameSettingsController.setNetworkInitAttributes();
+			const wasAI = g_GameSettings.playerAI.get(this.playerIndex);
+			const wasRemoved = g_GameSettings.playerRemoved.get(this.playerIndex);
+			if (wasAI)
+				g_GameSettings.playerAI.setAI(this.playerIndex, undefined);
+			else if (wasRemoved)
+				g_GameSettings.playerRemoved.set(this.playerIndex, false);
+
+			if (wasAI || wasRemoved)
+				this.gameSettingsController.setNetworkInitAttributes();
 		}
 		this.render();
 	}
