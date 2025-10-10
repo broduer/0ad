@@ -140,12 +140,12 @@ PlayerSettingControls.PlayerAssignment = class PlayerAssignment extends GameSett
 		// If loading a saved game clients and unassigned players can't be replaced by a AI. Don't show
 		// the AIs in the dropdown.
 		const disableAI = this.isSavedGame && !g_GameSettings.playerAI.get(this.playerIndex);
-		const disabledPlayer = this.isSavedGame && !g_GameSettings.playerRemoved.get(this.playerIndex);
+		const disableRemovedPlayer = this.isSavedGame && !g_GameSettings.playerRemoved.get(this.playerIndex);
 		this.values = prepareForDropdown([
 			...this.playerItems,
-			...disableAI || disabledPlayer ? [] : this.aiItems,
+			...disableAI ? [] : this.aiItems,
 			this.unassignedItem,
-			this.removedItem
+			...disableRemovedPlayer ? [] : [this.removedItem]
 		]);
 
 		const selected = this.dropdown.list_data?.[this.dropdown.selected];
