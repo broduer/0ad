@@ -53,7 +53,7 @@ class CheckRefs:
         integer_8bit = r"2[0-4]\d|25[0-5]|[01]?\d{1,2}"
         self.rgba_color_regex = rf"\s*(({integer_8bit})\s+){{2,3}}({integer_8bit})\s*"
         self.vfs_root = Path(__file__).resolve().parents[3] / "binaries" / "data" / "mods"
-        self.supportedTextureFormats = ("dds", "png")
+        self.supportedTextureFormats = ("dds", "png", "tga")
         self.supportedMeshesFormats = ("pmd", "dae")
         self.supportedAnimationFormats = ("psa", "dae")
         self.supportedAudioFormats = "ogg"
