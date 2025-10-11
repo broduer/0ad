@@ -10,6 +10,7 @@
   <Identity>
     <GenericName>Athenian Marine</GenericName>
     <SpecificName>Epibátēs Athēnaîos</SpecificName>
+    <SelectionGroupName>units/athen/champion_marine</SelectionGroupName>
     <Icon>units/athen/champion_marine.png</Icon>
     <Requirements>
       <Techs datatype="tokens">-phase_city phase_town</Techs>
