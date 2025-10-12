@@ -6,6 +6,10 @@ PlayerSettingControls.PlayerTeam = class PlayerTeam extends GameSettingControlDr
 
 		this.values = prepareForDropdown([
 			{
+				"label": setStringTags(this.Random, this.RandomItemTags),
+				"id": this.RandomId
+			},
+			{
 				"label": this.NoTeam,
 				"id": this.NoTeamId
 			},
@@ -38,7 +42,7 @@ PlayerSettingControls.PlayerTeam = class PlayerTeam extends GameSettingControlDr
 
 	onSelectionChange(itemIdx)
 	{
-		g_GameSettings.playerTeam.setValue(this.playerIndex, itemIdx - 1);
+		g_GameSettings.playerTeam.setValue(this.playerIndex, itemIdx - 2);
 		this.gameSettingsController.setNetworkInitAttributes();
 	}
 };
@@ -50,3 +54,8 @@ PlayerSettingControls.PlayerTeam.prototype.NoTeam =
 	translateWithContext("team", "None");
 
 PlayerSettingControls.PlayerTeam.prototype.NoTeamId = -1;
+
+PlayerSettingControls.PlayerTeam.prototype.Random =
+	translateWithContext("team", "Random");
+
+PlayerSettingControls.PlayerTeam.prototype.RandomId = -2;

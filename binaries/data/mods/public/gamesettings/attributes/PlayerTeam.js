@@ -67,6 +67,50 @@ GameSettings.prototype.Attributes.PlayerTeam = class PlayerTeam extends GameSett
 		this.trigger("values");
 	}
 
+	_possibleTeams(nbPlayers)
+	{
+		if (nbPlayers <= 2) return [nbPlayers];
+		if (nbPlayers <= 5) return [2];
+		return [2, Math.floor(nbPlayers / 2)];
+	}
+
+	pickRandomItems()
+	{
+		if (!this.values.includes(-2))
+			return false;
+
+		const nbPlayers = this.settings.playerCount.nbPlayers;
+
+		// Decide how many teams to create based on player count
+		const nbTeams = pickRandom(this._possibleTeams(nbPlayers));
+
+
+		// Shuffle players and distribute them among teams
+		const playerIndices = shuffleArray([...Array(nbPlayers).keys()]);
+
+
+		const teamCounts = Array(nbTeams).fill(0);
+		for (let i = 0; i < nbPlayers; i++)
+		{
+			if (this.values[i] >= 0)
+				teamCounts[this.values[i]]++;
+		}
+
+		for (const i of playerIndices)
+		{
+			if (this.values[i] === -2) // random teams
+			{
+				const minCount = Math.min(...teamCounts);
+				const team = teamCounts.indexOf(minCount);
+				this.values[i] = team;
+				teamCounts[team]++;
+			}
+		}
+
+		this.trigger("values");
+		return true;
+	}
+
 	_set(playerIndex, value)
 	{
 		this.values[playerIndex] = value;
