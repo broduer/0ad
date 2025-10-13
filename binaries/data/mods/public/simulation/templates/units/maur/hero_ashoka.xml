@@ -3,6 +3,12 @@
   <Auras datatype="tokens">
     units/heroes/maur_hero_ashoka
   </Auras>
+  <Builder>
+    <Rate>10.0</Rate>
+    <Entities datatype="tokens">
+      structures/maur/pillar_ashoka
+    </Entities>
+  </Builder>
   <Footprint replace="">
     <Square width="8.0" depth="11.0"/>
     <Height>6.0</Height>
