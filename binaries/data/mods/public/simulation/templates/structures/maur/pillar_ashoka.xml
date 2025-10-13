@@ -4,6 +4,7 @@
     structures/maur_pillar
   </Auras>
   <BuildRestrictions>
+    <Territory>own ally</Territory>
     <Category>Pillar</Category>
     <Distance>
       <FromClass>Pillar</FromClass>
