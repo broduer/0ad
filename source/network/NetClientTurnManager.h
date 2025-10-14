@@ -44,11 +44,6 @@ public:
 
 	void PostCommand(JS::HandleValue data) override;
 
-	/**
-	 * Notify the server that all commands are sent to prepare the connection for termination.
-	 */
-	void OnDestroyConnection();
-
 	void OnSyncError(u32 turn, const CStr& expectedHash, const std::vector<CSyncErrorMessage::S_m_PlayerNames>& playerNames);
 
 private:

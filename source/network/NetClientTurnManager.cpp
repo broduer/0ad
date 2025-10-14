@@ -99,14 +99,6 @@ void CNetClientTurnManager::NotifyFinishedUpdate(u32 turn)
 	m_NetClient.SendMessage(&msg);
 }
 
-void CNetClientTurnManager::OnDestroyConnection()
-{
-	// Attempt to flush messages before leaving.
-	// Notice the sending is not reliable and rarely makes it to the Server.
-	if (m_NetClient.GetCurrState() == NCS_INGAME)
-		NotifyFinishedOwnCommands(m_CurrentTurn + m_CommandDelay);
-}
-
 void CNetClientTurnManager::OnSimulationMessage(CSimulationMessage* msg)
 {
 	// Command received from the server - store it for later execution

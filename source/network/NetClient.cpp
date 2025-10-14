@@ -140,10 +140,6 @@ CNetClient::CNetClient(CGame* game) :
 
 CNetClient::~CNetClient()
 {
-	// Try to flush messages before dying (probably fails).
-	if (m_ClientTurnManager)
-		m_ClientTurnManager->OnDestroyConnection();
-
 	DestroyConnection();
 	JS_RemoveExtraGCRootsTracer(GetScriptInterface().GetGeneralJSContext(), CNetClient::Trace, this);
 }
