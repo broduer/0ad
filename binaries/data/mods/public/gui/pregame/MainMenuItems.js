@@ -17,7 +17,7 @@ export const mainMenuItems = [
 					Engine.SwitchGuiPage("page_autostart.xml", {
 						"attribs": {
 							"mapType": "scenario",
-							"map": "maps/tutorials/introductory_tutorial",
+							"map": "maps/tutorials/introductory_tutorial/map",
 							"settings": {
 								"CheatsEnabled": true
 							},

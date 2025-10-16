@@ -118,12 +118,14 @@ void CMapReader::LoadMap(const VfsPath& pathname, const ScriptContext& cx,  JS::
 	m_ScriptSettings.init(cx.GetGeneralJSContext(), settings);
 
 	filename_xml = pathname.ChangeExtension(L".xml");
+	const VfsPath pmpFilename{filename_xml.string().ends_with(L"/map.xml") ?
+		filename_xml.Parent() / "terrain.pmp" : pathname};
 
 	// In some cases (particularly tests) we don't want to bother storing a large
 	// mostly-empty .pmp file, so we let the XML file specify basic terrain instead.
 	// If there's an .xml file and no .pmp, then we're probably in this XML-only mode
 	only_xml = false;
-	if (!VfsFileExists(pathname) && VfsFileExists(filename_xml))
+	if (!VfsFileExists(pmpFilename) && VfsFileExists(filename_xml))
 	{
 		only_xml = true;
 	}
@@ -133,7 +135,7 @@ void CMapReader::LoadMap(const VfsPath& pathname, const ScriptContext& cx,  JS::
 	if (!only_xml)
 	{
 		// [25ms]
-		unpacker.Read(pathname, "PSMP");
+		unpacker.Read(pmpFilename, "PSMP");
 		file_format_version = unpacker.GetVersion();
 	}
 

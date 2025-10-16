@@ -4,7 +4,7 @@
 	"Levels": {
 		"introduction": {
 			"Name": "Introductory Tutorial",
-			"Map": "tutorials/introductory_tutorial.xml",
+			"Map": "tutorials/introductory_tutorial/map.xml",
 			"MapType": "scenario",
 			"Description": "This is a basic tutorial to get you started playing 0 A.D.",
 			"Preview": "session/icons/mappreview/Introductory_Tutorial.png"

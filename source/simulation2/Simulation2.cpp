@@ -66,6 +66,7 @@
 #include <js/RootingAPI.h>
 #include <js/Value.h>
 #include <memory>
+#include <ranges>
 #include <set>
 #include <sstream>
 
@@ -916,18 +917,10 @@ std::string CSimulation2::GenerateSchema()
 	return m->m_ComponentManager.GenerateSchema();
 }
 
-static std::vector<std::string> GetJSONData(const VfsPath& path)
+namespace
 {
-	VfsPaths pathnames;
-	Status ret = vfs::GetPathnames(g_VFS, path, L"*.json", pathnames);
-	if (ret != INFO::OK)
-	{
-		// Some error reading directory
-		wchar_t error[200];
-		LOGERROR("Error reading directory '%s': %s", path.string8(), utf8_from_wstring(StatusDescription(ret, error, ARRAY_SIZE(error))));
-		return std::vector<std::string>();
-	}
-
+std::vector<std::string> GetJSONDataOf(auto pathnames)
+{
 	std::vector<std::string> data;
 	for (const VfsPath& p : pathnames)
 	{
@@ -946,9 +939,41 @@ static std::vector<std::string> GetJSONData(const VfsPath& path)
 	return data;
 }
 
+std::vector<std::string> GetJSONData(const VfsPath& path)
+{
+	VfsPaths pathnames;
+	Status ret = vfs::GetPathnames(g_VFS, path, L"*.json", pathnames);
+	if (ret != INFO::OK)
+	{
+		// Some error reading directory
+		wchar_t error[200];
+		LOGERROR("Error reading directory '%s': %s", path.string8(), utf8_from_wstring(StatusDescription(ret, error, ARRAY_SIZE(error))));
+		return std::vector<std::string>();
+	}
+
+	return GetJSONDataOf(std::move(pathnames));
+}
+
+Status GetRMSDataCB(const VfsPath& pathname, const CFileInfo&, uintptr_t cbData)
+{
+	reinterpret_cast<std::vector<VfsPath>*>(cbData)->push_back(pathname);
+	return INFO::OK;
+}
+}
+
 std::vector<std::string> CSimulation2::GetRMSData()
 {
-	return GetJSONData(L"maps/random/");
+	std::vector<VfsPath> state;
+	vfs::ForEachFile(g_VFS, L"maps/random/", GetRMSDataCB, reinterpret_cast<uintptr_t>(&state),
+		L"*.json", vfs::DIR_RECURSIVE);
+
+	std::ranges::sort(state, {}, &VfsPath::string);
+
+	return GetJSONDataOf(state | std::views::filter([](const VfsPath& path)
+		{
+			std::wstring pathStr{path.string()};
+			return pathStr.find('/', 12) == std::string::npos || pathStr.ends_with(L"/map.json");
+		}));
 }
 
 std::vector<std::string> CSimulation2::GetVictoryConditiondData()

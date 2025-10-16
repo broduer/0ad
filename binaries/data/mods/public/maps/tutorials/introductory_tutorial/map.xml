@@ -90,7 +90,7 @@
   "TriggerScripts": [
     "scripts/TriggerHelper.js",
     "scripts/Tutorial.js",
-    "tutorials/introductory_tutorial.js"
+    "tutorials/introductory_tutorial/trigger.js"
   ],
   "VictoryConditions": []
 }

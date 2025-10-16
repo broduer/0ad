@@ -43,9 +43,11 @@ class MapFilters
 
 		const maps = [];
 		const mapTypePath = g_MapTypes.Path[index];
-		for (const filename of listFiles(mapTypePath, g_MapTypes.Suffix[index], false))
+		for (const filename of listFiles(mapTypePath, g_MapTypes.Suffix[index], true))
 		{
 			if (filename.startsWith(this.HiddenFilesPrefix))
+				continue;
+			if (filename.includes("/") && !filename.endsWith("/map"))
 				continue;
 
 			const mapPath = mapTypePath + filename;
