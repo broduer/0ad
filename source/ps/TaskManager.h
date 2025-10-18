@@ -19,20 +19,16 @@
 #define INCLUDED_THREADING_TASKMANAGER
 
 #include "ps/Singleton.h"
+#include "ps/Threading.h"
 
 #include <functional>
 #include <memory>
 
 namespace Threading
 {
-enum class TaskPriority
-{
-	NORMAL,
-	LOW
-};
 
 template<typename Manager>
-class WorkerThread;
+class PrioritizedWorkerThread;
 
 /**
  * The task manager creates all worker threads on initialisation,
@@ -63,7 +59,7 @@ private:
 	TaskManager(size_t numberOfWorkers);
 
 	class Impl;
-	friend class WorkerThread<Impl>;
+	friend class PrioritizedWorkerThread<Impl>;
 
 	const std::unique_ptr<Impl> m;
 };

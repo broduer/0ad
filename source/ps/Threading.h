@@ -27,6 +27,12 @@
 namespace Threading
 {
 
+enum class TaskPriority
+{
+	NORMAL,
+	LOW
+};
+
 /**
  * Wrap a function to handle exceptions.
  * This currently deals with Windows Structured Exception Handling (see wseh.cpp)
