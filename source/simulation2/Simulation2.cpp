@@ -126,7 +126,7 @@ public:
 
 	int ProgressiveLoad();
 	void Update(int turnLength, const std::vector<SimulationCommand>& commands);
-	static void UpdateComponents(CSimContext& simContext, fixed turnLengthFixed, const std::vector<SimulationCommand>& commands);
+	static void UpdateComponents(const CSimContext& simContext, const fixed turnLengthFixed, const std::vector<SimulationCommand>& commands);
 	void Interpolate(float simFrameLength, float frameOffset, float realFrameLength);
 
 	void DumpState();
@@ -520,7 +520,7 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 	++m_TurnNumber;
 }
 
-void CSimulation2Impl::UpdateComponents(CSimContext& simContext, fixed turnLengthFixed, const std::vector<SimulationCommand>& commands)
+void CSimulation2Impl::UpdateComponents(const CSimContext& simContext, const fixed turnLengthFixed, const std::vector<SimulationCommand>& commands)
 {
 	// TODO: the update process is pretty ugly, with lots of messages and dependencies
 	// between different components. Ought to work out a nicer way to do this.
@@ -533,7 +533,7 @@ void CSimulation2Impl::UpdateComponents(CSimContext& simContext, fixed turnLengt
 
 	{
 		PROFILE2("Sim - Update Start");
-		CMessageTurnStart msgTurnStart;
+		const CMessageTurnStart msgTurnStart;
 		componentManager.BroadcastMessage(msgTurnStart);
 	}
 
@@ -551,12 +551,12 @@ void CSimulation2Impl::UpdateComponents(CSimContext& simContext, fixed turnLengt
 	// Send all the update phases
 	{
 		PROFILE2("Sim - Update");
-		CMessageUpdate msgUpdate(turnLengthFixed);
+		const CMessageUpdate msgUpdate(turnLengthFixed);
 		componentManager.BroadcastMessage(msgUpdate);
 	}
 
 	{
-		CMessageUpdate_MotionFormation msgUpdate(turnLengthFixed);
+		const CMessageUpdate_MotionFormation msgUpdate(turnLengthFixed);
 		componentManager.BroadcastMessage(msgUpdate);
 	}
 
@@ -569,12 +569,12 @@ void CSimulation2Impl::UpdateComponents(CSimContext& simContext, fixed turnLengt
 
 	{
 		PROFILE2("Sim - Motion Unit");
-		CMessageUpdate_MotionUnit msgUpdate(turnLengthFixed);
+		const CMessageUpdate_MotionUnit msgUpdate(turnLengthFixed);
 		componentManager.BroadcastMessage(msgUpdate);
 	}
 	{
 		PROFILE2("Sim - Update Final");
-		CMessageUpdate_Final msgUpdate(turnLengthFixed);
+		const CMessageUpdate_Final msgUpdate(turnLengthFixed);
 		componentManager.BroadcastMessage(msgUpdate);
 	}
 

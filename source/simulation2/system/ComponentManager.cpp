@@ -1046,24 +1046,21 @@ const CComponentManager::InterfaceListUnordered& CComponentManager::GetEntitiesW
 	return m_ComponentsByInterface[iid];
 }
 
-void CComponentManager::PostMessage(entity_id_t ent, const CMessage& msg)
+void CComponentManager::PostMessage(const entity_id_t ent, const CMessage& msg)
 {
 	// Send the message to components of ent, that subscribed locally to this message
-	std::map<MessageTypeId, std::vector<ComponentTypeId> >::const_iterator it;
-	it = m_LocalMessageSubscriptions.find(msg.GetType());
+	const auto it = m_LocalMessageSubscriptions.find(msg.GetType());
 	if (it != m_LocalMessageSubscriptions.end())
 	{
-		std::vector<ComponentTypeId>::const_iterator ctit = it->second.begin();
-		for (; ctit != it->second.end(); ++ctit)
+		for (const auto &ctit : it->second)
 		{
 			// Find the component instances of this type (if any)
-			std::map<ComponentTypeId, std::map<entity_id_t, IComponent*> >::const_iterator emap = m_ComponentsByTypeId.find(*ctit);
+			const auto emap = m_ComponentsByTypeId.find(ctit);
 			if (emap == m_ComponentsByTypeId.end())
 				continue;
 
 			// Send the message to all of them
-			std::map<entity_id_t, IComponent*>::const_iterator eit = emap->second.find(ent);
-			if (eit != emap->second.end())
+			if (const auto eit = emap->second.find(ent); eit != emap->second.end())
 				eit->second->HandleMessage(msg, false);
 		}
 	}
@@ -1074,22 +1071,17 @@ void CComponentManager::PostMessage(entity_id_t ent, const CMessage& msg)
 void CComponentManager::BroadcastMessage(const CMessage& msg)
 {
 	// Send the message to components of all entities that subscribed locally to this message
-	std::map<MessageTypeId, std::vector<ComponentTypeId> >::const_iterator it;
-	it = m_LocalMessageSubscriptions.find(msg.GetType());
+	const auto it = m_LocalMessageSubscriptions.find(msg.GetType());
 	if (it != m_LocalMessageSubscriptions.end())
 	{
-		std::vector<ComponentTypeId>::const_iterator ctit = it->second.begin();
-		for (; ctit != it->second.end(); ++ctit)
+		for (const auto &ctit : it->second)
 		{
-			// Find the component instances of this type (if any)
-			std::map<ComponentTypeId, std::map<entity_id_t, IComponent*> >::const_iterator emap = m_ComponentsByTypeId.find(*ctit);
+			const auto emap = m_ComponentsByTypeId.find(ctit);
 			if (emap == m_ComponentsByTypeId.end())
 				continue;
 
-			// Send the message to all of them
-			std::map<entity_id_t, IComponent*>::const_iterator eit = emap->second.begin();
-			for (; eit != emap->second.end(); ++eit)
-				eit->second->HandleMessage(msg, false);
+			for (const auto &eit : emap->second)
+				eit.second->HandleMessage(msg, false);
 		}
 	}
 

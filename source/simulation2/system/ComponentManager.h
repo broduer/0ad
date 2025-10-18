@@ -270,7 +270,7 @@ public:
 	 * components of that entity which subscribed to the message type, and by any other components
 	 * that subscribed globally to the message type.
 	 */
-	void PostMessage(entity_id_t ent, const CMessage& msg);
+	void PostMessage(const entity_id_t ent, const CMessage& msg);
 
 	/**
 	 * Send a message, not targeted at any particular entity. The message will be received by any
