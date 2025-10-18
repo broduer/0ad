@@ -20,11 +20,8 @@
 
 #include "ps/Singleton.h"
 
-#include <cstddef>
 #include <functional>
 #include <memory>
-#include <type_traits>
-#include <utility>
 
 namespace Threading
 {
@@ -34,6 +31,9 @@ enum class TaskPriority
 	LOW
 };
 
+template<typename Manager>
+class WorkerThread;
+
 /**
  * The task manager creates all worker threads on initialisation,
  * and manages the task queues.
@@ -41,7 +41,6 @@ enum class TaskPriority
  */
 class TaskManager : public Singleton<TaskManager>
 {
-	friend class WorkerThread;
 public:
 	TaskManager();
 	~TaskManager();
@@ -64,6 +63,8 @@ private:
 	TaskManager(size_t numberOfWorkers);
 
 	class Impl;
+	friend class WorkerThread<Impl>;
+
 	const std::unique_ptr<Impl> m;
 };
 } // namespace Threading

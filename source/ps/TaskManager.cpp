@@ -22,7 +22,7 @@
 #include "lib/debug.h"
 #include "maths/MathUtil.h"
 #include "ps/Profiler2.h"
-#include "ps/Threading.h"
+#include "ps/Thread.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -59,57 +59,6 @@ size_t GetDefaultNumberOfWorkers()
 using QueueItem = std::function<void()>;
 
 /**
- * Light wrapper around std::thread. Ensures Join has been called.
- */
-class Thread
-{
-public:
-	Thread() = default;
-	Thread(const Thread&) = delete;
-	Thread(Thread&&) = delete;
-
-	template<typename T, void(T::* callable)()>
-	void Start(T* object)
-	{
-		m_Thread = std::thread(HandleExceptions<DoStart<T, callable>>::Wrapper, object);
-	}
-	template<typename T, void(T::* callable)()>
-	static void DoStart(T* object);
-
-protected:
-	~Thread()
-	{
-		ENSURE(!m_Thread.joinable());
-	}
-
-	std::thread m_Thread;
-	std::atomic<bool> m_Kill = false;
-};
-
-/**
- * Worker thread: process the taskManager queues until killed.
- */
-class WorkerThread : public Thread
-{
-public:
-	WorkerThread(TaskManager::Impl& taskManager);
-	~WorkerThread();
-
-	/**
-	 * Wake the worker.
-	 */
-	void Wake();
-
-protected:
-	void RunUntilDeath();
-
-	std::mutex m_Mutex;
-	std::condition_variable m_ConditionVariable;
-
-	TaskManager::Impl& m_TaskManager;
-};
-
-/**
  * PImpl-ed implementation of the Task manager.
  *
  * The normal priority queue is processed first, the low priority only if there are no higher-priority tasks
@@ -117,8 +66,10 @@ protected:
 class TaskManager::Impl
 {
 	friend class TaskManager;
-	friend class WorkerThread;
+	friend class WorkerThread<TaskManager::Impl>;
 public:
+	static constexpr auto TaskNamePrefix = "Task Mgr #";
+
 	Impl() = default;
 	~Impl()
 	{
@@ -158,7 +109,7 @@ protected:
 	std::deque<QueueItem> m_GlobalLowPriorityQueue;
 
 	// Ideally this would be a vector, since it does get iterated, but that requires movable types.
-	std::deque<WorkerThread> m_Workers;
+	std::deque<WorkerThread<TaskManager::Impl>> m_Workers;
 };
 
 TaskManager::TaskManager() : TaskManager(GetDefaultNumberOfWorkers())
@@ -201,7 +152,7 @@ void TaskManager::Impl::PushTask(std::function<void()>&& task, TaskPriority prio
 		hasWork = true;
 	}
 
-	for (WorkerThread& worker : m_Workers)
+	for (WorkerThread<TaskManager::Impl>& worker : m_Workers)
 		worker.Wake();
 }
 
@@ -222,66 +173,6 @@ bool TaskManager::Impl::PopTask(std::function<void()>& taskOut)
 		return true;
 	}
 	return false;
-}
-
-// Thread definition
-
-WorkerThread::WorkerThread(TaskManager::Impl& taskManager)
-	: m_TaskManager(taskManager)
-{
-	Start<WorkerThread, &WorkerThread::RunUntilDeath>(this);
-}
-
-WorkerThread::~WorkerThread()
-{
-	m_Kill = true;
-	m_ConditionVariable.notify_one();
-	if (m_Thread.joinable())
-		m_Thread.join();
-}
-
-void WorkerThread::Wake()
-{
-	m_ConditionVariable.notify_one();
-}
-
-void WorkerThread::RunUntilDeath()
-{
-	// The profiler does better if the names are unique.
-	static std::atomic<int> n = 0;
-	std::string name = "Task Mgr #" + std::to_string(n++);
-	debug_SetThreadName(name.c_str());
-	g_Profiler2.RegisterCurrentThread(name);
-
-
-	std::function<void()> task;
-	bool hasTask = false;
-	std::unique_lock<std::mutex> lock(m_Mutex, std::defer_lock);
-	while (!m_Kill)
-	{
-		lock.lock();
-		m_ConditionVariable.wait(lock, [this](){
-			return m_Kill || m_TaskManager.m_HasWork || m_TaskManager.m_HasLowPriorityWork;
-		});
-		lock.unlock();
-
-		if (m_Kill)
-			break;
-
-		// Fetch work from the global queues.
-		hasTask = m_TaskManager.PopTask<TaskPriority::NORMAL>(task);
-		if (!hasTask)
-			hasTask = m_TaskManager.PopTask<TaskPriority::LOW>(task);
-		if (hasTask)
-			task();
-	}
-}
-
-// Defined here - needs access to derived types.
-template<typename T, void(T::* callable)()>
-void Thread::DoStart(T* object)
-{
-	std::invoke(callable, object);
 }
 
 } // namespace Threading
