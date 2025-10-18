@@ -38,6 +38,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <mutex>
 
 class CMessage;
 class JSTracer;
@@ -364,6 +365,8 @@ private:
 	entity_id_t m_NextLocalEntityId;
 
 	boost::rand48 m_RNG;
+
+	std::recursive_mutex m_subscriptionMutex;
 
 	friend class TestComponentManager;
 };

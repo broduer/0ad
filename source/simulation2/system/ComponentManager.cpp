@@ -47,6 +47,7 @@
 #include <js/ValueArray.h>
 #include <stdexcept>
 #include <string_view>
+#include <ranges>
 
 class ScriptContext;
 
@@ -377,16 +378,15 @@ void CComponentManager::Script_RegisterInterface(const std::string& name)
 	}
 
 	// IIDs start at 1, so size+1 is the next unused one
-	size_t id = m_InterfaceIdsByName.size() + 1;
-	m_InterfaceIdsByName[name] = (InterfaceId)id;
+	const size_t id = m_InterfaceIdsByName.size() + 1;
+	m_InterfaceIdsByName[name] = static_cast<InterfaceId>(id);
 	m_ComponentsByInterface.resize(id+1); // add one so we can index by InterfaceId
-	m_ScriptInterface.SetGlobal(("IID_" + name).c_str(), (int)id);
+	m_ScriptInterface.SetGlobal(("IID_" + name).c_str(), static_cast<int>(id));
 }
 
 void CComponentManager::Script_RegisterMessageType(const std::string& name)
 {
-	std::map<std::string, MessageTypeId>::iterator it = m_MessageTypeIdsByName.find(name);
-	if (it != m_MessageTypeIdsByName.end())
+	if (m_MessageTypeIdsByName.contains(name))
 	{
 		// Redefinitions are fine (and just get ignored) when hotloading; otherwise
 		// they're probably unintentional and should be reported
@@ -500,6 +500,8 @@ int CComponentManager::Script_AddLocalEntity(const std::wstring& templateName)
 
 void CComponentManager::ResetState()
 {
+	std::lock_guard lock(m_subscriptionMutex);
+
 	// Delete all dynamic message subscriptions
 	m_DynamicMessageSubscriptionsNonsync.clear();
 	m_DynamicMessageSubscriptionsNonsyncByComponent.clear();
@@ -508,27 +510,23 @@ void CComponentManager::ResetState()
 	m_TraceCache.clear();
 
 	// Delete all IComponents in reverse order of creation.
-	std::map<ComponentTypeId, std::map<entity_id_t, IComponent*> >::reverse_iterator iit = m_ComponentsByTypeId.rbegin();
-	for (; iit != m_ComponentsByTypeId.rend(); ++iit)
+	for (auto &[icId, icMap] : m_ComponentsByTypeId | std::views::reverse)
 	{
-		std::map<entity_id_t, IComponent*>::iterator eit = iit->second.begin();
-		for (; eit != iit->second.end(); ++eit)
+		for (auto &[eitId, component] : icMap)
 		{
-			eit->second->Deinit();
-			m_ComponentTypesById[iit->first].dealloc(eit->second);
+			component->Deinit();
+			m_ComponentTypesById[eitId].dealloc(component);
 		}
 	}
 
-	std::vector<std::unordered_map<entity_id_t, IComponent*> >::iterator ifcit = m_ComponentsByInterface.begin();
-	for (; ifcit != m_ComponentsByInterface.end(); ++ifcit)
-		ifcit->clear();
+	for (auto &ifMap : m_ComponentsByInterface)
+		ifMap.clear();
 
 	m_ComponentsByTypeId.clear();
 
 	// Delete all SEntityComponentCaches
-	std::unordered_map<entity_id_t, SEntityComponentCache*>::iterator ccit = m_ComponentCaches.begin();
-	for (; ccit != m_ComponentCaches.end(); ++ccit)
-		free(ccit->second);
+	for (auto &ccit : m_ComponentCaches)
+		free(ccit.second);
 	m_ComponentCaches.clear();
 	m_SystemEntity = CEntityHandle();
 
@@ -606,25 +604,27 @@ bool CComponentManager::IsGloballySubscribed(MessageTypeId mtid)
 
 void CComponentManager::FlattenDynamicSubscriptions()
 {
-	std::map<MessageTypeId, CDynamicSubscription>::iterator it;
-	for (it = m_DynamicMessageSubscriptionsNonsync.begin();
-	     it != m_DynamicMessageSubscriptionsNonsync.end(); ++it)
+	std::lock_guard lock(m_subscriptionMutex);
+
+	for (auto &it : m_DynamicMessageSubscriptionsNonsync)
 	{
-		it->second.Flatten();
+		it.second.Flatten();
 	}
 }
 
 void CComponentManager::DynamicSubscriptionNonsync(MessageTypeId mtid, IComponent* component, bool enable)
 {
+	std::lock_guard lock(m_subscriptionMutex);
+
 	if (enable)
 	{
-		bool newlyInserted = m_DynamicMessageSubscriptionsNonsyncByComponent[component].insert(mtid).second;
+		const bool newlyInserted = m_DynamicMessageSubscriptionsNonsyncByComponent[component].insert(mtid).second;
 		if (newlyInserted)
 			m_DynamicMessageSubscriptionsNonsync[mtid].Add(component);
 	}
 	else
 	{
-		size_t numRemoved = m_DynamicMessageSubscriptionsNonsyncByComponent[component].erase(mtid);
+		const size_t numRemoved = m_DynamicMessageSubscriptionsNonsyncByComponent[component].erase(mtid);
 		if (numRemoved)
 			m_DynamicMessageSubscriptionsNonsync[mtid].Remove(component);
 	}
@@ -632,17 +632,18 @@ void CComponentManager::DynamicSubscriptionNonsync(MessageTypeId mtid, IComponen
 
 void CComponentManager::RemoveComponentDynamicSubscriptions(IComponent* component)
 {
-	std::map<IComponent*, std::set<MessageTypeId> >::iterator it = m_DynamicMessageSubscriptionsNonsyncByComponent.find(component);
+	std::lock_guard lock(m_subscriptionMutex);
+
+	const auto it = m_DynamicMessageSubscriptionsNonsyncByComponent.find(component);
 	if (it == m_DynamicMessageSubscriptionsNonsyncByComponent.end())
 		return;
 
-	std::set<MessageTypeId>::iterator mtit;
-	for (mtit = it->second.begin(); mtit != it->second.end(); ++mtit)
+	for (const auto mtit : it->second)
 	{
-		m_DynamicMessageSubscriptionsNonsync[*mtit].Remove(component);
+		m_DynamicMessageSubscriptionsNonsync[mtit].Remove(component);
 
 		// Need to flatten the subscription lists immediately to avoid dangling IComponent* references
-		m_DynamicMessageSubscriptionsNonsync[*mtit].Flatten();
+		m_DynamicMessageSubscriptionsNonsync[mtit].Flatten();
 	}
 
 	m_DynamicMessageSubscriptionsNonsyncByComponent.erase(it);
@@ -1090,43 +1091,43 @@ void CComponentManager::BroadcastMessage(const CMessage& msg)
 
 void CComponentManager::SendGlobalMessage(entity_id_t ent, const CMessage& msg)
 {
+	std::lock_guard lock(m_subscriptionMutex);
+
 	// (Common functionality for PostMessage and BroadcastMessage)
 
 	// Send the message to components of all entities that subscribed globally to this message
-	std::map<MessageTypeId, std::vector<ComponentTypeId> >::const_iterator it;
-	it = m_GlobalMessageSubscriptions.find(msg.GetType());
+	const auto it = m_GlobalMessageSubscriptions.find(msg.GetType());
 	if (it != m_GlobalMessageSubscriptions.end())
 	{
-		std::vector<ComponentTypeId>::const_iterator ctit = it->second.begin();
-		for (; ctit != it->second.end(); ++ctit)
+		for (const auto &ctit : it->second)
 		{
 			// Special case: Messages for local entities shouldn't be sent to script
 			// components that subscribed globally, so that we don't have to worry about
 			// them accidentally picking up non-network-synchronised data.
 			if (ENTITY_IS_LOCAL(ent))
 			{
-				std::map<ComponentTypeId, ComponentType>::const_iterator cit = m_ComponentTypesById.find(*ctit);
+				const auto cit = m_ComponentTypesById.find(ctit);
 				if (cit != m_ComponentTypesById.end() && cit->second.type == CT_Script)
 					continue;
 			}
 
 			// Find the component instances of this type (if any)
-			std::map<ComponentTypeId, std::map<entity_id_t, IComponent*> >::const_iterator emap = m_ComponentsByTypeId.find(*ctit);
+			std::map<ComponentTypeId, std::map<entity_id_t, IComponent*> >::const_iterator emap = m_ComponentsByTypeId.find(ctit);
 			if (emap == m_ComponentsByTypeId.end())
 				continue;
 
 			// Send the message to all of them
-			std::map<entity_id_t, IComponent*>::const_iterator eit = emap->second.begin();
-			for (; eit != emap->second.end(); ++eit)
-				eit->second->HandleMessage(msg, true);
+			for (auto &eit : emap->second)
+				eit.second->HandleMessage(msg, true);
 		}
 	}
 
 	// Send the message to component instances that dynamically subscribed to this message
-	std::map<MessageTypeId, CDynamicSubscription>::iterator dit = m_DynamicMessageSubscriptionsNonsync.find(msg.GetType());
+	auto dit = m_DynamicMessageSubscriptionsNonsync.find(msg.GetType());
 	if (dit != m_DynamicMessageSubscriptionsNonsync.end())
 	{
 		dit->second.Flatten();
+
 		const std::vector<IComponent*>& dynamic = dit->second.GetComponents();
 		for (size_t i = 0; i < dynamic.size(); i++)
 			dynamic[i]->HandleMessage(msg, false);
