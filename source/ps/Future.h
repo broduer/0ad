@@ -27,6 +27,8 @@
 #include <utility>
 #include <variant>
 
+#include "tools/atlas/GameInterface/Shareable.h"
+
 template<typename Callback>
 class PackagedTask;
 
@@ -220,16 +222,16 @@ private:
  * The callback never runs after the @p Future is destroyed.
  */
 template<typename ResultType>
-class Future
+class FutureBase
 {
 	template<typename T>
 	friend class PackagedTask;
 
 public:
-	Future() = default;
-	Future(const Future& o) = delete;
-	Future(Future&&) = default;
-	Future& operator=(Future&& other)
+	FutureBase() = default;
+	FutureBase(const FutureBase& o) = delete;
+	FutureBase(FutureBase&&) = default;
+	FutureBase& operator=(FutureBase&& other)
 	{
 		CancelOrWait();
 		m_Receiver = std::move(other.m_Receiver);
@@ -240,7 +242,7 @@ public:
 	 * Make the future wait for the result of @a callback.
 	 */
 	template<typename Callback, typename... Args>
-	Future(auto& taskManager, Callback&& callback, Args&&... args)
+	FutureBase(auto& taskManager, Callback&& callback, Args&&... args)
 	{
 		static_assert(std::is_same_v<CallbackResult<Callback>, ResultType>,
 		"The return type of the wrapped function is not the same as the type the Future expects.");
@@ -254,7 +256,7 @@ public:
 		taskManager.PushTask(PackagedTask<Callback>(std::move(temp)), std::forward<Args>(args)...);
 	}
 
-	~Future()
+	~FutureBase()
 	{
 		CancelOrWait();
 	}
@@ -306,6 +308,35 @@ public:
 
 protected:
 	std::shared_ptr<FutureSharedStateDetail::Receiver<ResultType>> m_Receiver;
+};
+
+template<typename ResultType>
+class Future : public FutureBase<ResultType>
+{
+public:
+	template<typename Callback, typename... Args>
+	Future(auto& taskManager, Callback&& callback, Args&&... args) :
+		FutureBase<ResultType>(taskManager, std::forward<Callback>(callback), std::forward<Args>(args)...)
+	{}
+
+	ResultType &&GetMoved()
+	{
+		ENSURE(!!FutureBase<ResultType>::m_Receiver);
+
+		FutureBase<ResultType>::Wait();
+		// This mark the state invalid - can't call Get again.
+		return std::move(std::exchange(FutureBase<ResultType>::m_Receiver, nullptr)->GetResult());
+	}
+};
+
+template<>
+class Future<void> : public FutureBase<void>
+{
+public:
+	template<typename Callback, typename... Args>
+	Future(auto& taskManager, Callback&& callback, Args&&... args)
+		: FutureBase<void>(taskManager, std::forward<Callback>(callback), std::forward<Args>(args)...)
+	{}
 };
 
 template<typename Callback, typename... Args>

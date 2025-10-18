@@ -47,7 +47,7 @@ public:
 		return Future(*this, std::forward<Callback>(func));
 	}
 
-	std::shared_ptr<ScriptContext> ScriptContext;
+	std::shared_ptr<ScriptContext> Context;
 
 protected:
 	void PushTask(std::function<void()> func);
@@ -56,7 +56,7 @@ private:
 	class Impl;
 	friend class Threading::WorkerThread<Impl>;
 	template<typename T>
-	friend class Future;
+	friend class FutureBase;
 
 	const std::unique_ptr<Impl> m;
 };
