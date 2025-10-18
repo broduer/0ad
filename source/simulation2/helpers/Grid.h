@@ -383,7 +383,7 @@ struct GridUpdateInformation
 	{
 		ENSURE(dirtinessGrid.compare_sizes(&b.dirtinessGrid));
 
-		bool wasDirty = dirty;
+		const bool wasDirty = dirty;
 
 		dirty |= b.dirty;
 		globallyDirty |= b.globallyDirty;

@@ -66,7 +66,7 @@ namespace SimRender
 void ConstructLineOnGround(
 		const CSimContext& context, const std::vector<float>& xz,
 		SOverlayLine& overlay,
-		bool floating, float heightOffset = 0.25f);
+		const bool floating, const float heightOffset = 0.25f);
 
 /**
  * Constructs overlay line as a circle with given center and radius, conforming to terrain.

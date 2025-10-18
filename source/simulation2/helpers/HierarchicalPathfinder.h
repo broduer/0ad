@@ -119,7 +119,7 @@ public:
 	void SetDebugOverlay(bool enabled, const CSimContext* simContext);
 
 	// Non-pathfinding grids will never be recomputed on calling HierarchicalPathfinder::Update
-	void Recompute(Grid<NavcellData>* passabilityGrid,
+	void Recompute(const Grid<NavcellData>& passabilityGrid,
 		const std::map<std::string, pass_class_t>& nonPathfindingPassClassMasks,
 		const std::map<std::string, pass_class_t>& pathfindingPassClassMasks);
 
@@ -163,7 +163,7 @@ public:
 
 	pass_class_t GetPassabilityClass(const std::string& name) const
 	{
-		auto it = m_PassClassMasks.find(name);
+		const auto it = m_PassClassMasks.find(name);
 		if (it != m_PassClassMasks.end())
 			return it->second;
 
@@ -185,7 +185,7 @@ private:
 
 		cassert(CHUNK_SIZE*CHUNK_SIZE/2 < 65536); // otherwise we could overflow m_RegionsID with a checkerboard pattern
 
-		void InitRegions(int ci, int cj, Grid<NavcellData>* grid, pass_class_t passClass);
+		void InitRegions(const int ci, const int cj, const Grid<NavcellData> &grid, const pass_class_t passClass);
 
 		RegionID Get(int i, int j) const;
 
@@ -210,9 +210,9 @@ private:
 
 	typedef std::map<RegionID, std::set<RegionID> > EdgesMap;
 
-	void ComputeNeighbors(EdgesMap& edges, Chunk& a, Chunk& b, bool transpose, bool opposite) const;
-	void RecomputeAllEdges(pass_class_t passClass, EdgesMap& edges);
-	void UpdateEdges(u8 ci, u8 cj, pass_class_t passClass, EdgesMap& edges);
+	void ComputeNeighbors(EdgesMap& edges, const Chunk& a, const Chunk& b, const bool transpose, const bool opposite) const;
+	void RecomputeAllEdges(const pass_class_t passClass, EdgesMap& edges);
+	void UpdateEdges(const u8 ci, const u8 cj, const pass_class_t passClass, EdgesMap& edges);
 
 	void UpdateGlobalRegions(const std::map<pass_class_t, std::vector<RegionID> >& needNewGlobalRegionMap);
 
@@ -227,7 +227,7 @@ private:
 		reachable.insert(from);
 
 		const EdgesMap& edgeMap = m_Edges.at(passClass);
-		if (edgeMap.find(from) == edgeMap.end())
+		if (!edgeMap.contains(from))
 			return;
 
 		std::vector<RegionID> open;
@@ -236,7 +236,7 @@ private:
 
 		while (!open.empty())
 		{
-			RegionID curr = open.back();
+			const RegionID curr = open.back();
 			open.pop_back();
 
 			for (const RegionID& region : edgeMap.at(curr))
@@ -301,7 +301,7 @@ private:
 	// Passability classes for which grids will be updated when calling Update
 	std::map<std::string, pass_class_t> m_PassClassMasks;
 
-	void AddDebugEdges(pass_class_t passClass);
+	void AddDebugEdges(const pass_class_t passClass);
 	HierarchicalOverlay* m_DebugOverlay;
 	const CSimContext* m_SimContext; // Used for drawing the debug lines
 

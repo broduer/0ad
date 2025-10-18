@@ -42,7 +42,7 @@
 #include <utility>
 
 void SimRender::ConstructLineOnGround(const CSimContext& context, const std::vector<float>& xz,
-		SOverlayLine& overlay, bool floating, float heightOffset)
+		SOverlayLine& overlay, const bool floating, const float heightOffset)
 {
 	overlay.m_Coords.clear();
 
@@ -56,7 +56,7 @@ void SimRender::ConstructLineOnGround(const CSimContext& context, const std::vec
 	float water = 0.f;
 	if (floating)
 	{
-		CmpPtr<ICmpWaterManager> cmpWaterManager(context, SYSTEM_ENTITY);
+		CmpPtr<const ICmpWaterManager> cmpWaterManager(context, SYSTEM_ENTITY);
 		if (cmpWaterManager)
 			water = cmpWaterManager->GetExactWaterLevel(xz[0], xz[1]);
 	}

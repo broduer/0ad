@@ -132,7 +132,7 @@ public:
 			for (size_t j = 0; j < mapSize; ++j)
 				grid.set(i, j, 6);
 
-		hierPath.Recompute(&grid, nonPathClassMask, pathClassMask);
+		hierPath.Recompute(grid, nonPathClassMask, pathClassMask);
 
 		assert_blank(hierPath);
 
@@ -364,7 +364,7 @@ public:
 					for (size_t jj = 0; jj < scale; ++jj)
 						grid.set(i * scale + ii, j * scale + jj, gridDef[i][j]);
 
-		hierPath.Recompute(&grid, nonPathClassMask, pathClassMask);
+		hierPath.Recompute(grid, nonPathClassMask, pathClassMask);
 
 		u16 i = 5, j = 5;
 		hierPath.FindNearestPassableNavcell(i, j, PASS_1);
@@ -526,7 +526,7 @@ public:
 		for (size_t i = 0; i < 5; ++i)
 			for (size_t j = 0; j < 5; ++j)
 					grid.set(i, j, gridDef[i][j]);
-		hierPath.Recompute(&grid, nonPathClassMask, pathClassMask);
+		hierPath.Recompute(grid, nonPathClassMask, pathClassMask);
 
 		TS_ASSERT_EQUALS(hierPath.m_Chunks[pathClassMask["1"]][0].m_RegionsID.size(), 2);
 		TS_ASSERT_EQUALS(hierPath.m_Chunks[pathClassMask["1"]][0].m_RegionsID.back(), 4);

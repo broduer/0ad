@@ -503,7 +503,7 @@ public:
 	bool TestStaticShape(const IObstructionTestFilter& filter, entity_pos_t x, entity_pos_t z, entity_pos_t a, entity_pos_t w, entity_pos_t h, std::vector<entity_id_t>* out) const override;
 	bool TestUnitShape(const IObstructionTestFilter& filter, entity_pos_t x, entity_pos_t z, entity_pos_t r, std::vector<entity_id_t>* out) const override;
 
-	void Rasterize(Grid<NavcellData>& grid, const std::vector<PathfinderPassability>& passClasses, bool fullUpdate) override;
+	void Rasterize(Grid<NavcellData>& grid, const std::vector<PathfinderPassability>& passClasses, const bool fullUpdate) override;
 	void GetObstructionsInRange(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, std::vector<ObstructionSquare>& squares) const override;
 	void GetUnitObstructionsInRange(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, std::vector<ObstructionSquare>& squares) const override;
 	void GetStaticObstructionsInRange(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, std::vector<ObstructionSquare>& squares) const override;
@@ -690,7 +690,7 @@ private:
 		return (m_WorldX0 <= p.X && p.X <= m_WorldX1 && m_WorldZ0 <= p.Y && p.Y <= m_WorldZ1);
 	}
 
-	void RasterizeHelper(Grid<NavcellData>& grid, ICmpObstructionManager::flags_t requireMask, bool fullUpdate, pass_class_t appliedMask, entity_pos_t clearance = fixed::Zero()) const;
+	void RasterizeHelper(Grid<NavcellData>& grid, const ICmpObstructionManager::flags_t requireMask, const bool fullUpdate, const pass_class_t appliedMask, const entity_pos_t clearance = fixed::Zero()) const;
 };
 
 REGISTER_COMPONENT_TYPE(ObstructionManager)
@@ -1118,7 +1118,7 @@ bool CCmpObstructionManager::TestUnitShape(const IObstructionTestFilter& filter,
 		return false; // didn't collide, if we got this far
 }
 
-void CCmpObstructionManager::Rasterize(Grid<NavcellData>& grid, const std::vector<PathfinderPassability>& passClasses, bool fullUpdate)
+void CCmpObstructionManager::Rasterize(Grid<NavcellData>& grid, const std::vector<PathfinderPassability>& passClasses, const bool fullUpdate)
 {
 	PROFILE3("Rasterize Obstructions");
 
@@ -1154,7 +1154,7 @@ void CCmpObstructionManager::Rasterize(Grid<NavcellData>& grid, const std::vecto
 	// FLAG_BLOCK_PATHFINDING and FLAG_BLOCK_FOUNDATION are the only flags taken into account by MakeDirty* functions,
 	// so they should be the only ones rasterized using with the help of m_Dirty*Shapes vectors.
 
-	for (auto& maskPair : pathfindingMasks)
+	for (const auto& maskPair : pathfindingMasks)
 		RasterizeHelper(grid, FLAG_BLOCK_PATHFINDING, fullUpdate, maskPair.second, maskPair.first);
 
 	RasterizeHelper(grid, FLAG_BLOCK_FOUNDATION, fullUpdate, foundationMask);
@@ -1163,9 +1163,9 @@ void CCmpObstructionManager::Rasterize(Grid<NavcellData>& grid, const std::vecto
 	m_DirtyUnitShapes.clear();
 }
 
-void CCmpObstructionManager::RasterizeHelper(Grid<NavcellData>& grid, ICmpObstructionManager::flags_t requireMask, bool fullUpdate, pass_class_t appliedMask, entity_pos_t clearance) const
+void CCmpObstructionManager::RasterizeHelper(Grid<NavcellData>& grid, const ICmpObstructionManager::flags_t requireMask, const bool fullUpdate, const pass_class_t appliedMask, const entity_pos_t clearance) const
 {
-	for (auto& pair : m_StaticShapes)
+	for (const auto& pair : m_StaticShapes)
 	{
 		const StaticShape& shape = pair.second;
 		if (!(shape.flags & requireMask))
@@ -1178,18 +1178,18 @@ void CCmpObstructionManager::RasterizeHelper(Grid<NavcellData>& grid, ICmpObstru
 		ObstructionSquare square = { shape.x, shape.z, shape.u, shape.v, shape.hw, shape.hh };
 		SimRasterize::Spans spans;
 		SimRasterize::RasterizeRectWithClearance(spans, square, clearance, Pathfinding::NAVCELL_SIZE);
-		for (SimRasterize::Span& span : spans)
+		for (const SimRasterize::Span& span : spans)
 		{
-			i16 j = Clamp(span.j, (i16)0, (i16)(grid.m_H-1));
-			i16 i0 = std::max(span.i0, (i16)0);
-			i16 i1 = std::min(span.i1, (i16)grid.m_W);
+			const i16 j = Clamp(span.j, static_cast<i16>(0), static_cast<i16>(grid.m_H-1));
+			const i16 i0 = std::max(span.i0, static_cast<i16>(0));
+			const i16 i1 = std::min(span.i1, static_cast<i16>(grid.m_W));
 
 			for (i16 i = i0; i < i1; ++i)
 				grid.set(i, j, grid.get(i, j) | appliedMask);
 		}
 	}
 
-	for (auto& pair : m_UnitShapes)
+	for (const auto& pair : m_UnitShapes)
 	{
 		if (!(pair.second.flags & requireMask))
 			continue;

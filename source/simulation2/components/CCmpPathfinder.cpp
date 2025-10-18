@@ -515,7 +515,7 @@ void CCmpPathfinder::UpdateGrid()
 	if (!cmpTerrain)
 		return; // error
 
-	u16 gridSize = cmpTerrain->GetMapSize() / Pathfinding::NAVCELL_SIZE_INT;
+	const u16 gridSize = cmpTerrain->GetMapSize() / Pathfinding::NAVCELL_SIZE_INT;
 	if (gridSize == 0)
 		return;
 
@@ -588,7 +588,7 @@ void CCmpPathfinder::UpdateGrid()
 		std::map<std::string, pass_class_t> nonPathfindingPassClasses, pathfindingPassClasses;
 		GetPassabilityClasses(nonPathfindingPassClasses, pathfindingPassClasses);
 		m_LongPathfinder->Reload(m_Grid);
-		m_PathfinderHier->Recompute(m_Grid, nonPathfindingPassClasses, pathfindingPassClasses);
+		m_PathfinderHier->Recompute(*m_Grid, nonPathfindingPassClasses, pathfindingPassClasses);
 	}
 	else
 	{
@@ -617,7 +617,7 @@ void CCmpPathfinder::TerrainUpdateHelper(bool expandPassability, int itile0, int
 	if (!cmpTerrain || !cmpObstructionManager)
 		return;
 
-	u16 gridSize = cmpTerrain->GetMapSize() / Pathfinding::NAVCELL_SIZE_INT;
+	const u16 gridSize = cmpTerrain->GetMapSize() / Pathfinding::NAVCELL_SIZE_INT;
 	if (gridSize == 0)
 		return;
 
@@ -668,24 +668,24 @@ void CCmpPathfinder::TerrainUpdateHelper(bool expandPassability, int itile0, int
 			Pathfinding::NavcellCenter(i, j, x, z);
 
 			// Terrain-tile coordinates for this navcell
-			int itile = i / Pathfinding::NAVCELLS_PER_TERRAIN_TILE;
-			int jtile = j / Pathfinding::NAVCELLS_PER_TERRAIN_TILE;
+			const int itile = i / Pathfinding::NAVCELLS_PER_TERRAIN_TILE;
+			const int jtile = j / Pathfinding::NAVCELLS_PER_TERRAIN_TILE;
 
 			// Gather all the data potentially needed to determine passability:
 
-			fixed height = terrain.GetExactGroundLevelFixed(x, z);
+			const fixed height = terrain.GetExactGroundLevelFixed(x, z);
 
 			fixed water;
 			if (cmpWaterManager)
 				water = cmpWaterManager->GetWaterLevel(x, z);
 
-			fixed depth = water - height;
+			const fixed depth = water - height;
 
 			// Exact slopes give kind of weird output, so just use rough tile-based slopes
-			fixed slope = terrain.GetSlopeFixed(itile, jtile);
+			const fixed slope = terrain.GetSlopeFixed(itile, jtile);
 
 			// Get world-space coordinates from shoreGrid (which uses terrain tiles)
-			fixed shoredist = fixed::FromInt(shoreGrid.get(itile, jtile)).MultiplyClamp(TERRAIN_TILE_SIZE);
+			const fixed shoredist = fixed::FromInt(shoreGrid.get(itile, jtile)).MultiplyClamp(TERRAIN_TILE_SIZE);
 
 			// Compute the passability for every class for this cell
 			NavcellData t = 0;
@@ -704,8 +704,8 @@ void CCmpPathfinder::TerrainUpdateHelper(bool expandPassability, int itile0, int
 	for (const PathfinderPassability& passability : m_PassClasses)
 		edgeMask |= passability.m_Mask;
 
-	int w = m_TerrainOnlyGrid->m_W;
-	int h = m_TerrainOnlyGrid->m_H;
+	const int w = m_TerrainOnlyGrid->m_W;
+	const int h = m_TerrainOnlyGrid->m_H;
 
 	if (cmpObstructionManager->GetPassabilityCircular())
 	{
@@ -756,7 +756,7 @@ void CCmpPathfinder::TerrainUpdateHelper(bool expandPassability, int itile0, int
 		if (passability.m_Clearance == fixed::Zero())
 			continue;
 
-		int clearance = (passability.m_Clearance / Pathfinding::NAVCELL_SIZE).ToInt_RoundToInfinity();
+		const int clearance = (passability.m_Clearance / Pathfinding::NAVCELL_SIZE).ToInt_RoundToInfinity();
 		ExpandImpassableCells(*m_TerrainOnlyGrid, clearance, passability.m_Mask);
 	}
 }

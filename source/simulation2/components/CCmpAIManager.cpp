@@ -501,7 +501,7 @@ public:
 		m_PathfindingPassClasses = pathfindingPassClassMasks;
 
 		m_LongPathfinder.Reload(&m_PassabilityMap);
-		m_HierarchicalPathfinder.Recompute(&m_PassabilityMap, nonPathfindingPassClassMasks, pathfindingPassClassMasks);
+		m_HierarchicalPathfinder.Recompute(m_PassabilityMap, nonPathfindingPassClassMasks, pathfindingPassClassMasks);
 
 		if (m_HasSharedComponent)
 		{
@@ -536,7 +536,7 @@ public:
 		if (globallyDirty)
 		{
 			m_LongPathfinder.Reload(&m_PassabilityMap);
-			m_HierarchicalPathfinder.Recompute(&m_PassabilityMap, nonPathfindingPassClassMasks, pathfindingPassClassMasks);
+			m_HierarchicalPathfinder.Recompute(m_PassabilityMap, nonPathfindingPassClassMasks, pathfindingPassClassMasks);
 		}
 		else
 		{
@@ -760,7 +760,7 @@ public:
 		m_PassabilityMap = Grid<NavcellData>(mapW, mapH);
 		deserializer.RawBytes("pathfinder grid data", (u8*)m_PassabilityMap.m_Data, mapW*mapH*sizeof(NavcellData));
 		m_LongPathfinder.Reload(&m_PassabilityMap);
-		m_HierarchicalPathfinder.Recompute(&m_PassabilityMap, m_NonPathfindingPassClasses, m_PathfindingPassClasses);
+		m_HierarchicalPathfinder.Recompute(m_PassabilityMap, m_NonPathfindingPassClasses, m_PathfindingPassClasses);
 	}
 
 	int getPlayerSize()
