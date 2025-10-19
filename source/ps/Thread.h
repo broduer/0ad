@@ -102,13 +102,21 @@ public:
         m_ConditionVariable.notify_one();
     }
 
+	inline auto GetLocalId() const { return local_id; }
+	inline auto GetThreadId() const { return thread_id; }
+
 protected:
     void RunUntilDeath()
     {
         // The profiler does better if the names are unique.
-        static std::atomic<int> n = 0;
-        const std::string name = Manager::TaskNamePrefix + std::to_string(n++);
-        debug_SetThreadName(name.c_str());
+    	static std::atomic<int> n = 0;
+    	local_id = n++;
+    	thread_id = std::this_thread::get_id();
+    	const std::string name = Manager::TaskNamePrefix + std::to_string(local_id);
+    	debug_SetThreadName(name.c_str());
+    	std::ostringstream os;
+		os << thread_id;
+    	debug_printf("Starting thread %s, TID: %s\n", name.c_str(), os.str().c_str());
         g_Profiler2.RegisterCurrentThread(name);
 
         bool hasTask = false;
@@ -135,7 +143,9 @@ protected:
     }
 
     std::mutex m_Mutex;
-    std::condition_variable m_ConditionVariable;
+	std::condition_variable m_ConditionVariable;
+	int local_id = -1;
+	std::thread::id thread_id;
 
     Manager& m_TaskManager;
 };
@@ -169,13 +179,21 @@ public:
 		m_ConditionVariable.notify_one();
 	}
 
+	inline auto GetLocalId() const { return local_id; }
+	inline auto GetThreadId() const { return thread_id; }
+
 protected:
 	void RunUntilDeath()
 	{
 		// The profiler does better if the names are unique.
 		static std::atomic<int> n = 0;
-		const std::string name = Manager::TaskNamePrefix + std::to_string(n++);
+		local_id = n++;
+		thread_id = std::this_thread::get_id();
+		const std::string name = Manager::TaskNamePrefix + std::to_string(local_id);
 		debug_SetThreadName(name.c_str());
+		std::ostringstream os;
+		os << thread_id;
+		debug_printf("Starting thread %s, TID: %s\n", name.c_str(), os.str().c_str());
 		g_Profiler2.RegisterCurrentThread(name);
 
 		bool hasTask = false;
@@ -205,6 +223,8 @@ protected:
 
 	std::mutex m_Mutex;
 	std::condition_variable m_ConditionVariable;
+	int local_id = -1;
+	std::thread::id thread_id;
 
 	Manager& m_TaskManager;
 };

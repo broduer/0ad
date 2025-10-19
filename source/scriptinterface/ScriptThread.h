@@ -31,6 +31,8 @@
 class ScriptThread : public Singleton<ScriptThread>
 {
 public:
+	using IdType = u32;
+
 	ScriptThread();
 	~ScriptThread();
 	ScriptThread(const ScriptThread&) = delete;
@@ -50,9 +52,11 @@ public:
 	std::shared_ptr<ScriptContext> Context;
 
 	static std::thread::id GetCurrentThreadId();
+	static bool IsThreadWorking();
 
 protected:
-	void PushTask(std::function<void()> &&func);
+	IdType PushTask(std::function<void()> &&func);
+	static void RemoveTask(const IdType id);
 
 private:
 	class Impl;

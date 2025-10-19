@@ -32,13 +32,18 @@ class TestFuture : public CxxTest::TestSuite
 public:
 	struct TestTaskManager
 	{
+		using IdType = u32;
+
 		std::vector<std::function<void()>> tasks;
-		void PushTask(std::function<void()> task)
+		IdType PushTask(std::function<void()> task)
 		{
 			tasks.push_back(std::move(task));
+			return 0;
 		}
 
+		static inline void RemoveTask(const i32 v) { (void)(v); }
 		static inline auto GetCurrentThreadId() { return std::thread::id(); }
+		static inline bool IsThreadWorking() { return false; }
 	};
 
 	void test_future_basic()

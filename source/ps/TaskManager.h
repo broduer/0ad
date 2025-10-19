@@ -25,6 +25,9 @@
 #include <memory>
 #include <thread>
 
+template<typename R, typename M>
+class FutureBase;
+
 namespace Threading
 {
 
@@ -39,6 +42,8 @@ class PrioritizedWorkerThread;
 class TaskManager : public Singleton<TaskManager>
 {
 public:
+	using IdType = u32;
+
 	TaskManager();
 	~TaskManager();
 	TaskManager(const TaskManager&) = delete;
@@ -54,17 +59,28 @@ public:
 	/**
 	 * Push a task to be executed.
 	 */
-	void PushTask(std::function<void()> func, TaskPriority priority = TaskPriority::NORMAL);
+	IdType PushTask(std::function<void()> func, TaskPriority priority = TaskPriority::NORMAL);
 
 	inline static std::thread::id GetCurrentThreadId()
 	{
 		return std::thread::id();
 	}
+
+	static bool IsThreadWorking();
+
+protected:
+	// For now, the function does nothing.
+	// [TODO] Implement the same logic as ScriptThread, but considering each thread separately.
+	// It may require some refactoring of the worker thread & thread manager ifaces (ST & TM classes).
+	inline static void RemoveTask(const IdType id) { (void)(id); }
+
 private:
-	TaskManager(size_t numberOfWorkers);
+	explicit TaskManager(size_t numberOfWorkers);
 
 	class Impl;
 	friend class PrioritizedWorkerThread<Impl>;
+	template<typename T, typename M>
+	friend class ::FutureBase;
 
 	const std::unique_ptr<Impl> m;
 };

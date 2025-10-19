@@ -257,7 +257,7 @@ public:
 		m_Receiver = std::shared_ptr<FutureSharedStateDetail::Receiver<ResultType>>(
 			temp, &temp->receiver);
 
-		taskManager.PushTask(PackagedTask<Callback>(std::move(temp)), std::forward<Args>(args)...);
+		m_Identifier = taskManager.PushTask(PackagedTask<Callback>(std::move(temp)), std::forward<Args>(args)...);
 	}
 
 	~FutureBase()
@@ -299,7 +299,11 @@ public:
 	{
 		if (Valid())
 		{
-			ENSURE((Manager::GetCurrentThreadId() != std::this_thread::get_id() || IsDone()) && "The current thread tried to wait for a task to itself, meaning deadlock!");
+			if (!IsDone() && Manager::IsThreadWorking())
+			{
+				Manager::RemoveTask(m_Identifier);
+			}
+			//ENSURE((Manager::GetCurrentThreadId() != std::this_thread::get_id() || IsDone()) && "The current thread tried to wait for a task to itself, meaning deadlock!");
 			m_Receiver->Wait();
 		}
 	}
@@ -315,6 +319,7 @@ public:
 
 protected:
 	std::shared_ptr<FutureSharedStateDetail::Receiver<ResultType>> m_Receiver;
+	Manager::IdType m_Identifier = -1;
 };
 
 template<typename ResultType, typename Manager>
