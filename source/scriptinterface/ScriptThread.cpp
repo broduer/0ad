@@ -35,6 +35,7 @@ class ScriptThread::Impl
 	friend class ScriptThread;
 	friend class Threading::WorkerThread<ScriptThread::Impl>;
 public:
+	// Task ID, Source TID, Task
 	using QueueItem = std::tuple<IdType, std::thread::id, std::function<void()>>;
 
 	static constexpr auto TaskNamePrefix = "JS RT";
@@ -76,12 +77,12 @@ protected:
 	bool PopTask(std::function<void()>& taskOut)
 	{
 		// Particularly critical section since we're locking the global queue.
-		std::lock_guard<std::mutex> globalLock(m_Mutex);
+		std::lock_guard globalLock(m_Mutex);
 		if (!m_Queue.empty())
 		{
 			auto tup = std::move(m_Queue.front());
 			taskOut = std::move(std::get<2>(tup));
-			m_CurrentThreadId = std::get<1>(tup);
+			m_CurrentThreadId = std::this_thread::get_id();
 			m_Queue.pop_front();
 			m_HasWork = !m_Queue.empty();
 
@@ -98,7 +99,7 @@ protected:
 
 	void RemoveTask(const IdType id)
 	{
-		ENSURE(id >= 0 && "The ID is invalid, the Future may have not been initialized properly.");
+		std::lock_guard globalLock(m_Mutex);
 		// This function is theoretically only called when the currently running function waits for a task on the same thread.
 		// Having it called when another thread is running would be a synchronization issue.
 		ENSURE(m_CurrentThreadId == std::this_thread::get_id() && "Looks like a synchronization issue occurred, an invalid call occurred.");
@@ -150,5 +151,13 @@ std::thread::id ScriptThread::GetCurrentThreadId()
 
 bool ScriptThread::IsThreadWorking()
 {
-	return GetSingletonPtr()->m->m_CurrentThreadId.load() == std::this_thread::get_id();
+	std::lock_guard globalLock(GetSingletonPtr()->m->m_Mutex);
+	const auto v = GetCurrentThreadId();
+	const bool out = v == std::this_thread::get_id();
+
+	std::ostringstream os;
+	os << "ScriptThread - IsThreadWorking: from " << std::this_thread::get_id() << " against " << v << " results " << out << "\n";
+	debug_printf(os.str().c_str());
+
+	return out;
 }
