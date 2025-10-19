@@ -26,8 +26,8 @@
 #include "ps/XML/Xeromyces.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpTemplateManager.h"
 #include "simulation2/system/Component.h"
@@ -66,7 +66,7 @@ public:
 	void test_LoadTemplate()
 	{
 		CSimContext context;
-		CComponentManager man(context, *g_ScriptContext);
+		CComponentManager man(context, *g_ScriptThread.Context);
 		man.LoadComponentTypes();
 
 		entity_id_t ent1 = 1, ent2 = 2;
@@ -76,22 +76,22 @@ public:
 		TS_ASSERT(man.AddComponent(hnd1, CID_TemplateManager, noParam));
 
 		ICmpTemplateManager* tempMan = static_cast<ICmpTemplateManager*> (man.QueryInterface(ent1, IID_TemplateManager));
-		TS_ASSERT(tempMan != NULL);
+		TS_ASSERT(tempMan != nullptr);
 
 		const CParamNode* basic = tempMan->LoadTemplate(ent2, "basic");
-		TS_ASSERT(basic != NULL);
+		TS_ASSERT(basic != nullptr);
 		TS_ASSERT_STR_EQUALS(basic->ToXMLString(), "<Test1A>12345</Test1A>");
 
 		const CParamNode* inherit2 = tempMan->LoadTemplate(ent2, "inherit2");
-		TS_ASSERT(inherit2 != NULL);
+		TS_ASSERT(inherit2 != nullptr);
 		TS_ASSERT_STR_EQUALS(inherit2->ToXMLString(), "<Test1A a=\"a2\" b=\"b1\" c=\"c1\"><d>d2</d><e>e1</e><f>f1</f><g>g2</g></Test1A>");
 
 		const CParamNode* inherit1 = tempMan->LoadTemplate(ent2, "inherit1");
-		TS_ASSERT(inherit1 != NULL);
+		TS_ASSERT(inherit1 != nullptr);
 		TS_ASSERT_STR_EQUALS(inherit1->ToXMLString(), "<Test1A a=\"a1\" b=\"b1\" c=\"c1\"><d>d1</d><e>e1</e><f>f1</f></Test1A>");
 
 		const CParamNode* actor = tempMan->LoadTemplate(ent2, "actor|example1");
-		TS_ASSERT(actor != NULL);
+		TS_ASSERT(actor != nullptr);
 		TS_ASSERT_STR_EQUALS(actor->ToXMLString(),
 				"<Footprint><Circle radius=\"2.0\"></Circle><Height>1.0</Height></Footprint><Selectable><EditorOnly></EditorOnly><Overlay><Texture><MainTexture>128x128/ellipse.png</MainTexture><MainTextureMask>128x128/ellipse_mask.png</MainTextureMask></Texture></Overlay></Selectable>"
 				"<VisualActor><Actor>example1</Actor><ActorOnly></ActorOnly><SilhouetteDisplay>false</SilhouetteDisplay><SilhouetteOccluder>false</SilhouetteOccluder><VisibleInAtlasOnly>false</VisibleInAtlasOnly></VisualActor>");
@@ -100,7 +100,7 @@ public:
 	void test_LoadTemplate_scriptcache()
 	{
 		CSimContext context;
-		CComponentManager man(context, *g_ScriptContext);
+		CComponentManager man(context, *g_ScriptThread.Context);
 		man.LoadComponentTypes();
 
 		entity_id_t ent1 = 1, ent2 = 2;
@@ -110,7 +110,7 @@ public:
 		TS_ASSERT(man.AddComponent(hnd1, CID_TemplateManager, noParam));
 
 		ICmpTemplateManager* tempMan = static_cast<ICmpTemplateManager*> (man.QueryInterface(ent1, IID_TemplateManager));
-		TS_ASSERT(tempMan != NULL);
+		TS_ASSERT(tempMan != nullptr);
 		tempMan->DisableValidation();
 
 		ScriptRequest rq(man.GetScriptInterface());
@@ -160,7 +160,7 @@ public:
 	void test_LoadTemplate_errors()
 	{
 		CSimContext context;
-		CComponentManager man(context, *g_ScriptContext);
+		CComponentManager man(context, *g_ScriptThread.Context);
 		man.LoadComponentTypes();
 
 		entity_id_t ent1 = 1, ent2 = 2;
@@ -170,29 +170,29 @@ public:
 		TS_ASSERT(man.AddComponent(hnd1, CID_TemplateManager, noParam));
 
 		ICmpTemplateManager* tempMan = static_cast<ICmpTemplateManager*> (man.QueryInterface(ent1, IID_TemplateManager));
-		TS_ASSERT(tempMan != NULL);
+		TS_ASSERT(tempMan != nullptr);
 
 		TestLogger logger;
 
-		TS_ASSERT(tempMan->LoadTemplate(ent2, "illformed") == NULL);
+		TS_ASSERT(tempMan->LoadTemplate(ent2, "illformed") == nullptr);
 
-		TS_ASSERT(tempMan->LoadTemplate(ent2, "invalid") == NULL);
+		TS_ASSERT(tempMan->LoadTemplate(ent2, "invalid") == nullptr);
 
-		TS_ASSERT(tempMan->LoadTemplate(ent2, "nonexistent") == NULL);
+		TS_ASSERT(tempMan->LoadTemplate(ent2, "nonexistent") == nullptr);
 
-		TS_ASSERT(tempMan->LoadTemplate(ent2, "inherit-loop") == NULL);
+		TS_ASSERT(tempMan->LoadTemplate(ent2, "inherit-loop") == nullptr);
 
-		TS_ASSERT(tempMan->LoadTemplate(ent2, "inherit-broken") == NULL);
+		TS_ASSERT(tempMan->LoadTemplate(ent2, "inherit-broken") == nullptr);
 
-		TS_ASSERT(tempMan->LoadTemplate(ent2, "inherit-special") == NULL);
+		TS_ASSERT(tempMan->LoadTemplate(ent2, "inherit-special") == nullptr);
 
-		TS_ASSERT(tempMan->LoadTemplate(ent2, "preview|nonexistent") == NULL);
+		TS_ASSERT(tempMan->LoadTemplate(ent2, "preview|nonexistent") == nullptr);
 	}
 
 	void test_LoadTemplate_multiple()
 	{
 		CSimContext context;
-		CComponentManager man(context, *g_ScriptContext);
+		CComponentManager man(context, *g_ScriptThread.Context);
 		man.LoadComponentTypes();
 
 		entity_id_t ent1 = 1, ent2 = 2;
@@ -202,30 +202,30 @@ public:
 		TS_ASSERT(man.AddComponent(hnd1, CID_TemplateManager, noParam));
 
 		ICmpTemplateManager* tempMan = static_cast<ICmpTemplateManager*> (man.QueryInterface(ent1, IID_TemplateManager));
-		TS_ASSERT(tempMan != NULL);
+		TS_ASSERT(tempMan != nullptr);
 
 		const CParamNode* basicA = tempMan->LoadTemplate(ent2, "basic");
-		TS_ASSERT(basicA != NULL);
+		TS_ASSERT(basicA != nullptr);
 
 		const CParamNode* basicB = tempMan->LoadTemplate(ent2, "basic");
 		TS_ASSERT(basicA == basicB);
 
 		const CParamNode* inherit2A = tempMan->LoadTemplate(ent2, "inherit2");
-		TS_ASSERT(inherit2A != NULL);
+		TS_ASSERT(inherit2A != nullptr);
 
 		const CParamNode* inherit2B = tempMan->LoadTemplate(ent2, "inherit2");
 		TS_ASSERT(inherit2A == inherit2B);
 
 		TestLogger logger;
 
-		TS_ASSERT(tempMan->LoadTemplate(ent2, "nonexistent") == NULL);
-		TS_ASSERT(tempMan->LoadTemplate(ent2, "nonexistent") == NULL);
+		TS_ASSERT(tempMan->LoadTemplate(ent2, "nonexistent") == nullptr);
+		TS_ASSERT(tempMan->LoadTemplate(ent2, "nonexistent") == nullptr);
 
-		TS_ASSERT(tempMan->LoadTemplate(ent2, "inherit-loop") == NULL);
-		TS_ASSERT(tempMan->LoadTemplate(ent2, "inherit-loop") == NULL);
+		TS_ASSERT(tempMan->LoadTemplate(ent2, "inherit-loop") == nullptr);
+		TS_ASSERT(tempMan->LoadTemplate(ent2, "inherit-loop") == nullptr);
 
-		TS_ASSERT(tempMan->LoadTemplate(ent2, "inherit-broken") == NULL);
-		TS_ASSERT(tempMan->LoadTemplate(ent2, "inherit-broken") == NULL);
+		TS_ASSERT(tempMan->LoadTemplate(ent2, "inherit-broken") == nullptr);
+		TS_ASSERT(tempMan->LoadTemplate(ent2, "inherit-broken") == nullptr);
 	}
 };
 
@@ -251,7 +251,7 @@ public:
 	{
 		CXeromycesEngine xeromycesEngine;
 		CTerrain dummy;
-		CSimulation2 sim{nullptr, *g_ScriptContext, &dummy};
+		CSimulation2 sim{nullptr, *g_ScriptThread.Context, &dummy};
 		sim.LoadDefaultScripts();
 		sim.ResetState();
 
@@ -264,7 +264,7 @@ public:
 			std::string name = templates[i];
 			printf("# %s\n", name.c_str());
 			const CParamNode* p = cmpTemplateManager->GetTemplate(name);
-			TS_ASSERT(p != NULL);
+			TS_ASSERT(p != nullptr);
 		}
 	}
 };

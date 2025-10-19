@@ -22,7 +22,7 @@
 #include "lib/posix/posix_types.h"
 #include "lib/timer.h"
 #include "lib/types.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/helpers/Grid.h"
 #include "simulation2/helpers/Los.h"
@@ -36,7 +36,7 @@ class TestLOSTexture : public CxxTest::TestSuite
 public:
 	void test_basic()
 	{
-		CSimulation2 sim{nullptr, *g_ScriptContext, nullptr};
+		CSimulation2 sim{nullptr, *g_ScriptThread.Context, nullptr};
 		CLOSTexture tex(sim);
 
 		const ssize_t size = 8;
@@ -75,7 +75,7 @@ public:
 
 	void DISABLED_test_perf()
 	{
-		CSimulation2 sim{nullptr, *g_ScriptContext, nullptr};
+		CSimulation2 sim{nullptr, *g_ScriptThread.Context, nullptr};
 		CLOSTexture tex(sim);
 
 		const ssize_t size = 257;

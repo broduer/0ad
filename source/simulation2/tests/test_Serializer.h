@@ -34,6 +34,7 @@
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/serialization/DebugSerializer.h"
 #include "simulation2/serialization/HashSerializer.h"
@@ -93,7 +94,7 @@ public:
 
 	void test_Debug_basic()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		std::stringstream stream;
 		CDebugSerializer serialize(script, stream);
 		serialize.NumberI32_Unbounded("x", -123);
@@ -104,7 +105,7 @@ public:
 
 	void test_Debug_floats()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		std::stringstream stream;
 		CDebugSerializer serialize(script, stream);
 		serialize.NumberFloat_Unbounded("x", 1e4f);
@@ -135,7 +136,7 @@ public:
 
 	void test_Debug_types()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		std::stringstream stream;
 		CDebugSerializer serialize(script, stream);
 
@@ -166,7 +167,7 @@ public:
 
 	void test_Std_basic()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		std::stringstream stream;
 		CStdSerializer serialize(script, stream);
 
@@ -193,7 +194,7 @@ public:
 
 	void test_Std_types()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		std::stringstream stream;
 		CStdSerializer serialize(script, stream);
 
@@ -260,7 +261,7 @@ public:
 
 	void test_Hash_basic()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		CHashSerializer serialize(script);
 
 		serialize.NumberI32_Unbounded("x", -123);
@@ -274,7 +275,7 @@ public:
 
 	void test_Hash_stream()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		CHashSerializer hashSerialize(script);
 
 		hashSerialize.NumberI32_Unbounded("x", -123);
@@ -297,7 +298,7 @@ public:
 
 	void test_bounds()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		std::stringstream stream;
 		CDebugSerializer serialize(script, stream);
 		serialize.NumberI32("x", 16, -16, 16);
@@ -310,7 +311,7 @@ public:
 
 	void helper_script_roundtrip(const char* msg, const char* input, const char* expected, size_t expstreamlen = 0, const char* expstream = NULL, const char* debug = NULL)
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		ScriptRequest rq(script);
 
 		JS::RootedValue obj(rq.cx);
@@ -826,7 +827,7 @@ public:
 
 	void test_script_exceptions()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		ScriptRequest rq(script);
 
 		JS::RootedValue obj(rq.cx);
@@ -861,7 +862,7 @@ public:
 	{
 		const char* input = "var x = {}; for (var i=0;i<256;++i) x[i]=Math.pow(i, 2); x";
 
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		ScriptRequest rq(script);
 
 		JS::RootedValue obj(rq.cx);
@@ -901,7 +902,7 @@ public:
 
 		CTerrain terrain;
 
-		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain};
+		CSimulation2 sim2{nullptr, *g_ScriptThread.Context, &terrain};
 		sim2.LoadDefaultScripts();
 		sim2.ResetState();
 

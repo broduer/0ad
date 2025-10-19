@@ -36,6 +36,7 @@
 #include "renderer/SceneRenderer.h"
 #include "renderer/backend/IDevice.h"
 #include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ScriptThread.h"
 #include "tools/atlas/GameInterface/ActorViewer.h"
 #include "tools/atlas/GameInterface/CommandProc.h"
 #include "tools/atlas/GameInterface/GameLoop.h"
@@ -132,8 +133,8 @@ MESSAGEHANDLER(InitGraphics)
 
 	g_VideoMode.GetBackendDevice()->OnWindowResize(g_xres, g_yres);
 
-	g_ScriptInterface.emplace("Engine", "GUIManager", *g_ScriptContext);
-	InitGraphics(g_AtlasGameLoop->args, g_InitFlags, {}, *g_ScriptContext, *g_ScriptInterface);
+	g_ScriptInterface.emplace("Engine", "GUIManager", *g_ScriptThread.Context);
+	InitGraphics(g_AtlasGameLoop->args, g_InitFlags, {}, *g_ScriptThread.Context, *g_ScriptInterface);
 }
 
 

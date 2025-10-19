@@ -1369,7 +1369,7 @@ int CMapReader::LoadRMSettings()
 struct CMapReader::GeneratorState
 {
 	std::atomic<int> progress{1};
-	Future<Script::StructuredClone> task;
+	Future<Script::StructuredClone, Threading::TaskManager> task;
 };
 
 int CMapReader::StartMapGeneration(const CStrW& scriptFile)

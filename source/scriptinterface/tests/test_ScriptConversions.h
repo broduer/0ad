@@ -28,6 +28,7 @@
 #include "scriptinterface/ScriptConversions.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 
 #include <cmath>
 #include <js/RootingAPI.h>
@@ -41,7 +42,7 @@ class TestScriptConversions : public CxxTest::TestSuite
 	template <typename T>
 	void convert_to(const T& value, const std::string& expected)
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		TS_ASSERT(script.LoadGlobalScripts());
 		ScriptRequest rq(script);
 
@@ -60,7 +61,7 @@ class TestScriptConversions : public CxxTest::TestSuite
 	template <typename T>
 	void roundtrip(const T& value, const char* expected)
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		TS_ASSERT(script.LoadGlobalScripts());
 		ScriptRequest rq(script);
 
@@ -82,7 +83,7 @@ class TestScriptConversions : public CxxTest::TestSuite
 	template <typename T>
 	void call_prototype_function(const T& u, const T& v, const std::string& func, const std::string& expected)
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		TS_ASSERT(script.LoadGlobalScripts());
 		ScriptRequest rq(script);
 
@@ -176,7 +177,7 @@ public:
 
 	void test_integers()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		ScriptRequest rq(script);
 
 		// using new uninitialized variables each time to be sure the test doesn't succeeed if ToJSVal doesn't touch the value at all.
@@ -208,7 +209,7 @@ public:
 		roundtrip<float>(-std::numeric_limits<float>::infinity(), "-Infinity");
 		convert_to<float>(std::numeric_limits<float>::quiet_NaN(), "NaN"); // can't use roundtrip since nan != nan
 
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		ScriptRequest rq(script);
 
 		float f = 0;
@@ -258,7 +259,7 @@ public:
 	void test_utf8utf16_conversion()
 	{
 		// Fancier conversion: we store UTF8 and get UTF16 and vice-versa
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		TS_ASSERT(script.LoadGlobalScripts());
 		ScriptRequest rq(script);
 

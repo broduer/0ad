@@ -24,7 +24,7 @@
 #include "lib/types.h"
 #include "ps/Filesystem.h"
 #include "ps/XML/Xeromyces.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpTest.h"
@@ -64,7 +64,7 @@ public:
 	void test_AddEntity()
 	{
 		CXeromycesEngine xeromycesEngine;
-		CSimulation2 sim{nullptr, *g_ScriptContext, &m_Terrain};
+		CSimulation2 sim{nullptr, *g_ScriptThread.Context, &m_Terrain};
 		TS_ASSERT(sim.LoadScripts(L"simulation/components/addentity/"));
 
 		sim.ResetState(true, true);
@@ -85,7 +85,7 @@ public:
 	void test_DestroyEntity()
 	{
 		CXeromycesEngine xeromycesEngine;
-		CSimulation2 sim{nullptr, *g_ScriptContext, &m_Terrain};
+		CSimulation2 sim{nullptr, *g_ScriptThread.Context, &m_Terrain};
 		TS_ASSERT(sim.LoadScripts(L"simulation/components/addentity/"));
 
 		sim.ResetState(true, true);
@@ -142,7 +142,7 @@ public:
 	void test_hotload_scripts()
 	{
 		CXeromycesEngine xeromycesEngine;
-		CSimulation2 sim{nullptr, *g_ScriptContext, &m_Terrain};
+		CSimulation2 sim{nullptr, *g_ScriptThread.Context, &m_Terrain};
 
 		TS_ASSERT_OK(CreateDirectories(DataDir()/"mods"/"_test.sim"/"simulation"/"components"/"hotload"/"", 0700));
 

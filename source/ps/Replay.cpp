@@ -45,6 +45,7 @@
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
 #include "scriptinterface/ScriptStats.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpGuiInterface.h"
 #include "simulation2/helpers/Player.h"
@@ -60,10 +61,10 @@
  * Number of turns between two saved profiler snapshots.
  * Keep in sync with source/tools/replayprofile/graph.js
  */
-static const int PROFILE_TURN_INTERVAL = 20;
+static constexpr int PROFILE_TURN_INTERVAL = 20;
 
 CReplayLogger::CReplayLogger(const ScriptInterface& scriptInterface) :
-	m_ScriptInterface(scriptInterface), m_Stream(NULL)
+	m_ScriptInterface(scriptInterface), m_Stream(nullptr)
 {
 }
 
@@ -74,38 +75,44 @@ CReplayLogger::~CReplayLogger()
 
 void CReplayLogger::StartGame(JS::MutableHandleValue attribs)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	g_ScriptThread.Run([this, &attribs]()
+	{
+		const ScriptRequest rq(m_ScriptInterface);
 
-	// Add timestamp, since the file-modification-date can change
-	Script::SetProperty(rq, attribs, "timestamp", (double)std::time(nullptr));
+		// Add timestamp, since the file-modification-date can change
+		Script::SetProperty(rq, attribs, "timestamp", static_cast<double>(std::time(nullptr)));
 
-	// Add engine version and currently loaded mods for sanity checks when replaying
-	Script::SetProperty(rq, attribs, "engine_version", engine_version);
-	JS::RootedValue mods(rq.cx);
-	Script::ToJSVal(rq, &mods, g_Mods.GetEnabledModsData());
-	Script::SetProperty(rq, attribs, "mods", mods);
+		// Add engine version and currently loaded mods for sanity checks when replaying
+		Script::SetProperty(rq, attribs, "engine_version", engine_version);
+		JS::RootedValue mods(rq.cx);
+		Script::ToJSVal(rq, &mods, g_Mods.GetEnabledModsData());
+		Script::SetProperty(rq, attribs, "mods", mods);
 
-	m_Directory = createDateIndexSubdirectory(VisualReplay::GetDirectoryPath());
-	debug_printf("FILES| Replay written to '%s'\n", m_Directory.string8().c_str());
+		m_Directory = createDateIndexSubdirectory(VisualReplay::GetDirectoryPath());
+		debug_printf("FILES| Replay written to '%s'\n", m_Directory.string8().c_str());
 
-	m_Stream = new std::ofstream(OsString(m_Directory / L"commands.txt"), std::ofstream::out | std::ofstream::trunc);
-	*m_Stream << "start " << Script::StringifyJSON(rq, attribs, false) << "\n";
+		m_Stream = new std::ofstream(OsString(m_Directory / L"commands.txt"), std::ofstream::out | std::ofstream::trunc);
+		*m_Stream << "start " << Script::StringifyJSON(rq, attribs, false) << "\n";
+	}).Wait();
 }
 
-void CReplayLogger::Turn(u32 n, u32 turnLength, std::vector<SimulationCommand>& commands)
+void CReplayLogger::Turn(const u32 n, const u32 turnLength, std::vector<SimulationCommand>& commands)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	g_ScriptThread.Run([this, n, turnLength, &commands]()
+	{
+		const ScriptRequest rq(m_ScriptInterface);
 
-	*m_Stream << "turn " << n << " " << turnLength << "\n";
+		*m_Stream << "turn " << n << " " << turnLength << "\n";
 
-	for (SimulationCommand& command : commands)
-		*m_Stream << "cmd " << command.player << " " << Script::StringifyJSON(rq, &command.data, false) << "\n";
+		for (SimulationCommand& command : commands)
+			*m_Stream << "cmd " << command.player << " " << Script::StringifyJSON(rq, &command.data, false) << "\n";
 
-	*m_Stream << "end\n";
-	m_Stream->flush();
+		*m_Stream << "end\n";
+		m_Stream->flush();
+	}).Wait();
 }
 
-void CReplayLogger::Hash(const std::string& hash, bool quick)
+void CReplayLogger::Hash(const std::string& hash, const bool quick)
 {
 	if (quick)
 		*m_Stream << "hash-quick " << Hexify(hash) << "\n";
@@ -122,26 +129,28 @@ void CReplayLogger::SaveMetadata(const CSimulation2& simulation)
 		return;
 	}
 
-	ScriptInterface& scriptInterface = simulation.GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
-
-	JS::RootedValue arg(rq.cx);
-	JS::RootedValue metadata(rq.cx);
-	cmpGuiInterface->ScriptCall(INVALID_PLAYER, L"GetReplayMetadata", arg, &metadata);
-
-	const OsPath fileName = g_Game->GetReplayLogger().GetDirectory() / L"metadata.json";
-	CreateDirectories(fileName.Parent(), 0700);
-
-	std::ofstream stream (OsString(fileName), std::ofstream::out | std::ofstream::trunc);
-	if (stream)
+	g_ScriptThread.Run([this, &simulation, &cmpGuiInterface]()
 	{
-		stream << Script::StringifyJSON(rq, &metadata, false);
-		stream.close();
-		debug_printf("FILES| Replay metadata written to '%s'\n", fileName.string8().c_str());
-	}
-	else
-		debug_printf("FILES| Failed to write replay metadata to '%s'\n", fileName.string8().c_str());
+		ScriptInterface& scriptInterface = simulation.GetScriptInterface();
+		ScriptRequest rq(scriptInterface);
 
+		JS::RootedValue arg(rq.cx);
+		JS::RootedValue metadata(rq.cx);
+		cmpGuiInterface->ScriptCall(INVALID_PLAYER, L"GetReplayMetadata", arg, &metadata);
+
+		const OsPath fileName = g_Game->GetReplayLogger().GetDirectory() / L"metadata.json";
+		CreateDirectories(fileName.Parent(), 0700);
+
+		std::ofstream stream (OsString(fileName), std::ofstream::out | std::ofstream::trunc);
+		if (stream)
+		{
+			stream << Script::StringifyJSON(rq, &metadata, false);
+			stream.close();
+			debug_printf("FILES| Replay metadata written to '%s'\n", fileName.string8().c_str());
+		}
+		else
+			debug_printf("FILES| Failed to write replay metadata to '%s'\n", fileName.string8().c_str());
+	}).Wait();
 }
 
 OsPath CReplayLogger::GetDirectory() const
@@ -152,7 +161,7 @@ OsPath CReplayLogger::GetDirectory() const
 ////////////////////////////////////////////////////////////////
 
 CReplayPlayer::CReplayPlayer() :
-	m_Stream(NULL)
+	m_Stream(nullptr)
 {
 }
 
@@ -200,118 +209,130 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 	g_ScriptStatsTable = new CScriptStatsTable;
 	g_ProfileViewer.AddRootTable(g_ScriptStatsTable);
 
-	const int contextSize = 384 * 1024 * 1024;
-	const int heapGrowthBytesGCTrigger = 12 * 1024 * 1024;
-	g_ScriptContext = ScriptContext::CreateContext(contextSize, heapGrowthBytesGCTrigger);
-
-	std::vector<SimulationCommand> commands;
-	u32 turn = 0;
-	u32 turnLength = 0;
+	constexpr int contextSize = 384 * 1024 * 1024;
+	constexpr int heapGrowthBytesGCTrigger = 12 * 1024 * 1024;
+	g_ScriptThread.Run([]()
+	{
+		g_ScriptThread.Context = ScriptContext::CreateContext(contextSize, heapGrowthBytesGCTrigger);
+	}).Wait();
 
 	{
-	std::string type;
+		std::vector<SimulationCommand> commands;
+		u32 turnLength = 0;
+		u32 turn = 0;
+		std::string type;
 
-	while ((*m_Stream >> type).good())
-	{
-		if (type == "start")
+		while ((*m_Stream >> type).good())
 		{
-			std::string attribsStr;
+			if (type == "start")
 			{
-				ScriptInterface scriptInterface("Engine", "Replay", g_ScriptContext);
-				ScriptRequest rq(scriptInterface);
-				std::getline(*m_Stream, attribsStr);
-				JS::RootedValue attribs(rq.cx);
-				if (!Script::ParseJSON(rq, attribsStr, &attribs))
+				std::string attribsStr;
 				{
-					LOGERROR("Error parsing JSON attributes: %s", attribsStr);
-					// TODO: do something cleverer than crashing.
-					ENSURE(false);
+					g_ScriptThread.Run([this, &attribsStr]()
+					{
+						const ScriptInterface scriptInterface("Engine", "Replay", g_ScriptThread.Context);
+						const ScriptRequest rq(scriptInterface);
+						std::getline(*m_Stream, attribsStr);
+						JS::RootedValue attribs(rq.cx);
+						if (!Script::ParseJSON(rq, attribsStr, &attribs))
+						{
+							LOGERROR("Error parsing JSON attributes: %s", attribsStr);
+							// TODO: do something cleverer than crashing.
+							ENSURE(false);
+						}
+
+						// Load the mods specified in the replay.
+						std::vector<Mod::ModData> replayMods;
+						if (!Script::GetProperty(rq, attribs, "mods", replayMods))
+						{
+							LOGERROR("Could not get replay mod information.");
+							// TODO: do something cleverer than crashing.
+							ENSURE(false);
+						}
+
+						std::vector<CStr> mods;
+						for (const Mod::ModData& data : replayMods)
+							mods.emplace_back(data.m_Pathname);
+
+						// Ignore the return value, we check below.
+						g_Mods.UpdateAvailableMods(scriptInterface);
+
+						g_Mods.EnableMods(mods, false);
+						CheckReplayMods(replayMods);
+					}).Wait();
+
+					MountMods(Paths(g_CmdLineArgs), g_Mods.GetEnabledMods());
 				}
 
-				// Load the mods specified in the replay.
-				std::vector<Mod::ModData> replayMods;
-				if (!Script::GetProperty(rq, attribs, "mods", replayMods))
+				g_Game = new CGame(false);
+				if (serializationtest)
+					g_Game->GetSimulation2()->EnableSerializationTest();
+				if (rejointestturn >= 0)
+					g_Game->GetSimulation2()->EnableRejoinTest(rejointestturn);
+				if (ooslog)
+					g_Game->GetSimulation2()->EnableOOSLog();
+
+				g_ScriptThread.Run([&attribsStr]()
 				{
-					LOGERROR("Could not get replay mod information.");
-					// TODO: do something cleverer than crashing.
-					ENSURE(false);
+					const ScriptRequest rq(g_Game->GetSimulation2()->GetScriptInterface());
+					JS::RootedValue attribs(rq.cx);
+					ENSURE(Script::ParseJSON(rq, attribsStr, &attribs));
+					g_Game->StartGame(&attribs, "");
+				}).Wait();
+
+				// TODO: Non progressive load can fail - need a decent way to handle this
+				LDR_NonprogressiveLoad();
+
+				const PSRETURN ret = g_Game->ReallyStartGame();
+				ENSURE(ret == PSRETURN_OK);
+			}
+			else if (type == "turn")
+			{
+				*m_Stream >> turn >> turnLength;
+				debug_printf("Turn %u (%u)...\n", turn, turnLength);
+			}
+			else if (type == "cmd")
+			{
+				player_id_t player;
+				*m_Stream >> player;
+
+				std::string line;
+				std::getline(*m_Stream, line);
+				g_ScriptThread.Run([&commands, &player, &line]()
+				{
+					const ScriptRequest rq(g_Game->GetSimulation2()->GetScriptInterface());
+					JS::RootedValue data(rq.cx);
+					Script::ParseJSON(rq, line, &data);
+					Script::DeepFreezeObject(rq, data);
+					commands.emplace_back(SimulationCommand(player, rq.cx, data));
+				}).Wait();
+			}
+			else if (type == "hash" || type == "hash-quick")
+			{
+				std::string replayHash;
+				*m_Stream >> replayHash;
+				TestHash(type, replayHash, testHashFull, testHashQuick);
+			}
+			else if (type == "end")
+			{
+				{
+					g_Profiler2.RecordFrameStart();
+					PROFILE2("frame");
+					g_Profiler2.IncrementFrameNumber();
+					PROFILE2_ATTR("%d", g_Profiler2.GetFrameNumber());
+
+					g_Game->GetSimulation2()->Update(turnLength, commands);
+					commands.clear();
 				}
 
-				std::vector<CStr> mods;
-				for (const Mod::ModData& data : replayMods)
-					mods.emplace_back(data.m_Pathname);
+				g_Profiler.Frame();
 
-				// Ignore the return value, we check below.
-				g_Mods.UpdateAvailableMods(scriptInterface);
-				g_Mods.EnableMods(mods, false);
-				CheckReplayMods(replayMods);
-
-				MountMods(Paths(g_CmdLineArgs), g_Mods.GetEnabledMods());
+				if (turn % PROFILE_TURN_INTERVAL == 0)
+					g_ProfileViewer.SaveToFile();
 			}
-
-			g_Game = new CGame(false);
-			if (serializationtest)
-				g_Game->GetSimulation2()->EnableSerializationTest();
-			if (rejointestturn >= 0)
-				g_Game->GetSimulation2()->EnableRejoinTest(rejointestturn);
-			if (ooslog)
-				g_Game->GetSimulation2()->EnableOOSLog();
-
-			ScriptRequest rq(g_Game->GetSimulation2()->GetScriptInterface());
-			JS::RootedValue attribs(rq.cx);
-			ENSURE(Script::ParseJSON(rq, attribsStr, &attribs));
-			g_Game->StartGame(&attribs, "");
-
-			// TODO: Non progressive load can fail - need a decent way to handle this
-			LDR_NonprogressiveLoad();
-
-			PSRETURN ret = g_Game->ReallyStartGame();
-			ENSURE(ret == PSRETURN_OK);
+			else
+				debug_printf("Unrecognized replay token %s\n", type.c_str());
 		}
-		else if (type == "turn")
-		{
-			*m_Stream >> turn >> turnLength;
-			debug_printf("Turn %u (%u)...\n", turn, turnLength);
-		}
-		else if (type == "cmd")
-		{
-			player_id_t player;
-			*m_Stream >> player;
-
-			std::string line;
-			std::getline(*m_Stream, line);
-			ScriptRequest rq(g_Game->GetSimulation2()->GetScriptInterface());
-			JS::RootedValue data(rq.cx);
-			Script::ParseJSON(rq, line, &data);
-			Script::DeepFreezeObject(rq, data);
-			commands.emplace_back(SimulationCommand(player, rq.cx, data));
-		}
-		else if (type == "hash" || type == "hash-quick")
-		{
-			std::string replayHash;
-			*m_Stream >> replayHash;
-			TestHash(type, replayHash, testHashFull, testHashQuick);
-		}
-		else if (type == "end")
-		{
-			{
-				g_Profiler2.RecordFrameStart();
-				PROFILE2("frame");
-				g_Profiler2.IncrementFrameNumber();
-				PROFILE2_ATTR("%d", g_Profiler2.GetFrameNumber());
-
-				g_Game->GetSimulation2()->Update(turnLength, commands);
-				commands.clear();
-			}
-
-			g_Profiler.Frame();
-
-			if (turn % PROFILE_TURN_INTERVAL == 0)
-				g_ProfileViewer.SaveToFile();
-		}
-		else
-			debug_printf("Unrecognized replay token %s\n", type.c_str());
-	}
 	}
 
 	SAFE_DELETE(m_Stream);
@@ -319,7 +340,7 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 	g_Profiler2.SaveToFile();
 
 	std::string hash;
-	bool ok = g_Game->GetSimulation2()->ComputeStateHash(hash, false);
+	const bool ok = g_Game->GetSimulation2()->ComputeStateHash(hash, false);
 	ENSURE(ok);
 	debug_printf("# Final state: %s\n", Hexify(hash).c_str());
 	timer_DisplayClientTotals();
@@ -328,7 +349,10 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 
 	// Must be explicitly destructed here to avoid callbacks from the JSAPI trying to use g_Profiler2 when
 	// it's already destructed.
-	g_ScriptContext.reset();
+	g_ScriptThread.Run([]()
+	{
+		g_ScriptThread.Context.reset();
+	}).Wait();
 
 	delete &g_Profiler;
 	delete &g_ProfileViewer;
@@ -337,14 +361,14 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 
 void CReplayPlayer::TestHash(const std::string& hashType, const std::string& replayHash, const bool testHashFull, const bool testHashQuick)
 {
-	bool quick = (hashType == "hash-quick");
+	const bool quick = (hashType == "hash-quick");
 	if ((quick && !testHashQuick) || (!quick && !testHashFull))
 		return;
 
 	std::string hash;
 	ENSURE(g_Game->GetSimulation2()->ComputeStateHash(hash, quick));
 
-	std::string hexHash = Hexify(hash);
+	const std::string hexHash = Hexify(hash);
 
 	if (hexHash == replayHash)
 		debug_printf("%s ok (%s)\n", hashType.c_str(), hexHash.c_str());

@@ -26,8 +26,8 @@
 #include <type_traits>
 #include <utility>
 #include <variant>
-
-#include "tools/atlas/GameInterface/Shareable.h"
+#include <cassert>
+#include <thread>
 
 template<typename Callback>
 class PackagedTask;
@@ -49,7 +49,7 @@ private:
 
 template<typename Callback>
 using CallbackResult = typename std::conditional_t<std::is_invocable_v<Callback, StopToken>,
-	std::invoke_result<Callback, StopToken>, std::invoke_result<Callback>>::type;
+    std::invoke_result<Callback, StopToken>, std::invoke_result<Callback>>::type;
 
 namespace FutureSharedStateDetail
 {
@@ -221,7 +221,7 @@ private:
  *
  * The callback never runs after the @p Future is destroyed.
  */
-template<typename ResultType>
+template<typename ResultType, typename Manager>
 class FutureBase
 {
 	template<typename T>
@@ -231,7 +231,7 @@ public:
 	FutureBase() = default;
 	FutureBase(const FutureBase& o) = delete;
 	FutureBase(FutureBase&&) = default;
-	FutureBase& operator=(FutureBase&& other)
+	FutureBase& operator=(FutureBase&& other) noexcept
 	{
 		CancelOrWait();
 		m_Receiver = std::move(other.m_Receiver);
@@ -244,14 +244,18 @@ public:
 	template<typename Callback, typename... Args>
 	FutureBase(auto& taskManager, Callback&& callback, Args&&... args)
 	{
-		static_assert(std::is_same_v<CallbackResult<Callback>, ResultType>,
-		"The return type of the wrapped function is not the same as the type the Future expects.");
+		// Fix the static_assert - use decay_t to handle lambda types properly
+		static_assert(std::is_same_v<std::decay_t<CallbackResult<Callback>>, std::decay_t<ResultType>>,
+			"The return type of the wrapped function is not the same as the type the Future expects.");
 		static_assert(std::is_invocable_v<Callback, StopToken> || !std::is_invocable_v<Callback, StopToken&>,
 			"Consider taking the `StopToken` by value");
 
 		auto temp = std::make_shared<FutureSharedStateDetail::SharedState<Callback>>(
 			std::forward<Callback>(callback));
-		m_Receiver = {temp, &temp->receiver};
+
+		// Fix the assignment - use direct initialization instead of initializer list
+		m_Receiver = std::shared_ptr<FutureSharedStateDetail::Receiver<ResultType>>(
+			temp, &temp->receiver);
 
 		taskManager.PushTask(PackagedTask<Callback>(std::move(temp)), std::forward<Args>(args)...);
 	}
@@ -294,7 +298,10 @@ public:
 	void Wait()
 	{
 		if (Valid())
+		{
+			ENSURE((Manager::GetCurrentThreadId() != std::this_thread::get_id() || IsDone()) && "The current thread tried to wait for a task to itself, meaning deadlock!");
 			m_Receiver->Wait();
+		}
 	}
 
 	void CancelOrWait()
@@ -310,36 +317,47 @@ protected:
 	std::shared_ptr<FutureSharedStateDetail::Receiver<ResultType>> m_Receiver;
 };
 
-template<typename ResultType>
-class Future : public FutureBase<ResultType>
+template<typename ResultType, typename Manager>
+class Future : public FutureBase<ResultType, Manager>
 {
 public:
-	template<typename Callback, typename... Args>
-	Future(auto& taskManager, Callback&& callback, Args&&... args) :
-		FutureBase<ResultType>(taskManager, std::forward<Callback>(callback), std::forward<Args>(args)...)
-	{}
+    constexpr Future() noexcept = default;
 
-	ResultType &&GetMoved()
-	{
-		ENSURE(!!FutureBase<ResultType>::m_Receiver);
+    // Provide a templated constructor that forwards to the base class' task-taking constructor.
+    template<typename Callback, typename... Args>
+    Future(Manager& taskManager, Callback&& callback, Args&&... args) :
+        FutureBase<ResultType, Manager>(taskManager, std::forward<Callback>(callback), std::forward<Args>(args)...)
+    {}
 
-		FutureBase<ResultType>::Wait();
-		// This mark the state invalid - can't call Get again.
-		return std::move(std::exchange(FutureBase<ResultType>::m_Receiver, nullptr)->GetResult());
-	}
+    ResultType &&GetMoved()
+    {
+    	using _T = FutureBase<ResultType, Manager>;
+        ENSURE(!!_T::m_Receiver);
+
+        FutureBase<ResultType, Manager>::Wait();
+        // This mark the state invalid - can't call Get again.
+        return std::move(std::exchange(FutureBase<ResultType, Manager>::m_Receiver, nullptr)->GetResult());
+    }
 };
 
-template<>
-class Future<void> : public FutureBase<void>
+template<typename Manager>
+class Future<void, Manager> : public FutureBase<void, Manager>
 {
 public:
-	template<typename Callback, typename... Args>
-	Future(auto& taskManager, Callback&& callback, Args&&... args)
-		: FutureBase<void>(taskManager, std::forward<Callback>(callback), std::forward<Args>(args)...)
-	{}
+    constexpr Future() noexcept = default;
+
+    template<typename Callback, typename... Args>
+    Future(Manager& taskManager, Callback&& callback, Args&&... args)
+        : FutureBase<void, Manager>(taskManager, std::forward<Callback>(callback), std::forward<Args>(args)...)
+    {}
 };
 
-template<typename Callback, typename... Args>
-Future(auto& taskManager, Callback&& callback, Args&&... args) -> Future<CallbackResult<Callback>>;
+template<typename Callback, typename Manager, typename... Args>
+Future(Manager& taskManager, Callback&& callback, Args&&... args) -> Future<CallbackResult<Callback>, Manager>;
+
+namespace Threading
+{
+class TaskManager;
+}
 
 #endif // INCLUDED_FUTURE

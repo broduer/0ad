@@ -82,11 +82,11 @@ that of Atlas depending on commandline parameters.
 #include "renderer/Renderer.h"
 #include "rlinterface/RLInterface.h"
 #include "scriptinterface/JSON.h"
-#include "scriptinterface/ScriptContext.h"
 #include "scriptinterface/ScriptConversions.h"
 #include "scriptinterface/ScriptEngine.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/system/TurnManager.h"
 #include "soundmanager/ISoundManager.h"
 
@@ -215,20 +215,24 @@ static InReaction MainInputHandler(const SDL_Event_* ev)
 
 	case SDL_DROPFILE:
 	{
-		char* dropped_filedir = ev->ev.drop.file;
-		const Paths paths(g_CmdLineArgs);
-		CModInstaller installer(paths.UserData() / "mods", paths.Cache());
-		installer.Install(std::string(dropped_filedir), g_ScriptContext, true);
-		SDL_free(dropped_filedir);
-		if (installer.GetInstalledMods().empty())
-			LOGERROR("Failed to install mod %s", dropped_filedir);
-		else
+
+		g_ScriptThread.Run([&ev]()
 		{
-			LOGMESSAGE("Installed mod %s", installer.GetInstalledMods().front());
-			ScriptInterface modInterface("Engine", "Mod", g_ScriptContext);
-			g_Mods.UpdateAvailableMods(modInterface);
-			RestartEngine();
-		}
+			char* dropped_filedir = ev->ev.drop.file;
+			const Paths paths(g_CmdLineArgs);
+			CModInstaller installer(paths.UserData() / "mods", paths.Cache());
+			installer.Install(std::string(dropped_filedir), g_ScriptThread.Context, true);
+			SDL_free(dropped_filedir);
+			if (installer.GetInstalledMods().empty())
+				LOGERROR("Failed to install mod %s", dropped_filedir);
+			else
+			{
+				LOGMESSAGE("Installed mod %s", installer.GetInstalledMods().front());
+				ScriptInterface modInterface("Engine", "Mod", g_ScriptThread.Context);
+				g_Mods.UpdateAvailableMods(modInterface);
+				RestartEngine();
+			}
+		}).Wait();
 		break;
 	}
 
@@ -547,7 +551,7 @@ static std::optional<DAP::Interface> CreateDAPInterface(const CmdLineArgs& args)
 		g_ConfigDB.Get("dapinterface.port", int{}) : args.Get("dapinterface.port").ToInt()};
 
 	debug_printf("DAP interface listening on %s:%d\n", server_address.c_str(), port);
-	return std::make_optional<DAP::Interface>(server_address, port, *g_ScriptContext);
+	return std::make_optional<DAP::Interface>(server_address, port, *g_ScriptThread.Context);
 }
 #endif // CONFIG2_DAP_INTERFACE
 
@@ -625,6 +629,7 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 	// any thread uses them. So initialize them here before we might run Atlas.
 	ScriptEngine scriptEngine;
 	CXeromycesEngine xeromycesEngine;
+	ScriptThread scripThread;
 
 	// Initialise the global task manager at this point (JS & Profiler2 are set up).
 	Threading::TaskManager taskManager;
@@ -712,14 +717,14 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 			// `modsToInstall` is cleared so we don't intstall the mods again on restart.
 			for (const OsPath& modPath : std::exchange(modsToInstall, {}))
 			{
-				CModInstaller::ModInstallationResult result = installer.Install(modPath, g_ScriptContext, true);
+				CModInstaller::ModInstallationResult result = installer.Install(modPath, g_ScriptThread.Context, true);
 				if (result != CModInstaller::ModInstallationResult::SUCCESS)
 					LOGERROR("Failed to install '%s'", modPath.string8().c_str());
 			}
 
 			installedMods = installer.GetInstalledMods();
 
-			ScriptInterface modInterface("Engine", "Mod", g_ScriptContext);
+			ScriptInterface modInterface("Engine", "Mod", g_ScriptThread.Context);
 			g_Mods.UpdateAvailableMods(modInterface);
 		}
 
@@ -731,8 +736,8 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 
 		if (isVisual)
 		{
-			guiScriptInterface.emplace("Engine", "gui", *g_ScriptContext);
-			InitGraphics(args, 0, installedMods, *g_ScriptContext, *guiScriptInterface);
+			guiScriptInterface.emplace("Engine", "gui", *g_ScriptThread.Context);
+			InitGraphics(args, 0, installedMods, *g_ScriptThread.Context, *guiScriptInterface);
 			MainControllerInit();
 		}
 		else if (!InitNonVisual(args))

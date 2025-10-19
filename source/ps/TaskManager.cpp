@@ -125,7 +125,7 @@ TaskManager::TaskManager(size_t numberOfWorkers)
 
 TaskManager::~TaskManager() = default;
 
-void TaskManager::Impl::SetupWorkers(size_t numberOfWorkers)
+void TaskManager::Impl::SetupWorkers(const size_t numberOfWorkers)
 {
 	for (size_t i = 0; i < numberOfWorkers; ++i)
 		m_Workers.emplace_back(*this);
@@ -136,12 +136,12 @@ size_t TaskManager::GetNumberOfWorkers() const
 	return m->m_Workers.size();
 }
 
-void TaskManager::PushTask(std::function<void()> task, TaskPriority priority)
+void TaskManager::PushTask(std::function<void()> task, const TaskPriority priority)
 {
 	m->PushTask(std::move(task), priority);
 }
 
-void TaskManager::Impl::PushTask(std::function<void()>&& task, TaskPriority priority)
+void TaskManager::Impl::PushTask(std::function<void()>&& task, const TaskPriority priority)
 {
 	std::mutex& mutex = priority == TaskPriority::NORMAL ? m_GlobalMutex : m_GlobalLowPriorityMutex;
 	std::deque<QueueItem>& queue = priority == TaskPriority::NORMAL ? m_GlobalQueue : m_GlobalLowPriorityQueue;

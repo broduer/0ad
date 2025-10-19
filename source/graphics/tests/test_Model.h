@@ -50,7 +50,7 @@
 #include "ps/VideoMode.h"
 #include "ps/XML/Xeromyces.h"
 #include "renderer/Renderer.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/system/Entity.h"
 
@@ -200,7 +200,7 @@ public:
 		TestLogger logger;
 
 		CMaterial material{};
-		CSimulation2 simulation{nullptr, *g_ScriptContext, nullptr};
+		CSimulation2 simulation{nullptr, *g_ScriptThread.Context, nullptr};
 
 		CTerrain terrain;
 		terrain.Initialize(4, nullptr);
@@ -266,7 +266,7 @@ public:
 		CSkeletonAnimManager skeletonAnimationManager{colladaManager};
 
 		CUnitManager unitManager;
-		CSimulation2 simulation{&unitManager, *g_ScriptContext, nullptr};
+		CSimulation2 simulation{&unitManager, *g_ScriptThread.Context, nullptr};
 		CObjectManager objectManager{
 			meshManager, skeletonAnimationManager, simulation};
 		unitManager.SetObjectManager(objectManager);

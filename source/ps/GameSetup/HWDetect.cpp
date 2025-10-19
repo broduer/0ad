@@ -55,6 +55,7 @@
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 #include "scriptinterface/StructuredClone.h"
 #include "soundmanager/ISoundManager.h"
 
@@ -321,7 +322,7 @@ void SetDisableAudio(bool disabled)
 	g_DisableAudio = disabled;
 }
 
-void RunHardwareDetection(bool writeSystemInfoBeforeDetection, Renderer::Backend::IDevice* device)
+void RunHardwareDetection(const bool writeSystemInfoBeforeDetection, Renderer::Backend::IDevice* device)
 {
 	utsname un;
 	uname(&un);
@@ -331,144 +332,147 @@ void RunHardwareDetection(bool writeSystemInfoBeforeDetection, Renderer::Backend
 
 	PROFILE2("RunHardwareDetection");
 
-	ScriptInterface scriptInterface("Engine", "HWDetect", g_ScriptContext);
-
-	ScriptRequest rq(scriptInterface);
-
-	JSI_Debug::RegisterScriptFunctions(scriptInterface); // Engine.DisplayErrorDialog
-	JSI_ConfigDB::RegisterScriptFunctions(scriptInterface);
-
-	ScriptFunction::Register<SetDisableAudio>(rq, "SetDisableAudio");
-
-	// Load the detection script:
-
-	const wchar_t* scriptName = L"hwdetect/hwdetect.js";
-	CVFSFile file;
-	if (file.Load(g_VFS, scriptName) != PSRETURN_OK)
+	g_ScriptThread.Run([device, &un]()
 	{
-		LOGERROR("Failed to load hardware detection script");
-		return;
-	}
+		const ScriptInterface scriptInterface("Engine", "HWDetect", g_ScriptThread.Context);
 
-	std::string code = file.DecodeUTF8(); // assume it's UTF-8
-	scriptInterface.LoadScript(scriptName, code);
+		const ScriptRequest rq(scriptInterface);
 
-	// Collect all the settings we'll pass to the script:
-	// (We'll use this same data for the opt-in online reporting system, so it
-	// includes some fields that aren't directly useful for the hwdetect script)
+		JSI_Debug::RegisterScriptFunctions(scriptInterface); // Engine.DisplayErrorDialog
+		JSI_ConfigDB::RegisterScriptFunctions(scriptInterface);
 
-	JS::RootedValue settings(rq.cx);
-	Script::CreateObject(rq, &settings);
+		ScriptFunction::Register<SetDisableAudio>(rq, "SetDisableAudio");
 
-	Script::SetProperty(rq, settings, "os_unix", OS_UNIX);
-	Script::SetProperty(rq, settings, "os_bsd", OS_BSD);
-	Script::SetProperty(rq, settings, "os_linux", OS_LINUX);
-	Script::SetProperty(rq, settings, "os_android", OS_ANDROID);
-	Script::SetProperty(rq, settings, "os_macosx", OS_MACOSX);
-	Script::SetProperty(rq, settings, "os_win", OS_WIN);
+		// Load the detection script:
 
-	Script::SetProperty(rq, settings, "arch_ia32", ARCH_IA32);
-	Script::SetProperty(rq, settings, "arch_amd64", ARCH_AMD64);
-	Script::SetProperty(rq, settings, "arch_arm", ARCH_ARM);
-	Script::SetProperty(rq, settings, "arch_aarch64", ARCH_AARCH64);
-	Script::SetProperty(rq, settings, "arch_e2k", ARCH_E2K);
-	Script::SetProperty(rq, settings, "arch_ppc64", ARCH_PPC64);
+		constexpr const wchar_t* scriptName = L"hwdetect/hwdetect.js";
+		CVFSFile file;
+		if (file.Load(g_VFS, scriptName) != PSRETURN_OK)
+		{
+			LOGERROR("Failed to load hardware detection script");
+			return;
+		}
+
+		std::string code = file.DecodeUTF8(); // assume it's UTF-8
+		scriptInterface.LoadScript(scriptName, code);
+
+		// Collect all the settings we'll pass to the script:
+		// (We'll use this same data for the opt-in online reporting system, so it
+		// includes some fields that aren't directly useful for the hwdetect script)
+
+		JS::RootedValue settings(rq.cx);
+		Script::CreateObject(rq, &settings);
+
+		Script::SetProperty(rq, settings, "os_unix", OS_UNIX);
+		Script::SetProperty(rq, settings, "os_bsd", OS_BSD);
+		Script::SetProperty(rq, settings, "os_linux", OS_LINUX);
+		Script::SetProperty(rq, settings, "os_android", OS_ANDROID);
+		Script::SetProperty(rq, settings, "os_macosx", OS_MACOSX);
+		Script::SetProperty(rq, settings, "os_win", OS_WIN);
+
+		Script::SetProperty(rq, settings, "arch_ia32", ARCH_IA32);
+		Script::SetProperty(rq, settings, "arch_amd64", ARCH_AMD64);
+		Script::SetProperty(rq, settings, "arch_arm", ARCH_ARM);
+		Script::SetProperty(rq, settings, "arch_aarch64", ARCH_AARCH64);
+		Script::SetProperty(rq, settings, "arch_e2k", ARCH_E2K);
+		Script::SetProperty(rq, settings, "arch_ppc64", ARCH_PPC64);
 
 #ifdef NDEBUG
-	Script::SetProperty(rq, settings, "build_debug", 0);
+		Script::SetProperty(rq, settings, "build_debug", 0);
 #else
-	Script::SetProperty(rq, settings, "build_debug", 1);
+		Script::SetProperty(rq, settings, "build_debug", 1);
 #endif
-	Script::SetProperty(rq, settings, "build_opengles", CONFIG2_GLES);
+		Script::SetProperty(rq, settings, "build_opengles", CONFIG2_GLES);
 
-	Script::SetProperty(rq, settings, "build_datetime", std::string(__DATE__ " " __TIME__));
-	Script::SetProperty(rq, settings, "build_version", std::wstring(build_version));
+		Script::SetProperty(rq, settings, "build_datetime", std::string(__DATE__ " " __TIME__));
+		Script::SetProperty(rq, settings, "build_version", std::wstring(build_version));
 
-	Script::SetProperty(rq, settings, "build_msc", (int)MSC_VERSION);
-	Script::SetProperty(rq, settings, "build_gcc", (int)GCC_VERSION);
-	Script::SetProperty(rq, settings, "build_clang", (int)CLANG_VERSION);
+		Script::SetProperty(rq, settings, "build_msc", static_cast<int>(MSC_VERSION));
+		Script::SetProperty(rq, settings, "build_gcc", static_cast<int>(GCC_VERSION));
+		Script::SetProperty(rq, settings, "build_clang", static_cast<int>(CLANG_VERSION));
 
-	Script::SetProperty(rq, settings, "gfx_card", device->GetName());
-	Script::SetProperty(rq, settings, "gfx_drv_ver", device->GetDriverInformation());
+		Script::SetProperty(rq, settings, "gfx_card", device->GetName());
+		Script::SetProperty(rq, settings, "gfx_drv_ver", device->GetDriverInformation());
 #if CONFIG2_AUDIO
-	if (g_SoundManager)
-	{
-		Script::SetProperty(rq, settings, "snd_card", g_SoundManager->GetSoundCardNames());
-		Script::SetProperty(rq, settings, "snd_drv_ver", g_SoundManager->GetOpenALVersion());
-	}
+		if (g_SoundManager)
+		{
+			Script::SetProperty(rq, settings, "snd_card", g_SoundManager->GetSoundCardNames());
+			Script::SetProperty(rq, settings, "snd_drv_ver", g_SoundManager->GetOpenALVersion());
+		}
 #endif
 
-	ReportLibraries(rq, settings);
+		ReportLibraries(rq, settings);
 
-	JS::RootedValue backendDeviceSettings(rq.cx);
-	Script::CreateObject(rq, &backendDeviceSettings);
+		JS::RootedValue backendDeviceSettings(rq.cx);
+		Script::CreateObject(rq, &backendDeviceSettings);
 
-	device->Report(rq, backendDeviceSettings);
-	Script::SetProperty(rq, settings, "renderer_backend", backendDeviceSettings);
+		device->Report(rq, backendDeviceSettings);
+		Script::SetProperty(rq, settings, "renderer_backend", backendDeviceSettings);
 
-	Script::SetProperty(rq, settings, "video_desktop_xres", g_VideoMode.GetDesktopXRes());
-	Script::SetProperty(rq, settings, "video_desktop_yres", g_VideoMode.GetDesktopYRes());
-	Script::SetProperty(rq, settings, "video_desktop_bpp", g_VideoMode.GetDesktopBPP());
-	Script::SetProperty(rq, settings, "video_desktop_freq", g_VideoMode.GetDesktopFreq());
+		Script::SetProperty(rq, settings, "video_desktop_xres", g_VideoMode.GetDesktopXRes());
+		Script::SetProperty(rq, settings, "video_desktop_yres", g_VideoMode.GetDesktopYRes());
+		Script::SetProperty(rq, settings, "video_desktop_bpp", g_VideoMode.GetDesktopBPP());
+		Script::SetProperty(rq, settings, "video_desktop_freq", g_VideoMode.GetDesktopFreq());
 
-	Script::SetProperty(rq, settings, "uname_sysname", std::string(un.sysname));
-	Script::SetProperty(rq, settings, "uname_release", std::string(un.release));
-	Script::SetProperty(rq, settings, "uname_version", std::string(un.version));
-	Script::SetProperty(rq, settings, "uname_machine", std::string(un.machine));
+		Script::SetProperty(rq, settings, "uname_sysname", std::string(un.sysname));
+		Script::SetProperty(rq, settings, "uname_release", std::string(un.release));
+		Script::SetProperty(rq, settings, "uname_version", std::string(un.version));
+		Script::SetProperty(rq, settings, "uname_machine", std::string(un.machine));
 
 #if OS_LINUX
-	{
-		std::ifstream ifs("/etc/lsb-release");
-		if (ifs.good())
 		{
-			std::string str((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
-			Script::SetProperty(rq, settings, "linux_release", str);
+			std::ifstream ifs("/etc/lsb-release");
+			if (ifs.good())
+			{
+				std::string str((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+				Script::SetProperty(rq, settings, "linux_release", str);
+			}
 		}
-	}
 #endif
 
-	Script::SetProperty(rq, settings, "cpu_identifier", std::string(cpu_IdentifierString()));
-	Script::SetProperty(rq, settings, "cpu_frequency", os_cpu_ClockFrequency());
-	Script::SetProperty(rq, settings, "cpu_pagesize", (u32)os_cpu_PageSize());
-	Script::SetProperty(rq, settings, "cpu_largepagesize", (u32)os_cpu_LargePageSize());
-	Script::SetProperty(rq, settings, "cpu_numprocs", (u32)os_cpu_NumProcessors());
+		Script::SetProperty(rq, settings, "cpu_identifier", std::string(cpu_IdentifierString()));
+		Script::SetProperty(rq, settings, "cpu_frequency", os_cpu_ClockFrequency());
+		Script::SetProperty(rq, settings, "cpu_pagesize", static_cast<u32>(os_cpu_PageSize()));
+		Script::SetProperty(rq, settings, "cpu_largepagesize", static_cast<u32>(os_cpu_LargePageSize()));
+		Script::SetProperty(rq, settings, "cpu_numprocs", static_cast<u32>(os_cpu_NumProcessors()));
 
-	Script::SetProperty(rq, settings, "numa_numnodes", (u32)numa_NumNodes());
-	Script::SetProperty(rq, settings, "numa_factor", numa_Factor());
-	Script::SetProperty(rq, settings, "numa_interleaved", numa_IsMemoryInterleaved());
+		Script::SetProperty(rq, settings, "numa_numnodes", static_cast<u32>(numa_NumNodes()));
+		Script::SetProperty(rq, settings, "numa_factor", numa_Factor());
+		Script::SetProperty(rq, settings, "numa_interleaved", numa_IsMemoryInterleaved());
 
-	Script::SetProperty(rq, settings, "ram_total", (u32)os_cpu_MemorySize());
-	Script::SetProperty(rq, settings, "ram_total_os", (u32)os_cpu_QueryMemorySize());
+		Script::SetProperty(rq, settings, "ram_total", static_cast<u32>(os_cpu_MemorySize()));
+		Script::SetProperty(rq, settings, "ram_total_os", static_cast<u32>(os_cpu_QueryMemorySize()));
 
 #if ARCH_X86_X64
-	Script::SetProperty(rq, settings, "x86_vendor", (u32)x86_x64::Vendor());
-	Script::SetProperty(rq, settings, "x86_model", (u32)x86_x64::Model());
-	Script::SetProperty(rq, settings, "x86_family", (u32)x86_x64::Family());
+		Script::SetProperty(rq, settings, "x86_vendor", static_cast<u32>(x86_x64::Vendor()));
+		Script::SetProperty(rq, settings, "x86_model", static_cast<u32>(x86_x64::Model()));
+		Script::SetProperty(rq, settings, "x86_family", static_cast<u32>(x86_x64::Family()));
 
-	u32 caps0, caps1, caps2, caps3;
-	x86_x64::GetCapBits(&caps0, &caps1, &caps2, &caps3);
-	Script::SetProperty(rq, settings, "x86_caps[0]", caps0);
-	Script::SetProperty(rq, settings, "x86_caps[1]", caps1);
-	Script::SetProperty(rq, settings, "x86_caps[2]", caps2);
-	Script::SetProperty(rq, settings, "x86_caps[3]", caps3);
+		u32 caps0, caps1, caps2, caps3;
+		x86_x64::GetCapBits(&caps0, &caps1, &caps2, &caps3);
+		Script::SetProperty(rq, settings, "x86_caps[0]", caps0);
+		Script::SetProperty(rq, settings, "x86_caps[1]", caps1);
+		Script::SetProperty(rq, settings, "x86_caps[2]", caps2);
+		Script::SetProperty(rq, settings, "x86_caps[3]", caps3);
 #endif
 
-	Script::SetProperty(rq, settings, "timer_resolution", timer_Resolution());
+		Script::SetProperty(rq, settings, "timer_resolution", timer_Resolution());
 
-	Script::SetProperty(rq, settings, "hardware_concurrency", std::thread::hardware_concurrency());
-	Script::SetProperty(rq, settings, "random_device_entropy", std::random_device{}.entropy());
+		Script::SetProperty(rq, settings, "hardware_concurrency", std::thread::hardware_concurrency());
+		Script::SetProperty(rq, settings, "random_device_entropy", std::random_device{}.entropy());
 
-	// The version should be increased for every meaningful change.
-	const int reportVersion = 22;
+		// The version should be increased for every meaningful change.
+		constexpr int reportVersion = 22;
 
-	// Send the same data to the reporting system
-	g_UserReporter.SubmitReport(
-		"hwdetect",
-		reportVersion,
-		Script::StringifyJSON(rq, &settings, false),
-		Script::StringifyJSON(rq, &settings, true));
+		// Send the same data to the reporting system
+		g_UserReporter.SubmitReport(
+			"hwdetect",
+			reportVersion,
+			Script::StringifyJSON(rq, &settings, false),
+			Script::StringifyJSON(rq, &settings, true));
 
-	// Run the detection script:
-	JS::RootedValue global(rq.cx, rq.globalValue());
-	ScriptFunction::CallVoid(rq, global, "RunHardwareDetection", settings);
+		// Run the detection script:
+		JS::RootedValue global(rq.cx, rq.globalValue());
+		ScriptFunction::CallVoid(rq, global, "RunHardwareDetection", settings);
+	}).Wait();
 }

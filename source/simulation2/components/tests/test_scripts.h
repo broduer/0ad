@@ -27,8 +27,8 @@
 #include "ps/Filesystem.h"
 #include "ps/XML/Xeromyces.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptContext.h"
 #include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ScriptThread.h"
 #include "scriptinterface/ScriptRequest.h"
 #include "simulation2/serialization/StdDeserializer.h"
 #include "simulation2/serialization/StdSerializer.h"
@@ -107,7 +107,7 @@ public:
 		for (const VfsPath& path : paths)
 		{
 			CSimContext context;
-			CComponentManager componentManager(context, *g_ScriptContext, true);
+			CComponentManager componentManager(context, *g_ScriptThread.Context, true);
 			ScriptTestSetup(componentManager.GetScriptInterface());
 
 			ScriptRequest rq(componentManager.GetScriptInterface());
@@ -133,9 +133,9 @@ public:
 		for (const VfsPath& path : paths)
 		{
 			// Clean up previous scripts.
-			g_ScriptContext->ShrinkingGC();
+			g_ScriptThread.Context->ShrinkingGC();
 			CSimContext context;
-			CComponentManager componentManager(context, *g_ScriptContext, true);
+			CComponentManager componentManager(context, *g_ScriptThread.Context, true);
 
 			ScriptTestSetup(componentManager.GetScriptInterface());
 

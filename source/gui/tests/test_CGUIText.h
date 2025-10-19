@@ -37,7 +37,7 @@
 #include "ps/VideoMode.h"
 #include "ps/XML/Xeromyces.h"
 #include "renderer/Renderer.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ScriptThread.h"
 
 #include <algorithm>
 #include <array>
@@ -96,13 +96,13 @@ public:
 
 	void test_empty()
 	{
-		CGUI gui{*g_ScriptContext};
+		CGUI gui {*g_ScriptThread.Context};
 		CGUIText empty;
 	}
 
 	void test_wrapping()
 	{
-		CGUI gui{*g_ScriptContext};
+		CGUI gui{*g_ScriptThread.Context};
 
 		const CStrW font{L"mono-10"};
 		CFontMetrics fontMetrics{CStrIntern(font.ToUTF8())};
@@ -209,7 +209,7 @@ public:
 		// +------------------------------+
 		//
 
-		CGUI gui{*g_ScriptContext};
+		CGUI gui{*g_ScriptThread.Context};
 		const CStrW firstWord = L"Shortword";
 		const CStrW secondWord = L"(Veryverylongword)";
 		const CStrW text = firstWord + L" " + secondWord;
@@ -291,7 +291,7 @@ public:
 
 	void test_overflow()
 	{
-		CGUI gui{*g_ScriptContext};
+		CGUI gui{*g_ScriptThread.Context};
 
 		const CStrW font{L"mono-10"};
 		CFontMetrics fontMetrics{CStrIntern(font.ToUTF8())};
@@ -340,7 +340,7 @@ public:
 
 	void test_regression_rP26522()
 	{
-		CGUI gui{*g_ScriptContext};
+		CGUI gui{*g_ScriptThread.Context};
 
 		const CStrW font{L"sans-bold-13"};
 		CFontMetrics fontMetrics{CStrIntern(font.ToUTF8())};
@@ -360,7 +360,7 @@ public:
 
 	void test_multiple_blank_spaces()
 	{
-		CGUI gui{*g_ScriptContext};
+		CGUI gui{*g_ScriptThread.Context};
 
 		const CStrW font{L"mono-10"};
 		CFontMetrics fontMetrics{CStrIntern(font.ToUTF8())};

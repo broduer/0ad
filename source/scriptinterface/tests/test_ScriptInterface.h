@@ -26,6 +26,7 @@
 #include "scriptinterface/ScriptConversions.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 #include "scriptinterface/StructuredClone.h"
 
 #include <boost/random/linear_congruential.hpp>
@@ -39,7 +40,7 @@ class TestScriptInterface : public CxxTest::TestSuite
 public:
 	void test_loadscript_basic()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		TestLogger logger;
 		TS_ASSERT(script.LoadScript(L"test.js", "var x = 1+1;"));
 		TS_ASSERT_STR_NOT_CONTAINS(logger.GetOutput(), "JavaScript error");
@@ -48,7 +49,7 @@ public:
 
 	void test_loadscript_error()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		TestLogger logger;
 		TS_ASSERT(!script.LoadScript(L"test.js", "1+"));
 		TS_ASSERT_STR_CONTAINS(logger.GetOutput(), "ERROR: JavaScript error: test.js line 2\nexpected expression, got \'}\'");
@@ -56,7 +57,7 @@ public:
 
 	void test_loadscript_strict_warning()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		TestLogger logger;
 		// in strict mode, this inside a function doesn't point to the global object
 		TS_ASSERT(script.LoadScript(L"test.js", "var isStrict = (function() { return !this; })();warn('isStrict is '+isStrict);"));
@@ -65,7 +66,7 @@ public:
 
 	void test_loadscript_strict_error()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		TestLogger logger;
 		TS_ASSERT(!script.LoadScript(L"test.js", "with(1){}"));
 		TS_ASSERT_STR_CONTAINS(logger.GetOutput(), "ERROR: JavaScript error: test.js line 1\nstrict mode code may not contain \'with\' statements");
@@ -73,8 +74,8 @@ public:
 
 	void test_clone_basic()
 	{
-		ScriptInterface script1("Test", "Test", g_ScriptContext);
-		ScriptInterface script2("Test", "Test", g_ScriptContext);
+		ScriptInterface script1("Test", "Test", g_ScriptThread.Context);
+		ScriptInterface script2("Test", "Test", g_ScriptThread.Context);
 
 		ScriptRequest rq1(script1);
 		JS::RootedValue obj1(rq1.cx);
@@ -94,8 +95,8 @@ public:
 	void test_clone_getters()
 	{
 		// The tests should be run with JS_SetGCZeal so this can try to find GC bugs
-		ScriptInterface script1("Test", "Test", g_ScriptContext);
-		ScriptInterface script2("Test", "Test", g_ScriptContext);
+		ScriptInterface script1("Test", "Test", g_ScriptThread.Context);
+		ScriptInterface script2("Test", "Test", g_ScriptThread.Context);
 
 		ScriptRequest rq1(script1);
 
@@ -115,8 +116,8 @@ public:
 
 	void test_clone_cyclic()
 	{
-		ScriptInterface script1("Test", "Test", g_ScriptContext);
-		ScriptInterface script2("Test", "Test", g_ScriptContext);
+		ScriptInterface script1("Test", "Test", g_ScriptThread.Context);
+		ScriptInterface script2("Test", "Test", g_ScriptThread.Context);
 
 		ScriptRequest rq1(script1);
 
@@ -143,7 +144,7 @@ public:
 
 	void test_deepfreeze()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		TestLogger logger;
 
 		TS_ASSERT(!script.LoadScript(L"testFreezeObject.js", "var obj1 = { foo: \"a\"}; deepfreeze(obj1); obj1.bar = \"b\";"));
@@ -165,7 +166,7 @@ public:
 	 */
 	void test_rooted_templates()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 
 		ScriptRequest rq(script);
 
@@ -238,7 +239,7 @@ public:
 
 	void test_random()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 
 		double d1, d2;
 		TS_ASSERT(script.Eval("Math.random()", d1));
@@ -258,7 +259,7 @@ public:
 
 	void test_json()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		ScriptRequest rq(script);
 
 		std::string input = "({'x':1,'z':[2,'3\\u263A\\ud800'],\"y\":true})";
@@ -276,7 +277,7 @@ public:
 	// extends the functionality and is then assigned to the name of the function.
 	void test_function_override()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		ScriptRequest rq(script);
 
 		TS_ASSERT(script.Eval(

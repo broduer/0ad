@@ -32,6 +32,7 @@
 #include "ps/Filesystem.h"
 #include "ps/XML/Xeromyces.h"
 #include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/ICmpObstruction.h"
 #include "simulation2/components/ICmpObstructionManager.h"
@@ -192,7 +193,7 @@ public:
 	// Regression test for D5181 / fix for rP27673 issue
 	void test_calculate_territories_uninitialised()
 	{
-		ComponentTestHelper test(*g_ScriptContext);
+		ComponentTestHelper test(*g_ScriptThread.Context);
 		ICmpTerritoryManager* cmp = test.Add<ICmpTerritoryManager>(CID_TerritoryManager, "", SYSTEM_ENTITY);
 
 		MockPathfinderTerrMan pathfinder;

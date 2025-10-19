@@ -74,7 +74,7 @@ using VfsPath = Path;
 
 // Using a global object for the context is a workaround until Simulation, AI, etc,
 // use their own threads and also their own contexts.
-extern thread_local std::shared_ptr<ScriptContext> g_ScriptContext;
+//extern thread_local std::shared_ptr<ScriptContext> g_ScriptContext;
 
 /**
  * Abstraction around a SpiderMonkey JS::Realm.

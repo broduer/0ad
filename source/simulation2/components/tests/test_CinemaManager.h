@@ -22,7 +22,7 @@
 #include "maths/NUSpline.h"
 #include "ps/CStr.h"
 #include "ps/XML/Xeromyces.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/ICmpCinemaManager.h"
 #include "simulation2/helpers/CinemaPath.h"
@@ -40,7 +40,7 @@ public:
 	void test_basic()
 	{
 		CXeromycesEngine xeromycesEngine;
-		ComponentTestHelper test(*g_ScriptContext);
+		ComponentTestHelper test(*g_ScriptThread.Context);
 
 		ICmpCinemaManager* cmp = test.Add<ICmpCinemaManager>(CID_CinemaManager, "", SYSTEM_ENTITY);
 

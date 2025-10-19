@@ -36,6 +36,7 @@
 #include "renderer/Renderer.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 
 #include <js/PropertyAndElement.h>
 #include <js/PropertyDescriptor.h>
@@ -113,7 +114,7 @@ public:
 
 	void test_movability()
 	{
-		CGUI gui{*g_ScriptContext};
+		CGUI gui{*g_ScriptThread.Context};
 		TestGUIObject object(gui);
 
 		static_assert(std::is_move_constructible_v<CGUISimpleSetting<CStr>>);
@@ -133,7 +134,7 @@ public:
 
 	void test_setting_cguisize()
 	{
-		CGUI gui{*g_ScriptContext};
+		CGUI gui{*g_ScriptThread.Context};
 		gui.AddObjectTypes();
 		TestGUIObject object{gui};
 

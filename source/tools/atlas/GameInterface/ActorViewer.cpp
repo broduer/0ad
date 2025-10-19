@@ -61,6 +61,7 @@
 #include "renderer/backend/IDeviceCommandContext.h"
 #include "renderer/backend/IFramebuffer.h"
 #include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpAttack.h"
 #include "simulation2/components/ICmpOwnership.h"
@@ -94,7 +95,7 @@ public:
 		MeshManager(ColladaManager),
 		SkeletonAnimManager(ColladaManager),
 		UnitManager(),
-		Simulation2{&UnitManager, *g_ScriptContext, &Terrain},
+		Simulation2{&UnitManager, *g_ScriptThread.Context, &Terrain},
 		ObjectManager(MeshManager, SkeletonAnimManager, Simulation2),
 		LOSTexture(Simulation2),
 		TerritoryTexture(Simulation2),
@@ -293,7 +294,7 @@ ActorViewer::ActorViewer()
 
 	// Create a tiny empty piece of terrain, just so we can put shadows
 	// on it without having to think too hard
-	m.Terrain.Initialize(2, NULL);
+	m.Terrain.Initialize(2, nullptr);
 	CTerrainTextureEntry* tex = g_TexMan.FindTexture("whiteness");
 	if (tex)
 	{
@@ -360,7 +361,7 @@ void ActorViewer::UnloadObjects()
 	m.ObjectManager.UnloadObjects();
 }
 
-void ActorViewer::SetActor(const CStrW& name, const CStr& animation, player_id_t playerID)
+void ActorViewer::SetActor(const CStrW& name, const CStr& animation, const player_id_t playerID)
 {
 	bool needsAnimReload = false;
 
@@ -462,7 +463,7 @@ void ActorViewer::SetActor(const CStrW& name, const CStr& animation, player_id_t
 	m.CurrentUnitAnim = animation;
 }
 
-void ActorViewer::SetEnabled(bool enabled)
+void ActorViewer::SetEnabled(const bool enabled)
 {
 	if (enabled)
 	{
@@ -485,9 +486,9 @@ void ActorViewer::SetEnabled(bool enabled)
 	}
 }
 
-void ActorViewer::SetWalkEnabled(bool enabled)    { m.WalkEnabled = enabled; }
-void ActorViewer::SetGroundEnabled(bool enabled)  { m.GroundEnabled = enabled; }
-void ActorViewer::SetWaterEnabled(bool enabled)
+void ActorViewer::SetWalkEnabled(const bool enabled)    { m.WalkEnabled = enabled; }
+void ActorViewer::SetGroundEnabled(const bool enabled)  { m.GroundEnabled = enabled; }
+void ActorViewer::SetWaterEnabled(const bool enabled)
 {
 	m.WaterEnabled = enabled;
 	// Adjust water level
@@ -496,7 +497,7 @@ void ActorViewer::SetWaterEnabled(bool enabled)
 	if (cmpWaterManager)
 		cmpWaterManager->SetWaterLevel(waterLevel);
 }
-void ActorViewer::SetShadowsEnabled(bool enabled) {
+void ActorViewer::SetShadowsEnabled(const bool enabled) {
 	g_RenderingOptions.SetShadows(enabled);
 	m.ShadowsEnabled = enabled;
 }
@@ -504,11 +505,11 @@ void ActorViewer::ToggleShadows()
 {
 	SetShadowsEnabled(!m.ShadowsEnabled);
 }
-void ActorViewer::SetBoundingBoxesEnabled(bool enabled) { m.SelectionBoxEnabled = enabled; }
-void ActorViewer::SetAxesMarkerEnabled(bool enabled)    { m.AxesMarkerEnabled = enabled; }
-void ActorViewer::SetPropPointsMode(int mode)           { m.PropPointsMode = mode; }
+void ActorViewer::SetBoundingBoxesEnabled(const bool enabled) { m.SelectionBoxEnabled = enabled; }
+void ActorViewer::SetAxesMarkerEnabled(const bool enabled)    { m.AxesMarkerEnabled = enabled; }
+void ActorViewer::SetPropPointsMode(const int mode)           { m.PropPointsMode = mode; }
 
-void ActorViewer::SetStatsEnabled(bool enabled)
+void ActorViewer::SetStatsEnabled(const bool enabled)
 {
 	if (enabled)
 		g_ProfileViewer.ShowTable("renderer");
@@ -584,9 +585,9 @@ void ActorViewer::Render()
 	g_Renderer.EndFrame();
 }
 
-void ActorViewer::Update(float simFrameLength, float realFrameLength)
+void ActorViewer::Update(const float simFrameLength, const float realFrameLength)
 {
-	m.Simulation2.Update((int)(simFrameLength*1000));
+	m.Simulation2.Update(static_cast<int>(simFrameLength*1000));
 	m.Simulation2.Interpolate(simFrameLength, 0, realFrameLength);
 
 	if (m.WalkEnabled && m.CurrentSpeed)

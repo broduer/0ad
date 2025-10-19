@@ -17,14 +17,18 @@
 
 #include "ScriptThread.h"
 
+#include <atomic>
+#include <thread>
+#include <bits/this_thread_sleep.h>
+
 #include "scriptinterface/ScriptContext.h"
 
 namespace
 {
-thread_local std::shared_ptr<ScriptContext> g_ScriptContext;
+extern thread_local std::shared_ptr<ScriptContext> g_ScriptContext;
 }
 
-using QueueItem = std::function<void()>;
+using QueueItem = std::pair<std::thread::id, std::function<void()>>;
 
 class ScriptThread::Impl
 {
@@ -51,7 +55,7 @@ public:
 	void PushTask(std::function<void()>&& task) {
 		{
 			std::lock_guard<std::mutex> lock(m_Mutex);
-			m_Queue.emplace_back(std::move(task));
+			m_Queue.emplace_back(std::this_thread::get_id(), std::move(task));
 			m_HasWork = true;
 		}
 
@@ -65,10 +69,14 @@ protected:
 		std::lock_guard<std::mutex> globalLock(m_Mutex);
 		if (!m_Queue.empty())
 		{
-			taskOut = std::move(m_Queue.front());
+			auto pair = std::move(m_Queue.front());
+			taskOut = std::move(pair.second);
+			m_CurrentThreadId = pair.first;
 			m_Queue.pop_front();
 			m_HasWork = !m_Queue.empty();
 			return true;
+		} else {
+			m_CurrentThreadId = std::thread::id();
 		}
 
 		return false;
@@ -78,6 +86,7 @@ protected:
 	std::mutex m_Mutex;
 	std::deque<QueueItem> m_Queue;
 	Threading::WorkerThread<ScriptThread::Impl> m_Worker;
+	std::atomic<std::thread::id> m_CurrentThreadId;
 };
 
 ScriptThread::ScriptThread()
@@ -87,7 +96,12 @@ ScriptThread::ScriptThread()
 
 ScriptThread::~ScriptThread() = default;
 
-void ScriptThread::PushTask(std::function<void()> task)
+void ScriptThread::PushTask(std::function<void()> &&task)
 {
 	m->PushTask(std::move(task));
+}
+
+std::thread::id ScriptThread::GetCurrentThreadId()
+{
+	return GetSingletonPtr()->m->m_CurrentThreadId.load();
 }

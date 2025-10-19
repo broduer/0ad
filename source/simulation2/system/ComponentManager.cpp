@@ -26,6 +26,7 @@
 #include "ps/Errors.h"
 #include "ps/Filesystem.h"
 #include "ps/Profiler2.h"
+#include "ps/TaskManager.h"
 #include "ps/algorithm.h"
 #include "ps/scripting/JSInterface_VFS.h"
 #include "scriptinterface/FunctionWrapper.h"
@@ -48,6 +49,7 @@
 #include <stdexcept>
 #include <string_view>
 #include <ranges>
+#include <thread>
 
 class ScriptContext;
 
@@ -1071,19 +1073,60 @@ void CComponentManager::PostMessage(const entity_id_t ent, const CMessage& msg)
 
 void CComponentManager::BroadcastMessage(const CMessage& msg)
 {
-	// Send the message to components of all entities that subscribed locally to this message
-	const auto it = m_LocalMessageSubscriptions.find(msg.GetType());
-	if (it != m_LocalMessageSubscriptions.end())
+	switch (msg.GetType())
 	{
-		for (const auto &ctit : it->second)
-		{
-			const auto emap = m_ComponentsByTypeId.find(ctit);
-			if (emap == m_ComponentsByTypeId.end())
-				continue;
+		case MT_TurnStart:
+			{
+				size_t expected = 0;
+				std::atomic<size_t> finsihed_count = 0;
 
-			for (const auto &eit : emap->second)
-				eit.second->HandleMessage(msg, false);
-		}
+				// Send the message to components of all entities that subscribed locally to this message
+				const auto it = m_LocalMessageSubscriptions.find(msg.GetType());
+				if (it != m_LocalMessageSubscriptions.end())
+				{
+					for (const auto &ctit : it->second)
+					{
+						const auto emap = m_ComponentsByTypeId.find(ctit);
+						if (emap == m_ComponentsByTypeId.end())
+							continue;
+
+						for (const auto &eit : emap->second)
+						{
+							g_TaskManager.PushTask([&msg, &eit, &finsihed_count]()
+							{
+								eit.second->HandleMessage(msg, false);
+								++finsihed_count;
+							});
+						}
+						expected += emap->second.size();
+					}
+				}
+				// Wait for all tasks to finish
+				while (finsihed_count.load() != expected)
+				{
+					std::this_thread::yield();
+				}
+				break;
+			}
+
+		default:
+			{
+				// Send the message to components of all entities that subscribed locally to this message
+				const auto it = m_LocalMessageSubscriptions.find(msg.GetType());
+				if (it != m_LocalMessageSubscriptions.end())
+				{
+					for (const auto &ctit : it->second)
+					{
+						const auto emap = m_ComponentsByTypeId.find(ctit);
+						if (emap == m_ComponentsByTypeId.end())
+							continue;
+
+						for (const auto &eit : emap->second)
+							eit.second->HandleMessage(msg, false);
+					}
+				}
+				break;
+			}
 	}
 
 	SendGlobalMessage(INVALID_ENTITY, msg);

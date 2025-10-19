@@ -28,6 +28,7 @@
 #include "ps/Future.h"
 #include "ps/XML/Xeromyces.h"
 #include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ScriptThread.h"
 #include "scriptinterface/StructuredClone.h"
 
 #include <atomic>
@@ -66,7 +67,7 @@ public:
 		for (const VfsPath& path : paths)
 		{
 			TestLogger logger;
-			ScriptInterface scriptInterface{"Engine", "MapGenerator", g_ScriptContext,
+			ScriptInterface scriptInterface{"Engine", "MapGenerator", g_ScriptThread.Context,
 				[](const VfsPath& path){
 					return path.string().find(RANDOM_MAP_PREFIX) == 0;
 				}};

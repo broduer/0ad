@@ -37,6 +37,8 @@ public:
 		{
 			tasks.push_back(std::move(task));
 		}
+
+		static inline auto GetCurrentThreadId() { return std::thread::id(); }
 	};
 
 	void test_future_basic()
@@ -96,16 +98,16 @@ public:
 
 	void test_future_moving()
 	{
-		Future<int> future;
+		Future<int, TestTaskManager> future;
 		std::function<int()> function;
 		TestTaskManager ttm;
 
 		// Set things up so all temporaries passed into the futures will be reset to obviously invalid memory.
-		std::aligned_storage_t<sizeof(Future<int>), alignof(Future<int>)> futureStorage;
+		std::aligned_storage_t<sizeof(Future<int, TestTaskManager>), alignof(Future<int, TestTaskManager>)> futureStorage;
 		std::aligned_storage_t<sizeof(std::function<int()>), alignof(std::function<int()>)> functionStorage;
-		Future<int>* f = &future; // CppCheck doesn't read placement new correctly, do this to silence errors.
+		Future<int, TestTaskManager>* f = &future; // CppCheck doesn't read placement new correctly, do this to silence errors.
 		std::function<int()>* c = &function;
-		f = new (&futureStorage) Future<int>{};
+		f = new (&futureStorage) Future<int, TestTaskManager>{};
 		c = new (&functionStorage) std::function<int()>{};
 
 		*c = []() { return 7; };
@@ -156,7 +158,7 @@ public:
 	void test_exception()
 	{
 		TestTaskManager ttm;
-		Future<int> future{ttm, []() -> int
+		Future<int, TestTaskManager> future{ttm, []() -> int
 		{
 			throw TestException{};
 		}};
@@ -170,7 +172,7 @@ public:
 	void test_voidException()
 	{
 		TestTaskManager ttm;
-		Future<void> future{ttm, []
+		Future<void, TestTaskManager> future{ttm, []
 		{
 			throw TestException{};
 		}};
@@ -198,7 +200,7 @@ public:
 
 		TestTaskManager ttm;
 
-		Future<ThrowsOnMove> future{ttm, []
+		Future<ThrowsOnMove, TestTaskManager> future{ttm, []
 		{
 			return ThrowsOnMove{};
 		}};
@@ -226,7 +228,7 @@ public:
 				}
 			};
 
-			Future<bool> future{ttm, DifferentValues{}};
+			Future<bool, TestTaskManager> future{ttm, DifferentValues{}};
 			TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
 			std::exchange(ttm.tasks, {})[0]();
 			TS_ASSERT_EQUALS(future.Get(), true);
@@ -243,7 +245,7 @@ public:
 				}
 			};
 
-			Future<bool> future{ttm, DifferentTypes{}};
+			Future<bool, TestTaskManager> future{ttm, DifferentTypes{}};
 			TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
 			std::exchange(ttm.tasks, {})[0]();
 		}

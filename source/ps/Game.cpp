@@ -46,6 +46,7 @@
 #include "scriptinterface/ScriptContext.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpPlayer.h"
 #include "simulation2/components/ICmpPlayerManager.h"
@@ -69,7 +70,7 @@ extern GameLoopState* g_AtlasGameLoop;
 /**
  * Globally accessible pointer to the CGame object.
  **/
-CGame *g_Game=NULL;
+CGame *g_Game = nullptr;
 
 const CStr CGame::EventNameSimulationUpdate = "SimulationUpdate";
 
@@ -79,7 +80,7 @@ const CStr CGame::EventNameSimulationUpdate = "SimulationUpdate";
  **/
 CGame::CGame(bool replayLog):
 	m_World(new CWorld(*this)),
-	m_Simulation2{new CSimulation2{&m_World->GetUnitManager(), *g_ScriptContext, &m_World->GetTerrain()}},
+	m_Simulation2{new CSimulation2{&m_World->GetUnitManager(), *g_ScriptThread.Context, &m_World->GetTerrain()}},
 	// TODO: we need to remove that global dependency. Maybe the game view
 	// should be created outside only if needed.
 	m_GameView(CRenderer::IsInitialised() ? new CGameView(g_VideoMode.GetBackendDevice(), this) : nullptr),
@@ -91,7 +92,7 @@ CGame::CGame(bool replayLog):
 	m_ViewedPlayerID(-1),
 	m_IsSavedGame(false),
 	m_IsVisualReplay(false),
-	m_ReplayStream(NULL)
+	m_ReplayStream(nullptr)
 {
 	// TODO: should use CDummyReplayLogger unless activated by cmd-line arg, perhaps?
 	if (replayLog)
@@ -222,6 +223,9 @@ bool CGame::StartVisualReplay(const OsPath& replayPath)
  **/
 void CGame::RegisterInit(const JS::HandleValue attribs, const std::string& savedState)
 {
+	g_ScriptThread.Run([]()
+	{
+	}).Wait();
 	const ScriptInterface& scriptInterface = m_Simulation2->GetScriptInterface();
 	ScriptRequest rq(scriptInterface);
 
@@ -358,6 +362,9 @@ PSRETURN CGame::ReallyStartGame()
 	// Call the reallyStartGame GUI function, but only if it exists
 	if (g_GUI && g_GUI->GetPageCount())
 	{
+		g_ScriptThread.Run([]()
+		{
+		}).Wait();
 		std::shared_ptr<ScriptInterface> scriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
 		ScriptRequest rq(scriptInterface);
 
@@ -380,7 +387,7 @@ int CGame::GetPlayerID()
 	return m_PlayerID;
 }
 
-void CGame::SetPlayerID(player_id_t playerID)
+void CGame::SetPlayerID(const player_id_t playerID)
 {
 	m_PlayerID = playerID;
 	m_ViewedPlayerID = playerID;
@@ -394,7 +401,7 @@ int CGame::GetViewedPlayerID()
 	return m_ViewedPlayerID;
 }
 
-void CGame::SetViewedPlayerID(player_id_t playerID)
+void CGame::SetViewedPlayerID(const player_id_t playerID)
 {
 	m_ViewedPlayerID = playerID;
 }
@@ -416,7 +423,7 @@ void CGame::StartGame(JS::MutableHandleValue attribs, const std::string& savedSt
 // so that it has more control over the update rate. The game might want to
 // do the same, and then doInterpolate should be redundant and removed.
 
-void CGame::Update(const double deltaRealTime, bool doInterpolate)
+void CGame::Update(const double deltaRealTime, const bool doInterpolate)
 {
 	if (m_Paused || !m_TurnManager)
 		return;
@@ -429,7 +436,7 @@ void CGame::Update(const double deltaRealTime, bool doInterpolate)
 		// frame per simulation turn, so let maxTurns be 1. But for fast-forward
 		// sim rates we want to allow more, so it's not bounded by framerate,
 		// so just use the sim rate itself as the number of turns per frame.
-		size_t maxTurns = (size_t)m_SimRate;
+		const size_t maxTurns = static_cast<size_t>(m_SimRate);
 
 		if (m_TurnManager->Update(deltaSimTime, maxTurns))
 		{
@@ -449,7 +456,7 @@ void CGame::Update(const double deltaRealTime, bool doInterpolate)
 		m_TurnManager->Interpolate(deltaSimTime, deltaRealTime);
 }
 
-void CGame::Interpolate(float simFrameLength, float realFrameLength)
+void CGame::Interpolate(const float simFrameLength, const float realFrameLength)
 {
 	if (!m_TurnManager)
 		return;
@@ -468,7 +475,7 @@ void CGame::CachePlayerColors()
 	if (!cmpPlayerManager)
 		return;
 
-	int numPlayers = cmpPlayerManager->GetNumPlayers();
+	const int numPlayers = cmpPlayerManager->GetNumPlayers();
 	m_PlayerColors.resize(numPlayers);
 
 	for (int i = 0; i < numPlayers; ++i)
@@ -483,7 +490,7 @@ void CGame::CachePlayerColors()
 
 const CColor& CGame::GetPlayerColor(player_id_t player) const
 {
-	if (player < 0 || player >= (int)m_PlayerColors.size())
+	if (player < 0 || player >= static_cast<int>(m_PlayerColors.size()))
 		return BrokenColor;
 
 	return m_PlayerColors[player];
@@ -502,7 +509,7 @@ bool CGame::IsGameFinished() const
 }
 
 // This function is implemented so that mods can't change it's result. See ICmpPlayer.cpp
-bool CGame::PlayerFinished(player_id_t playerID) const
+bool CGame::PlayerFinished(const player_id_t playerID) const
 {
 	CmpPtr<ICmpPlayerManager> cmpPlayerManager(*m_Simulation2, SYSTEM_ENTITY);
 	if (!cmpPlayerManager)

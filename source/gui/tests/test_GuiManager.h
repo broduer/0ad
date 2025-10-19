@@ -36,8 +36,9 @@
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptConversions.h"
 #include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
 #include "scriptinterface/StructuredClone.h"
+#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 
 #include <SDL_events.h>
 #include <SDL_scancode.h>
@@ -72,8 +73,8 @@ public:
 
 		xeromycesEngine.emplace();
 
-		scriptInterface.emplace("Engine", "GUIManager", *g_ScriptContext);
-		g_GUI = new CGUIManager{*g_ScriptContext, *scriptInterface};
+		scriptInterface.emplace("Engine", "GUIManager", *g_ScriptThread.Context);
+		g_GUI = new CGUIManager{*g_ScriptThread.Context, *scriptInterface};
 	}
 
 	void tearDown()

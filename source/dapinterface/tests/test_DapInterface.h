@@ -22,7 +22,7 @@
 #include "lib/path.h"
 #include "ps/CLogger.h"
 #include "ps/Filesystem.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ScriptThread.h"
 
 #include <fmt/format.h>
 #include <memory>
@@ -45,20 +45,20 @@ public:
 	{
 		TestLogger logger;
 		// Test invalid address
-		TS_ASSERT_THROWS_EQUALS((DAP::Interface{"invalid_address", 1234, *g_ScriptContext}), const DAP::DapInterfaceException& e, e.what(), fmt::format("Failed to bind and listen on port 1234"));
+		TS_ASSERT_THROWS_EQUALS((DAP::Interface{"invalid_address", 1234, *g_ScriptThread.Context}), const DAP::DapInterfaceException& e, e.what(), fmt::format("Failed to bind and listen on port 1234"));
 
 		const std::string address{"127.0.0.1"};
 		const int port{1234};
 		// Test no tools/dap/ directory
-		TS_ASSERT_THROWS_EQUALS((DAP::Interface{address, port, *g_ScriptContext}), const DAP::DapInterfaceNoJSDebuggerException& e, e.what(), "DAP entry script not found at tools/dap/entry.js");
+		TS_ASSERT_THROWS_EQUALS((DAP::Interface{address, port, *g_ScriptThread.Context}), const DAP::DapInterfaceNoJSDebuggerException& e, e.what(), "DAP entry script not found at tools/dap/entry.js");
 
 		TS_ASSERT_OK(g_VFS->Mount(L"", DataDir() / "mods" / "mod" / "", VFS_MOUNT_MUST_EXIST))
 		// Test localhost address
-		TS_ASSERT_THROWS_NOTHING((DAP::Interface{address, port, *g_ScriptContext }));
+		TS_ASSERT_THROWS_NOTHING((DAP::Interface{address, port, *g_ScriptThread.Context }));
 
 		// Test two instances of DAP::Interface
-		DAP::Interface dap1{address, port, *g_ScriptContext};
-		TS_ASSERT_THROWS_EQUALS((DAP::Interface{address, port, *g_ScriptContext}), const DAP::DapInterfaceException& e, e.what(), fmt::format("Failed to bind and listen on port {}", port));
+		DAP::Interface dap1{address, port, *g_ScriptThread.Context};
+		TS_ASSERT_THROWS_EQUALS((DAP::Interface{address, port, *g_ScriptThread.Context}), const DAP::DapInterfaceException& e, e.what(), fmt::format("Failed to bind and listen on port {}", port));
 
 		// Test send a message without clients
 		TS_ASSERT_THROWS_NOTHING(dap1.TryHandleMessage());

@@ -19,6 +19,7 @@
 
 #include "lib/types.h"
 #include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/helpers/Grid.h"
 #include "simulation2/serialization/DebugSerializer.h"
 #include "simulation2/serialization/SerializeTemplates.h"
@@ -36,7 +37,7 @@ class TestSerializeTemplates : public CxxTest::TestSuite
 public:
 	void test_Debug_array()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		std::stringstream stream;
 
 		CDebugSerializer serialize(script, stream);
@@ -49,7 +50,7 @@ public:
 
 	void test_Debug_vector()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		std::stringstream stream;
 
 		CDebugSerializer serialize(script, stream);
@@ -62,7 +63,7 @@ public:
 
 	void test_Debug_set()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		std::stringstream stream;
 
 		CDebugSerializer serialize(script, stream);
@@ -75,7 +76,7 @@ public:
 
 	void test_Debug_grid()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		std::stringstream stream;
 
 		CDebugSerializer serialize(script, stream);

@@ -24,6 +24,7 @@
 #include "ps/XML/Xeromyces.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 
 #include <cstring>
 #include <js/RootingAPI.h>
@@ -68,7 +69,7 @@ private:
 
 	void setUp()
 	{
-		m_ScriptInterface = std::make_unique<ScriptInterface>("Test", "Test", g_ScriptContext);
+		m_ScriptInterface = std::make_unique<ScriptInterface>("Test", "Test", g_ScriptThread.Context);
 	}
 
 	void tearDown()

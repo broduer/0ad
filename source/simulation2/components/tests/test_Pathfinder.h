@@ -33,6 +33,7 @@
 #include "ps/Loader.h"
 #include "ps/XML/Xeromyces.h"
 #include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpObstructionManager.h"
 #include "simulation2/components/ICmpPathfinder.h"
@@ -158,7 +159,7 @@ public:
 	{
 		CTerrain terrain;
 
-		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain};
+		CSimulation2 sim2{nullptr, *g_ScriptThread.Context, &terrain};
 		sim2.LoadDefaultScripts();
 		sim2.ResetState();
 
@@ -217,7 +218,7 @@ public:
 		CTerrain terrain;
 		terrain.Initialize(5, NULL);
 
-		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain};
+		CSimulation2 sim2{nullptr, *g_ScriptThread.Context, &terrain};
 		sim2.LoadDefaultScripts();
 		sim2.ResetState();
 
@@ -272,7 +273,7 @@ public:
 	{
 		CTerrain terrain;
 
-		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain};
+		CSimulation2 sim2{nullptr, *g_ScriptThread.Context, &terrain};
 		sim2.LoadDefaultScripts();
 		sim2.ResetState();
 
@@ -329,7 +330,7 @@ public:
 	{
 		CTerrain terrain;
 
-		CSimulation2 sim2{nullptr, *g_ScriptContext, &terrain};
+		CSimulation2 sim2{nullptr, *g_ScriptThread.Context, &terrain};
 		sim2.LoadDefaultScripts();
 		sim2.ResetState();
 

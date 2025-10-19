@@ -43,6 +43,7 @@
 #include "scriptinterface/ScriptEngine.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 
 #include <fstream>
 #include <iterator>
@@ -85,7 +86,7 @@ class MiscSetup : public CxxTest::GlobalFixture
 
 		g_Profiler2.Initialise();
 		m_ScriptEngine = new ScriptEngine;
-		g_ScriptContext = ScriptContext::CreateContext();
+		g_ScriptThread.Context = ScriptContext::CreateContext();
 
 		taskManager.emplace();
 
@@ -95,7 +96,7 @@ class MiscSetup : public CxxTest::GlobalFixture
 	virtual bool tearDownWorld()
 	{
 		taskManager.reset();
-		g_ScriptContext.reset();
+		g_ScriptThread.Context.reset();
 		SAFE_DELETE(m_ScriptEngine);
 		g_Profiler2.Shutdown();
 
@@ -105,7 +106,7 @@ class MiscSetup : public CxxTest::GlobalFixture
 	virtual bool setUp()
 	{
 		// Clean up any JS leftover between tests.
-		g_ScriptContext->ShrinkingGC();
+		g_ScriptThread.Context->ShrinkingGC();
 
 		return true;
 	}

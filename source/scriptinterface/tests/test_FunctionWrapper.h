@@ -25,6 +25,7 @@
 #include "scriptinterface/ModuleLoader.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 
 #include <functional>
 #include <js/CallArgs.h>
@@ -99,7 +100,7 @@ public:
 
 	void test_calling()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		ScriptRequest rq(script);
 
 		ScriptFunction::Register<&TestFunctionWrapper::_1p_v>(script, "_1p_v");
@@ -128,7 +129,7 @@ public:
 
 	void test_statefull()
 	{
-		ScriptInterface script{"Test", "Test", g_ScriptContext};
+		ScriptInterface script{"Test", "Test", g_ScriptThread.Context};
 		const ScriptRequest rq{script};
 		JS::RootedValue nativeScope{rq.cx, JS::ObjectValue(*rq.nativeScope)};
 
@@ -152,7 +153,7 @@ public:
 		TS_ASSERT_OK(g_VFS->Mount(L"", DataDir() / "mods" / "_test.scriptinterface" / "exception" / "",
 			VFS_MOUNT_MUST_EXIST));
 
-		ScriptInterface script{"Engine", "Test", g_ScriptContext, [](const VfsPath&){
+		ScriptInterface script{"Engine", "Test", g_ScriptThread.Context, [](const VfsPath&){
 			return true;
 		}};
 		const ScriptRequest rq{script};

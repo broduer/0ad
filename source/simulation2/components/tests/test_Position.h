@@ -23,6 +23,7 @@
 #include "maths/Vector3D.h"
 #include "ps/XML/Xeromyces.h"
 #include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/ICmpPosition.h"
 #include "simulation2/components/ICmpWaterManager.h"
@@ -69,7 +70,7 @@ public:
 	void test_basic()
 	{
 		CXeromycesEngine xeromycesEngine;
-		ComponentTestHelper test(*g_ScriptContext);
+		ComponentTestHelper test(*g_ScriptThread.Context);
 
 		MockTerrain terrain;
 		test.AddMock(SYSTEM_ENTITY, IID_Terrain, terrain);
@@ -142,7 +143,7 @@ public:
 	void test_water()
 	{
 		CXeromycesEngine xeromycesEngine;
-		ComponentTestHelper test(*g_ScriptContext);
+		ComponentTestHelper test(*g_ScriptThread.Context);
 
 		MockTerrain terrain;
 		test.AddMock(SYSTEM_ENTITY, IID_Terrain, terrain);
@@ -216,7 +217,7 @@ public:
 	void test_serialize()
 	{
 		CXeromycesEngine xeromycesEngine;
-		ComponentTestHelper test(*g_ScriptContext);
+		ComponentTestHelper test(*g_ScriptThread.Context);
 
 		MockTerrain terrain;
 		test.AddMock(SYSTEM_ENTITY, IID_Terrain, terrain);

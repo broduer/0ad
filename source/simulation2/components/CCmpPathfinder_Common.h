@@ -32,6 +32,9 @@
 #include "lib/types.h"
 #include "maths/Fixed.h"
 #include "ps/Future.h"
+
+namespace Threading { class TaskManager; }
+
 #include "renderer/TerrainOverlay.h"
 #include "simulation2/components/ICmpObstruction.h"
 #include "simulation2/components/ICmpPathfinder.h"
@@ -105,7 +108,7 @@ public:
 	std::unique_ptr<LongPathfinder> m_LongPathfinder;
 
 	// One per live asynchronous path computing task.
-	std::vector<Future<void>> m_Futures;
+	std::vector<Future<void, Threading::TaskManager>> m_Futures;
 
 	template<typename T>
 	class PathRequests {

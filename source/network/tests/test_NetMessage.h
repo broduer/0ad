@@ -23,6 +23,7 @@
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 
 #include <cstddef>
 #include <js/RootingAPI.h>
@@ -34,7 +35,7 @@ class TestNetMessage : public CxxTest::TestSuite
 public:
 	void test_sim()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 		ScriptRequest rq(script);
 
 		JS::RootedValue val(rq.cx);

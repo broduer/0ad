@@ -20,6 +20,7 @@
 #include "ps/XML/Xeromyces.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/components/ICmpCommandQueue.h"
 #include "simulation2/helpers/SimulationCommand.h"
 #include "simulation2/system/Component.h"
@@ -39,7 +40,7 @@ public:
 	void test_basic()
 	{
 		CXeromycesEngine xeromycesEngine;
-		ComponentTestHelper test(*g_ScriptContext);
+		ComponentTestHelper test(*g_ScriptThread.Context);
 		ScriptRequest rq(test.GetScriptInterface());
 
 		std::vector<SimulationCommand> empty;

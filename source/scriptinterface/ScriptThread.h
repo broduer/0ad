@@ -44,18 +44,20 @@ public:
 	template<typename Callback>
 	inline auto Run(Callback&& func)
 	{
-		return Future(*this, std::forward<Callback>(func));
+		return Future<std::invoke_result_t<Callback>, ScriptThread>(*this, std::forward<Callback>(func));
 	}
 
 	std::shared_ptr<ScriptContext> Context;
 
+	static std::thread::id GetCurrentThreadId();
+
 protected:
-	void PushTask(std::function<void()> func);
+	void PushTask(std::function<void()> &&func);
 
 private:
 	class Impl;
 	friend class Threading::WorkerThread<Impl>;
-	template<typename T>
+	template<typename T, typename M>
 	friend class FutureBase;
 
 	const std::unique_ptr<Impl> m;

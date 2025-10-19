@@ -25,7 +25,9 @@
 #include "ps/CStr.h"
 #include "ps/Mod.h"
 #include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/StructuredClone.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
@@ -91,7 +93,7 @@ public:
 
 	void test_compatible()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 
 		ScriptRequest rq(script);
 		JS::RootedObject obj(rq.cx, JS_NewPlainObject(rq.cx));
@@ -141,7 +143,7 @@ public:
 
 	void test_different_name_and_path()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 
 		ScriptRequest rq(script);
 		JS::RootedObject obj(rq.cx, JS_NewPlainObject(rq.cx));

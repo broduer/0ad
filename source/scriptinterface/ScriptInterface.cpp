@@ -396,7 +396,7 @@ ScriptInterface::ScriptInterface(const char* nativeScopeName, const char* debugN
 ScriptInterface::ScriptInterface(const char* nativeScopeName, const char* debugName,
 	const ScriptInterface& neighbor, std::function<bool(const VfsPath& path)> allowModule)
 {
-	ScriptRequest nrq(neighbor);
+	const ScriptRequest nrq(neighbor);
 	JS::Compartment* comp = JS::GetCompartmentForRealm(JS::GetCurrentRealmOrNull(nrq.cx));
 	m = std::make_unique<ScriptInterface_impl>(nativeScopeName, neighbor.GetContext(), comp,
 		std::move(allowModule));
@@ -408,7 +408,7 @@ ScriptInterface::ScriptInterface(const char* nativeScopeName, const char* debugN
 			g_ScriptStatsTable->Add(this, debugName);
 	}
 
-	ScriptRequest rq(this);
+	const ScriptRequest rq(this);
 	m_CmptPrivate.pScriptInterface = this;
 	JS::SetRealmPrivate(JS::GetObjectRealmOrNull(rq.glob), (void*)&m_CmptPrivate);
 }

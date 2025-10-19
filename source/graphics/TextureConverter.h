@@ -213,7 +213,7 @@ private:
 #if CONFIG2_NVTT
 	struct ConversionResult;
 
-	std::queue<Future<std::unique_ptr<ConversionResult>>> m_ResultQueue;
+	std::queue<Future<std::unique_ptr<ConversionResult>, Threading::TaskManager>> m_ResultQueue;
 #endif
 };
 

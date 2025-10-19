@@ -21,6 +21,7 @@
 #include "maths/FixedVector2D.h"
 #include "ps/XML/Xeromyces.h"
 #include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/components/ICmpObstruction.h"
 #include "simulation2/components/ICmpObstructionManager.h"
 #include "simulation2/helpers/Position.h"
@@ -121,7 +122,7 @@ public:
 		ent3z = ent2z + ent2c + ent3c; // ensure it just touches the border of ent2
 		ent3g = ent3;
 
-		testHelper = new ComponentTestHelper(*g_ScriptContext);
+		testHelper = new ComponentTestHelper(*g_ScriptThread.Context);
 		cmp = testHelper->Add<ICmpObstructionManager>(CID_ObstructionManager, "", SYSTEM_ENTITY);
 		cmp->SetBounds(fixed::FromInt(0), fixed::FromInt(0), fixed::FromInt(1000), fixed::FromInt(1000));
 

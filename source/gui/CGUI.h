@@ -79,6 +79,7 @@ using map_pObjects = std::map<CStr, std::unique_ptr<IGUIObject>>;
 class CGUI
 {
 	NONCOPYABLE(CGUI);
+	MOVABLE(CGUI);
 
 private:
 	// Private typedefs

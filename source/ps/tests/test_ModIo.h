@@ -25,6 +25,7 @@
 #include "ps/CLogger.h"
 #include "ps/ModIo.h"
 #include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ScriptThread.h"
 
 #include <cstddef>
 #include <map>
@@ -46,7 +47,7 @@ public:
 
 	void test_id_parsing()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 
 #define TS_ASSERT_PARSE(input, expected_error, expected_id) \
 	{ \
@@ -94,7 +95,7 @@ public:
 
 	void test_mods_parsing()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
 
 		PKStruct pk;
 

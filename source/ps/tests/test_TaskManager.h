@@ -87,13 +87,13 @@ public:
 	void test_Load()
 	{
 #define ITERATIONS 100000
-		std::vector<Future<int>> futures;
+		std::vector<Future<int, Threading::TaskManager>> futures;
 		futures.resize(ITERATIONS);
 		std::vector<u32> values(ITERATIONS);
 
 		Future f1{g_TaskManager, [&futures]{
 			for (u32 i = 0; i < ITERATIONS; i+=3)
-				futures[i] = {g_TaskManager, []{ return 5; }};
+				futures[i] = Future<int, Threading::TaskManager>{g_TaskManager, []{ return 5; }};
 		}};
 
 		Future f2{g_TaskManager, [&futures]{

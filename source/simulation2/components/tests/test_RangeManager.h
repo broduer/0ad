@@ -24,6 +24,7 @@
 #include "ps/CStr.h"
 #include "ps/XML/Xeromyces.h"
 #include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/ICmpObstruction.h"
 #include "simulation2/components/ICmpObstructionManager.h"
@@ -151,7 +152,7 @@ public:
 
 	void test_basic()
 	{
-		ComponentTestHelper test(*g_ScriptContext);
+		ComponentTestHelper test(*g_ScriptThread.Context);
 
 		ICmpRangeManager* cmp = test.Add<ICmpRangeManager>(CID_RangeManager, "", SYSTEM_ENTITY);
 
@@ -220,7 +221,7 @@ public:
 
 	void test_queries()
 	{
-		ComponentTestHelper test(*g_ScriptContext);
+		ComponentTestHelper test(*g_ScriptThread.Context);
 
 		ICmpRangeManager* cmp = test.Add<ICmpRangeManager>(CID_RangeManager, "", SYSTEM_ENTITY);
 
@@ -292,7 +293,7 @@ public:
 
 	void test_IsInTargetParabolicRange()
 	{
-		ComponentTestHelper test(*g_ScriptContext);
+		ComponentTestHelper test(*g_ScriptThread.Context);
 		ICmpRangeManager* cmp = test.Add<ICmpRangeManager>(CID_RangeManager, "", SYSTEM_ENTITY);
 		const entity_id_t source = 200;
 		const entity_id_t target = 201;

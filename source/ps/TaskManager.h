@@ -23,6 +23,7 @@
 
 #include <functional>
 #include <memory>
+#include <thread>
 
 namespace Threading
 {
@@ -55,6 +56,10 @@ public:
 	 */
 	void PushTask(std::function<void()> func, TaskPriority priority = TaskPriority::NORMAL);
 
+	inline static std::thread::id GetCurrentThreadId()
+	{
+		return std::thread::id();
+	}
 private:
 	TaskManager(size_t numberOfWorkers);
 

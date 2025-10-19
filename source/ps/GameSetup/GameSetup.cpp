@@ -88,6 +88,7 @@
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
 #include "scriptinterface/ScriptStats.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/scripting/JSInterface_Simulation.h"
 #include "simulation2/system/Component.h"
@@ -138,7 +139,7 @@ ERROR_TYPE(System, SDLInitFailed);
 ERROR_TYPE(System, VmodeFailed);
 ERROR_TYPE(System, RequiredExtensionsMissing);
 
-thread_local std::shared_ptr<ScriptContext> g_ScriptContext;
+static thread_local ScriptThread scriptThread {};
 
 bool g_InDevelopmentCopy;
 bool g_CheckedIfInDevelopmentCopy = false;
@@ -166,8 +167,8 @@ ErrorReactionInternal psDisplayError(const wchar_t* /*text*/, size_t /*flags*/)
 
 void MountMods(const Paths& paths, const std::vector<CStr>& mods)
 {
-	OsPath modPath = paths.RData()/"mods";
-	OsPath modUserPath = paths.UserData()/"mods";
+	const OsPath modPath = paths.RData()/"mods";
+	const OsPath modUserPath = paths.UserData()/"mods";
 
 	size_t userFlags = VFS_MOUNT_WATCH|VFS_MOUNT_ARCHIVABLE;
 	size_t baseFlags = userFlags|VFS_MOUNT_MUST_EXIST;
@@ -176,7 +177,7 @@ void MountMods(const Paths& paths, const std::vector<CStr>& mods)
 	{
 		priority = i + 1; // Mods are higher priority than regular mountings, which default to priority 0
 
-		OsPath modName(mods[i]);
+		const OsPath modName(mods[i]);
 		// Only mount mods from the user path if they don't exist in the 'rdata' path.
 		if (DirectoryExists(modPath / modName / ""))
 			g_VFS->Mount(L"", modPath / modName / "", baseFlags, priority);
@@ -202,13 +203,13 @@ void InitVfs(const CmdLineArgs& args)
 
 	const Paths paths(args);
 
-	OsPath logs(paths.Logs());
+	const OsPath logs(paths.Logs());
 	CreateDirectories(logs, 0700);
 
 	psSetLogDir(logs);
 	// desired location for crashlog is now known. update AppHooks ASAP
 	// (particularly before the following error-prone operations):
-	AppHooks hooks = {0};
+	AppHooks hooks = {nullptr};
 	hooks.bundle_logs = psBundleLogs;
 	hooks.get_log_dir = psLogDir;
 	hooks.display_error = psDisplayError;
@@ -218,7 +219,7 @@ void InitVfs(const CmdLineArgs& args)
 
 	const OsPath readonlyConfig = paths.RData()/"config"/"";
 
-	// Mount these dirs with highest priority so that mods can't overwrite them.
+	// Mount these dirs with the highest priority so that mods can't overwrite them.
 	g_VFS->Mount(L"cache/", paths.Cache(), VFS_MOUNT_ARCHIVABLE, VFS_MAX_PRIORITY);	// (adding XMBs to archive speeds up subsequent reads)
 	if (readonlyConfig != paths.Config())
 		g_VFS->Mount(L"config/", readonlyConfig, 0, VFS_MAX_PRIORITY-1);
@@ -403,7 +404,10 @@ void ShutdownConfigAndSubsequent()
 
 	// This is needed to ensure that no callbacks from the JSAPI try to use
 	// the profiler when it's already destructed
-	g_ScriptContext.reset();
+	g_ScriptThread.Run([]()
+	{
+		g_ScriptThread.Context.reset();
+	}).Wait();
 
 	// resource
 	// first shut down all resource owners, and then the handle manager.
@@ -524,7 +528,7 @@ void EarlyInit()
 #endif
 
 	// Initialise the low-quality rand function
-	srand(time(NULL));	// NOTE: this rand should *not* be used for simulation!
+	srand(time(nullptr));	// NOTE: this rand should *not* be used for simulation!
 }
 
 bool Autostart(const CmdLineArgs& args);
@@ -534,7 +538,7 @@ bool Autostart(const CmdLineArgs& args);
  */
 bool AutostartVisualReplay(const std::string& replayFile);
 
-bool Init(const CmdLineArgs& args, int flags)
+bool Init(const CmdLineArgs& args, const int flags)
 {
 	new CProfileViewer;
 	new CProfileManager;	// before any script code
@@ -552,9 +556,12 @@ bool Init(const CmdLineArgs& args, int flags)
 
 	// Using a global object for the context is a workaround until Simulation and AI use
 	// their own threads and also their own contexts.
-	const int contextSize = 384 * 1024 * 1024;
-	const int heapGrowthBytesGCTrigger = 12 * 1024 * 1024;
-	g_ScriptContext = ScriptContext::CreateContext(contextSize, heapGrowthBytesGCTrigger);
+	constexpr int contextSize = 384 * 1024 * 1024;
+	constexpr int heapGrowthBytesGCTrigger = 12 * 1024 * 1024;
+
+	g_ScriptThread.Run([contextSize, heapGrowthBytesGCTrigger]() {
+		g_ScriptThread.Context = ScriptContext::CreateContext(contextSize, heapGrowthBytesGCTrigger);
+	}).Wait();
 
 	// On the first Init (INIT_MODS), check for command-line arguments
 	// or use the default mods from the config and enable those.
@@ -562,8 +569,12 @@ bool Init(const CmdLineArgs& args, int flags)
 	// to avoid overwriting the newly selected mods.
 	if (flags & INIT_MODS)
 	{
-		ScriptInterface modInterface("Engine", "Mod", g_ScriptContext);
-		g_Mods.UpdateAvailableMods(modInterface);
+		g_ScriptThread.Run([]()
+		{
+			const ScriptInterface modInterface("Engine", "Mod", g_ScriptThread.Context);
+			g_Mods.UpdateAvailableMods(modInterface);
+		}).Wait();
+
 		std::vector<CStr> mods;
 		if (args.Has("mod"))
 			mods = args.GetMultiple("mod");
@@ -590,11 +601,11 @@ bool Init(const CmdLineArgs& args, int flags)
 		MountMods(Paths(args), { "mod" });
 
 	// Special command-line mode to dump the entity schemas instead of running the game.
-	// (This must be done after loading VFS etc, but should be done before wasting time
+	// (This must be done after loading VFS etc., but should be done before wasting time
 	// on anything else.)
 	if (args.Has("dumpSchema"))
 	{
-		CSimulation2 sim{NULL, *g_ScriptContext, NULL};
+		CSimulation2 sim{nullptr, *g_ScriptThread.Context, nullptr};
 		sim.LoadDefaultScripts();
 		std::ofstream f("entity.rng", std::ios_base::out | std::ios_base::trunc);
 		f << sim.GenerateSchema();
@@ -682,12 +693,16 @@ void InitGraphics(const CmdLineArgs& args, int flags, const std::vector<CStr>& i
 		{
 			const bool setup_gui = ((flags & INIT_NO_GUI) == 0);
 
-			ScriptRequest rq{g_GUI->GetScriptInterface()};
-			JS::RootedValue data(rq.cx);
-			Script::CreateObject(rq, &data, "isStartup", true);
-			if (!installedMods.empty())
-				Script::SetProperty(rq, data, "installedMods", installedMods);
-			InitPs(setup_gui, installedMods.empty() ? L"page_pregame.xml" : L"page_modmod.xml", &g_GUI->GetScriptInterface(), data);
+			g_ScriptThread.Run([setup_gui, &installedMods]()
+			{
+				const ScriptRequest rq{g_GUI->GetScriptInterface()};
+				JS::RootedValue data(rq.cx);
+				Script::CreateObject(rq, &data, "isStartup", true);
+				if (!installedMods.empty())
+					Script::SetProperty(rq, data, "installedMods", installedMods);
+
+				InitPs(setup_gui, installedMods.empty() ? L"page_pregame.xml" : L"page_modmod.xml", &g_GUI->GetScriptInterface(), data);
+			}).Wait();
 		}
 	}
 	catch (PSERROR_Game_World_MapLoadFailed& e)
@@ -695,7 +710,7 @@ void InitGraphics(const CmdLineArgs& args, int flags, const std::vector<CStr>& i
 		// Map Loading failed
 
 		// Start the engine so we have a GUI
-		InitPs(true, L"page_pregame.xml", NULL, JS::UndefinedHandleValue);
+		InitPs(true, L"page_pregame.xml", nullptr, JS::UndefinedHandleValue);
 
 		// Call script function to do the actual work
 		//	(delete game data, switch GUI page, show error, etc.)
@@ -726,7 +741,7 @@ CStr8 LoadSettingsOfScenarioMap(const VfsPath &mapPath)
 		"Scenario", "ScriptSettings", ""	// Path to JSON data in map
 	};
 
-	Status loadResult = mapFile.Load(g_VFS, mapPath);
+	const Status loadResult = mapFile.Load(g_VFS, mapPath);
 
 	if (INFO::OK != loadResult)
 	{
@@ -767,39 +782,6 @@ bool Autostart(const CmdLineArgs& args)
 	if (!args.Has("autostart-client") && !args.Has("autostart"))
 		return false;
 
-	// Create some scriptinterface to store the js values for the settings.
-	ScriptInterface scriptInterface("Engine", "Game Setup", g_ScriptContext);
-	ScriptRequest rq(scriptInterface);
-
-	// We use the javascript gameSettings to handle options, but that requires running JS.
-	// Since we don't want to use the full Gui manager, we load an entrypoint script
-	// that can run the priviledged "LoadScript" function, and then call the appropriate function.
-
-	// TODO: this essentially duplicates the CGUI logic to load directory or scripts.
-	std::unordered_set<VfsPath> templateCache;
-	const auto autostartLoadScript = [&templateCache](const ScriptInterface& scriptInterface,
-		const VfsPath& path)
-	{
-		if (!std::get<1>(templateCache.insert(path)))
-			return;
-
-		if (path.IsDirectory())
-		{
-			VfsPaths pathnames;
-			vfs::GetPathnames(g_VFS, path, L"*.js", pathnames);
-			for (const VfsPath& file : pathnames)
-				scriptInterface.LoadGlobalScriptFile(file);
-		}
-		else
-			scriptInterface.LoadGlobalScriptFile(path);
-	};
-
-	const auto loadScriptCallback = ScriptFunction::Register(rq, "LoadScript", autostartLoadScript);
-	// Load the entire folder to allow mods to extend the entrypoint without copying the whole file.
-	autostartLoadScript(scriptInterface, VfsPath(L"autostart/"));
-
-	// Provide some required functions to the script.
-
 	struct GetTemplate
 	{
 		CTemplateLoader templateLoader;
@@ -815,48 +797,88 @@ bool Autostart(const CmdLineArgs& args)
 		}
 	};
 
-	std::optional<ScriptFunction::StatefulCallback<GetTemplate>> getTemplateCallback;
-	if (args.Has("autostart-nonvisual"))
-		getTemplateCallback.emplace(rq, "GetTemplate", GetTemplate{});
-	else
+	// Create some script interface to store the js values for the settings.
+	if (!g_ScriptThread.Run([&args]()
 	{
-		JSI_GUIManager::RegisterScriptFunctions(rq);
-		// TODO: this loads pregame, which is hardcoded to exist by various code paths. That ought be changed.
-		InitPs(false, L"page_pregame.xml", &g_GUI->GetScriptInterface(), JS::UndefinedHandleValue);
-	}
+		ScriptInterface scriptInterface("Engine", "Game Setup", g_ScriptThread.Context);
+		ScriptRequest rq(scriptInterface);
 
-	JSI_Game::RegisterScriptFunctions(rq);
-	JSI_Main::RegisterScriptFunctions(rq);
-	JSI_Simulation::RegisterScriptFunctions(rq);
-	JSI_VFS::RegisterScriptFunctions_ReadWriteAnywhere(rq);
-	JSI_Network::RegisterScriptFunctions(rq);
+		// We use the javascript gameSettings to handle options, but that requires running JS.
+		// Since we don't want to use the full Gui manager, we load an entrypoint script
+		// that can run the priviledged "LoadScript" function, and then call the appropriate function.
 
-	JS::RootedValue cmdLineArgs(rq.cx);
-	Script::ToJSVal(rq, &cmdLineArgs, args);
-
-	if (args.Has("autostart-client") || args.Has("autostart-host"))
-	{
-		// Pass the default port if undefined, to avoid duplicating it in JS.
-		if (!Script::HasProperty(rq, cmdLineArgs, "autostart-port"))
-			Script::SetProperty(rq, cmdLineArgs, "autostart-port", PS_DEFAULT_PORT);
-
-		JS::RootedValue global(rq.cx, rq.globalValue());
-		if (!ScriptFunction::CallVoid(rq, global, args.Has("autostart-client") ? "autostartClient" : "autostartHost", cmdLineArgs, true))
-			return false;
-
-		bool shouldQuit = false;
-		while (!shouldQuit)
+		// TODO: this essentially duplicates the CGUI logic to load directory or scripts.
+		std::unordered_set<VfsPath> templateCache;
+		const auto autostartLoadScript = [&templateCache](const ScriptInterface& scriptInterface,
+			const VfsPath& path)
 		{
-			g_NetClient->Poll();
-			ScriptFunction::Call(rq, global, "onTick", shouldQuit);
-			std::this_thread::sleep_for(std::chrono::microseconds(200));
+			if (!std::get<1>(templateCache.insert(path)))
+				return;
+
+			if (path.IsDirectory())
+			{
+				VfsPaths pathnames;
+				vfs::GetPathnames(g_VFS, path, L"*.js", pathnames);
+				for (const VfsPath& file : pathnames)
+					scriptInterface.LoadGlobalScriptFile(file);
+			}
+			else
+				scriptInterface.LoadGlobalScriptFile(path);
+		};
+
+
+		const auto loadScriptCallback = ScriptFunction::Register(rq, "LoadScript", autostartLoadScript);
+		// Load the entire folder to allow mods to extend the entrypoint without copying the whole file.
+		autostartLoadScript(scriptInterface, VfsPath(L"autostart/"));
+
+		// Provide some required functions to the script.
+		std::optional<ScriptFunction::StatefulCallback<GetTemplate>> getTemplateCallback;
+		if (args.Has("autostart-nonvisual"))
+			getTemplateCallback.emplace(rq, "GetTemplate", GetTemplate{});
+		else
+		{
+			JSI_GUIManager::RegisterScriptFunctions(rq);
+			// TODO: this loads pregame, which is hardcoded to exist by various code paths. That ought be changed.
+			InitPs(false, L"page_pregame.xml", &g_GUI->GetScriptInterface(), JS::UndefinedHandleValue);
 		}
-	}
-	else
-	{
-		JS::RootedValue global(rq.cx, rq.globalValue());
-		if (!ScriptFunction::CallVoid(rq, global, "autostartHost", cmdLineArgs, false))
-			return false;
+
+		JSI_Game::RegisterScriptFunctions(rq);
+		JSI_Main::RegisterScriptFunctions(rq);
+		JSI_Simulation::RegisterScriptFunctions(rq);
+		JSI_VFS::RegisterScriptFunctions_ReadWriteAnywhere(rq);
+		JSI_Network::RegisterScriptFunctions(rq);
+
+		JS::RootedValue cmdLineArgs(rq.cx);
+		Script::ToJSVal(rq, &cmdLineArgs, args);
+
+		if (args.Has("autostart-client") || args.Has("autostart-host"))
+		{
+			// Pass the default port if undefined, to avoid duplicating it in JS.
+			if (!Script::HasProperty(rq, cmdLineArgs, "autostart-port"))
+				Script::SetProperty(rq, cmdLineArgs, "autostart-port", PS_DEFAULT_PORT);
+
+			JS::RootedValue global(rq.cx, rq.globalValue());
+			if (!ScriptFunction::CallVoid(rq, global, args.Has("autostart-client") ? "autostartClient" : "autostartHost", cmdLineArgs, true))
+				return false;
+
+			bool shouldQuit = false;
+			while (!shouldQuit)
+			{
+				g_NetClient->Poll();
+				ScriptFunction::Call(rq, global, "onTick", shouldQuit);
+				std::this_thread::sleep_for(std::chrono::microseconds(200));
+			}
+		}
+		else
+		{
+			const JS::RootedValue global(rq.cx, rq.globalValue());
+			if (!ScriptFunction::CallVoid(rq, global, "autostartHost", cmdLineArgs, false))
+				return false;
+		}
+
+		return true;
+	}).Get()) {
+		return false;
 	}
 
 	if (args.Has("autostart-nonvisual"))
@@ -877,42 +899,48 @@ bool AutostartVisualReplay(const std::string& replayFile)
 	g_Game->SetPlayerID(-1);
 	g_Game->StartVisualReplay(replayFile);
 
-	ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
-	JS::RootedValue attrs(rq.cx, g_Game->GetSimulation2()->GetInitAttributes());
+	g_ScriptThread.Run([]()
+	{
+		ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+		const ScriptRequest rq(scriptInterface);
+		const JS::RootedValue attrs(rq.cx, g_Game->GetSimulation2()->GetInitAttributes());
 
-	JS::RootedValue playerAssignments(rq.cx);
-	Script::CreateObject(rq, &playerAssignments);
-	JS::RootedValue localPlayer(rq.cx);
-	Script::CreateObject(rq, &localPlayer, "player", g_Game->GetPlayerID());
-	Script::SetProperty(rq, playerAssignments, "local", localPlayer);
+		JS::RootedValue playerAssignments(rq.cx);
+		Script::CreateObject(rq, &playerAssignments);
+		JS::RootedValue localPlayer(rq.cx);
+		Script::CreateObject(rq, &localPlayer, "player", g_Game->GetPlayerID());
+		Script::SetProperty(rq, playerAssignments, "local", localPlayer);
 
-	JS::RootedValue sessionInitData(rq.cx);
+		JS::RootedValue sessionInitData(rq.cx);
 
-	Script::CreateObject(
-		rq,
-		&sessionInitData,
-		"attribs", attrs,
-		"playerAssignments", playerAssignments);
+		Script::CreateObject(
+			rq,
+			&sessionInitData,
+			"attribs", attrs,
+			"playerAssignments", playerAssignments);
 
-	InitPs(true, L"page_loading.xml", &scriptInterface, sessionInitData);
+		InitPs(true, L"page_loading.xml", &scriptInterface, sessionInitData);
+	}).Wait();
 
 	return true;
 }
 
 void CancelLoad(const CStrW& message)
 {
-	std::shared_ptr<ScriptInterface> pScriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
-	ScriptRequest rq(pScriptInterface);
+	g_ScriptThread.Run([&message]()
+	{
+		const std::shared_ptr<ScriptInterface> pScriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
+		const ScriptRequest rq(pScriptInterface);
 
-	JS::RootedValue global(rq.cx, rq.globalValue());
+		const JS::RootedValue global(rq.cx, rq.globalValue());
 
-	LDR_Cancel();
+		LDR_Cancel();
 
-	if (g_GUI &&
-	    g_GUI->GetPageCount() &&
-		Script::HasProperty(rq, global, "cancelOnLoadGameError"))
-		ScriptFunction::CallVoid(rq, global, "cancelOnLoadGameError", message);
+		if (g_GUI &&
+			g_GUI->GetPageCount() &&
+			Script::HasProperty(rq, global, "cancelOnLoadGameError"))
+			ScriptFunction::CallVoid(rq, global, "cancelOnLoadGameError", message);
+	}).Wait();
 }
 
 bool InDevelopmentCopy()

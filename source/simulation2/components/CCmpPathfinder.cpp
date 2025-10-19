@@ -827,7 +827,7 @@ void CCmpPathfinder::SendRequestedPaths()
 		m_LongPathRequests.Compute(*this, *m_LongPathfinder);
 	}
 	// We're done, get the exceptions from the futures.
-	for (Future<void>& future : m_Futures)
+	for (auto& future : m_Futures)
 		if (future.Valid())
 			future.Get();
 
