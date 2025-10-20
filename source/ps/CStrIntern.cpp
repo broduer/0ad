@@ -92,13 +92,11 @@ struct StringsKeyProxyEq
 namespace
 {
 std::unordered_map<StringsKey, CStrInternInternals, StringsKeyHash> g_Strings;
+std::mutex g_CStrMutex;
 
 CStrInternInternals* GetString(const char* str, size_t len)
 {
-	// g_Strings is not thread-safe, so complain if anyone is using this
-	// type in non-main threads. (If that's desired, g_Strings should be changed
-	// to be thread-safe, preferably without sacrificing performance.)
-	ENSURE(Threading::IsMainThread());
+	std::lock_guard lock(g_CStrMutex);
 
 	const auto it = g_Strings.find(str);
 
