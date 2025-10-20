@@ -69,4 +69,7 @@ private:
 
 #define g_ScriptThread ScriptThread::GetSingleton()
 
+template<typename Callback>
+inline auto ScriptCommand(Callback &&func) { return g_ScriptThread.Run(std::forward<Callback>(func)); }
+
 #endif // INCLUDED_SCRIPTTHREAD
