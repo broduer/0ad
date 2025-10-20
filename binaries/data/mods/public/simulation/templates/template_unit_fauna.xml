@@ -14,7 +14,6 @@
   </Identity>
   <Loot disable=""/>
   <Minimap>
-    <Type>food</Type>
     <Color r="227" g="130" b="141"/>
   </Minimap>
   <Position>

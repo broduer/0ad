@@ -42,7 +42,6 @@
     <metal>10</metal>
   </Loot>
   <Minimap>
-    <Type>hero</Type>
   </Minimap>
   <Position>
     <TurnRate>8</TurnRate>

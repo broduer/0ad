@@ -50,7 +50,6 @@
     <metal>200</metal>
   </Loot>
   <Minimap>
-    <Type>structure</Type>
     <Icon size="16.0">wonder.png</Icon>
   </Minimap>
   <Obstruction>

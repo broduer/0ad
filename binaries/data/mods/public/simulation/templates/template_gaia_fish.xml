@@ -10,7 +10,6 @@
     <Tooltip>Catch fish for food.</Tooltip>
   </Identity>
   <Minimap>
-    <Type>food</Type>
     <Color r="227" g="130" b="141"/>
   </Minimap>
   <Obstruction>

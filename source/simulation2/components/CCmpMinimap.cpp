@@ -69,18 +69,6 @@ public:
 	static std::string GetSchema()
 	{
 		return
-			"<element name='Type'>"
-				"<choice>"
-					"<value>food</value>"
-					"<value>wood</value>"
-					"<value>stone</value>"
-					"<value>metal</value>"
-					"<value>structure</value>"
-					"<value>unit</value>"
-					"<value>support</value>"
-					"<value>hero</value>"
-				"</choice>"
-			"</element>"
 			"<optional>"
 				"<element name='Color'>"
 					"<attribute name='r'>"
