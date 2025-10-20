@@ -215,24 +215,21 @@ static InReaction MainInputHandler(const SDL_Event_* ev)
 
 	case SDL_DROPFILE:
 	{
-
-		g_ScriptThread.Run([&ev]()
+		char* dropped_filedir = ev->ev.drop.file;
+		const Paths paths(g_CmdLineArgs);
+		CModInstaller installer(paths.UserData() / "mods", paths.Cache());
+		installer.Install(std::string(dropped_filedir), g_ScriptThread.Context, true);
+		SDL_free(dropped_filedir);
+		if (installer.GetInstalledMods().empty())
+			LOGERROR("Failed to install mod %s", dropped_filedir);
+		else
 		{
-			char* dropped_filedir = ev->ev.drop.file;
-			const Paths paths(g_CmdLineArgs);
-			CModInstaller installer(paths.UserData() / "mods", paths.Cache());
-			installer.Install(std::string(dropped_filedir), g_ScriptThread.Context, true);
-			SDL_free(dropped_filedir);
-			if (installer.GetInstalledMods().empty())
-				LOGERROR("Failed to install mod %s", dropped_filedir);
-			else
-			{
-				LOGMESSAGE("Installed mod %s", installer.GetInstalledMods().front());
-				ScriptInterface modInterface("Engine", "Mod", g_ScriptThread.Context);
-				g_Mods.UpdateAvailableMods(modInterface);
-				RestartEngine();
-			}
-		}).Wait();
+			LOGMESSAGE("Installed mod %s", installer.GetInstalledMods().front());
+			ScriptInterface modInterface("Engine", "Mod", g_ScriptThread.Context);
+			g_Mods.UpdateAvailableMods(modInterface);
+		}
+
+		RestartEngine();
 		break;
 	}
 
@@ -279,7 +276,8 @@ static InReaction MainInputHandler(const SDL_Event_* ev)
 // dispatch all pending events to the various receivers.
 static void PumpEvents()
 {
-	ScriptRequest rq(g_GUI->GetScriptInterface());
+
+	ScriptRequest rq(ScriptCommand([]() { return ScriptRequest(g_GUI->GetScriptInterface()); }).GetMoved());
 
 	PROFILE3("dispatch events");
 
@@ -289,9 +287,12 @@ static void PumpEvents()
 		PROFILE2("event");
 		if (g_GUI)
 		{
-			JS::RootedValue tmpVal(rq.cx);
-			Script::ToJSVal(rq, &tmpVal, ev);
-			std::string data = Script::StringifyJSON(rq, &tmpVal);
+			const std::string data = ScriptCommand([&rq, &ev]()
+			{
+				JS::RootedValue tmpVal(rq.cx);
+				Script::ToJSVal(rq, &tmpVal, ev);
+				return Script::StringifyJSON(rq, &tmpVal);
+			}).Get();
 			PROFILE2_ATTR("%s", data.c_str());
 		}
 		in_dispatch_event(&ev);
@@ -736,7 +737,11 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 
 		if (isVisual)
 		{
-			guiScriptInterface.emplace("Engine", "gui", *g_ScriptThread.Context);
+			g_ScriptThread.Run([&guiScriptInterface, &args, &installedMods]()
+			{
+				guiScriptInterface.emplace("Engine", "gui", *g_ScriptThread.Context);
+			}).Wait();
+
 			InitGraphics(args, 0, installedMods, *g_ScriptThread.Context, *guiScriptInterface);
 			MainControllerInit();
 		}

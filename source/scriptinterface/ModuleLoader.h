@@ -55,10 +55,10 @@ public:
 	using RegistryType = std::unordered_map<VfsPath, CompiledModule>;
 
 	ModuleLoader(AllowModuleFunc allowModule);
-	ModuleLoader(const ModuleLoader&) = delete;
-	ModuleLoader& operator=(const ModuleLoader&) = delete;
-	ModuleLoader(ModuleLoader&&) = delete;
+	ModuleLoader(ModuleLoader &&);
 	ModuleLoader& operator=(ModuleLoader&&) = delete;
+	ModuleLoader& operator=(const ModuleLoader&) = delete;
+	ModuleLoader(const ModuleLoader&) = delete;
 	~ModuleLoader();
 
 	/**

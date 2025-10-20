@@ -482,6 +482,12 @@ ModuleLoader::ModuleLoader(ModuleLoader::AllowModuleFunc allowModule):
 	RegisterFileReloadFunc(FileChangedHook, static_cast<void*>(&m_Registry));
 }
 
+ModuleLoader::ModuleLoader(ModuleLoader&& moduleLoader)
+	: m_AllowModule{std::move(moduleLoader.m_AllowModule)},
+	  m_Registry{std::move(moduleLoader.m_Registry)}
+{
+}
+
 ModuleLoader::~ModuleLoader()
 {
 	UnregisterFileReloadFunc(FileChangedHook, static_cast<void*>(&m_Registry));

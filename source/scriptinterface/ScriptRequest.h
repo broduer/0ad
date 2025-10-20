@@ -57,6 +57,7 @@ public:
 	ScriptRequest(const ScriptInterface& scriptInterface);
 	ScriptRequest(const ScriptInterface* scriptInterface) : ScriptRequest(*scriptInterface) {}
 	ScriptRequest(std::shared_ptr<ScriptInterface> scriptInterface) : ScriptRequest(*scriptInterface) {}
+	ScriptRequest(ScriptRequest &&scriptRequest);
 	~ScriptRequest();
 
 	/**

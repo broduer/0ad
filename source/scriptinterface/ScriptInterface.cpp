@@ -34,6 +34,7 @@
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptContext.h"
 #include "scriptinterface/ScriptStats.h"
+#include "scriptinterface/ScriptThread.h"
 #include "scriptinterface/StructuredClone.h"
 
 #include <cstdio>
@@ -78,6 +79,16 @@ struct ScriptInterface_impl
 {
 	ScriptInterface_impl(const char* nativeScopeName, ScriptContext& context,
 		JS::Compartment* compartment, std::function<bool(const VfsPath&)> allowModule);
+	ScriptInterface_impl(ScriptInterface_impl &&sii) :
+		m_context(sii.m_context),
+		m_cx(std::exchange(sii.m_cx, nullptr)),
+		m_glob(std::move(sii.m_glob)),
+		m_nativeScope(std::move(sii.m_nativeScope)),
+		m_ModuleLoader(std::move(sii.m_ModuleLoader))
+	{
+		sii.m_cx = nullptr;
+	}
+
 	~ScriptInterface_impl();
 
 	// Take care to keep this declaration before heap rooted members. Destructors of heap rooted
@@ -107,9 +118,21 @@ ScriptRequest::ScriptRequest(const ScriptInterface& scriptInterface) :
 	m_FormerRealm = JS::EnterRealm(cx, scriptInterface.m->m_glob);
 }
 
+ScriptRequest::ScriptRequest(ScriptRequest &&scriptRequest) :
+	cx(std::exchange(scriptRequest.cx, nullptr)),
+	glob(std::move(scriptRequest.glob)),
+	nativeScope(std::move(scriptRequest.nativeScope)),
+	m_ScriptInterface(std::move(scriptRequest.m_ScriptInterface)),
+	m_FormerRealm(std::move(scriptRequest.m_FormerRealm))
+{
+	m_FormerRealm = JS::EnterRealm(cx, glob);
+}
+
+
 ScriptRequest::~ScriptRequest()
 {
-	JS::LeaveRealm(cx, m_FormerRealm);
+	// This allows us to have instances of ScriptRequest outside the ScriptThread.
+	ScriptCommand([this]() { JS::LeaveRealm(cx, m_FormerRealm); }).Wait();
 }
 
 ScriptRequest::ScriptRequest(JSContext* cx) : ScriptRequest(ScriptInterface::CmptPrivate::GetScriptInterface(cx))
@@ -378,8 +401,9 @@ ScriptInterface_impl::~ScriptInterface_impl()
 
 ScriptInterface::ScriptInterface(const char* nativeScopeName, const char* debugName, ScriptContext& context,
 	std::function<bool(const VfsPath&)> allowModule) :
-	m{std::make_unique<ScriptInterface_impl>(nativeScopeName, context, nullptr,
-		std::move(allowModule))}
+	m{std::move(ScriptCommand([nativeScopeName, &context, &allowModule]() {
+		return std::make_unique<ScriptInterface_impl>(nativeScopeName, context, nullptr, std::move(allowModule));
+	}).GetMoved())}
 {
 	// Profiler stats table isn't thread-safe, so only enable this on the main thread
 	if (Threading::IsMainThread())
@@ -388,9 +412,12 @@ ScriptInterface::ScriptInterface(const char* nativeScopeName, const char* debugN
 			g_ScriptStatsTable->Add(this, debugName);
 	}
 
-	ScriptRequest rq(this);
-	m_CmptPrivate.pScriptInterface = this;
-	JS::SetRealmPrivate(JS::GetObjectRealmOrNull(rq.glob), (void*)&m_CmptPrivate);
+	ScriptCommand([this]()
+	{
+		const ScriptRequest rq(this);
+		m_CmptPrivate.pScriptInterface = this;
+		JS::SetRealmPrivate(JS::GetObjectRealmOrNull(rq.glob), (void*)&m_CmptPrivate);
+	}).Wait();
 }
 
 ScriptInterface::ScriptInterface(const char* nativeScopeName, const char* debugName,
@@ -411,6 +438,13 @@ ScriptInterface::ScriptInterface(const char* nativeScopeName, const char* debugN
 	const ScriptRequest rq(this);
 	m_CmptPrivate.pScriptInterface = this;
 	JS::SetRealmPrivate(JS::GetObjectRealmOrNull(rq.glob), (void*)&m_CmptPrivate);
+}
+
+ScriptInterface::ScriptInterface(ScriptInterface &&scriptInterface)
+	: m_CmptPrivate(std::move(scriptInterface.m_CmptPrivate)),
+	m(std::move(scriptInterface.m)),
+	m_CustomObjectTypes(std::move(scriptInterface.m_CustomObjectTypes))
+{
 }
 
 ScriptInterface::~ScriptInterface()
@@ -684,23 +718,26 @@ bool ScriptInterface::LoadScript(const VfsPath& filename, const std::string& cod
 
 bool ScriptInterface::LoadGlobalScript(const VfsPath& filename, const std::string& code) const
 {
-	ScriptRequest rq(this);
-	// CompileOptions does not copy the contents of the filename string pointer.
-	// Passing a temporary string there will cause undefined behaviour, so we create a separate string to avoid the temporary.
-	std::string filenameStr = filename.string8();
+	return g_ScriptThread.Run([this, &filename, &code]()
+	{
+		const ScriptRequest rq(this);
+		// CompileOptions does not copy the contents of the filename string pointer.
+		// Passing a temporary string there will cause undefined behaviour, so we create a separate string to avoid the temporary.
+		const std::string filenameStr = filename.string8();
 
-	JS::RootedValue rval(rq.cx);
-	JS::CompileOptions opts(rq.cx);
-	opts.setFileAndLine(filenameStr.c_str(), 1);
-	opts.setForceStrictMode();
+		JS::RootedValue rval(rq.cx);
+		JS::CompileOptions opts(rq.cx);
+		opts.setFileAndLine(filenameStr.c_str(), 1);
+		opts.setForceStrictMode();
 
-	JS::SourceText<mozilla::Utf8Unit> src;
-	ENSURE(src.init(rq.cx, code.c_str(), code.length(), JS::SourceOwnership::Borrowed));
-	if (JS::Evaluate(rq.cx, opts, src, &rval))
-		return true;
+		JS::SourceText<mozilla::Utf8Unit> src;
+		ENSURE(src.init(rq.cx, code.c_str(), code.length(), JS::SourceOwnership::Borrowed));
+		if (JS::Evaluate(rq.cx, opts, src, &rval))
+			return true;
 
-	ScriptException::CatchPending(rq);
-	return false;
+		ScriptException::CatchPending(rq);
+		return false;
+	}).Get();
 }
 
 bool ScriptInterface::LoadGlobalScriptFile(const VfsPath& path) const

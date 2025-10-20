@@ -41,6 +41,7 @@
 #include "scriptinterface/ScriptConversions.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 #include "scriptinterface/StructuredClone.h"
 #include "simulation2/system/Component.h"
 
@@ -127,8 +128,10 @@ void CGUIManager::SwitchPage(const CStrW& pageName, const ScriptInterface* srcSc
 	Script::StructuredClone initDataClone;
 	if (!initData.isUndefined())
 	{
-		ScriptRequest rq(srcScriptInterface);
-		initDataClone = Script::WriteStructuredClone(rq, initData);
+		ScriptCommand([&srcScriptInterface, &initData, &initDataClone]() {
+			const ScriptRequest rq(srcScriptInterface);
+			initDataClone = Script::WriteStructuredClone(rq, initData);
+		}).Wait();
 	}
 
 	if (!m_PageStack.empty())

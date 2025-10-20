@@ -123,6 +123,7 @@ public:
 	 */
 	ScriptInterface(const char* nativeScopeName, const char* debugName, const ScriptInterface& neighbor,
 		std::function<bool(const VfsPath&)> allowModule = {});
+	ScriptInterface(ScriptInterface &&scriptInterface);
 
 	~ScriptInterface();
 

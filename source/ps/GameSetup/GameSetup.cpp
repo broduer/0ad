@@ -43,7 +43,6 @@
 #include "lobby/IXmppClient.h"
 #include "network/NetClient.h"
 #include "network/NetHost.h"
-#include "network/NetMessage.h"
 #include "network/NetServer.h"
 #include "network/scripting/JSInterface_Network.h"
 #include "ps/CConsole.h"
@@ -693,16 +692,17 @@ void InitGraphics(const CmdLineArgs& args, int flags, const std::vector<CStr>& i
 		{
 			const bool setup_gui = ((flags & INIT_NO_GUI) == 0);
 
-			g_ScriptThread.Run([setup_gui, &installedMods]()
+			JS::HandleValue data = ScriptCommand([&installedMods]()
 			{
 				const ScriptRequest rq{g_GUI->GetScriptInterface()};
 				JS::RootedValue data(rq.cx);
 				Script::CreateObject(rq, &data, "isStartup", true);
 				if (!installedMods.empty())
 					Script::SetProperty(rq, data, "installedMods", installedMods);
+				return JS::HandleValue(std::move(data));
+			}).GetMoved();
 
-				InitPs(setup_gui, installedMods.empty() ? L"page_pregame.xml" : L"page_modmod.xml", &g_GUI->GetScriptInterface(), data);
-			}).Wait();
+			InitPs(setup_gui, installedMods.empty() ? L"page_pregame.xml" : L"page_modmod.xml", &g_GUI->GetScriptInterface(), data);
 		}
 	}
 	catch (PSERROR_Game_World_MapLoadFailed& e)
