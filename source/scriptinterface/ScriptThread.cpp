@@ -121,7 +121,7 @@ protected:
 
 	IdType m_LastIdentifier = 0;
 	std::atomic<bool> m_HasWork = false;
-	std::mutex m_Mutex;
+	std::recursive_mutex m_Mutex;
 	std::deque<QueueItem> m_Queue;
 	Threading::WorkerThread<Impl> m_Worker;
 	std::atomic<std::thread::id> m_CurrentThreadId;

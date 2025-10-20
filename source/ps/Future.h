@@ -26,7 +26,6 @@
 #include <type_traits>
 #include <utility>
 #include <variant>
-#include <cassert>
 #include <thread>
 
 template<typename Callback>
@@ -330,10 +329,13 @@ public:
 		{
 			if (!IsDone() && Manager::IsThreadWorking())
 			{
+				// The manager will run the task, which means we do not have to actually wait for our own task
+				// as it is executed synchronously here.
 				Manager::RemoveTask(m_Identifier);
+			} else
+			{
+				m_Receiver->Wait();
 			}
-			//ENSURE((Manager::GetCurrentThreadId() != std::this_thread::get_id() || IsDone()) && "The current thread tried to wait for a task to itself, meaning deadlock!");
-			m_Receiver->Wait();
 		}
 	}
 
