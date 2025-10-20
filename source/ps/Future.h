@@ -61,17 +61,17 @@ using NonVoid = std::conditional_t<std::is_void_v<ResultType>, VoidSubstitution,
  * Responsible for syncronization between the task and the receiving thread.
  */
 template<typename ResultType>
-class Receiver
+class ReceiverBase
 {
 public:
-	Receiver() = default;
-	~Receiver()
+	ReceiverBase() = default;
+	~ReceiverBase()
 	{
 		ENSURE(IsDone());
 	}
 
-	Receiver(const Receiver&) = delete;
-	Receiver(Receiver&&) = delete;
+	ReceiverBase(const ReceiverBase&) = delete;
+	ReceiverBase(ReceiverBase&&) = delete;
 
 	bool IsDone() const noexcept
 	{
@@ -130,13 +130,42 @@ public:
 	std::variant<std::exception_ptr, NonVoid<ResultType>> m_Outcome;
 };
 
+template<typename ResultType>
+class Receiver : public ReceiverBase<ResultType>
+{
+public:
+	/**
+	 * Move the result away from the shared state, mark the future invalid.
+	 */
+	ResultType GetResultMoved()
+	{
+		// The caller must ensure that this is only called if there is a result.
+		ENSURE(ReceiverBase<ResultType>::IsDone());
+		ENSURE(std::holds_alternative<ResultType>(ReceiverBase<ResultType>::m_Outcome) ||
+			std::get<std::exception_ptr>(Receiver<ResultType>::m_Outcome));
+
+		if (std::holds_alternative<std::exception_ptr>(ReceiverBase<ResultType>::m_Outcome))
+			std::rethrow_exception(std::exchange(std::get<std::exception_ptr>(ReceiverBase<ResultType>::m_Outcome), {}));
+
+		ResultType ret = std::move(std::get<NonVoid<ResultType>>(Receiver<ResultType>::m_Outcome));
+		ReceiverBase<ResultType>::m_Outcome.template emplace<std::exception_ptr>();
+
+		return std::move(ret);
+	}
+};
+
+template<>
+class Receiver<void> : public ReceiverBase<void>
+{
+};
+
 /**
  * The shared state between futures and packaged state.
  */
 template<typename Callback>
 struct SharedState
 {
-	SharedState(Callback&& callbackFunc) :
+	explicit SharedState(Callback&& callbackFunc) :
 		callback{std::forward<Callback>(callbackFunc)}
 	{}
 
@@ -157,7 +186,7 @@ class PackagedTask
 {
 public:
 	PackagedTask() = delete;
-	PackagedTask(std::shared_ptr<FutureSharedStateDetail::SharedState<Callback>> ss) :
+	explicit PackagedTask(std::shared_ptr<FutureSharedStateDetail::SharedState<Callback>> ss) :
 		m_SharedState(std::move(ss))
 	{}
 
@@ -334,14 +363,14 @@ public:
         FutureBase<ResultType, Manager>(taskManager, std::forward<Callback>(callback), std::forward<Args>(args)...)
     {}
 
-    ResultType &&GetMoved()
+    ResultType GetMoved()
     {
     	using _T = FutureBase<ResultType, Manager>;
         ENSURE(!!_T::m_Receiver);
 
         FutureBase<ResultType, Manager>::Wait();
         // This mark the state invalid - can't call Get again.
-        return std::move(std::exchange(FutureBase<ResultType, Manager>::m_Receiver, nullptr)->GetResult());
+        return std::exchange(FutureBase<ResultType, Manager>::m_Receiver, nullptr)->GetResultMoved();
     }
 };
 
