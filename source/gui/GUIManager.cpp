@@ -146,8 +146,9 @@ void CGUIManager::SwitchPage(const CStrW& pageName, const ScriptInterface* srcSc
 
 JS::Value CGUIManager::OpenChildPage(const CStrW& pageName, Script::StructuredClone initData)
 {
-	// Store the callback handler in the current GUI page before opening the new one
-	JS::RootedValue promise{m_ScriptInterface.GetGeneralJSContext(), [&]
+	const auto promise = ScriptCommand([this, &pageName, &initData]() -> JS::Value {
+		// Store the callback handler in the current GUI page before opening the new one
+		JS::RootedValue promise{m_ScriptInterface.GetGeneralJSContext(), [&]
 		{
 			if (m_PageStack.empty())
 				return JS::UndefinedValue();
@@ -158,9 +159,12 @@ JS::Value CGUIManager::OpenChildPage(const CStrW& pageName, Script::StructuredCl
 			return m_PageStack.back().ReplacePromise(*currentPage.GetScriptInterface());
 		}()};
 
-	// Emplace the page prior to loading its contents, because that may open
-	// another GUI page on init which should be emplaced on top of this new page.
-	m_PageStack.emplace_back(pageName, initData);
+		// Emplace the page prior to loading its contents, because that may open
+		// another GUI page on init which should be emplaced on top of this new page.
+		m_PageStack.emplace_back(pageName, initData);
+
+		return promise;
+	}).Get();
 	m_PageStack.back().LoadPage(m_ScriptContext);
 
 	return promise;
@@ -177,23 +181,25 @@ void CGUIManager::SGUIPage::LoadPage(ScriptContext& scriptContext)
 	Script::StructuredClone hotloadData;
 	if (gui)
 	{
-		std::shared_ptr<ScriptInterface> scriptInterface = gui->GetScriptInterface();
-		ScriptRequest rq(scriptInterface);
-		JS::RootedValue hotloadDataVal(rq.cx, gui->GetHotloadData(rq));
-		hotloadData = Script::WriteStructuredClone(rq, hotloadDataVal);
+		ScriptCommand([this, &hotloadData](){
+			std::shared_ptr<ScriptInterface> scriptInterface = gui->GetScriptInterface();
+			const ScriptRequest rq(scriptInterface);
+			const JS::RootedValue hotloadDataVal(rq.cx, gui->GetHotloadData(rq));
+			hotloadData = Script::WriteStructuredClone(rq, hotloadDataVal);
+		}).Wait();
 	}
 
 	g_VideoMode.ResetCursor();
 	inputs.clear();
 	gui.reset(new CGUI(scriptContext));
-	const ScriptRequest rq{gui->GetScriptInterface()};
 
-	{
-		JS::RootedString jsName{rq.cx, JS_NewStringCopyZ(rq.cx, START_ATLAS)};
-		JS::RootedValue symbol{rq.cx, JS::SymbolValue(JS::NewSymbol(rq.cx, jsName))};
-		JS::RootedValue nativeScope{rq.cx, JS::ObjectValue(*rq.nativeScope)};
+	const ScriptRequest rq(ScriptCommand([this](){ return ScriptRequest(gui->GetScriptInterface()); }).GetMoved());
+	ScriptCommand([this, &rq](){
+		const JS::RootedString jsName{rq.cx, JS_NewStringCopyZ(rq.cx, START_ATLAS)};
+		const JS::RootedValue symbol{rq.cx, JS::SymbolValue(JS::NewSymbol(rq.cx, jsName))};
+		const JS::RootedValue nativeScope{rq.cx, JS::ObjectValue(*rq.nativeScope)};
 		Script::SetProperty(rq, nativeScope, START_ATLAS, symbol, true);
-	}
+	}).Wait();
 	gui->AddObjectTypes();
 
 	VfsPath path = VfsPath("gui") / m_Name;
@@ -254,69 +260,81 @@ void CGUIManager::SGUIPage::LoadPage(ScriptContext& scriptContext)
 		++gui->m_LoadModuleResult->iterator;
 	}
 
-	JS::RootedValue hotloadDataVal(rq.cx);
+	ScriptCommand([this, &rq, &hotloadData]()
+	{
+		JS::RootedValue hotloadDataVal(rq.cx);
 
-	if (hotloadData)
-		Script::ReadStructuredClone(rq, hotloadData, &hotloadDataVal);
+		if (hotloadData)
+			Script::ReadStructuredClone(rq, hotloadData, &hotloadDataVal);
 
-	JS::RootedObject returnObject{rq.cx, gui->CallPageInit(rq, initData, hotloadDataVal,
-		utf8_from_wstring(m_Name))};
+		JS::RootedObject returnObject{rq.cx, gui->CallPageInit(rq, initData, hotloadDataVal,
+			utf8_from_wstring(m_Name))};
 
-	sendingPromise = std::make_shared<JS::PersistentRootedObject>(rq.cx,
-		returnObject ? returnObject : JS::NewPromiseObject(rq.cx, nullptr));
+		sendingPromise = std::make_shared<JS::PersistentRootedObject>(rq.cx,
+			returnObject ? returnObject : JS::NewPromiseObject(rq.cx, nullptr));
+	}).Wait();
 }
 
 JS::Value CGUIManager::SGUIPage::ReplacePromise(ScriptInterface& scriptInterface)
 {
-	const ScriptRequest rq{scriptInterface};
-	receivingPromise = std::make_shared<JS::PersistentRootedObject>(rq.cx,
-			JS::NewPromiseObject(rq.cx, nullptr));
+	return ScriptCommand([this, &scriptInterface]()
+	{
+		const ScriptRequest rq{scriptInterface};
+		receivingPromise = std::make_shared<JS::PersistentRootedObject>(rq.cx,
+				JS::NewPromiseObject(rq.cx, nullptr));
 
-	return JS::ObjectValue(**receivingPromise);
+		return JS::ObjectValue(**receivingPromise);
+	}).Get();
 }
 
 std::optional<CGUIManager::SGUIPage::CloseResult> CGUIManager::SGUIPage::MaybeClose(const bool topmostPage)
 {
-	if (JS::GetPromiseState(*sendingPromise) == JS::PromiseState::Pending)
-		return std::nullopt;
-
-	// Make sure we unfocus anything on the current page.
-	gui->SendFocusMessage(GUIM_LOST_FOCUS);
-
-	const ScriptRequest rq{gui->GetScriptInterface()};
-	JS::RootedValue arg{rq.cx, JS::GetPromiseResult(*sendingPromise)};
-	const bool rejected{JS::GetPromiseState(*sendingPromise) == JS::PromiseState::Rejected};
-	if (topmostPage)
+	return ScriptCommand([this, topmostPage]() -> std::optional<CGUIManager::SGUIPage::CloseResult>
 	{
-		JS::RootedValue nativeScope{rq.cx, JS::ObjectValue(*rq.nativeScope)};
-		JS::RootedValue symbol{rq.cx};
-		Script::GetProperty(rq, nativeScope, START_ATLAS, &symbol);
-		bool equals;
-		if (!JS::StrictlyEqual(rq.cx, arg, symbol, &equals))
-			throw std::runtime_error{"Error while comparing return value to a symbol."};
+		if (JS::GetPromiseState(*sendingPromise) == JS::PromiseState::Pending)
+			return std::nullopt;
 
-		if (equals)
-			return CGUIManager::SGUIPage::CloseResult{nullptr, rejected};
-	}
-	return CGUIManager::SGUIPage::CloseResult{Script::WriteStructuredClone(rq, arg), rejected};
+		// Make sure we unfocus anything on the current page.
+		gui->SendFocusMessage(GUIM_LOST_FOCUS);
+
+		const ScriptRequest rq{gui->GetScriptInterface()};
+		const JS::RootedValue arg{rq.cx, JS::GetPromiseResult(*sendingPromise)};
+		const bool rejected{JS::GetPromiseState(*sendingPromise) == JS::PromiseState::Rejected};
+		if (topmostPage)
+		{
+			const JS::RootedValue nativeScope{rq.cx, JS::ObjectValue(*rq.nativeScope)};
+			JS::RootedValue symbol{rq.cx};
+			Script::GetProperty(rq, nativeScope, START_ATLAS, &symbol);
+			bool equals;
+			if (!JS::StrictlyEqual(rq.cx, arg, symbol, &equals))
+				throw std::runtime_error{"Error while comparing return value to a symbol."};
+
+			if (equals)
+				return CGUIManager::SGUIPage::CloseResult{nullptr, rejected};
+		}
+		return CGUIManager::SGUIPage::CloseResult{Script::WriteStructuredClone(rq, arg), rejected};
+	}).Get();
 }
 
 void CGUIManager::SGUIPage::Refocus(const CloseResult& result)
 {
 	ENSURE(receivingPromise);
 
-	std::shared_ptr<ScriptInterface> scriptInterface = gui->GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	ScriptCommand([this, &result]()
+	{
+		const std::shared_ptr<ScriptInterface> scriptInterface = gui->GetScriptInterface();
+		ScriptRequest rq(scriptInterface);
 
-	JS::RootedObject globalObj(rq.cx, rq.glob);
+		JS::RootedObject globalObj(rq.cx, rq.glob);
 
-	JS::RootedObject recv(rq.cx, *std::exchange(receivingPromise, nullptr));
+		const JS::RootedObject recv(rq.cx, *std::exchange(receivingPromise, nullptr));
 
-	JS::RootedValue argVal(rq.cx);
-	Script::ReadStructuredClone(rq, result.arg, &argVal);
+		JS::RootedValue argVal(rq.cx);
+		Script::ReadStructuredClone(rq, result.arg, &argVal);
 
-	// This only resolves the promise, it doesn't call the continuation.
-	(result.rejected ? JS::RejectPromise : JS::ResolvePromise)(rq.cx, recv, argVal);
+		// This only resolves the promise, it doesn't call the continuation.
+		(result.rejected ? JS::RejectPromise : JS::ResolvePromise)(rq.cx, recv, argVal);
+	}).Wait();
 
 	// We return to a page where some object might have been focused.
 	gui->SendFocusMessage(GUIM_GOT_FOCUS);
@@ -325,7 +343,7 @@ void CGUIManager::SGUIPage::Refocus(const CloseResult& result)
 Status CGUIManager::ReloadChangedFile(const VfsPath& path)
 {
 	for (SGUIPage& p : m_PageStack)
-		if (p.inputs.find(path) != p.inputs.end())
+		if (p.inputs.contains(path))
 		{
 			LOGMESSAGE("GUI file '%s' changed - reloading page '%s'", path.string8(), utf8_from_wstring(p.m_Name));
 			p.LoadPage(m_ScriptContext);
@@ -357,12 +375,19 @@ InReaction CGUIManager::HandleEvent(const SDL_Event_* ev)
 
 	{
 		PROFILE("handleInputBeforeGui");
-		ScriptRequest rq(*top()->GetScriptInterface());
+		if (ScriptCommand([this, &handled, &ev]()
+		{
+			const ScriptRequest rq(*top()->GetScriptInterface());
 
-		JS::RootedValue global(rq.cx, rq.globalValue());
-		if (ScriptFunction::Call(rq, global, "handleInputBeforeGui", handled, *ev, top()->FindObjectUnderMouse()))
-			if (handled)
-				return IN_HANDLED;
+			const JS::RootedValue global(rq.cx, rq.globalValue());
+			if (ScriptFunction::Call(rq, global, "handleInputBeforeGui", handled, *ev, top()->FindObjectUnderMouse()))
+				if (handled)
+					return true;
+			return false;
+		}).Get())
+		{
+			return IN_HANDLED;
+		}
 	}
 
 	{
@@ -373,14 +398,21 @@ InReaction CGUIManager::HandleEvent(const SDL_Event_* ev)
 	}
 
 	{
-		// We can't take the following lines out of this scope because top() may be another gui page than it was when calling handleInputBeforeGui!
-		ScriptRequest rq(*top()->GetScriptInterface());
-		JS::RootedValue global(rq.cx, rq.globalValue());
 
+		// We can't take the following lines out of this scope because top() may be another gui page than it was when calling handleInputBeforeGui!
 		PROFILE("handleInputAfterGui");
-		if (ScriptFunction::Call(rq, global, "handleInputAfterGui", handled, *ev))
-			if (handled)
-				return IN_HANDLED;
+		if (ScriptCommand([this, &handled, &ev]()
+		{
+			const ScriptRequest rq(*top()->GetScriptInterface());
+			const JS::RootedValue global(rq.cx, rq.globalValue());
+
+			if (ScriptFunction::Call(rq, global, "handleInputAfterGui", handled, *ev))
+				if (handled)
+					return true;
+			return false;
+		}).Get()) {
+			return IN_HANDLED;
+		}
 	}
 
 	return IN_PASS;
@@ -409,17 +441,20 @@ std::optional<bool> CGUIManager::TickObjects()
 
 	// We share the script context with everything else that runs in the same thread.
 	// This call makes sure we trigger GC regularly even if the simulation is not running.
-	m_ScriptContext.MaybeIncrementalGC();
+	ScriptCommand([this]() { m_ScriptContext.MaybeIncrementalGC(); }).Wait();
 
 	const auto pageStack = GetCopyOfFrozenStack();
 
 	for (const SGUIPage& p : pageStack)
 	{
-		const ScriptRequest rq{p.gui->GetScriptInterface()};
-		JS::RootedObject newSendingPromise{rq.cx, p.gui->TickObjects(rq, p.initData,
-			utf8_from_wstring(p.m_Name))};
-		if (newSendingPromise)
-			(*p.sendingPromise) = newSendingPromise;
+		ScriptCommand([this, &p]()
+		{
+			const ScriptRequest rq{p.gui->GetScriptInterface()};
+			const JS::RootedObject newSendingPromise{rq.cx, p.gui->TickObjects(rq, p.initData,
+				utf8_from_wstring(p.m_Name))};
+			if (newSendingPromise)
+				(*p.sendingPromise) = newSendingPromise;
+		}).Wait();
 	}
 
 	m_ScriptContext.RunJobs();
@@ -479,15 +514,20 @@ const CParamNode& CGUIManager::GetTemplate(const std::string& templateName)
 void CGUIManager::DisplayLoadProgress(int percent, const wchar_t* pending_task)
 {
 	const ScriptInterface& scriptInterface = *(GetActiveGUI()->GetScriptInterface());
-	ScriptRequest rq(scriptInterface);
+	const auto paramData = ScriptCommand([this, percent, pending_task, &scriptInterface]() -> JS::HandleValueArray
+	{
+		const ScriptRequest rq(scriptInterface);
 
-	JS::RootedValueVector paramData(rq.cx);
+		JS::RootedValueVector paramData(rq.cx);
 
-	std::ignore = paramData.append(JS::NumberValue(percent));
+		std::ignore = paramData.append(JS::NumberValue(percent));
 
-	JS::RootedValue valPendingTask(rq.cx);
-	Script::ToJSVal(rq, &valPendingTask, pending_task);
-	std::ignore = paramData.append(valPendingTask);
+		JS::RootedValue valPendingTask(rq.cx);
+		Script::ToJSVal(rq, &valPendingTask, pending_task);
+		std::ignore = paramData.append(valPendingTask);
+
+		return paramData;
+	}).GetMoved();
 
 	SendEventToAll(EVENT_NAME_GAME_LOAD_PROGRESS, paramData);
 }

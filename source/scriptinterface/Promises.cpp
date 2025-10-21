@@ -24,6 +24,7 @@
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 
 #include <js/CallAndConstruct.h>
 #include <js/GlobalObject.h>
@@ -59,19 +60,22 @@ void JobQueue::runJobs(JSContext*)
 	while (!m_Jobs.empty())
 	{
 		QueueElement& element = m_Jobs.front();
-		ScriptRequest rq{element.scriptInterface};
-		JS::RootedObject localJob{rq.cx, element.job};
-		m_Jobs.pop();
+		ScriptCommand([this, &element]()
+		{
+			const ScriptRequest rq{element.scriptInterface};
+			const JS::RootedObject localJob{rq.cx, element.job};
+			m_Jobs.pop();
 
-		JS::RootedValue globV{rq.cx, rq.globalValue()};
-		JS::RootedValue rval{rq.cx};
-		JS::Call(rq.cx, globV, localJob, JS::HandleValueArray::empty(), &rval);
+			const JS::RootedValue globV{rq.cx, rq.globalValue()};
+			JS::RootedValue rval{rq.cx};
+			JS::Call(rq.cx, globV, localJob, JS::HandleValueArray::empty(), &rval);
+		}).Wait();
 	}
 }
 
 JSObject* JobQueue::getIncumbentGlobal(JSContext* cx)
 {
-	return JS::CurrentGlobalOrNull(cx);
+	return ScriptCommand([this, cx]() { return JS::CurrentGlobalOrNull(cx); }).Get();
 }
 
 bool JobQueue::enqueuePromiseJob(JSContext* cx, JS::HandleObject, JS::HandleObject job, JS::HandleObject,

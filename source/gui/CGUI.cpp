@@ -54,6 +54,7 @@
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptExceptions.h"
 #include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ScriptThread.h"
 #include "scriptinterface/ScriptRequest.h"
 
 #include <algorithm>
@@ -999,8 +1000,11 @@ void CGUI::Xeromyces_ReadScript(const XMBData& xmb, XMBElement element, std::uno
 		if (m_LoadModuleResult.has_value())
 			throw std::logic_error{"There can only be one root module per page."};
 
-		const ScriptRequest rq{m_ScriptInterface};
-		m_LoadModuleResult.emplace(rq, moduleAttribute);
+		ScriptCommand([this, &moduleAttribute]()
+		{
+			const ScriptRequest rq{m_ScriptInterface};
+			m_LoadModuleResult.emplace(rq, moduleAttribute);
+		}).Wait();
 	}
 
 	// If there is a "file" attribute, open and execute it

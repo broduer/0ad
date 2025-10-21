@@ -32,6 +32,7 @@
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/ICmpTemplateManager.h"
 #include "simulation2/helpers/Player.h"
@@ -82,36 +83,38 @@ CComponentManager::CComponentManager(CSimContext& context, ScriptContext& cx, bo
 {
 	context.SetComponentManager(this);
 
-	m_ScriptInterface.SetCallbackData(static_cast<void*> (this));
-	m_ScriptInterface.ReplaceNondeterministicRNG(m_RNG);
-
-	JS_AddExtraGCRootsTracer(m_ScriptInterface.GetGeneralJSContext(), Trace, (void*)this);
-
-	// For component script tests, the test system sets up its own scripted implementation of
-	// these functions, so we skip registering them here in those cases
-	if (!skipScriptFunctions)
+	ScriptCommand([this, &skipScriptFunctions]()
 	{
-		JSI_VFS::RegisterScriptFunctions_ReadOnlySimulation(m_ScriptInterface);
-		ScriptRequest rq(m_ScriptInterface);
-		constexpr ScriptFunction::ObjectGetter<CComponentManager> Getter = &ScriptInterface::ObjectFromCBData<CComponentManager>;
-		ScriptFunction::Register<&CComponentManager::Script_RegisterComponentType, Getter>(rq, "RegisterComponentType");
-		ScriptFunction::Register<&CComponentManager::Script_RegisterSystemComponentType, Getter>(rq, "RegisterSystemComponentType");
-		ScriptFunction::Register<&CComponentManager::Script_ReRegisterComponentType, Getter>(rq, "ReRegisterComponentType");
-		ScriptFunction::Register<&CComponentManager::Script_RegisterInterface, Getter>(rq, "RegisterInterface");
-		ScriptFunction::Register<&CComponentManager::Script_RegisterMessageType, Getter>(rq, "RegisterMessageType");
-		ScriptFunction::Register<&CComponentManager::Script_RegisterGlobal, Getter>(rq, "RegisterGlobal");
-		ScriptFunction::Register<&CComponentManager::Script_GetEntitiesWithInterface, Getter>(rq, "GetEntitiesWithInterface");
-		ScriptFunction::Register<&CComponentManager::Script_GetComponentsWithInterface, Getter>(rq, "GetComponentsWithInterface");
-		ScriptFunction::Register<&CComponentManager::Script_PostMessage, Getter>(rq, "PostMessage");
-		ScriptFunction::Register<&CComponentManager::Script_BroadcastMessage, Getter>(rq, "BroadcastMessage");
-		ScriptFunction::Register<&CComponentManager::Script_AddEntity, Getter>(rq, "AddEntity");
-		ScriptFunction::Register<&CComponentManager::Script_AddLocalEntity, Getter>(rq, "AddLocalEntity");
-		ScriptFunction::Register<&CComponentManager::QueryInterface, Getter>(rq, "QueryInterface");
-		ScriptFunction::Register<&CComponentManager::DestroyComponentsSoon, Getter>(rq, "DestroyEntity");
-		ScriptFunction::Register<&CComponentManager::FlushDestroyedComponents, Getter>(rq, "FlushDestroyedEntities");
-		ScriptFunction::Register<&CComponentManager::Script_GetTemplate, Getter>(rq, "GetTemplate");
+		m_ScriptInterface.SetCallbackData(static_cast<void*> (this));
+		m_ScriptInterface.ReplaceNondeterministicRNG(m_RNG);
 
-	}
+		JS_AddExtraGCRootsTracer(m_ScriptInterface.GetGeneralJSContext(), Trace, (void*)this);
+
+		// For component script tests, the test system sets up its own scripted implementation of
+		// these functions, so we skip registering them here in those cases
+		if (!skipScriptFunctions)
+		{
+			JSI_VFS::RegisterScriptFunctions_ReadOnlySimulation(m_ScriptInterface);
+			ScriptRequest rq(m_ScriptInterface);
+			constexpr ScriptFunction::ObjectGetter<CComponentManager> Getter = &ScriptInterface::ObjectFromCBData<CComponentManager>;
+			ScriptFunction::Register<&CComponentManager::Script_RegisterComponentType, Getter>(rq, "RegisterComponentType");
+			ScriptFunction::Register<&CComponentManager::Script_RegisterSystemComponentType, Getter>(rq, "RegisterSystemComponentType");
+			ScriptFunction::Register<&CComponentManager::Script_ReRegisterComponentType, Getter>(rq, "ReRegisterComponentType");
+			ScriptFunction::Register<&CComponentManager::Script_RegisterInterface, Getter>(rq, "RegisterInterface");
+			ScriptFunction::Register<&CComponentManager::Script_RegisterMessageType, Getter>(rq, "RegisterMessageType");
+			ScriptFunction::Register<&CComponentManager::Script_RegisterGlobal, Getter>(rq, "RegisterGlobal");
+			ScriptFunction::Register<&CComponentManager::Script_GetEntitiesWithInterface, Getter>(rq, "GetEntitiesWithInterface");
+			ScriptFunction::Register<&CComponentManager::Script_GetComponentsWithInterface, Getter>(rq, "GetComponentsWithInterface");
+			ScriptFunction::Register<&CComponentManager::Script_PostMessage, Getter>(rq, "PostMessage");
+			ScriptFunction::Register<&CComponentManager::Script_BroadcastMessage, Getter>(rq, "BroadcastMessage");
+			ScriptFunction::Register<&CComponentManager::Script_AddEntity, Getter>(rq, "AddEntity");
+			ScriptFunction::Register<&CComponentManager::Script_AddLocalEntity, Getter>(rq, "AddLocalEntity");
+			ScriptFunction::Register<&CComponentManager::QueryInterface, Getter>(rq, "QueryInterface");
+			ScriptFunction::Register<&CComponentManager::DestroyComponentsSoon, Getter>(rq, "DestroyEntity");
+			ScriptFunction::Register<&CComponentManager::FlushDestroyedComponents, Getter>(rq, "FlushDestroyedEntities");
+			ScriptFunction::Register<&CComponentManager::Script_GetTemplate, Getter>(rq, "GetTemplate");
+		}
+	}).Wait();
 
 	// Globalscripts may use VFS script functions
 	m_ScriptInterface.LoadGlobalScripts();

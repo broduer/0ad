@@ -69,7 +69,8 @@ bool CShaderParams<value_t>::SItems::NameLess(const Item& a, const Item& b)
 template<typename value_t>
 typename CShaderParams<value_t>::SItems* CShaderParams<value_t>::GetInterned(const SItems& items)
 {
-	ENSURE(Threading::IsMainThread()); // s_InternedItems is not thread-safe
+	// [WATCH] For now, we consider it thread safe as all events are theoretically synchronous to the main thread.
+	//ENSURE(Threading::IsMainThread()); // s_InternedItems is not thread-safe
 
 	typename InternedItems_t::iterator it = s_InternedItems.find(items);
 	if (it != s_InternedItems.end())

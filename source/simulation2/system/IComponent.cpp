@@ -22,6 +22,12 @@
 #include "simulation2/system/ComponentManager.h"
 
 #include <string>
+#include <mutex>
+
+namespace
+{
+std::mutex g_ComponentTypeRegistrationMutex;
+}
 
 IComponent::~IComponent()
 {
@@ -35,6 +41,7 @@ std::string IComponent::GetSchema()
 
 void IComponent::RegisterComponentType(CComponentManager& mgr, EInterfaceId iid, EComponentTypeId cid, AllocFunc alloc, DeallocFunc dealloc, const char* name, const std::string& schema)
 {
+	std::lock_guard lock(g_ComponentTypeRegistrationMutex);
 	mgr.RegisterComponentType(iid, cid, alloc, dealloc, name, schema);
 }
 
@@ -42,6 +49,7 @@ void IComponent::RegisterComponentTypeScriptWrapper(CComponentManager& mgr, EInt
 	EComponentTypeId cid, AllocFunc alloc, DeallocFunc dealloc, const char* name,
 	const std::string& schema, ClassInitFunc classInit)
 {
+	std::lock_guard lock(g_ComponentTypeRegistrationMutex);
 	mgr.RegisterComponentTypeScriptWrapper(iid, cid, alloc, dealloc, name, schema, classInit);
 }
 

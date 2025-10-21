@@ -42,16 +42,21 @@
 #include <unordered_map>
 #include <utility>
 
+#include "scriptinterface/ScriptThread.h"
+
 class IGUIObject;
 
 void CGUI::AddObjectTypes()
 {
-	m_ProxyData.insert(JSI_GUIProxy<IGUIObject>::CreateData(*m_ScriptInterface));
-	m_ProxyData.insert(JSI_GUIProxy<CText>::CreateData(*m_ScriptInterface));
-	m_ProxyData.insert(JSI_GUIProxy<CList>::CreateData(*m_ScriptInterface));
-	m_ProxyData.insert(JSI_GUIProxy<CMiniMap>::CreateData(*m_ScriptInterface));
-	m_ProxyData.insert(JSI_GUIProxy<CButton>::CreateData(*m_ScriptInterface));
-	m_ProxyData.insert(JSI_GUIProxy<CScrollPanel>::CreateData(*m_ScriptInterface));
+	ScriptCommand([this]()
+	{
+		m_ProxyData.insert(JSI_GUIProxy<IGUIObject>::CreateData(*m_ScriptInterface));
+		m_ProxyData.insert(JSI_GUIProxy<CText>::CreateData(*m_ScriptInterface));
+		m_ProxyData.insert(JSI_GUIProxy<CList>::CreateData(*m_ScriptInterface));
+		m_ProxyData.insert(JSI_GUIProxy<CMiniMap>::CreateData(*m_ScriptInterface));
+		m_ProxyData.insert(JSI_GUIProxy<CButton>::CreateData(*m_ScriptInterface));
+		m_ProxyData.insert(JSI_GUIProxy<CScrollPanel>::CreateData(*m_ScriptInterface));
+	}).Wait();
 
 	AddObjectType("button", &CButton::ConstructObject);
 	AddObjectType("chart", &CChart::ConstructObject);
