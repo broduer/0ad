@@ -1028,7 +1028,7 @@ void ScenarioEditor::OnHelp(wxCommandEvent& event)
 	if (it == m_HelpData.end())
 		return;
 	wxMessageDialog* dialog = new wxMessageDialog(
-		nullptr, _("Do you want to open '" + it->second.m_URL + "'?"),
+		nullptr, tr("Do you want to open '" + it->second.m_URL + "'?"),
 		_("Atlas"), wxYES_NO | wxNO_DEFAULT | wxICON_QUESTION
 	);
 	if (dialog->ShowModal() == wxID_YES)
