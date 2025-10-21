@@ -123,16 +123,15 @@ ScriptRequest::ScriptRequest(ScriptRequest &&scriptRequest) :
 	glob(std::move(scriptRequest.glob)),
 	nativeScope(std::move(scriptRequest.nativeScope)),
 	m_ScriptInterface(std::move(scriptRequest.m_ScriptInterface)),
-	m_FormerRealm(std::move(scriptRequest.m_FormerRealm))
+	m_FormerRealm(std::exchange(scriptRequest.m_FormerRealm, nullptr))
 {
-	m_FormerRealm = JS::EnterRealm(cx, glob);
 }
-
 
 ScriptRequest::~ScriptRequest()
 {
 	// This allows us to have instances of ScriptRequest outside the ScriptThread.
-	ScriptCommand([this]() { JS::LeaveRealm(cx, m_FormerRealm); }).Wait();
+	if (cx && m_FormerRealm)
+		ScriptCommand([this]() { JS::LeaveRealm(cx, m_FormerRealm); }).Wait();
 }
 
 ScriptRequest::ScriptRequest(JSContext* cx) : ScriptRequest(ScriptInterface::CmptPrivate::GetScriptInterface(cx))
@@ -502,24 +501,27 @@ bool ScriptInterface::LoadGlobalScripts()
 
 bool ScriptInterface::ReplaceNondeterministicRNG(boost::rand48& rng)
 {
-	ScriptRequest rq(this);
-	JS::RootedValue math(rq.cx);
-	JS::RootedObject global(rq.cx, rq.glob);
-	if (JS_GetProperty(rq.cx, global, "Math", &math) && math.isObject())
+	return ScriptCommand([this, &rng]()
 	{
-		JS::RootedObject mathObj(rq.cx, &math.toObject());
-		JS::RootedFunction random(rq.cx, JS_DefineFunction(rq.cx, mathObj, "random", Math_random, 0,
-			JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT));
-		if (random)
+		const ScriptRequest rq(this);
+		JS::RootedValue math(rq.cx);
+		const JS::RootedObject global(rq.cx, rq.glob);
+		if (JS_GetProperty(rq.cx, global, "Math", &math) && math.isObject())
 		{
-			m->m_rng = &rng;
-			return true;
+			const JS::RootedObject mathObj(rq.cx, &math.toObject());
+			const JS::RootedFunction random(rq.cx, JS_DefineFunction(rq.cx, mathObj, "random", Math_random, 0,
+				JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT));
+			if (random)
+			{
+				m->m_rng = &rng;
+				return true;
+			}
 		}
-	}
 
-	ScriptException::CatchPending(rq);
-	LOGERROR("ReplaceNondeterministicRNG: failed to replace Math.random");
-	return false;
+		ScriptException::CatchPending(rq);
+		LOGERROR("ReplaceNondeterministicRNG: failed to replace Math.random");
+		return false;
+	}).Get();
 }
 
 JSContext* ScriptInterface::GetGeneralJSContext() const
@@ -539,50 +541,56 @@ Script::ModuleLoader& ScriptInterface::GetModuleLoader() const
 
 void ScriptInterface::CallConstructor(JS::HandleValue ctor, JS::HandleValueArray argv, JS::MutableHandleValue out) const
 {
-	ScriptRequest rq(this);
-	if (!ctor.isObject())
+	ScriptCommand([this, &ctor, &argv, &out]()
 	{
-		LOGERROR("CallConstructor: ctor is not an object");
-		out.setNull();
-		return;
-	}
+		const ScriptRequest rq(this);
+		if (!ctor.isObject())
+		{
+			LOGERROR("CallConstructor: ctor is not an object");
+			out.setNull();
+			return;
+		}
 
-	JS::RootedObject objOut(rq.cx);
-	if (!JS::Construct(rq.cx, ctor, argv, &objOut))
-		out.setNull();
-	else
-		out.setObjectOrNull(objOut);
+		JS::RootedObject objOut(rq.cx);
+		if (!JS::Construct(rq.cx, ctor, argv, &objOut))
+			out.setNull();
+		else
+			out.setObjectOrNull(objOut);
+	}).Wait();
 }
 
-void ScriptInterface::DefineCustomObjectType(JSClass *clasp, JSNative constructor, uint minArgs, JSPropertySpec *ps, JSFunctionSpec *fs, JSPropertySpec *static_ps, JSFunctionSpec *static_fs)
+void ScriptInterface::DefineCustomObjectType(JSClass *clasp, JSNative constructor, const uint minArgs, JSPropertySpec *ps, JSFunctionSpec *fs, JSPropertySpec *static_ps, JSFunctionSpec *static_fs)
 {
-	ScriptRequest rq(this);
-	std::string typeName = clasp->name;
-
-	if (m_CustomObjectTypes.find(typeName) != m_CustomObjectTypes.end())
+	ScriptCommand([this, clasp, &constructor, minArgs, ps, fs, static_ps, static_fs]()
 	{
-		// This type already exists
-		throw PSERROR_Scripting_DefineType_AlreadyExists();
-	}
+		const ScriptRequest rq(this);
+		const std::string typeName = clasp->name;
 
-	JS::RootedObject global(rq.cx, rq.glob);
-	JS::RootedObject obj(rq.cx, JS_InitClass(rq.cx, global,
-	                                           clasp, nullptr, clasp->name,
-	                                           constructor, minArgs,     // Constructor, min args
-	                                           ps, fs,                   // Properties, methods
-	                                           static_ps, static_fs));   // Constructor properties, methods
+		if (m_CustomObjectTypes.contains(typeName))
+		{
+			// This type already exists
+			throw PSERROR_Scripting_DefineType_AlreadyExists();
+		}
 
-	if (obj == nullptr)
-	{
-		ScriptException::CatchPending(rq);
-		throw PSERROR_Scripting_DefineType_CreationFailed();
-	}
+		const JS::RootedObject global(rq.cx, rq.glob);
+		JS::RootedObject obj(rq.cx, JS_InitClass(rq.cx, global,
+												   clasp, nullptr, clasp->name,
+												   constructor, minArgs,     // Constructor, min args
+												   ps, fs,                   // Properties, methods
+												   static_ps, static_fs));   // Constructor properties, methods
 
-	CustomType& type = m_CustomObjectTypes[typeName];
+		if (obj == nullptr)
+		{
+			ScriptException::CatchPending(rq);
+			throw PSERROR_Scripting_DefineType_CreationFailed();
+		}
 
-	type.m_Prototype.init(rq.cx, obj);
-	type.m_Class = clasp;
-	type.m_Constructor = constructor;
+		CustomType& type = m_CustomObjectTypes[typeName];
+
+		type.m_Prototype.init(rq.cx, obj);
+		type.m_Class = clasp;
+		type.m_Constructor = constructor;
+	}).Wait();
 }
 
 JSObject* ScriptInterface::CreateCustomObject(const std::string& typeName) const
@@ -592,53 +600,59 @@ JSObject* ScriptInterface::CreateCustomObject(const std::string& typeName) const
 	if (it == m_CustomObjectTypes.end())
 		throw PSERROR_Scripting_TypeDoesNotExist();
 
-	ScriptRequest rq(this);
-	JS::RootedObject prototype(rq.cx, it->second.m_Prototype.get());
-	return JS_NewObjectWithGivenProto(rq.cx, it->second.m_Class, prototype);
+	return ScriptCommand([this, &it]()
+	{
+		const ScriptRequest rq(this);
+		const JS::RootedObject prototype(rq.cx, it->second.m_Prototype.get());
+		return JS_NewObjectWithGivenProto(rq.cx, it->second.m_Class, prototype);
+	}).Get();
 }
 
 bool ScriptInterface::SetGlobal_(const char* name, JS::HandleValue value, bool replace, bool constant, bool enumerate)
 {
-	ScriptRequest rq(this);
-	JS::RootedObject global(rq.cx, rq.glob);
-
-	bool found;
-	if (!JS_HasProperty(rq.cx, global, name, &found))
-		return false;
-	if (found)
+	return ScriptCommand([this, name, &value, replace, constant, enumerate]()
 	{
-		JS::Rooted<mozilla::Maybe<JS::PropertyDescriptor>> desc(rq.cx);
-		if (!JS_GetOwnPropertyDescriptor(rq.cx, global, name, &desc) || !desc.isSome())
+		const ScriptRequest rq(this);
+		const JS::RootedObject global(rq.cx, rq.glob);
+
+		bool found;
+		if (!JS_HasProperty(rq.cx, global, name, &found))
 			return false;
-
-		if (!desc->writable())
+		if (found)
 		{
-			if (!replace)
-			{
-				ScriptException::Raise(rq, "SetGlobal \"%s\" called multiple times", name);
+			JS::Rooted<mozilla::Maybe<JS::PropertyDescriptor>> desc(rq.cx);
+			if (!JS_GetOwnPropertyDescriptor(rq.cx, global, name, &desc) || !desc.isSome())
 				return false;
-			}
 
-			// This is not supposed to happen, unless the user has called SetProperty with constant = true on the global object
-			// instead of using SetGlobal.
-			if (!desc->configurable())
+			if (!desc->writable())
 			{
-				ScriptException::Raise(rq, "The global \"%s\" is permanent and cannot be hotloaded", name);
-				return false;
-			}
+				if (!replace)
+				{
+					ScriptException::Raise(rq, "SetGlobal \"%s\" called multiple times", name);
+					return false;
+				}
 
-			LOGMESSAGE("Hotloading new value for global \"%s\".", name);
-			ENSURE(JS_DeleteProperty(rq.cx, global, name));
+				// This is not supposed to happen, unless the user has called SetProperty with constant = true on the global object
+				// instead of using SetGlobal.
+				if (!desc->configurable())
+				{
+					ScriptException::Raise(rq, "The global \"%s\" is permanent and cannot be hotloaded", name);
+					return false;
+				}
+
+				LOGMESSAGE("Hotloading new value for global \"%s\".", name);
+				ENSURE(JS_DeleteProperty(rq.cx, global, name));
+			}
 		}
-	}
 
-	uint attrs = 0;
-	if (constant)
-		attrs |= JSPROP_READONLY;
-	if (enumerate)
-		attrs |= JSPROP_ENUMERATE;
+		uint attrs = 0;
+		if (constant)
+			attrs |= JSPROP_READONLY;
+		if (enumerate)
+			attrs |= JSPROP_ENUMERATE;
 
-	return JS_DefineProperty(rq.cx, global, name, value, attrs);
+		return JS_DefineProperty(rq.cx, global, name, value, attrs);
+	}).Get();
 }
 
 bool ScriptInterface::GetGlobalProperty(const ScriptRequest& rq, const std::string& name, JS::MutableHandleValue out)
@@ -673,52 +687,58 @@ bool ScriptInterface::GetGlobalProperty(const ScriptRequest& rq, const std::stri
 
 bool ScriptInterface::SetPrototype(JS::HandleValue objVal, JS::HandleValue protoVal)
 {
-	ScriptRequest rq(this);
-	if (!objVal.isObject() || !protoVal.isObject())
-		return false;
-	JS::RootedObject obj(rq.cx, &objVal.toObject());
-	JS::RootedObject proto(rq.cx, &protoVal.toObject());
-	return JS_SetPrototype(rq.cx, obj, proto);
+	return ScriptCommand([this, &objVal, &protoVal]()
+	{
+		const ScriptRequest rq(this);
+		if (!objVal.isObject() || !protoVal.isObject())
+			return false;
+		JS::RootedObject obj(rq.cx, &objVal.toObject());
+		JS::RootedObject proto(rq.cx, &protoVal.toObject());
+		return JS_SetPrototype(rq.cx, obj, proto);
+	}).Get();
 }
 
 bool ScriptInterface::LoadScript(const VfsPath& filename, const std::string& code) const
 {
-	ScriptRequest rq(this);
-	JS::RootedObject global(rq.cx, rq.glob);
-
-	// CompileOptions does not copy the contents of the filename string pointer.
-	// Passing a temporary string there will cause undefined behaviour, so we create a separate string to avoid the temporary.
-	std::string filenameStr = filename.string8();
-
-	JS::CompileOptions options(rq.cx);
-	// Set the line to 0 because CompileFunction silently adds a `(function() {` as the first line,
-	// and errors get misreported.
-	// TODO: it would probably be better to not implicitly introduce JS scopes.
-	options.setFileAndLine(filenameStr.c_str(), 0);
-	options.setIsRunOnce(false);
-	options.setForceStrictMode();
-
-	JS::SourceText<mozilla::Utf8Unit> src;
-	ENSURE(src.init(rq.cx, code.c_str(), code.length(), JS::SourceOwnership::Borrowed));
-	JS::RootedObjectVector emptyScopeChain(rq.cx);
-	JS::RootedFunction func(rq.cx, JS::CompileFunction(rq.cx, emptyScopeChain, options, NULL, 0, NULL, src));
-	if (func == nullptr)
+	return ScriptCommand([this, &filename, &code]()
 	{
+		const ScriptRequest rq(this);
+		const JS::RootedObject global(rq.cx, rq.glob);
+
+		// CompileOptions does not copy the contents of the filename string pointer.
+		// Passing a temporary string there will cause undefined behaviour, so we create a separate string to avoid the temporary.
+		const std::string filenameStr = filename.string8();
+
+		JS::CompileOptions options(rq.cx);
+		// Set the line to 0 because CompileFunction silently adds a `(function() {` as the first line,
+		// and errors get misreported.
+		// TODO: it would probably be better to not implicitly introduce JS scopes.
+		options.setFileAndLine(filenameStr.c_str(), 0);
+		options.setIsRunOnce(false);
+		options.setForceStrictMode();
+
+		JS::SourceText<mozilla::Utf8Unit> src;
+		ENSURE(src.init(rq.cx, code.c_str(), code.length(), JS::SourceOwnership::Borrowed));
+		const JS::RootedObjectVector emptyScopeChain(rq.cx);
+		const JS::RootedFunction func(rq.cx, JS::CompileFunction(rq.cx, emptyScopeChain, options, NULL, 0, NULL, src));
+		if (func == nullptr)
+		{
+			ScriptException::CatchPending(rq);
+			return false;
+		}
+
+		JS::RootedValue rval(rq.cx);
+		if (JS_CallFunction(rq.cx, nullptr, func, JS::HandleValueArray::empty(), &rval))
+			return true;
+
 		ScriptException::CatchPending(rq);
 		return false;
-	}
-
-	JS::RootedValue rval(rq.cx);
-	if (JS_CallFunction(rq.cx, nullptr, func, JS::HandleValueArray::empty(), &rval))
-		return true;
-
-	ScriptException::CatchPending(rq);
-	return false;
+	}).Get();
 }
 
 bool ScriptInterface::LoadGlobalScript(const VfsPath& filename, const std::string& code) const
 {
-	return g_ScriptThread.Run([this, &filename, &code]()
+	return ScriptCommand([this, &filename, &code]()
 	{
 		const ScriptRequest rq(this);
 		// CompileOptions does not copy the contents of the filename string pointer.
@@ -750,7 +770,7 @@ bool ScriptInterface::LoadGlobalScriptFile(const VfsPath& path) const
 
 	CVFSFile file;
 
-	PSRETURN ret = file.Load(g_VFS, path);
+	const PSRETURN ret = file.Load(g_VFS, path);
 
 	if (ret != PSRETURN_OK)
 	{
@@ -758,40 +778,46 @@ bool ScriptInterface::LoadGlobalScriptFile(const VfsPath& path) const
 		return false;
 	}
 
-	CStr code = file.DecodeUTF8(); // assume it's UTF-8
+	const CStr code = file.DecodeUTF8(); // assume it's UTF-8
 
 	return LoadGlobalScript(path, code);
 }
 
 bool ScriptInterface::Eval(const char* code) const
 {
-	ScriptRequest rq(this);
-	JS::RootedValue rval(rq.cx);
+	return ScriptCommand([this, code]()
+	{
+		const ScriptRequest rq(this);
+		JS::RootedValue rval(rq.cx);
 
-	JS::CompileOptions opts(rq.cx);
-	opts.setFileAndLine("(eval)", 1);
-	opts.setForceStrictMode();
-	JS::SourceText<mozilla::Utf8Unit> src;
-	ENSURE(src.init(rq.cx, code, strlen(code), JS::SourceOwnership::Borrowed));
-	if (JS::Evaluate(rq.cx, opts, src, &rval))
-		return true;
+		JS::CompileOptions opts(rq.cx);
+		opts.setFileAndLine("(eval)", 1);
+		opts.setForceStrictMode();
+		JS::SourceText<mozilla::Utf8Unit> src;
+		ENSURE(src.init(rq.cx, code, strlen(code), JS::SourceOwnership::Borrowed));
+		if (JS::Evaluate(rq.cx, opts, src, &rval))
+			return true;
 
-	ScriptException::CatchPending(rq);
-	return false;
+		ScriptException::CatchPending(rq);
+		return false;
+	}).Get();
 }
 
 bool ScriptInterface::Eval(const char* code, JS::MutableHandleValue rval) const
 {
-	ScriptRequest rq(this);
+	return ScriptCommand([this, code, &rval]()
+	{
+		const ScriptRequest rq(this);
 
-	JS::CompileOptions opts(rq.cx);
-	opts.setFileAndLine("(eval)", 1);
-	opts.setForceStrictMode();
-	JS::SourceText<mozilla::Utf8Unit> src;
-	ENSURE(src.init(rq.cx, code, strlen(code), JS::SourceOwnership::Borrowed));
-	if (JS::Evaluate(rq.cx, opts, src, rval))
-		return true;
+		JS::CompileOptions opts(rq.cx);
+		opts.setFileAndLine("(eval)", 1);
+		opts.setForceStrictMode();
+		JS::SourceText<mozilla::Utf8Unit> src;
+		ENSURE(src.init(rq.cx, code, strlen(code), JS::SourceOwnership::Borrowed));
+		if (JS::Evaluate(rq.cx, opts, src, rval))
+			return true;
 
-	ScriptException::CatchPending(rq);
-	return false;
+		ScriptException::CatchPending(rq);
+		return false;
+	}).Get();
 }
