@@ -30,6 +30,7 @@
 #include "tools/atlas/AtlasUI/General/Observable.h"
 #include "tools/atlas/AtlasUI/Misc/DLLInterface.h"
 #include "tools/atlas/AtlasUI/Misc/KeyMap.h"
+#include "Tools/atlas/AtlasUI/Misc/TranslationUtility.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/SectionLayout.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/MiscState.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/ObjectSettings.h"
@@ -543,7 +544,7 @@ ScenarioEditor::ScenarioEditor(wxWindow* parent)
 						break; \
 					if (!data[#id]["title"].hasContent() || !data[#id]["url"].hasContent()) \
 						break; \
-					menuHelp->Append(ID_##id, _(wxString(data[#id]["title"])), _(wxString(data[#id]["tooltip"]))); \
+					menuHelp->Append(ID_##id, tr(wxString(data[#id]["title"])), tr(wxString(data[#id]["tooltip"]))); \
 					m_HelpData.insert(std::make_pair( \
 						ID_##id, \
 						HelpItem(wxString::FromUTF8(data[#id]["title"]), wxString::FromUTF8(data[#id]["tooltip"]), wxString::FromUTF8(data[#id]["url"])) \

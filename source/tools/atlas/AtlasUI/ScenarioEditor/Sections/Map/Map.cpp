@@ -23,6 +23,7 @@
 #include "tools/atlas/AtlasUI/CustomControls/MapResizeDialog/MapResizeDialog.h"
 #include "tools/atlas/AtlasUI/General/AtlasWindowCommandProc.h"
 #include "tools/atlas/AtlasUI/General/Observable.h"
+#include "Tools/atlas/AtlasUI/Misc/TranslationUtility.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/ScenarioEditor.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/Sections/Common/Sidebar.h"
 #include "tools/atlas/AtlasUI/ScenarioEditor/Tools/Common/Tools.h"
@@ -66,8 +67,8 @@
 #include <wx/wxcrt.h>
 
 #define CREATE_CHECKBOX(window, parentSizer, name, description, ID) \
-	parentSizer->Add(new wxStaticText(window, wxID_ANY, _(name)), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT)); \
-	parentSizer->Add(Tooltipped(new wxCheckBox(window, ID, wxEmptyString), _(description)));
+	parentSizer->Add(new wxStaticText(window, wxID_ANY, tr(name)), wxSizerFlags().Align(wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT)); \
+	parentSizer->Add(Tooltipped(new wxCheckBox(window, ID, wxEmptyString), tr(description)));
 
 enum
 {
