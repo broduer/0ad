@@ -440,6 +440,7 @@ bool CNetServerWorker::RunStep()
 	// (Do as little work as possible while the mutex is held open,
 	// to avoid performance problems and deadlocks.)
 
+	debug_printf("GC checked\n");
 	m_ScriptInterface->GetContext().MaybeIncrementalGC();
 
 	ScriptRequest rq(m_ScriptInterface);

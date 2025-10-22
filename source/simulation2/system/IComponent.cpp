@@ -26,7 +26,7 @@
 
 namespace
 {
-std::mutex g_ComponentTypeRegistrationMutex;
+static std::mutex g_ComponentTypeRegistrationMutex = std::mutex();
 }
 
 IComponent::~IComponent()

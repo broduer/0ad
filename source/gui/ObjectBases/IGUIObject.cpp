@@ -359,13 +359,17 @@ void IGUIObject::RegisterScriptHandler(const CStr& eventName, const CStr& Code, 
 
 void IGUIObject::SetScriptHandler(const CStr& eventName, JS::HandleObject Function)
 {
-	if (m_ScriptHandlers.empty())
-		JS_AddExtraGCRootsTracer(m_pGUI.GetScriptInterface()->GetGeneralJSContext(), Trace, this);
+	ScriptCommand([this, &eventName, &Function]()
+	{
+			// If this is the first script handler, register the tracer
+		if (m_ScriptHandlers.empty())
+			JS_AddExtraGCRootsTracer(m_pGUI.GetScriptInterface()->GetGeneralJSContext(), Trace, this);
 
-	m_ScriptHandlers[eventName] = JS::Heap<JSObject*>(Function);
+		m_ScriptHandlers[eventName] = JS::Heap<JSObject*>(Function);
 
-	if (std::find(m_pGUI.m_EventObjects[eventName].begin(), m_pGUI.m_EventObjects[eventName].end(), this) == m_pGUI.m_EventObjects[eventName].end())
-		m_pGUI.m_EventObjects[eventName].emplace_back(this);
+		if (std::find(m_pGUI.m_EventObjects[eventName].begin(), m_pGUI.m_EventObjects[eventName].end(), this) == m_pGUI.m_EventObjects[eventName].end())
+			m_pGUI.m_EventObjects[eventName].emplace_back(this);
+	}).Wait();
 }
 
 void IGUIObject::UnsetScriptHandler(const CStr& eventName)
@@ -375,20 +379,23 @@ void IGUIObject::UnsetScriptHandler(const CStr& eventName)
 	if (it == m_ScriptHandlers.end())
 		return;
 
-	m_ScriptHandlers.erase(it);
+	ScriptCommand([this, &eventName, &it]()
+	{
+		m_ScriptHandlers.erase(it);
 
-	if (m_ScriptHandlers.empty())
-		JS_RemoveExtraGCRootsTracer(m_pGUI.GetScriptInterface()->GetGeneralJSContext(), Trace, this);
+		if (m_ScriptHandlers.empty())
+			JS_RemoveExtraGCRootsTracer(m_pGUI.GetScriptInterface()->GetGeneralJSContext(), Trace, this);
 
-	std::unordered_map<CStr, std::vector<IGUIObject*>>::iterator it2 = m_pGUI.m_EventObjects.find(eventName);
-	if (it2 == m_pGUI.m_EventObjects.end())
-		return;
+		const auto it2 = m_pGUI.m_EventObjects.find(eventName);
+		if (it2 == m_pGUI.m_EventObjects.end())
+			return;
 
-	std::vector<IGUIObject*>& handlers = it2->second;
-	handlers.erase(std::remove(handlers.begin(), handlers.end(), this), handlers.end());
+		std::vector<IGUIObject*>& handlers = it2->second;
+		handlers.erase(std::remove(handlers.begin(), handlers.end(), this), handlers.end());
 
-	if (handlers.empty())
-		m_pGUI.m_EventObjects.erase(it2);
+		if (handlers.empty())
+			m_pGUI.m_EventObjects.erase(it2);
+	}).Wait();
 }
 
 InReaction IGUIObject::SendEvent(EGUIMessageType type, const CStr& eventName)

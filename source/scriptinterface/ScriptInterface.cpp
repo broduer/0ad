@@ -395,7 +395,10 @@ ScriptInterface_impl::ScriptInterface_impl(const char* nativeScopeName, ScriptCo
 
 ScriptInterface_impl::~ScriptInterface_impl()
 {
-	m_context.UnRegisterRealm(JS::GetObjectRealmOrNull(m_glob));
+	ScriptCommand([this]()
+	{
+		m_context.UnRegisterRealm(JS::GetObjectRealmOrNull(m_glob));
+	}).Wait();
 }
 
 ScriptInterface::ScriptInterface(const char* nativeScopeName, const char* debugName, ScriptContext& context,
@@ -449,11 +452,11 @@ ScriptInterface::ScriptInterface(ScriptInterface &&scriptInterface)
 ScriptInterface::~ScriptInterface()
 {
 	m->m_context.RunJobs();
-	if (Threading::IsMainThread())
+	ScriptCommand([this]()
 	{
 		if (g_ScriptStatsTable)
 			g_ScriptStatsTable->Remove(this);
-	}
+	}).Wait();
 }
 
 const ScriptInterface& ScriptInterface::CmptPrivate::GetScriptInterface(JSContext *cx)

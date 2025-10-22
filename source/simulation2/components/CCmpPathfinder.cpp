@@ -74,7 +74,14 @@
 
 class SceneCollector;
 
-REGISTER_COMPONENT_TYPE(Pathfinder)
+//REGISTER_COMPONENT_TYPE(Pathfinder)
+
+void RegisterComponentType_Pathfinder(CComponentManager& mgr)
+{
+	IComponent::RegisterComponentType(mgr, CCmpPathfinder::GetInterfaceId(), CID_Pathfinder, CCmpPathfinder::Allocate, CCmpPathfinder::Deallocate, "Pathfinder", CCmpPathfinder::GetSchema());
+	CCmpPathfinder::ClassInit(mgr);
+}
+
 
 void CCmpPathfinder::Init(const CParamNode&)
 {
