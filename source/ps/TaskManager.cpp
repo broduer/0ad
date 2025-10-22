@@ -74,7 +74,7 @@ public:
 	~Impl()
 	{
 		{
-			std::lock_guard lock(m_GlobalMutex);
+			std::lock_guard lock(m_Mutex);
 			ENSURE(m_GlobalQueue.empty());
 		}
 		{
@@ -103,7 +103,7 @@ protected:
 
 	std::atomic<bool> m_HasWork = false;
 	std::atomic<bool> m_HasLowPriorityWork = false;
-	std::mutex m_GlobalMutex;
+	std::mutex m_Mutex;
 	std::mutex m_GlobalLowPriorityMutex;
 	std::deque<QueueItem> m_GlobalQueue;
 	std::deque<QueueItem> m_GlobalLowPriorityQueue;
@@ -146,6 +146,8 @@ TaskManager::IdType TaskManager::PushTask(std::function<void()> task, const Task
 
 bool TaskManager::IsThreadWorking()
 {
+	std::lock_guard globalLock(GetSingleton().m->m_Mutex);
+
 	return GetSingleton().m->m_WorkingThreads.contains(std::this_thread::get_id());
 }
 
@@ -153,14 +155,13 @@ TaskManager::IdType TaskManager::Impl::PushTask(std::function<void()>&& task, co
 {
 	IdType id;
 
-	std::mutex& mutex = priority == TaskPriority::NORMAL ? m_GlobalMutex : m_GlobalLowPriorityMutex;
 	std::deque<QueueItem>& queue = priority == TaskPriority::NORMAL ? m_GlobalQueue : m_GlobalLowPriorityQueue;
-	std::atomic<bool>& hasWork = priority == TaskPriority::NORMAL ? m_HasWork : m_HasLowPriorityWork;
 	{
-		std::lock_guard lock(mutex);
+		std::lock_guard lock(m_Mutex);
 		id = m_LastIdentifier++;
 		queue.emplace_back(std::move(task));
-		hasWork = true;
+
+		(priority == TaskPriority::NORMAL ? m_HasWork : m_HasLowPriorityWork) = true;
 	}
 
 	for (PrioritizedWorkerThread<Impl>& worker : m_Workers)
@@ -172,12 +173,12 @@ TaskManager::IdType TaskManager::Impl::PushTask(std::function<void()>&& task, co
 template<TaskPriority Priority>
 bool TaskManager::Impl::PopTask(std::function<void()>& taskOut)
 {
-	std::mutex& mutex = Priority == TaskPriority::NORMAL ? m_GlobalMutex : m_GlobalLowPriorityMutex;
+	// Particularly critical section since we're locking the global queue.
+	std::lock_guard globalLock(m_Mutex);
+
 	std::deque<QueueItem>& queue = Priority == TaskPriority::NORMAL ? m_GlobalQueue : m_GlobalLowPriorityQueue;
 	std::atomic<bool>& hasWork = Priority == TaskPriority::NORMAL ? m_HasWork : m_HasLowPriorityWork;
 
-	// Particularly critical section since we're locking the global queue.
-	std::lock_guard globalLock(mutex);
 	if (!queue.empty())
 	{
 		m_WorkingThreads.insert(std::this_thread::get_id());
@@ -185,10 +186,10 @@ bool TaskManager::Impl::PopTask(std::function<void()>& taskOut)
 		queue.pop_front();
 		hasWork = !queue.empty();
 		return true;
-	} else
-	{
-		m_WorkingThreads.erase(std::this_thread::get_id());
 	}
+
+	m_WorkingThreads.erase(std::this_thread::get_id());
+
 	return false;
 }
 
