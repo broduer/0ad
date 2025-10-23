@@ -19,11 +19,14 @@
 #define INCLUDED_THREAD
 
 #include "ps/Threading.h"
+#include "ps/Profiler2.h"
 
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
 #include <thread>
+#include <algorithm>
+#include <sstream>
 
 namespace Threading
 {
