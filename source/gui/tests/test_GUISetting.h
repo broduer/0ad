@@ -142,11 +142,14 @@ public:
 		object.SetSettingFromString("size", L"2 2 20 20", false);
 		object.haveUpdateCachedSize = false;
 
-		ScriptRequest rq{gui.GetScriptInterface()};
-		JS::RootedValue val(rq.cx);
-		val.setObject(*object.GetJSObject());
-		JS::RootedObject global(rq.cx, rq.glob);
-		JS_DefineProperty(rq.cx, global, "testObject", val, JSPROP_ENUMERATE);
+		ScriptCommand([&gui, &object]()
+		{
+			ScriptRequest rq{gui.GetScriptInterface()};
+			JS::RootedValue val(rq.cx);
+			val.setObject(*object.GetJSObject());
+			const JS::RootedObject global(rq.cx, rq.glob);
+			JS_DefineProperty(rq.cx, global, "testObject", val, JSPROP_ENUMERATE);
+		}).Wait();
 
 		// Lazy assigment.
 		TS_ASSERT(gui.GetScriptInterface()->LoadGlobalScriptFile(L"gui/settings/cguisize/lazyassign.js"));

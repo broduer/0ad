@@ -56,15 +56,18 @@ private:
 
 	CXeromyces parseJS(const std::string rootName, const char* code)
 	{
-		ScriptRequest rq(*m_ScriptInterface);
-		JS::RootedValue val(rq.cx);
-		m_ScriptInterface->Eval(code, &val);
-		CXeromyces xmb;
-		bool ok = xmb.m_Data.LoadJSValue(*m_ScriptInterface, val, rootName);
-		TS_ASSERT_EQUALS(ok, true);
+		return ScriptCommand([this, &rootName, code]()
+		{
+			const ScriptRequest rq(*m_ScriptInterface);
+			JS::RootedValue val(rq.cx);
+			m_ScriptInterface->Eval(code, &val);
+			CXeromyces xmb;
+			const bool ok = xmb.m_Data.LoadJSValue(*m_ScriptInterface, val, rootName);
+			TS_ASSERT_EQUALS(ok, true);
 
-		TS_ASSERT(xmb.Initialise(xmb.m_Data));
-		return xmb;
+			TS_ASSERT(xmb.Initialise(xmb.m_Data));
+			return xmb;
+		}).Get();
 	}
 
 	void setUp()

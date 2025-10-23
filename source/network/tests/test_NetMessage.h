@@ -35,26 +35,29 @@ class TestNetMessage : public CxxTest::TestSuite
 public:
 	void test_sim()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
-		ScriptRequest rq(script);
+		ScriptCommand([this]()
+		{
+			const ScriptInterface script("Test", "Test", g_ScriptThread.Context);
+			const ScriptRequest rq(script);
 
-		JS::RootedValue val(rq.cx);
-		Script::CreateArray(rq, &val);
-		Script::SetPropertyInt(rq, val, 0, 4);
+			JS::RootedValue val(rq.cx);
+			Script::CreateArray(rq, &val);
+			Script::SetPropertyInt(rq, val, 0, 4);
 
-		CSimulationMessage msg(script, 1, 2, 3, val);
-		TS_ASSERT_STR_EQUALS(msg.ToString(), "CSimulationMessage { m_Client: 1, m_Player: 2, m_Turn: 3, m_Data: [4] }");
+			CSimulationMessage msg(script, 1, 2, 3, val);
+			TS_ASSERT_STR_EQUALS(msg.ToString(), "CSimulationMessage { m_Client: 1, m_Player: 2, m_Turn: 3, m_Data: [4] }");
 
-		size_t len = msg.GetSerializedLength();
-		u8* buf = new u8[len+1];
-		buf[len] = '!';
-		TS_ASSERT_EQUALS(msg.Serialize(buf) - (buf+len), 0);
-		TS_ASSERT_EQUALS(buf[len], '!');
+			const size_t len = msg.GetSerializedLength();
+			u8* buf = new u8[len+1];
+			buf[len] = '!';
+			TS_ASSERT_EQUALS(msg.Serialize(buf) - (buf+len), 0);
+			TS_ASSERT_EQUALS(buf[len], '!');
 
-		CNetMessage* msg2 = CNetMessageFactory::CreateMessage(buf, len, script);
-		TS_ASSERT_STR_EQUALS(((CSimulationMessage*)msg2)->ToString(), "CSimulationMessage { m_Client: 1, m_Player: 2, m_Turn: 3, m_Data: [4] }");
+			CNetMessage* msg2 = CNetMessageFactory::CreateMessage(buf, len, script);
+			TS_ASSERT_STR_EQUALS(((CSimulationMessage*)msg2)->ToString(), "CSimulationMessage { m_Client: 1, m_Player: 2, m_Turn: 3, m_Data: [4] }");
 
-		delete msg2;
-		delete[] buf;
+			delete msg2;
+			delete[] buf;
+		}).Wait();
 	}
 };

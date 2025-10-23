@@ -262,68 +262,82 @@ public:
 			{false, JS::PromiseState::Fulfilled},
 			{true, JS::PromiseState::Rejected}}};
 
-		const ScriptRequest rq{g_GUI->GetScriptInterface()};
-
-		const Script::StructuredClone undefined{
-			Script::WriteStructuredClone(rq, JS::UndefinedHandleValue)};
-		g_GUI->OpenChildPage(L"regainFocus/page_emptyPage.xml", undefined);
-
-
-		for (const auto& [reject, result] : testSteps)
+		ScriptCommand([&testSteps]()
 		{
-			const JS::RootedValue value{rq.cx, JS::BooleanValue(reject)};
-			const Script::StructuredClone clonedValue{Script::WriteStructuredClone(rq, value)};
+			const ScriptRequest rq{g_GUI->GetScriptInterface()};
 
-			const JS::RootedValue promise{rq.cx,
-				g_GUI->OpenChildPage(L"resolveReject/page_resolveReject.xml", clonedValue)};
+			const Script::StructuredClone undefined{
+				Script::WriteStructuredClone(rq, JS::UndefinedHandleValue)};
+			g_GUI->OpenChildPage(L"regainFocus/page_emptyPage.xml", undefined);
 
-			// Check whether promises are settled in the page stack and flush the stack.
-			g_GUI->TickObjects();
-			const JS::RootedObject promiseObject{rq.cx, &promise.toObject()};
-			TS_ASSERT_EQUALS(JS::GetPromiseState(promiseObject), result);
-		}
+			for (const auto& [reject, result] : testSteps)
+			{
+				const JS::RootedValue value{rq.cx, JS::BooleanValue(reject)};
+				const Script::StructuredClone clonedValue{Script::WriteStructuredClone(rq, value)};
+
+				const JS::RootedValue promise{rq.cx,
+					g_GUI->OpenChildPage(L"resolveReject/page_resolveReject.xml", clonedValue)};
+
+				// Check whether promises are settled in the page stack and flush the stack.
+				g_GUI->TickObjects();
+				const JS::RootedObject promiseObject{rq.cx, &promise.toObject()};
+				TS_ASSERT_EQUALS(JS::GetPromiseState(promiseObject), result);
+			}
+		}).Wait();
 	}
 
 	void test_Sequential()
 	{
-		const ScriptRequest rq{g_GUI->GetScriptInterface()};
-		const Script::StructuredClone undefined{
-			Script::WriteStructuredClone(rq, JS::UndefinedHandleValue)};
-		g_GUI->OpenChildPage(L"sequential/page_sequential.xml", undefined);
-		TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 2);
-		CloseTopmostPage();
-		TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 2);
-		CloseTopmostPage();
-		TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 0);
+		ScriptCommand([]()
+		{
+			const ScriptRequest rq{g_GUI->GetScriptInterface()};
+			const Script::StructuredClone undefined{
+				Script::WriteStructuredClone(rq, JS::UndefinedHandleValue)};
+			g_GUI->OpenChildPage(L"sequential/page_sequential.xml", undefined);
+			TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 2);
+			CloseTopmostPage();
+			TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 2);
+			CloseTopmostPage();
+			TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 0);
+		}).Wait();
 	}
 
 	void test_Result()
 	{
-		const ScriptRequest rq{g_GUI->GetScriptInterface()};
-		g_GUI->OpenChildPage(L"Result/page_Result.xml",
-			Script::WriteStructuredClone(rq, JS::FalseHandleValue));
-		TS_ASSERT(!g_GUI->TickObjects().value());
+		ScriptCommand([]()
+		{
+			const ScriptRequest rq{g_GUI->GetScriptInterface()};
+			g_GUI->OpenChildPage(L"Result/page_Result.xml",
+				Script::WriteStructuredClone(rq, JS::FalseHandleValue));
+			TS_ASSERT(!g_GUI->TickObjects().value());
 
-		g_GUI->OpenChildPage(L"Result/page_Result.xml",
-			Script::WriteStructuredClone(rq, JS::TrueHandleValue));
-		TS_ASSERT(g_GUI->TickObjects().value());
+			g_GUI->OpenChildPage(L"Result/page_Result.xml",
+				Script::WriteStructuredClone(rq, JS::TrueHandleValue));
+			TS_ASSERT(g_GUI->TickObjects().value());
+		}).Wait();
 	}
 
 	void test_MultipleRootModules()
 	{
-		ScriptRequest rq{g_GUI->GetScriptInterface()};
+		ScriptCommand([]()
+		{
+			const ScriptRequest rq{g_GUI->GetScriptInterface()};
 
-		TS_ASSERT_THROWS_EQUALS(g_GUI->OpenChildPage(
-			L"multiple_root-modules/page.xml",
-			Script::WriteStructuredClone(rq, JS::NullHandleValue)),
-			const std::logic_error& e, e.what(), "There can only be one root module per page.");
+			TS_ASSERT_THROWS_EQUALS(g_GUI->OpenChildPage(
+				L"multiple_root-modules/page.xml",
+				Script::WriteStructuredClone(rq, JS::NullHandleValue)),
+				const std::logic_error& e, e.what(), "There can only be one root module per page.");
+		}).Wait();
 	}
 
 	void test_Await()
 	{
-		ScriptRequest rq{g_GUI->GetScriptInterface()};
+		ScriptCommand([]()
+		{
+			const ScriptRequest rq{g_GUI->GetScriptInterface()};
 
-		TS_ASSERT_THROWS(g_GUI->OpenChildPage(L"await/page.xml",
-			Script::WriteStructuredClone(rq, JS::NullHandleValue)), const std::bad_variant_access&);
+			TS_ASSERT_THROWS(g_GUI->OpenChildPage(L"await/page.xml",
+				Script::WriteStructuredClone(rq, JS::NullHandleValue)), const std::bad_variant_access&);
+		}).Wait();
 	}
 };

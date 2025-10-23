@@ -100,51 +100,57 @@ public:
 
 	void test_calling()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
-		ScriptRequest rq(script);
-
-		ScriptFunction::Register<&TestFunctionWrapper::_1p_v>(script, "_1p_v");
+		ScriptCommand([]()
 		{
-			std::string input = "Test._1p_v(0);";
-			JS::RootedValue val(rq.cx);
-			TS_ASSERT(script.Eval(input.c_str(), &val));
-		}
+			const ScriptInterface script("Test", "Test", g_ScriptThread.Context);
+			const ScriptRequest rq(script);
 
-		ScriptFunction::Register<&TestFunctionWrapper::_3p_r>(script, "_3p_r");
-		{
-			std::string input = "Test._3p_r(4, false, 'test');";
-			int ret = 0;
-			TS_ASSERT(script.Eval(input.c_str(), ret));
-			TS_ASSERT_EQUALS(ret, 4);
-		}
+			ScriptFunction::Register<&TestFunctionWrapper::_1p_v>(script, "_1p_v");
+			{
+				const std::string input = "Test._1p_v(0);";
+				JS::RootedValue val(rq.cx);
+				TS_ASSERT(script.Eval(input.c_str(), &val));
+			}
 
-		ScriptFunction::Register<&TestFunctionWrapper::_script_interface_2>(script, "_cmpt_private_2");
-		{
-			std::string input = "Test._cmpt_private_2(4);";
-			int ret = 0;
-			TS_ASSERT(script.Eval(input.c_str(), ret));
-			TS_ASSERT_EQUALS(ret, 4);
-		}
+			ScriptFunction::Register<&TestFunctionWrapper::_3p_r>(script, "_3p_r");
+			{
+				const std::string input = "Test._3p_r(4, false, 'test');";
+				int ret = 0;
+				TS_ASSERT(script.Eval(input.c_str(), ret));
+				TS_ASSERT_EQUALS(ret, 4);
+			}
+
+			ScriptFunction::Register<&TestFunctionWrapper::_script_interface_2>(script, "_cmpt_private_2");
+			{
+				const std::string input = "Test._cmpt_private_2(4);";
+				int ret = 0;
+				TS_ASSERT(script.Eval(input.c_str(), ret));
+				TS_ASSERT_EQUALS(ret, 4);
+			}
+		}).Wait();
 	}
 
 	void test_statefull()
 	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context};
-		const ScriptRequest rq{script};
-		JS::RootedValue nativeScope{rq.cx, JS::ObjectValue(*rq.nativeScope)};
-
-		constexpr const char* name{"callback"};
+		ScriptCommand([]()
 		{
-			bool called{false};
-			auto _ = ScriptFunction::Register(rq, name, [&](){
-				called = true;
-			});
-			TS_ASSERT(!called);
-			TS_ASSERT(ScriptFunction::CallVoid(rq, nativeScope, name));
-			TS_ASSERT(called);
-		}
+			const ScriptInterface script{"Test", "Test", g_ScriptThread.Context};
+			const ScriptRequest rq{script};
+			const JS::RootedValue nativeScope{rq.cx, JS::ObjectValue(*rq.nativeScope)};
 
-		TS_ASSERT(!ScriptFunction::CallVoid(rq, nativeScope, name));
+			constexpr const char* name{"callback"};
+			{
+				bool called{false};
+				auto _ = ScriptFunction::Register(rq, name, [&](){
+					called = true;
+				});
+				TS_ASSERT(!called);
+				TS_ASSERT(ScriptFunction::CallVoid(rq, nativeScope, name));
+				TS_ASSERT(called);
+			}
+
+			TS_ASSERT(!ScriptFunction::CallVoid(rq, nativeScope, name));
+		}).Wait();
 	}
 
 	void test_exception()
