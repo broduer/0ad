@@ -311,465 +311,538 @@ public:
 
 	void test_Export()
 	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
-		const ScriptRequest rq{script};
-
-		auto result = script.GetModuleLoader().LoadModule(rq, "export.js");
-		g_ScriptThread.Context->RunJobs();
-
-		auto& future = *result.begin();
-		JS::RootedObject ns{rq.cx, future.Get()};
-		JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
-
+		ScriptCommand([]()
 		{
-			int value{0};
-			TS_ASSERT(Script::GetProperty(rq, moduleValue, "value", value));
-			TS_ASSERT_EQUALS(value, 6);
-		}
+			const ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+			const ScriptRequest rq{script};
 
-		TS_ASSERT(ScriptFunction::CallVoid(rq, moduleValue, "mutate", 12));
+			auto result = script.GetModuleLoader().LoadModule(rq, "export.js");
+			g_ScriptThread.Context->RunJobs();
 
-		{
-			int value{0};
-			TS_ASSERT(Script::GetProperty(rq, moduleValue, "value", value));
-			TS_ASSERT_EQUALS(value, 12);
-		}
+			auto& future = *result.begin();
+			const JS::RootedObject ns{rq.cx, future.Get()};
+			const JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
+
+			{
+				int value{0};
+				TS_ASSERT(Script::GetProperty(rq, moduleValue, "value", value));
+				TS_ASSERT_EQUALS(value, 6);
+			}
+
+			TS_ASSERT(ScriptFunction::CallVoid(rq, moduleValue, "mutate", 12));
+
+			{
+				int value{0};
+				TS_ASSERT(Script::GetProperty(rq, moduleValue, "value", value));
+				TS_ASSERT_EQUALS(value, 12);
+			}
+		}).Wait();
 	}
 
 	void test_ExportSame()
 	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
-		const ScriptRequest rq{script};
-
+		ScriptCommand([]()
 		{
-			auto result = script.GetModuleLoader().LoadModule(rq, "export.js");
-			g_ScriptThread.Context->RunJobs();
-			JS::RootedObject ns{rq.cx, result.begin()->Get()};
-			JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
-			TS_ASSERT(ScriptFunction::CallVoid(rq, moduleValue, "mutate", 12));
-		}
+			ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+			const ScriptRequest rq{script};
 
-		{
-			auto result = script.GetModuleLoader().LoadModule(rq, "include/../export.js");
-			g_ScriptThread.Context->RunJobs();
-			JS::RootedObject ns{rq.cx, result.begin()->Get()};
-			JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
-			int value{0};
-			TS_ASSERT(Script::GetProperty(rq, moduleValue, "value", value));
-			TS_ASSERT_EQUALS(value, 12);
-		}
+			{
+				auto result = script.GetModuleLoader().LoadModule(rq, "export.js");
+				g_ScriptThread.Context->RunJobs();
+				JS::RootedObject ns{rq.cx, result.begin()->Get()};
+				JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
+				TS_ASSERT(ScriptFunction::CallVoid(rq, moduleValue, "mutate", 12));
+			}
+
+			{
+				auto result = script.GetModuleLoader().LoadModule(rq, "include/../export.js");
+				g_ScriptThread.Context->RunJobs();
+				JS::RootedObject ns{rq.cx, result.begin()->Get()};
+				JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
+				int value{0};
+				TS_ASSERT(Script::GetProperty(rq, moduleValue, "value", value));
+				TS_ASSERT_EQUALS(value, 12);
+			}
+		}).Wait();
 	}
 
 	void test_ExportIndirect()
 	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
-		const ScriptRequest rq{script};
-
+		ScriptCommand([]()
 		{
-			auto result = script.GetModuleLoader().LoadModule(rq, "export.js");
-			g_ScriptThread.Context->RunJobs();
-			JS::RootedObject ns{rq.cx, result.begin()->Get()};
-			JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
-			TS_ASSERT(ScriptFunction::CallVoid(rq, moduleValue, "mutate", 12));
-		}
+			ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+			const ScriptRequest rq{script};
 
-		{
-			auto result = script.GetModuleLoader().LoadModule(rq, "indirect.js");
-			g_ScriptThread.Context->RunJobs();
-			JS::RootedObject ns{rq.cx, result.begin()->Get()};
-			JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
-			int value{0};
-			TS_ASSERT(Script::GetProperty(rq, moduleValue, "value", value));
-			TS_ASSERT_EQUALS(value, 12);
-		}
+			{
+				auto result = script.GetModuleLoader().LoadModule(rq, "export.js");
+				g_ScriptThread.Context->RunJobs();
+				JS::RootedObject ns{rq.cx, result.begin()->Get()};
+				JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
+				TS_ASSERT(ScriptFunction::CallVoid(rq, moduleValue, "mutate", 12));
+			}
+
+			{
+				auto result = script.GetModuleLoader().LoadModule(rq, "indirect.js");
+				g_ScriptThread.Context->RunJobs();
+				JS::RootedObject ns{rq.cx, result.begin()->Get()};
+				JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
+				int value{0};
+				TS_ASSERT(Script::GetProperty(rq, moduleValue, "value", value));
+				TS_ASSERT_EQUALS(value, 12);
+			}
+		}).Wait();
 	}
 
 	void test_ExportDefaultImmutable()
 	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
-		const ScriptRequest rq{script};
+		ScriptCommand([]()
+		{
+			const ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+			const ScriptRequest rq{script};
 
-		auto result = script.GetModuleLoader().LoadModule(rq, "export_default/immutable.js");
-		g_ScriptThread.Context->RunJobs();
+			auto result = script.GetModuleLoader().LoadModule(rq, "export_default/immutable.js");
+			g_ScriptThread.Context->RunJobs();
 
-		auto& future = *result.begin();
-		JS::RootedObject ns{rq.cx, future.Get()};
-		JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
+			auto& future = *result.begin();
+			const JS::RootedObject ns{rq.cx, future.Get()};
+			const JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
 
-		int value{0};
-		TS_ASSERT(Script::GetProperty(rq, moduleValue, "default", value));
-		TS_ASSERT_EQUALS(value, 36);
+			int value{0};
+			TS_ASSERT(Script::GetProperty(rq, moduleValue, "default", value));
+			TS_ASSERT_EQUALS(value, 36);
+		}).Wait();
 	}
 
 	void test_ExportDefaultInvalid()
 	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
-		const ScriptRequest rq{script};
+		ScriptCommand([]()
+		{
+			const ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+			const ScriptRequest rq{script};
 
-		TestLogger logger;
-		TS_ASSERT_THROWS(std::ignore = script.GetModuleLoader().LoadModule(rq,
-			"export_default/invalid.js"), const std::invalid_argument&);
-		const std::string log{logger.GetOutput()};
-		TS_ASSERT_STR_CONTAINS(log, "export_default/invalid.js line 1");
+			TestLogger logger;
+			TS_ASSERT_THROWS(std::ignore = script.GetModuleLoader().LoadModule(rq,
+				"export_default/invalid.js"), const std::invalid_argument&);
+			const std::string log{logger.GetOutput()};
+			TS_ASSERT_STR_CONTAINS(log, "export_default/invalid.js line 1");
+		}).Wait();
 	}
 
 	void test_ExportDefaultDoesNotWorkAround()
 	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
-		const ScriptRequest rq{script};
+		ScriptCommand([]()
+		{
+			const ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+			const ScriptRequest rq{script};
 
-		auto result = script.GetModuleLoader().LoadModule(rq, "export_default/does_not_work_around.js");
+			auto result = script.GetModuleLoader().LoadModule(rq, "export_default/does_not_work_around.js");
 
-		g_ScriptThread.Context->RunJobs();
+			g_ScriptThread.Context->RunJobs();
 
-		auto& future = *result.begin();
-		JS::RootedObject ns{rq.cx, future.Get()};
-		JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
+			auto& future = *result.begin();
+			const JS::RootedObject ns{rq.cx, future.Get()};
+			const JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
 
-		int value{0};
-		TS_ASSERT(Script::GetProperty(rq, moduleValue, "default", value));
-		TS_ASSERT_DIFFERS(value, 36);
-		TS_ASSERT_EQUALS(value, 6);
+			int value{0};
+			TS_ASSERT(Script::GetProperty(rq, moduleValue, "default", value));
+			TS_ASSERT_DIFFERS(value, 36);
+			TS_ASSERT_EQUALS(value, 6);
+		}).Wait();
 	}
 
 	void test_ExportDefaultWorksAround()
 	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
-		const ScriptRequest rq{script};
+		ScriptCommand([]()
+		{
+			const ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+			const ScriptRequest rq{script};
 
-		auto result = script.GetModuleLoader().LoadModule(rq, "export_default/works_around.js");
-		g_ScriptThread.Context->RunJobs();
+			auto result = script.GetModuleLoader().LoadModule(rq, "export_default/works_around.js");
+			g_ScriptThread.Context->RunJobs();
 
-		auto& future = *result.begin();
-		JS::RootedObject ns{rq.cx, future.Get()};
-		JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
+			auto& future = *result.begin();
+			const JS::RootedObject ns{rq.cx, future.Get()};
+			const JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
 
-		int value{0};
-		TS_ASSERT(Script::GetProperty(rq, moduleValue, "default", value));
-		TS_ASSERT_EQUALS(value, 36);
+			int value{0};
+			TS_ASSERT(Script::GetProperty(rq, moduleValue, "default", value));
+			TS_ASSERT_EQUALS(value, 36);
+		}).Wait();
 	}
 
 	void test_ReplaceEvaluatingFuture()
 	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
-		const ScriptRequest rq{script};
-
-		auto awaitResult = script.GetModuleLoader().LoadModule(rq, "top_level_await_finite.js");
-		auto future = std::move(*awaitResult.begin());
-		auto exportResult = script.GetModuleLoader().LoadModule(rq, "export.js");
-		future = std::move(*exportResult.begin());
-
-		g_ScriptThread.Context->RunJobs();
-		JS::RootedObject ns{rq.cx, future.Get()};
-		JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
-
-		int value{0};
-		TS_ASSERT(Script::GetProperty(rq, moduleValue, "value", value));
-		TS_ASSERT_EQUALS(value, 6);
-	}
-
-	void test_DynamicImport()
-	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
-		const ScriptRequest rq{script};
-
-		auto result = script.GetModuleLoader().LoadModule(rq, "dynamic_import.js");
-		g_ScriptThread.Context->RunJobs();
-
-		auto& future = *result.begin();
-		JS::RootedObject ns{rq.cx, future.Get()};
-		JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
-
-		JS::RootedValue promise{rq.cx};
-		TS_ASSERT(ScriptFunction::Call(rq, moduleValue, "default", &promise));
-		TS_ASSERT(promise.isObject());
-		JS::RootedObject promiseObject{rq.cx, &promise.toObject()};
-		TS_ASSERT(JS::IsPromiseObject(promiseObject));
-
-		TS_ASSERT_EQUALS(JS::GetPromiseState(promiseObject), JS::PromiseState::Pending);
-		g_ScriptThread.Context->RunJobs();
-		TS_ASSERT_EQUALS(JS::GetPromiseState(promiseObject), JS::PromiseState::Fulfilled);
-
-		JS::RootedValue piModule{rq.cx, JS::GetPromiseResult(promiseObject)};
-
-		double pi{0.0};
-		TS_ASSERT(Script::FromJSProperty(rq, piModule, "default", pi));
-
-		TS_ASSERT_LESS_THAN(pi, 3.1416);
-		TS_ASSERT_LESS_THAN(3.1415, pi);
-	}
-
-	void test_Meta()
-	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
-		const ScriptRequest rq{script};
-
-		auto result = script.GetModuleLoader().LoadModule(rq, "meta.js");
-		g_ScriptThread.Context->RunJobs();
-
-		auto& future = *result.begin();
-		JS::RootedObject ns{rq.cx, future.Get()};
-		const JS::RootedValue modNamespace{rq.cx, JS::ObjectValue(*ns)};
-
-		JS::RootedValue meta{rq.cx};
-		TS_ASSERT(ScriptFunction::Call(rq, modNamespace, "getMeta", &meta));
-
-		std::string path;
-		TS_ASSERT(Script::GetProperty(rq, meta, "path", path));
-		TS_ASSERT_STR_EQUALS(path, "meta.js");
-	}
-
-	void test_Modified()
-	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
-		const ScriptRequest rq{script};
-
-		auto result = script.GetModuleLoader().LoadModule(rq, "modified/base.js");
-		g_ScriptThread.Context->RunJobs();
-
-		auto& future = *result.begin();
-		JS::RootedObject ns{rq.cx, future.Get()};
-		JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
-
-		std::string returnValue;
-		TS_ASSERT(ScriptFunction::Call(rq, moduleValue, "fn", returnValue));
-		TS_ASSERT_STR_EQUALS(returnValue, "Base01");
-	}
-
-	void test_Hotload()
-	{
-		constexpr int goal{2};
-
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
-		const ScriptRequest rq{script};
-
-		int counter{0};
-		for (auto& future : script.GetModuleLoader().LoadModule(rq, "empty.js"))
+		ScriptCommand([]()
 		{
-			TS_ASSERT(!future.IsDone());
+			const ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+			const ScriptRequest rq{script};
 
-			if (counter != 0)
-				ClearFromCache("empty.js");
+			auto awaitResult = script.GetModuleLoader().LoadModule(rq, "top_level_await_finite.js");
+			auto future = std::move(*awaitResult.begin());
+			auto exportResult = script.GetModuleLoader().LoadModule(rq, "export.js");
+			future = std::move(*exportResult.begin());
 
 			g_ScriptThread.Context->RunJobs();
-			TS_ASSERT(future.IsDone());
-
-			if (counter == goal)
-				break;
-
-			++counter;
-		}
-
-		TS_ASSERT_EQUALS(counter, goal);
-	}
-
-	void test_HotloadWithoutIncrement()
-	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
-		const ScriptRequest rq{script};
-
-		auto result = script.GetModuleLoader().LoadModule(rq, "top_level_await_finite.js");
-		g_ScriptThread.Context->RunJobs();
-		TS_ASSERT(result.begin()->IsDone());
-		ClearFromCache("top_level_await_finite.js");
-		TS_ASSERT(result.begin()->IsDone());
-	}
-
-	void test_HotloadIndipendence()
-	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
-		const ScriptRequest rq{script};
-
-		// It's intended to be used as in the test above but it's easier to test when it's unrolled.
-		auto result = script.GetModuleLoader().LoadModule(rq, "export.js");
-		auto iter = result.begin();
-		{
-			auto& future = *iter;
-			g_ScriptThread.Context->RunJobs();
-			JS::RootedObject ns{rq.cx, future.Get()};
-			const JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
-
-			TS_ASSERT(ScriptFunction::CallVoid(rq, moduleValue, "mutate", 12));
-
-			int value{0};
-			TS_ASSERT(Script::GetProperty(rq, moduleValue, "value", value));
-			TS_ASSERT_EQUALS(value, 12);
-		}
-		++iter;
-		{
-			auto& future = *iter;
-			g_ScriptThread.Context->RunJobs();
-			TS_ASSERT(!future.IsDone());
-			ClearFromCache("export.js");
-			g_ScriptThread.Context->RunJobs();
-			TS_ASSERT(future.IsDone());
-
 			JS::RootedObject ns{rq.cx, future.Get()};
 			JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
 
 			int value{0};
 			TS_ASSERT(Script::GetProperty(rq, moduleValue, "value", value));
-			TS_ASSERT_DIFFERS(value, 12);
 			TS_ASSERT_EQUALS(value, 6);
-		}
+		}).Wait();
+	}
+
+	void test_DynamicImport()
+	{
+		ScriptCommand([]()
+		{
+			ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+			const ScriptRequest rq{script};
+
+			auto result = script.GetModuleLoader().LoadModule(rq, "dynamic_import.js");
+			g_ScriptThread.Context->RunJobs();
+
+			auto& future = *result.begin();
+			JS::RootedObject ns{rq.cx, future.Get()};
+			JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
+
+			JS::RootedValue promise{rq.cx};
+			TS_ASSERT(ScriptFunction::Call(rq, moduleValue, "default", &promise));
+			TS_ASSERT(promise.isObject());
+			JS::RootedObject promiseObject{rq.cx, &promise.toObject()};
+			TS_ASSERT(JS::IsPromiseObject(promiseObject));
+
+			TS_ASSERT_EQUALS(JS::GetPromiseState(promiseObject), JS::PromiseState::Pending);
+			g_ScriptThread.Context->RunJobs();
+			TS_ASSERT_EQUALS(JS::GetPromiseState(promiseObject), JS::PromiseState::Fulfilled);
+
+			JS::RootedValue piModule{rq.cx, JS::GetPromiseResult(promiseObject)};
+
+			double pi{0.0};
+			TS_ASSERT(Script::FromJSProperty(rq, piModule, "default", pi));
+
+			TS_ASSERT_LESS_THAN(pi, 3.1416);
+			TS_ASSERT_LESS_THAN(3.1415, pi);
+		}).Wait();
+	}
+
+	void test_Meta()
+	{
+		ScriptCommand([]()
+		{
+			ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+			const ScriptRequest rq{script};
+
+			auto result = script.GetModuleLoader().LoadModule(rq, "meta.js");
+			g_ScriptThread.Context->RunJobs();
+
+			auto& future = *result.begin();
+			JS::RootedObject ns{rq.cx, future.Get()};
+			const JS::RootedValue modNamespace{rq.cx, JS::ObjectValue(*ns)};
+
+			JS::RootedValue meta{rq.cx};
+			TS_ASSERT(ScriptFunction::Call(rq, modNamespace, "getMeta", &meta));
+
+			std::string path;
+			TS_ASSERT(Script::GetProperty(rq, meta, "path", path));
+			TS_ASSERT_STR_EQUALS(path, "meta.js");
+		}).Wait();
+	}
+
+	void test_Modified()
+	{
+		ScriptCommand([]()
+		{
+			ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+			const ScriptRequest rq{script};
+
+			auto result = script.GetModuleLoader().LoadModule(rq, "modified/base.js");
+			g_ScriptThread.Context->RunJobs();
+
+			auto& future = *result.begin();
+			JS::RootedObject ns{rq.cx, future.Get()};
+			JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
+
+			std::string returnValue;
+			TS_ASSERT(ScriptFunction::Call(rq, moduleValue, "fn", returnValue));
+			TS_ASSERT_STR_EQUALS(returnValue, "Base01");
+		}).Wait();
+	}
+
+	void test_Hotload()
+	{
+		ScriptCommand([]()
+		{
+			{
+				constexpr int goal{2};
+
+				ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+				const ScriptRequest rq{script};
+
+				int counter{0};
+				for (auto& future : script.GetModuleLoader().LoadModule(rq, "empty.js"))
+				{
+					TS_ASSERT(!future.IsDone());
+
+					if (counter != 0)
+						ClearFromCache("empty.js");
+
+					g_ScriptThread.Context->RunJobs();
+					TS_ASSERT(future.IsDone());
+
+					if (counter == goal)
+						break;
+
+					++counter;
+				}
+
+				TS_ASSERT_EQUALS(counter, goal);
+			}).Wait();
+	}
+
+	void test_HotloadWithoutIncrement()
+	{
+		ScriptCommand([]()
+		{
+			const ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+			const ScriptRequest rq{script};
+
+			auto result = script.GetModuleLoader().LoadModule(rq, "top_level_await_finite.js");
+			g_ScriptThread.Context->RunJobs();
+			TS_ASSERT(result.begin()->IsDone());
+			ClearFromCache("top_level_await_finite.js");
+			TS_ASSERT(result.begin()->IsDone());
+		}).Wait();
+	}
+
+	void test_HotloadIndipendence()
+	{
+		ScriptCommand([]()
+		{
+			ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+			const ScriptRequest rq{script};
+
+			// It's intended to be used as in the test above but it's easier to test when it's unrolled.
+			auto result = script.GetModuleLoader().LoadModule(rq, "export.js");
+			auto iter = result.begin();
+			{
+				auto& future = *iter;
+				g_ScriptThread.Context->RunJobs();
+				JS::RootedObject ns{rq.cx, future.Get()};
+				const JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
+
+				TS_ASSERT(ScriptFunction::CallVoid(rq, moduleValue, "mutate", 12));
+
+				int value{0};
+				TS_ASSERT(Script::GetProperty(rq, moduleValue, "value", value));
+				TS_ASSERT_EQUALS(value, 12);
+			}
+			++iter;
+			{
+				auto& future = *iter;
+				g_ScriptThread.Context->RunJobs();
+				TS_ASSERT(!future.IsDone());
+				ClearFromCache("export.js");
+				g_ScriptThread.Context->RunJobs();
+				TS_ASSERT(future.IsDone());
+
+				JS::RootedObject ns{rq.cx, future.Get()};
+				JS::RootedValue moduleValue{rq.cx, JS::ObjectValue(*ns)};
+
+				int value{0};
+				TS_ASSERT(Script::GetProperty(rq, moduleValue, "value", value));
+				TS_ASSERT_DIFFERS(value, 12);
+				TS_ASSERT_EQUALS(value, 6);
+			}
+		}).Wait();
 	}
 
 	void test_HotloadModified()
 	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
-		const ScriptRequest rq{script};
+		ScriptCommand([]()
+		{
+			const ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+			const ScriptRequest rq{script};
 
-		auto result = script.GetModuleLoader().LoadModule(rq, "empty.js");
-		auto iter = result.begin();
-		g_ScriptThread.Context->RunJobs();
-		TS_ASSERT(iter->IsDone());
+			auto result = script.GetModuleLoader().LoadModule(rq, "empty.js");
+			auto iter = result.begin();
+			g_ScriptThread.Context->RunJobs();
+			TS_ASSERT(iter->IsDone());
 
-		++iter;
-		TS_ASSERT(!iter->IsDone());
+			++iter;
+			TS_ASSERT(!iter->IsDone());
 
-		ClearFromCache("empty~trigger.append.js");
+			ClearFromCache("empty~trigger.append.js");
 
-		g_ScriptThread.Context->RunJobs();
-		TS_ASSERT(iter->IsDone());
+			g_ScriptThread.Context->RunJobs();
+			TS_ASSERT(iter->IsDone());
+		}).Wait();
 	}
 
 	void test_HotloadIndirect()
 	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
-		const ScriptRequest rq{script};
+		ScriptCommand([]()
+		{
+			ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+			const ScriptRequest rq{script};
 
-		auto result = script.GetModuleLoader().LoadModule(rq, "indirect.js");
-		auto iter = result.begin();
-		g_ScriptThread.Context->RunJobs();
-		TS_ASSERT(iter->IsDone());
+			auto result = script.GetModuleLoader().LoadModule(rq, "indirect.js");
+			auto iter = result.begin();
+			g_ScriptThread.Context->RunJobs();
+			TS_ASSERT(iter->IsDone());
 
-		++iter;
-		ClearFromCache("export.js");
+			++iter;
+			ClearFromCache("export.js");
 
-		g_ScriptThread.Context->RunJobs();
-		TS_ASSERT(iter->IsDone());
+			g_ScriptThread.Context->RunJobs();
+			TS_ASSERT(iter->IsDone());
+		}).Wait();
 	}
 
 	void test_HotloadUnobserved()
 	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+		ScriptCommand([]()
 		{
-			const ScriptRequest rq{script};
+			ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+			{
+				const ScriptRequest rq{script};
 
-			TestLogger logger;
-			auto result = script.GetModuleLoader().LoadModule(rq, "blabbermouth.js");
-			g_ScriptThread.Context->RunJobs();
-			TS_ASSERT_STR_CONTAINS(logger.GetOutput(), "blah blah blah");
-		}
+				TestLogger logger;
+				auto result = script.GetModuleLoader().LoadModule(rq, "blabbermouth.js");
+				g_ScriptThread.Context->RunJobs();
+				TS_ASSERT_STR_CONTAINS(logger.GetOutput(), "blah blah blah");
+			}
 
-		{
-			TestLogger logger;
-			ClearFromCache("blabbermouth.js");
-			g_ScriptThread.Context->RunJobs();
-			TS_ASSERT_STR_NOT_CONTAINS(logger.GetOutput(), "blah blah blah");
-		}
+			{
+				TestLogger logger;
+				ClearFromCache("blabbermouth.js");
+				g_ScriptThread.Context->RunJobs();
+				TS_ASSERT_STR_NOT_CONTAINS(logger.GetOutput(), "blah blah blah");
+			}
 
-		{
-			const ScriptRequest rq{script};
+			{
+				const ScriptRequest rq{script};
 
-			TestLogger logger;
-			auto result = script.GetModuleLoader().LoadModule(rq, "blabbermouth.js");
-			g_ScriptThread.Context->RunJobs();
-			TS_ASSERT_STR_CONTAINS(logger.GetOutput(), "blah blah blah");
-		}
+				TestLogger logger;
+				auto result = script.GetModuleLoader().LoadModule(rq, "blabbermouth.js");
+				g_ScriptThread.Context->RunJobs();
+				TS_ASSERT_STR_CONTAINS(logger.GetOutput(), "blah blah blah");
+			}
+		}).Wait();
 	}
 
 	void test_HotloadAfterResultDestruction()
 	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+		ScriptCommand([]()
 		{
-			const ScriptRequest rq{script};
+			const ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+			{
+				const ScriptRequest rq{script};
+
+				TestLogger logger;
+				auto result = script.GetModuleLoader().LoadModule(rq, "blabbermouth.js");
+				g_ScriptThread.Context->RunJobs();
+				TS_ASSERT_STR_CONTAINS(logger.GetOutput(), "blah blah blah");
+
+				auto iter = result.begin();
+				TS_ASSERT(iter->IsDone());
+				++iter;
+			}
 
 			TestLogger logger;
-			auto result = script.GetModuleLoader().LoadModule(rq, "blabbermouth.js");
+			ClearFromCache("blabbermouth.js");
 			g_ScriptThread.Context->RunJobs();
-			TS_ASSERT_STR_CONTAINS(logger.GetOutput(), "blah blah blah");
-
-			auto iter = result.begin();
-			TS_ASSERT(iter->IsDone());
-			++iter;
-		}
-
-		TestLogger logger;
-		ClearFromCache("blabbermouth.js");
-		g_ScriptThread.Context->RunJobs();
-		TS_ASSERT_STR_NOT_CONTAINS(logger.GetOutput(), "blah blah blah");
+			TS_ASSERT_STR_NOT_CONTAINS(logger.GetOutput(), "blah blah blah");
+		}).Wait();
 	}
 
 	void test_HotloadAfterScriptRequestDestruction()
 	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
-		auto result = script.GetModuleLoader().LoadModule(ScriptRequest{script}, "empty.js");
-		g_ScriptThread.Context->RunJobs();
-		auto iter = result.begin();
-		TS_ASSERT(iter->IsDone());
+		ScriptCommand([]()
+		{
+			const ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+			auto result = script.GetModuleLoader().LoadModule(ScriptRequest{script}, "empty.js");
+			g_ScriptThread.Context->RunJobs();
+			auto iter = result.begin();
+			TS_ASSERT(iter->IsDone());
 
-		++iter;
-		ClearFromCache("empty.js");
-		g_ScriptThread.Context->RunJobs();
-		TS_ASSERT(iter->IsDone());
+			++iter;
+			ClearFromCache("empty.js");
+			g_ScriptThread.Context->RunJobs();
+			TS_ASSERT(iter->IsDone());
+		}).Wait();
 	}
 
 	void test_RestrictionNoPredicate()
 	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context};
-		const ScriptRequest rq{script};
+		ScriptCommand([]()
+		{
+			ScriptInterface script{"Test", "Test", g_ScriptThread.Context};
+			const ScriptRequest rq{script};
 
-		TS_ASSERT_THROWS_EQUALS(std::ignore = script.GetModuleLoader().LoadModule(rq,
-			"empty.js"), const std::runtime_error& e, e.what(),
-			"Importing file \"empty.js\" is disallowed.");
+			TS_ASSERT_THROWS_EQUALS(std::ignore = script.GetModuleLoader().LoadModule(rq,
+				"empty.js"), const std::runtime_error& e, e.what(),
+				"Importing file \"empty.js\" is disallowed.");
+		}).Wait();
 	}
 
 	void test_RestrictionDirect()
 	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, DisallowedfilePredicate};
-		const ScriptRequest rq{script};
+		ScriptCommand([]()
+		{
+			ScriptInterface script{"Test", "Test", g_ScriptThread.Context, DisallowedfilePredicate};
+			const ScriptRequest rq{script};
 
-		TS_ASSERT_THROWS_EQUALS(std::ignore = script.GetModuleLoader().LoadModule(rq,
-			"restriction/disallowedfile.js"), const std::runtime_error& e, e.what(),
-			"Importing file \"restriction/disallowedfile.js\" is disallowed.");
+			TS_ASSERT_THROWS_EQUALS(std::ignore = script.GetModuleLoader().LoadModule(rq,
+				"restriction/disallowedfile.js"), const std::runtime_error& e, e.what(),
+				"Importing file \"restriction/disallowedfile.js\" is disallowed.");
+		}).Wait();
 	}
 
 	void test_RestrictionIndirect()
 	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, DisallowedfilePredicate};
-		const ScriptRequest rq{script};
-		TestLogger logger;
-		TS_ASSERT_THROWS_EQUALS(std::ignore = script.GetModuleLoader().LoadModule(rq,
-			"restriction/import.js"), const std::invalid_argument& e, e.what(),
-			"Unable to link module.");
-		TS_ASSERT_STR_CONTAINS(logger.GetOutput(),
-			"Importing file \"restriction/disallowedfile.js\" is disallowed.");
+		ScriptCommand([]()
+		{
+			ScriptInterface script{"Test", "Test", g_ScriptThread.Context, DisallowedfilePredicate};
+			const ScriptRequest rq{script};
+			TestLogger logger;
+			TS_ASSERT_THROWS_EQUALS(std::ignore = script.GetModuleLoader().LoadModule(rq,
+				"restriction/import.js"), const std::invalid_argument& e, e.what(),
+				"Unable to link module.");
+			TS_ASSERT_STR_CONTAINS(logger.GetOutput(),
+				"Importing file \"restriction/disallowedfile.js\" is disallowed.");
+		}).Wait();
 	}
 
 	void test_RestrictionFancy()
 	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, DisallowedfilePredicate};
-		const ScriptRequest rq{script};
-		TestLogger logger;
-		TS_ASSERT_THROWS_EQUALS(std::ignore = script.GetModuleLoader().LoadModule(rq,
-			"restriction/fancy_import.js"), const std::invalid_argument& e, e.what(),
-			"Unable to link module.");
-		TS_ASSERT_STR_CONTAINS(logger.GetOutput(),
-			"Importing file \"restriction/disallowedfile.js\" is disallowed.");
+		ScriptCommand([]()
+		{
+			ScriptInterface script{"Test", "Test", g_ScriptThread.Context, DisallowedfilePredicate};
+			const ScriptRequest rq{script};
+			TestLogger logger;
+			TS_ASSERT_THROWS_EQUALS(std::ignore = script.GetModuleLoader().LoadModule(rq,
+				"restriction/fancy_import.js"), const std::invalid_argument& e, e.what(),
+				"Unable to link module.");
+			TS_ASSERT_STR_CONTAINS(logger.GetOutput(),
+				"Importing file \"restriction/disallowedfile.js\" is disallowed.");
+		}).Wait();
 	}
 
 	void test_RestrictionDynamic()
 	{
-		ScriptInterface script{"Test", "Test", g_ScriptThread.Context, DisallowedfilePredicate};
-		const ScriptRequest rq{script};
+		ScriptCommand([]()
+		{
+			ScriptInterface script{"Test", "Test", g_ScriptThread.Context, DisallowedfilePredicate};
+			const ScriptRequest rq{script};
 
-		TestLogger logger;
-		auto result = script.GetModuleLoader().LoadModule(rq, "restriction/dynamic_import.js");
-		TS_ASSERT_STR_CONTAINS(logger.GetOutput(),
-			"Importing file \"restriction/disallowedfile.js\" is disallowed.");
+			TestLogger logger;
+			auto result = script.GetModuleLoader().LoadModule(rq, "restriction/dynamic_import.js");
+			TS_ASSERT_STR_CONTAINS(logger.GetOutput(),
+				"Importing file \"restriction/disallowedfile.js\" is disallowed.");
 
-		g_ScriptThread.Context->RunJobs();
-		TS_ASSERT_THROWS_ANYTHING(std::ignore = result.begin()->Get());
+			g_ScriptThread.Context->RunJobs();
+			TS_ASSERT_THROWS_ANYTHING(std::ignore = result.begin()->Get());
+		}).Wait();
 	}
 };

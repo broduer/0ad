@@ -37,23 +37,29 @@ class TestPromises : public CxxTest::TestSuite
 public:
 	void test_simple_promises()
 	{
-		ScriptInterface script("Engine", "Test", g_ScriptThread.Context);
-		ScriptTestSetup(script);
-		TS_ASSERT(script.LoadGlobalScriptFile(L"promises/simple.js"));
-		g_ScriptThread.Context->RunJobs();
+		ScriptCommand([]()
+		{
+			const ScriptInterface script("Engine", "Test", g_ScriptThread.Context);
+			ScriptTestSetup(script);
+			TS_ASSERT(script.LoadGlobalScriptFile(L"promises/simple.js"));
+			g_ScriptThread.Context->RunJobs();
 
-		ScriptRequest rq(script);
-		JS::RootedValue global(rq.cx, rq.globalValue());
-		ScriptFunction::CallVoid(rq, global, "endTest");
+			const ScriptRequest rq(script);
+			const JS::RootedValue global(rq.cx, rq.globalValue());
+			ScriptFunction::CallVoid(rq, global, "endTest");
+		}).Wait();
 	}
 
 	void test_exception()
 	{
-		ScriptInterface script("Engine", "Test", g_ScriptThread.Context);
-		TestLogger logger;
-		TS_ASSERT(script.LoadGlobalScriptFile(L"promises/reject.js"));
-		TS_ASSERT_STR_CONTAINS(logger.GetOutput(),
-			"An unhandled promise got rejected:\nError: message");
+		ScriptCommand([]()
+		{
+			const ScriptInterface script("Engine", "Test", g_ScriptThread.Context);
+			TestLogger logger;
+			TS_ASSERT(script.LoadGlobalScriptFile(L"promises/reject.js"));
+			TS_ASSERT_STR_CONTAINS(logger.GetOutput(),
+				"An unhandled promise got rejected:\nError: message");
+		}).Wait();
 	}
 
 	void setUp()
