@@ -24,6 +24,7 @@
 #include "scriptinterface/ScriptConversions.h"
 #include "scriptinterface/ScriptExceptions.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 
 #include <functional>
 #include <js/CallArgs.h>
@@ -323,20 +324,26 @@ template <> void* ScriptInterface::ObjectFromCBData(const ScriptRequest& rq);
 template<typename T>
 bool ScriptInterface::SetGlobal(const char* name, const T& value, bool replace, bool constant, bool enumerate)
 {
-	ScriptRequest rq(this);
-	JS::RootedValue val(rq.cx);
-	Script::ToJSVal(rq, &val, value);
-	return SetGlobal_(name, val, replace, constant, enumerate);
+	return ScriptCommand([this, name, &value, replace, constant, enumerate]()
+	{
+		ScriptRequest rq(this);
+		JS::RootedValue val(rq.cx);
+		Script::ToJSVal(rq, &val, value);
+		return SetGlobal_(name, val, replace, constant, enumerate);
+	}).Get();
 }
 
 template<typename T>
 bool ScriptInterface::Eval(const char* code, T& ret) const
 {
-	ScriptRequest rq(this);
-	JS::RootedValue rval(rq.cx);
-	if (!Eval(code, &rval))
-		return false;
-	return Script::FromJSVal(rq, rval, ret);
+	return ScriptCommand([this, code, &ret]()
+	{
+		const ScriptRequest rq(this);
+		JS::RootedValue rval(rq.cx);
+		if (!Eval(code, &rval))
+			return false;
+		return Script::FromJSVal(rq, rval, ret);
+	}).Get();
 }
 
 #endif // INCLUDED_SCRIPTINTERFACE
