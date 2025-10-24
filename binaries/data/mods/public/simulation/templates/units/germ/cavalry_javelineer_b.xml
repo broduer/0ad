@@ -3,7 +3,7 @@
   <Identity>
     <Civ>germ</Civ>
     <SelectionGroupName>units/germ/cavalry_javelineer_b</SelectionGroupName>
-    <SpecificName>Tigurinian Light Cavalry</SpecificName>
+    <GenericName>Tigurinian Light Cavalry</GenericName>
     <Icon>units/germ/cavalry_javelineer.png</Icon>
   </Identity>
   <Promotion>

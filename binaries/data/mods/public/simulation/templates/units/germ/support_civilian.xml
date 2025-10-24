@@ -2,7 +2,7 @@
 <Entity parent="template_unit_support_civilian">
   <Identity>
     <Civ>germ</Civ>
-    <SpecificName>German Worker</SpecificName>
+    <GenericName>Germanic Worker</GenericName>
     <Icon>units/celt/support_civilian.png</Icon>
     <SelectionGroupName>units/{civ}/support_civilian</SelectionGroupName>
   </Identity>

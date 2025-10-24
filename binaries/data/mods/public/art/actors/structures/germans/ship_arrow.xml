@@ -3,7 +3,7 @@
   <castshadow/>
   <float/>
   <group>
-     <variant frequency="1" name="German Longboat">
+     <variant frequency="1" name="Germanic Longboat">
       <mesh>structural/germans/ship_arrow.dae</mesh>
       <props>
         <prop actor="props/structures/germans/boat_props.xml" attachpoint="mast"/>

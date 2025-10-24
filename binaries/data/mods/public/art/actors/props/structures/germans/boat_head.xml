@@ -3,7 +3,7 @@
   <castshadow/>
   <float/>
   <group>
-    <variant frequency="1" name="German Longboat">
+    <variant frequency="1" name="Germanic Longboat">
       <mesh>props/germ_boat_head.dae</mesh>
       <textures>
         <texture file="structural/germ_boat.png" name="baseTex"/>

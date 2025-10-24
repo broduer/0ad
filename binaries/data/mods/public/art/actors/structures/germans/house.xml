@@ -2,7 +2,7 @@
 <actor version="1">
   <castshadow/>
   <group>
-    <variant frequency="1" name="German House A">
+    <variant frequency="1" name="Germanic House A">
       <mesh>structural/germans/house_a.dae</mesh>
       <textures>
         <texture file="structural/germ_struct_03.png" name="baseTex"/>
@@ -38,7 +38,7 @@
         <prop actor="props/special/eyecandy/sack_1.xml" attachpoint="sack_2"/>
       </props>
     </variant>
-    <variant frequency="1" name="German House A 2">
+    <variant frequency="1" name="Germanic House A 2">
       <mesh>structural/germans/house_a_2.dae</mesh>
       <textures>
         <texture file="structural/germ_struct.png" name="baseTex"/>
@@ -74,7 +74,7 @@
         <prop actor="props/special/eyecandy/sack_1.xml" attachpoint="sack_2"/>
       </props>
     </variant>
-    <variant frequency="1" name="German House B">
+    <variant frequency="1" name="Germanic House B">
       <mesh>structural/germans/house_b.dae</mesh>
       <textures>
         <texture file="structural/germ_struct_03.png" name="baseTex"/>
@@ -105,7 +105,7 @@
         <prop actor="particle/smoke_blacksmith.xml" attachpoint="smoke"/>
       </props>
     </variant>
-    <variant frequency="1" name="German House C">
+    <variant frequency="1" name="Germanic House C">
       <mesh>structural/germans/house_c.dae</mesh>
       <textures>
         <texture file="structural/germ_struct_03.png" name="baseTex"/>

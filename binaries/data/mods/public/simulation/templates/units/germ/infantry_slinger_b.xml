@@ -3,7 +3,7 @@
   <Identity>
     <Civ>germ</Civ>
     <SelectionGroupName>units/germ/infantry_slinger_b</SelectionGroupName>
-    <SpecificName>Celto-German Slinger</SpecificName>
+    <GenericName>Celto-Germanic Slinger</GenericName>
     <Icon>units/germ/infantry_slinger.png</Icon>
   </Identity>
   <Promotion>

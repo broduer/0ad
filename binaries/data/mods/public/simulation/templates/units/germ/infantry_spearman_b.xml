@@ -3,7 +3,7 @@
   <Identity>
     <Civ>germ</Civ>
     <SelectionGroupName>units/germ/infantry_spearman_b</SelectionGroupName>
-    <SpecificName>Cimbrian Spearman</SpecificName>
+    <GenericName>Cimbrian Spearman</GenericName>
     <VisibleClasses datatype="tokens">Guerilla</VisibleClasses>
     <Icon>units/germ/infantry_spearman.png</Icon>
   </Identity>

@@ -2,7 +2,7 @@
 <actor version="1">
   <castshadow/>
   <group>
-    <variant frequency="1" name="German Civic Center" file="structures/defensive_building.xml">
+    <variant frequency="1" name="Germanic Civic Center" file="structures/defensive_building.xml">
       <mesh>structural/germans/cc.dae</mesh>
       <props>
         <prop actor="props/structures/decals/spart_5x5.xml" attachpoint="root"/>

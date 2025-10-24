@@ -2,7 +2,7 @@
 <Entity parent="template_unit_ship_fire">
   <Identity>
     <Civ>germ</Civ>
-    <SpecificName>German Fire Ship</SpecificName>
+    <GenericName>Germanic Fire Ship</GenericName>
     <Icon>units/iber/ship_fire.png</Icon>
   </Identity>
   <VisualActor>

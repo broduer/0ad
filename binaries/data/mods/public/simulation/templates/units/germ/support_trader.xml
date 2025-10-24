@@ -2,7 +2,7 @@
 <Entity parent="template_unit_support_trader">
   <Identity>
     <Civ>germ</Civ>
-    <SpecificName>German Trader</SpecificName>
+    <GenericName>Germanic Trader</GenericName>
     <Icon>units/celt/support_trader.png</Icon>
   </Identity>
   <VisualActor>

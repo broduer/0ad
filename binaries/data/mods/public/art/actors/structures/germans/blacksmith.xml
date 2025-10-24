@@ -2,7 +2,7 @@
 <actor version="1">
   <castshadow/>
   <group>
-    <variant name="German Blacksmith">
+    <variant name="Germanic Blacksmith">
       <mesh>structural/germans/blacksmith.dae</mesh>
       <props>
         <prop actor="props/structures/decals/dirt_4x4.xml" attachpoint="root"/>

@@ -3,7 +3,7 @@
   <castshadow/>
   <float/>
   <group>
-     <variant frequency="1" name="German Merchant Ship">
+     <variant frequency="1" name="Germanic Merchant Ship">
       <mesh>structural/germans/ship_knarr.dae</mesh>
       <props>
         <prop actor="props/structures/germans/knarr_props.xml" attachpoint="root"/>

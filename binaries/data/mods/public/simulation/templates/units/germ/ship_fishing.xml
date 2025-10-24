@@ -6,7 +6,7 @@
   </Footprint>
   <Identity>
     <Civ>germ</Civ>
-    <SpecificName>German Fisherman</SpecificName>
+    <GenericName>Germanic Fisherman</GenericName>
     <Icon>units/germ/ship_fishing.png</Icon>
   </Identity>
   <VisualActor>

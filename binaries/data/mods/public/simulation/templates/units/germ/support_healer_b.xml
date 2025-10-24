@@ -3,7 +3,7 @@
   <Identity>
     <Civ>germ</Civ>
     <SelectionGroupName>units/germ/support_healer_b</SelectionGroupName>
-    <SpecificName>German Priest</SpecificName>
+    <GenericName>Germanic Priest</GenericName>
     <Icon>units/germ/support_healer.png</Icon>
     <Rank>Basic</Rank>
   </Identity>

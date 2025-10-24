@@ -2,7 +2,7 @@
 <Entity parent="template_unit_infantry_melee_swordsman">
   <Identity>
     <Civ>germ</Civ>
-    <SpecificName>Teutonic Swordsman</SpecificName>
+    <GenericName>Teutonic Swordsman</GenericName>
     <SelectionGroupName>units/germ/infantry_swordsman_b</SelectionGroupName>
     <Requirements>
       <Techs datatype="tokens">phase_town</Techs>

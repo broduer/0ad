@@ -2,7 +2,7 @@
 <actor version="1">
   <castshadow/>
   <group>
-    <variant name="German wagon_unyoked">
+    <variant name="Germanic wagon_unyoked">
       <mesh>props/germ_wagon_cc.dae</mesh>
       <textures>
         <texture file="structural/germ_struct.png" name="baseTex"/>

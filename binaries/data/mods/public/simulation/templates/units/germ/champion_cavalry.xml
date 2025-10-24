@@ -2,7 +2,7 @@
 <Entity parent="spec_champ|template_unit_champion_cavalry_swordsman">
   <Identity>
     <Civ>germ</Civ>
-    <SpecificName>Cimbrian Noble Cavalry</SpecificName>
+    <GenericName>Cimbrian Noble Cavalry</GenericName>
     <SelectionGroupName>units/germ/champion_cavalry</SelectionGroupName>
     <Icon>units/germ/champion_cavalry.png</Icon>
     <Requirements>
