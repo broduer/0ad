@@ -309,51 +309,54 @@ public:
 
 	// TODO: test exceptions more thoroughly
 
-	void helper_script_roundtrip(const char* msg, const char* input, const char* expected, size_t expstreamlen = 0, const char* expstream = NULL, const char* debug = NULL)
+	void helper_script_roundtrip(const char* msg, const char* input, const char* expected, size_t expstreamlen = 0, const char* expstream = nullptr, const char* debug = nullptr)
 	{
-		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
-		ScriptRequest rq(script);
-
-		JS::RootedValue obj(rq.cx);
-		TSM_ASSERT(msg, script.Eval(input, &obj));
-
-		if (debug)
+		ScriptCommand([msg, input, expected, expstreamlen, expstream, debug]()
 		{
-			std::stringstream dbgstream;
-			CDebugSerializer serialize(script, dbgstream);
+			const ScriptInterface script("Test", "Test", g_ScriptThread.Context);
+			const ScriptRequest rq(script);
+
+			JS::RootedValue obj(rq.cx);
+			TSM_ASSERT(msg, script.Eval(input, &obj));
+
+			if (debug)
+			{
+				std::stringstream dbgstream;
+				CDebugSerializer serialize(script, dbgstream);
+				serialize.ScriptVal("script", &obj);
+				TS_ASSERT_STR_EQUALS(dbgstream.str(), debug);
+			}
+
+			std::stringstream stream;
+			CStdSerializer serialize(script, stream);
+
 			serialize.ScriptVal("script", &obj);
-			TS_ASSERT_STR_EQUALS(dbgstream.str(), debug);
-		}
 
-		std::stringstream stream;
-		CStdSerializer serialize(script, stream);
+			if (expstream)
+			{
+				TSM_ASSERT_STREAM(msg, stream, expstreamlen, expstream);
+			}
 
-		serialize.ScriptVal("script", &obj);
+			CStdDeserializer deserialize(script, stream);
 
-		if (expstream)
-		{
-			TSM_ASSERT_STREAM(msg, stream, expstreamlen, expstream);
-		}
+			JS::RootedValue newobj(rq.cx);
+			deserialize.ScriptVal("script", &newobj);
+			// NOTE: Don't use good() here - it fails due to a bug in older libc++ versions
+			TSM_ASSERT(msg, !stream.bad() && !stream.fail());
+			TSM_ASSERT_EQUALS(msg, stream.peek(), EOF);
 
-		CStdDeserializer deserialize(script, stream);
+			std::stringstream stream2;
+			CStdSerializer serialize2(script, stream2);
+			CStdDeserializer deserialize2(script, stream2);
 
-		JS::RootedValue newobj(rq.cx);
-		deserialize.ScriptVal("script", &newobj);
-		// NOTE: Don't use good() here - it fails due to a bug in older libc++ versions
-		TSM_ASSERT(msg, !stream.bad() && !stream.fail());
-		TSM_ASSERT_EQUALS(msg, stream.peek(), EOF);
+			// Round-trip the deserialized value again. This helps ensure prototypes are correctly deserialized.
+			serialize2.ScriptVal("script2", &newobj);
+			deserialize2.ScriptVal("script2", &newobj);
 
-		std::stringstream stream2;
-		CStdSerializer serialize2(script, stream2);
-		CStdDeserializer deserialize2(script, stream2);
-
-		// Round-trip the deserialized value again. This helps ensure prototypes are correctly deserialized.
-		serialize2.ScriptVal("script2", &newobj);
-		deserialize2.ScriptVal("script2", &newobj);
-
-		std::string source;
-		TSM_ASSERT(msg, ScriptFunction::Call(rq, newobj, "toSource", source));
-		TS_ASSERT_STR_EQUALS(source, expected);
+			std::string source;
+			TSM_ASSERT(msg, ScriptFunction::Call(rq, newobj, "toSource", source));
+			TS_ASSERT_STR_EQUALS(source, expected);
+		}).Wait();
 	}
 
 	void test_script_basic()
@@ -827,19 +830,22 @@ public:
 
 	void test_script_exceptions()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
-		ScriptRequest rq(script);
+		ScriptCommand([]()
+		{
+			const ScriptInterface script("Test", "Test", g_ScriptThread.Context);
+			const ScriptRequest rq(script);
 
-		JS::RootedValue obj(rq.cx);
+			JS::RootedValue obj(rq.cx);
 
-		std::stringstream stream;
-		CStdSerializer serialize(script, stream);
+			std::stringstream stream;
+			CStdSerializer serialize(script, stream);
 
-		TestLogger logger;
+			TestLogger logger;
 
-		TS_ASSERT(script.Eval("([1, 2, function () { }])", &obj));
-		TS_ASSERT_THROWS(serialize.ScriptVal("script", &obj), const PSERROR_Serialize_InvalidScriptValue&);
-		TS_ASSERT_STR_CONTAINS(logger.GetOutput(), "ERROR: Cannot serialize JS objects of type 'function': (unnamed)");
+			TS_ASSERT(script.Eval("([1, 2, function () { }])", &obj));
+			TS_ASSERT_THROWS(serialize.ScriptVal("script", &obj), const PSERROR_Serialize_InvalidScriptValue&);
+			TS_ASSERT_STR_CONTAINS(logger.GetOutput(), "ERROR: Cannot serialize JS objects of type 'function': (unnamed)");
+		}).Wait();
 	}
 
 	void test_script_splice()
@@ -860,36 +866,39 @@ class TestSerializerPerf : public CxxTest::TestSuite
 public:
 	void DISABLED_test_script_props()
 	{
-		const char* input = "var x = {}; for (var i=0;i<256;++i) x[i]=Math.pow(i, 2); x";
-
-		ScriptInterface script("Test", "Test", g_ScriptThread.Context);
-		ScriptRequest rq(script);
-
-		JS::RootedValue obj(rq.cx);
-		TS_ASSERT(script.Eval(input, &obj));
-
-		for (size_t i = 0; i < 256; ++i)
+		ScriptCommand([]()
 		{
-			std::stringstream stream;
-			CStdSerializer serialize(script, stream);
+			const char* input = "var x = {}; for (var i=0;i<256;++i) x[i]=Math.pow(i, 2); x";
 
-			serialize.ScriptVal("script", &obj);
+			const ScriptInterface script("Test", "Test", g_ScriptThread.Context);
+			const ScriptRequest rq(script);
 
-			CStdDeserializer deserialize(script, stream);
+			JS::RootedValue obj(rq.cx);
+			TS_ASSERT(script.Eval(input, &obj));
 
-			JS::RootedValue newobj(rq.cx);
-			deserialize.ScriptVal("script", &newobj);
-			// NOTE: Don't use good() here - it fails due to a bug in older libc++ versions
-			TS_ASSERT(!stream.bad() && !stream.fail());
-			TS_ASSERT_EQUALS(stream.peek(), EOF);
-
-			if (i == 0)
+			for (size_t i = 0; i < 256; ++i)
 			{
-				std::string source;
-				TS_ASSERT(ScriptFunction::Call(rq, newobj, "toSource", source));
-				std::cout << source << "\n";
+				std::stringstream stream;
+				CStdSerializer serialize(script, stream);
+
+				serialize.ScriptVal("script", &obj);
+
+				CStdDeserializer deserialize(script, stream);
+
+				JS::RootedValue newobj(rq.cx);
+				deserialize.ScriptVal("script", &newobj);
+				// NOTE: Don't use good() here - it fails due to a bug in older libc++ versions
+				TS_ASSERT(!stream.bad() && !stream.fail());
+				TS_ASSERT_EQUALS(stream.peek(), EOF);
+
+				if (i == 0)
+				{
+					std::string source;
+					TS_ASSERT(ScriptFunction::Call(rq, newobj, "toSource", source));
+					std::cout << source << "\n";
+				}
 			}
-		}
+		}).Wait();
 	}
 
 	void DISABLED_test_hash()

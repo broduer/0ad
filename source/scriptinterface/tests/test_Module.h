@@ -573,31 +573,31 @@ public:
 	{
 		ScriptCommand([]()
 		{
+
+			constexpr int goal{2};
+
+			const ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
+			const ScriptRequest rq{script};
+
+			int counter{0};
+			for (auto& future : script.GetModuleLoader().LoadModule(rq, "empty.js"))
 			{
-				constexpr int goal{2};
+				TS_ASSERT(!future.IsDone());
 
-				ScriptInterface script{"Test", "Test", g_ScriptThread.Context, AllowAllPredicate};
-				const ScriptRequest rq{script};
+				if (counter != 0)
+					ClearFromCache("empty.js");
 
-				int counter{0};
-				for (auto& future : script.GetModuleLoader().LoadModule(rq, "empty.js"))
-				{
-					TS_ASSERT(!future.IsDone());
+				g_ScriptThread.Context->RunJobs();
+				TS_ASSERT(future.IsDone());
 
-					if (counter != 0)
-						ClearFromCache("empty.js");
+				if (counter == goal)
+					break;
 
-					g_ScriptThread.Context->RunJobs();
-					TS_ASSERT(future.IsDone());
+				++counter;
+			}
 
-					if (counter == goal)
-						break;
-
-					++counter;
-				}
-
-				TS_ASSERT_EQUALS(counter, goal);
-			}).Wait();
+			TS_ASSERT_EQUALS(counter, goal);
+		}).Wait();
 	}
 
 	void test_HotloadWithoutIncrement()

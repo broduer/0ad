@@ -39,42 +39,45 @@ class TestCmpCommandQueue : public CxxTest::TestSuite
 public:
 	void test_basic()
 	{
-		CXeromycesEngine xeromycesEngine;
-		ComponentTestHelper test(*g_ScriptThread.Context);
-		ScriptRequest rq(test.GetScriptInterface());
+		ScriptCommand([this]()
+		{
+			CXeromycesEngine xeromycesEngine;
+			ComponentTestHelper test(*g_ScriptThread.Context);
+			const ScriptRequest rq(test.GetScriptInterface());
 
-		std::vector<SimulationCommand> empty;
+			std::vector<SimulationCommand> empty;
 
-		ICmpCommandQueue* cmp = test.Add<ICmpCommandQueue>(CID_CommandQueue, "", SYSTEM_ENTITY);
+			ICmpCommandQueue* cmp = test.Add<ICmpCommandQueue>(CID_CommandQueue, "", SYSTEM_ENTITY);
 
-		TS_ASSERT(test.GetScriptInterface().Eval("var cmds = []; function ProcessCommand(player, cmd) { cmds.push([player, cmd]); }"));
+			TS_ASSERT(test.GetScriptInterface().Eval("var cmds = []; function ProcessCommand(player, cmd) { cmds.push([player, cmd]); }"));
 
-		JS::RootedValue cmd(rq.cx);
+			JS::RootedValue cmd(rq.cx);
 
-		TS_ASSERT(test.GetScriptInterface().Eval("([1,2,3])", &cmd));
-		cmp->PushLocalCommand(1, cmd);
+			TS_ASSERT(test.GetScriptInterface().Eval("([1,2,3])", &cmd));
+			cmp->PushLocalCommand(1, cmd);
 
-		TS_ASSERT(test.GetScriptInterface().Eval("({\"x\":4})", &cmd));
-		cmp->PushLocalCommand(-1, cmd);
+			TS_ASSERT(test.GetScriptInterface().Eval("({\"x\":4})", &cmd));
+			cmp->PushLocalCommand(-1, cmd);
 
-		test.Roundtrip();
+			test.Roundtrip();
 
-		// Process the first two commands
-		cmp->FlushTurn(empty);
+			// Process the first two commands
+			cmp->FlushTurn(empty);
 
-		TS_ASSERT(test.GetScriptInterface().Eval("({\"y\":5})", &cmd));
-		cmp->PushLocalCommand(10, cmd);
+			TS_ASSERT(test.GetScriptInterface().Eval("({\"y\":5})", &cmd));
+			cmp->PushLocalCommand(10, cmd);
 
-		// Process the next command
-		cmp->FlushTurn(empty);
+			// Process the next command
+			cmp->FlushTurn(empty);
 
-		// Process no commands
-		cmp->FlushTurn(empty);
+			// Process no commands
+			cmp->FlushTurn(empty);
 
-		test.Roundtrip();
+			test.Roundtrip();
 
-		std::string output;
-		TS_ASSERT(test.GetScriptInterface().Eval("JSON.stringify(cmds)", output));
-		TS_ASSERT_STR_EQUALS(output, "[[1,[1,2,3]],[-1,{\"x\":4}],[10,{\"y\":5}]]");
+			std::string output;
+			TS_ASSERT(test.GetScriptInterface().Eval("JSON.stringify(cmds)", output));
+			TS_ASSERT_STR_EQUALS(output, "[[1,[1,2,3]],[-1,{\"x\":4}],[10,{\"y\":5}]]");
+		}).Wait();
 	}
 };
