@@ -49,6 +49,36 @@ public:
 		return Future<std::invoke_result_t<Callback>, ScriptThread>(*this, std::forward<Callback>(func));
 	}
 
+	template<typename Callback, typename... Args>
+	inline auto Run(Callback&& func, Args&&... args)
+	{
+		return Future<std::invoke_result_t<Callback, Args...>, ScriptThread>(*this, std::forward<Callback>(func), std::forward<Args>(args)...);
+	}
+
+	template<typename Callback, typename... Args>
+	inline auto Run(const Callback& func, Args&&... args)
+	{
+		return Future<std::invoke_result_t<Callback, Args...>, ScriptThread>(*this, std::forward<Callback>(func), std::forward<Args>(args)...);
+	}
+
+	template<typename Callback, typename... Args>
+	inline auto Run(Callback&& func, Args&... args)
+	{
+		return Future<std::invoke_result_t<Callback, Args&...>, ScriptThread>(*this, std::forward<Callback>(func), args...);
+	}
+
+	template<typename Callback, typename... Args>
+	inline auto Run(const Callback& func, const Args&... args)
+	{
+		return Future<std::invoke_result_t<Callback, const Args...>, ScriptThread>(*this, std::forward<Callback>(func), args...);
+	}
+
+	template<typename Callback, typename... Args>
+	inline auto Run(Callback&& func, Args const&... args)
+	{
+		return Future<std::invoke_result_t<Callback, const Args...>, ScriptThread>(*this, std::forward<Callback>(func), args...);
+	}
+
 	std::shared_ptr<ScriptContext> Context;
 
 	static std::thread::id GetCurrentThreadId();
@@ -69,7 +99,10 @@ private:
 
 #define g_ScriptThread ScriptThread::GetSingleton()
 
-template<typename Callback>
-inline auto ScriptCommand(Callback &&func) { return g_ScriptThread.Run(std::forward<Callback>(func)); }
+template<typename Callback, typename... Args>
+inline auto ScriptCommand(Callback&& func, Args&&... args)
+{
+	return g_ScriptThread.Run(std::forward<Callback>(func), std::forward<Args>(args)...);
+}
 
 #endif // INCLUDED_SCRIPTTHREAD
