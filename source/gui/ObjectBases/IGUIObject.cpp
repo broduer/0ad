@@ -86,6 +86,12 @@ IGUIObject::~IGUIObject()
 		ScriptCommand([this]() { JS_RemoveExtraGCRootsTracer(m_pGUI.GetScriptInterface()->GetGeneralJSContext(), Trace, this); });
 	}
 
+	// All JSObjects must be destroyed within the JS thread, it thus requires us to empty it here.
+	ScriptCommand([this]()
+	{
+		m_ScriptHandlers.clear();
+	}).Wait();
+
 	// m_Children is deleted along all other GUI Objects in the CGUI destructor
 }
 
