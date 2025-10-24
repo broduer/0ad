@@ -70,32 +70,32 @@ public:
 
 	CColor GetDisplayedColor() override
 	{
-		return m_Script.Call<CColor>("GetDisplayedColor");
+		return ScriptCommand([this]() { return m_Script.Call<CColor>("GetDisplayedColor"); }).Get();
 	}
 
 	CFixedVector3D GetStartingCameraPos() override
 	{
-		return m_Script.Call<CFixedVector3D>("GetStartingCameraPos");
+		return ScriptCommand([this]() { return m_Script.Call<CFixedVector3D>("GetStartingCameraPos"); }).Get();
 	}
 
 	CFixedVector3D GetStartingCameraRot() override
 	{
-		return m_Script.Call<CFixedVector3D>("GetStartingCameraRot");
+		return ScriptCommand([this]() { return m_Script.Call<CFixedVector3D>("GetStartingCameraRot"); }).Get();
 	}
 
 	bool HasStartingCamera() override
 	{
-		return m_Script.Call<bool>("HasStartingCamera");
+		return ScriptCommand([this]() { return m_Script.Call<bool>("HasStartingCamera"); }).Get();
 	}
 
 	std::string GetState() override
 	{
-		return m_Script.Call<std::string>("GetState");
+		return ScriptCommand([this]() { return m_Script.Call<std::string>("GetState"); }).Get();
 	}
 
 	bool IsRemoved() override
 	{
-		return m_Script.Call<bool>("IsRemoved");
+		return ScriptCommand([this]() { return m_Script.Call<bool>("IsRemoved"); }).Get();
 	}
 
 	bool IsActive() final

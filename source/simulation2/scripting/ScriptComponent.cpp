@@ -36,10 +36,13 @@ CComponentTypeScript::CComponentTypeScript(const ScriptInterface& scriptInterfac
 void CComponentTypeScript::Init(CComponentManager& cmpMgr, const CParamNode& paramNode, entity_id_t ent)
 {
 	cmpMgr.RegisterTrace(ent, m_Instance);
-	ScriptRequest rq(m_ScriptInterface);
-	Script::SetProperty(rq, GetInstance(), "entity", (int)ent, true, false);
-	Script::SetProperty(rq, GetInstance(), "template", paramNode, true, false);
-	ScriptFunction::CallVoid(rq, GetInstance(), "Init");
+	ScriptCommand([this, &cmpMgr, &paramNode, ent]()
+	{
+		const ScriptRequest rq(m_ScriptInterface);
+		Script::SetProperty(rq, GetInstance(), "entity", (int)ent, true, false);
+		Script::SetProperty(rq, GetInstance(), "template", paramNode, true, false);
+		ScriptFunction::CallVoid(rq, GetInstance(), "Init");
+	}).Wait();
 }
 
 void CComponentTypeScript::Deinit()

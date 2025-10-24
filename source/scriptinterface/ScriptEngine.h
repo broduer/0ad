@@ -20,6 +20,7 @@
 
 #include "lib/debug.h"
 #include "ps/Singleton.h"
+#include "scriptinterface/ScriptThread.h"
 
 #include <js/Initialization.h>
 #include <list>
@@ -47,13 +48,13 @@ public:
 	ScriptEngine()
 	{
 		ENSURE(m_Contexts.empty() && "JS_Init must be called before any contexts are created!");
-		JS_Init();
+		ScriptCommand([]() { JS_Init(); }).Wait();
 	}
 
 	~ScriptEngine()
 	{
 		ENSURE(m_Contexts.empty() && "All contexts must be destroyed before calling JS_ShutDown!");
-		JS_ShutDown();
+		ScriptCommand([]() { JS_ShutDown(); }).Wait();
 	}
 
 	void RegisterContext(const JSContext* cx) { m_Contexts.push_back(cx); }

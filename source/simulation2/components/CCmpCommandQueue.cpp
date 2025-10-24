@@ -66,14 +66,17 @@ public:
 
 	void Serialize(ISerializer& serialize) override
 	{
-		ScriptRequest rq(GetSimContext().GetScriptInterface());
-
-		serialize.NumberU32_Unbounded("num commands", (u32)m_LocalQueue.size());
-		for (size_t i = 0; i < m_LocalQueue.size(); ++i)
+		return ScriptCommand([this, &serialize]()
 		{
-			serialize.NumberI32_Unbounded("player", m_LocalQueue[i].player);
-			serialize.ScriptVal("data", &m_LocalQueue[i].data);
-		}
+			ScriptRequest rq(GetSimContext().GetScriptInterface());
+
+			serialize.NumberU32_Unbounded("num commands", static_cast<u32>(m_LocalQueue.size()));
+			for (size_t i = 0; i < m_LocalQueue.size(); ++i)
+			{
+				serialize.NumberI32_Unbounded("player", m_LocalQueue[i].player);
+				serialize.ScriptVal("data", &m_LocalQueue[i].data);
+			}
+		}).Wait();
 	}
 
 	void Deserialize(const CParamNode&, IDeserializer& deserialize) override

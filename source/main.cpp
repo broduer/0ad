@@ -626,14 +626,15 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 		modsToInstall.emplace_back(std::move(modPath));
 	}
 
+	Threading::TaskManager taskManager;
+	ScriptThread scripThread;
+
 	// We need to initialize SpiderMonkey and libxml2 in the main thread before
 	// any thread uses them. So initialize them here before we might run Atlas.
 	ScriptEngine scriptEngine;
 	CXeromycesEngine xeromycesEngine;
-	ScriptThread scripThread;
 
 	// Initialise the global task manager at this point (JS & Profiler2 are set up).
-	Threading::TaskManager taskManager;
 
 	if (ATLAS_RunIfOnCmdLine(args, false))
 		return;

@@ -34,12 +34,18 @@ public:
 
 	std::string GetSelectionGroupName() override
 	{
-		return m_Script.Call<std::string>("GetSelectionGroupName");
+		return ScriptCommand([this]()
+		{
+			return m_Script.Call<std::string>("GetSelectionGroupName");
+		}).GetMoved();
 	}
 
 	std::wstring GetPhenotype() override
 	{
-		return m_Script.Call<std::wstring>("GetPhenotype");
+		return ScriptCommand([this]()
+		{
+			return m_Script.Call<std::wstring>("GetPhenotype");
+		}).GetMoved();
 	}
 
 	std::wstring GetCiv() override

@@ -52,29 +52,38 @@ public:
 	template<typename R, typename... Ts>
 	R Call(const char* funcname, const Ts&... params) const
 	{
-		R ret;
-		ScriptRequest rq(m_ScriptInterface);
-		if (ScriptFunction::Call(rq, GetInstance(), funcname, ret, params...))
-			return ret;
-		LOGERROR("Error calling component script function %s", funcname);
-		return R();
+		return ScriptCommand([this, funcname, params...]()
+		{
+			R ret;
+			const ScriptRequest rq(m_ScriptInterface);
+			if (ScriptFunction::Call(rq, GetInstance(), funcname, ret, params...))
+				return ret;
+			LOGERROR("Error calling component script function %s", funcname);
+			return R();
+		}).Get();
 	}
 
 	// CallRef is mainly used for returning script values with correct stack rooting.
 	template<typename R, typename... Ts>
 	void CallRef(const char* funcname, R ret, const Ts&... params) const
 	{
-		ScriptRequest rq(m_ScriptInterface);
-		if (!ScriptFunction::Call(rq, GetInstance(), funcname, ret, params...))
-			LOGERROR("Error calling component script function %s", funcname);
+		return ScriptCommand([this, funcname, &ret, params...]()
+		{
+			const ScriptRequest rq(m_ScriptInterface);
+			if (!ScriptFunction::Call(rq, GetInstance(), funcname, ret, params...))
+				LOGERROR("Error calling component script function %s", funcname);
+		}).Wait();
 	}
 
 	template<typename... Ts>
 	void CallVoid(const char* funcname, const Ts&... params) const
 	{
-		ScriptRequest rq(m_ScriptInterface);
-		if (!ScriptFunction::CallVoid(rq, GetInstance(), funcname, params...))
-			LOGERROR("Error calling component script function %s", funcname);
+		return ScriptCommand([this, funcname, &params...]()
+		{
+			const ScriptRequest rq(m_ScriptInterface);
+			if (!ScriptFunction::CallVoid(rq, GetInstance(), funcname, params...))
+				LOGERROR("Error calling component script function %s", funcname);
+		}).Wait();
 	}
 
 private:

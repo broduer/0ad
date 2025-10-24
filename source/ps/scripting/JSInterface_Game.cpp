@@ -59,14 +59,18 @@ void StartGame(const ScriptInterface& guiInterface, JS::HandleValue attribs, int
 
 	g_Game = new CGame(storeReplay);
 
-	// Convert from GUI script context to sim script context/
-	CSimulation2* sim = g_Game->GetSimulation2();
-	ScriptRequest rqSim(sim->GetScriptInterface());
+	ScriptCommand([&guiInterface, &attribs, playerID]()
+	{
+		// Convert from GUI script context to sim script context/
+		const CSimulation2* sim = g_Game->GetSimulation2();
 
-	JS::RootedValue gameAttribs(rqSim.cx, Script::CloneValueFromOtherCompartment(sim->GetScriptInterface(), guiInterface, attribs));
+		const ScriptRequest rqSim(sim->GetScriptInterface());
 
-	g_Game->SetPlayerID(playerID);
-	g_Game->StartGame(&gameAttribs, "");
+		JS::RootedValue gameAttribs(rqSim.cx, Script::CloneValueFromOtherCompartment(sim->GetScriptInterface(), guiInterface, attribs));
+
+		g_Game->SetPlayerID(playerID);
+		g_Game->StartGame(&gameAttribs, "");
+	}).Wait();
 }
 
 void Script_EndGame()

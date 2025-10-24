@@ -120,9 +120,9 @@ CComponentManager::CComponentManager(CSimContext& context, ScriptContext& cx, bo
 	m_ScriptInterface.LoadGlobalScripts();
 
 	// Define MT_*, IID_* as script globals, and store their names
-#define MESSAGE(name) m_ScriptInterface.SetGlobal("MT_" #name, (int)MT_##name);
+#define MESSAGE(name) m_ScriptInterface.SetGlobal("MT_" #name, static_cast<int>(MT_##name));
 #define INTERFACE(name) \
-	m_ScriptInterface.SetGlobal("IID_" #name, (int)IID_##name); \
+	m_ScriptInterface.SetGlobal("IID_" #name, static_cast<int>(IID_##name)); \
 	m_InterfaceIdsByName[#name] = IID_##name;
 #define COMPONENT(name)
 #include "simulation2/TypeList.h"

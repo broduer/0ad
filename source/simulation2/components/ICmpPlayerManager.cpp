@@ -39,7 +39,10 @@ public:
 
 	entity_id_t GetPlayerByID(int32_t id) override
 	{
-		return m_Script.Call<entity_id_t>("GetPlayerByID", (int)id);
+		return ScriptCommand([this, id]()
+		{
+			return m_Script.Call<entity_id_t>("GetPlayerByID", static_cast<int>(id));
+		}).Get();
 	}
 };
 

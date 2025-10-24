@@ -417,9 +417,12 @@ void CNetServerWorker::Run()
 	g_Profiler2.RegisterCurrentThread("Net server");
 
 	// We create a new ScriptContext for this network thread, with a single ScriptInterface.
-	std::shared_ptr<ScriptContext> netServerContext = ScriptContext::CreateContext();
-	m_ScriptInterface = new ScriptInterface("Engine", "Net server", netServerContext);
-	m_InitAttributes.init(m_ScriptInterface->GetGeneralJSContext(), JS::UndefinedValue());
+	ScriptCommand([this]()
+	{
+		std::shared_ptr<ScriptContext> netServerContext = ScriptContext::CreateContext();
+		m_ScriptInterface = new ScriptInterface("Engine", "Net server", netServerContext);
+		m_InitAttributes.init(m_ScriptInterface->GetGeneralJSContext(), JS::UndefinedValue());
+	}).Wait();
 
 	while (true)
 	{
