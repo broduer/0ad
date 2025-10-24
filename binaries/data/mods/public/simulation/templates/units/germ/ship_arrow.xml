@@ -6,7 +6,6 @@
   </Footprint>
   <Identity>
     <Civ>germ</Civ>
-    <SpecificName>Kriegsschiff</SpecificName>
     <Icon>units/germ/ship_arrow.png</Icon>
   </Identity>
   <VisualActor>
