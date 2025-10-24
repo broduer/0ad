@@ -14,7 +14,7 @@
 	"requirementsTooltip": "Unlocked in Town Phase.",
 	"icon": "population.png",
 	"researchTime": 40,
-	"tooltip": "Supply Wagons +5 population space and Wagon Encampments +10 population space. Training Germanic Women unlocked from the Supply Wagon as well.",
+	"tooltip": "Supply Wagons +5 population space and Wagon Encampments +10 population space. Training Germanic Workers unlocked from the Supply Wagon as well.",
 	"modifications": [
 		{ "value": "Promotion/RequiredXp", "replace": 0, "affects": "Wagon" },
 		{ "value": "Population/Bonus", "add": 10, "affects": "Colony" }
