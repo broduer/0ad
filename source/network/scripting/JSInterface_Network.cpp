@@ -208,10 +208,13 @@ JS::Value PollNetworkClient(const ScriptInterface& guiInterface)
 		return JS::UndefinedValue();
 
 	// Convert from net client context to GUI script context
-	ScriptRequest rqNet(g_NetClient->GetScriptInterface());
-	JS::RootedValue pollNet(rqNet.cx);
-	g_NetClient->GuiPoll(&pollNet);
-	return Script::CloneValueFromOtherCompartment(guiInterface, g_NetClient->GetScriptInterface(), pollNet);
+	return ScriptCommand([&guiInterface]()
+	{
+		const ScriptRequest rqNet(g_NetClient->GetScriptInterface());
+		JS::RootedValue pollNet(rqNet.cx);
+		g_NetClient->GuiPoll(&pollNet);
+		return Script::CloneValueFromOtherCompartment(guiInterface, g_NetClient->GetScriptInterface(), pollNet);
+	}).Get();
 }
 
 void SendGameSetupMessage(const ScriptInterface& scriptInterface, JS::HandleValue attribs1)
@@ -219,7 +222,7 @@ void SendGameSetupMessage(const ScriptInterface& scriptInterface, JS::HandleValu
 	ENSURE(g_NetClient);
 
 	// TODO: This is a workaround because we need to pass a MutableHandle to a JSAPI functions somewhere (with no obvious reason).
-	ScriptRequest rq(scriptInterface);
+	const ScriptRequest rq(scriptInterface);
 	JS::RootedValue attribs(rq.cx, attribs1);
 
 	g_NetClient->SendGameSetupMessage(&attribs, scriptInterface);

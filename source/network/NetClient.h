@@ -26,7 +26,7 @@
 #include "network/NetMessage.h"
 #include "ps/CStr.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 
 #include <ctime>
 #include <deque>
@@ -187,11 +187,14 @@ public:
 	template<typename... Args>
 	void PushGuiMessage(Args const&... args)
 	{
-		ScriptRequest rq(GetScriptInterface());
+		ScriptCommand([this, &args...]()
+		{
+			ScriptRequest rq(GetScriptInterface());
 
-		JS::RootedValue message(rq.cx);
-		Script::CreateObject(rq, &message, args...);
-		m_GuiMessageQueue.push_back(JS::Heap<JS::Value>(message));
+			JS::RootedValue message(rq.cx);
+			Script::CreateObject(rq, &message, args...);
+			m_GuiMessageQueue.push_back(JS::Heap<JS::Value>(message));
+		}).Wait();
 	}
 
 	/**

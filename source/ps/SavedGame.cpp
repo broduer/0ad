@@ -57,6 +57,8 @@
 #include <sstream>
 #include <utility>
 
+#include "scriptinterface/ScriptThread.h"
+
 class ScriptInterface;
 
 // TODO: we ought to check version numbers when loading files
@@ -78,8 +80,6 @@ Status SavedGames::SavePrefix(const CStrW& prefix, const CStrW& description, CSi
 
 Status SavedGames::Save(const CStrW& name, const CStrW& description, CSimulation2& simulation, const Script::StructuredClone& guiMetadataClone)
 {
-	ScriptRequest rq(simulation.GetScriptInterface());
-
 	// Determine the filename to save under
 	const VfsPath basenameFormat(L"saves/" + name);
 	const VfsPath filename = basenameFormat.ChangeExtension(L".0adsave");
@@ -95,7 +95,7 @@ Status SavedGames::Save(const CStrW& name, const CStrW& description, CSimulation
 	WARN_RETURN_STATUS_IF_ERR(g_VFS->GetDirectoryRealPath("cache/", tempSaveFileRealPath));
 	tempSaveFileRealPath = tempSaveFileRealPath / "temp.0adsave";
 
-	time_t now = time(NULL);
+	time_t now = time(nullptr);
 
 	// Construct the serialized state to be saved
 
@@ -103,54 +103,58 @@ Status SavedGames::Save(const CStrW& name, const CStrW& description, CSimulation
 	if (!simulation.SerializeState(simStateStream))
 		WARN_RETURN(ERR::FAIL);
 
-	JS::RootedValue initAttributes(rq.cx, simulation.GetInitAttributes());
-	JS::RootedValue mods(rq.cx);
-	Script::ToJSVal(rq, &mods, g_Mods.GetEnabledModsData());
+	std::string metadataString = ScriptCommand([&description, &simulation, &guiMetadataClone, &now]()
+	{
+		const ScriptRequest rq(simulation.GetScriptInterface());
+		const JS::RootedValue initAttributes(rq.cx, simulation.GetInitAttributes());
+		JS::RootedValue mods(rq.cx);
+		Script::ToJSVal(rq, &mods, g_Mods.GetEnabledModsData());
 
-	JS::RootedValue metadata(rq.cx);
+		JS::RootedValue metadata(rq.cx);
 
-	Script::CreateObject(
-		rq,
-		&metadata,
-		"engine_version", engine_version,
-		"time", static_cast<double>(now),
-		"playerID", g_Game->GetPlayerID(),
-		"mods", mods,
-		"initAttributes", initAttributes);
+		Script::CreateObject(
+			rq,
+			&metadata,
+			"engine_version", engine_version,
+			"time", static_cast<double>(now),
+			"playerID", g_Game->GetPlayerID(),
+			"mods", mods,
+			"initAttributes", initAttributes);
 
-	JS::RootedValue guiMetadata(rq.cx);
-	Script::ReadStructuredClone(rq, guiMetadataClone, &guiMetadata);
+		JS::RootedValue guiMetadata(rq.cx);
+		Script::ReadStructuredClone(rq, guiMetadataClone, &guiMetadata);
 
-	// get some camera data
-	const CVector3D cameraPosition = g_Game->GetView()->GetCameraPosition();
-	const CVector3D cameraRotation = g_Game->GetView()->GetCameraRotation();
+		// get some camera data
+		const CVector3D cameraPosition = g_Game->GetView()->GetCameraPosition();
+		const CVector3D cameraRotation = g_Game->GetView()->GetCameraRotation();
 
-	JS::RootedValue cameraMetadata(rq.cx);
+		JS::RootedValue cameraMetadata(rq.cx);
 
-	Script::CreateObject(
-		rq,
-		&cameraMetadata,
-		"PosX", cameraPosition.X,
-		"PosY", cameraPosition.Y,
-		"PosZ", cameraPosition.Z,
-		"RotX", cameraRotation.X,
-		"RotY", cameraRotation.Y,
-		"Zoom", g_Game->GetView()->GetCameraZoom());
+		Script::CreateObject(
+			rq,
+			&cameraMetadata,
+			"PosX", cameraPosition.X,
+			"PosY", cameraPosition.Y,
+			"PosZ", cameraPosition.Z,
+			"RotX", cameraRotation.X,
+			"RotY", cameraRotation.Y,
+			"Zoom", g_Game->GetView()->GetCameraZoom());
 
-	Script::SetProperty(rq, guiMetadata, "camera", cameraMetadata);
+		Script::SetProperty(rq, guiMetadata, "camera", cameraMetadata);
 
-	Script::SetProperty(rq, metadata, "gui", guiMetadata);
-	Script::SetProperty(rq, metadata, "description", description);
+		Script::SetProperty(rq, metadata, "gui", guiMetadata);
+		Script::SetProperty(rq, metadata, "description", description);
 
-	std::string metadataString = Script::StringifyJSON(rq, &metadata, true);
+		return std::string(Script::StringifyJSON(rq, &metadata, true));
+	}).GetMoved();
 
 	// Write the saved game as zip file containing the various components
 	PIArchiveWriter archiveWriter = CreateArchiveWriter_Zip(tempSaveFileRealPath, false);
 	if (!archiveWriter)
 		WARN_RETURN(ERR::FAIL);
 
-	WARN_RETURN_STATUS_IF_ERR(archiveWriter->AddMemory((const u8*)metadataString.c_str(), metadataString.length(), now, "metadata.json"));
-	WARN_RETURN_STATUS_IF_ERR(archiveWriter->AddMemory((const u8*)simStateStream.str().c_str(), simStateStream.str().length(), now, "simulation.dat"));
+	WARN_RETURN_STATUS_IF_ERR(archiveWriter->AddMemory(reinterpret_cast<const u8*>(metadataString.c_str()), metadataString.length(), now, "metadata.json"));
+	WARN_RETURN_STATUS_IF_ERR(archiveWriter->AddMemory(reinterpret_cast<const u8*>(simStateStream.str().c_str()), simStateStream.str().length(), now, "simulation.dat"));
 	archiveWriter.reset(); // close the file
 
 	WriteBuffer buffer;
@@ -276,7 +280,7 @@ std::optional<SavedGames::LoadResult> SavedGames::Load(const ScriptInterface& sc
 JS::Value SavedGames::GetSavedGames(const ScriptInterface& scriptInterface)
 {
 	PROFILE2("GetSavedGames");
-	ScriptRequest rq(scriptInterface);
+	const ScriptRequest rq(scriptInterface);
 
 	JS::RootedValue games(rq.cx);
 	Script::CreateArray(rq, &games);
@@ -305,7 +309,7 @@ JS::Value SavedGames::GetSavedGames(const ScriptInterface& scriptInterface)
 			continue; // skip this file
 		}
 
-		CGameLoader loader(scriptInterface, NULL);
+		CGameLoader loader(scriptInterface, nullptr);
 		err = archiveReader->ReadEntries(CGameLoader::ReadEntryCallback, (uintptr_t)&loader);
 		if (err < 0)
 		{

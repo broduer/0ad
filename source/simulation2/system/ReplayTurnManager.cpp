@@ -73,7 +73,7 @@ void CReplayTurnManager::StoreFinalReplayTurn(u32 turn)
 	m_FinalTurn = turn;
 }
 
-void CReplayTurnManager::NotifyFinishedUpdate(u32 turn)
+void CReplayTurnManager::NotifyFinishedUpdate(const u32 turn)
 {
 	if (turn == 1 && m_FinalTurn == 0)
 		g_GUI->SendEventToAll(EventNameReplayFinished);
@@ -84,12 +84,12 @@ void CReplayTurnManager::NotifyFinishedUpdate(u32 turn)
 	DoTurn(turn);
 
 	// Compare hash if it exists in the replay and if we didn't have an OOS already
-	std::map<u32, std::pair<std::string, bool>>::iterator turnHashIt = m_ReplayHash.find(turn);
+	const std::map<u32, std::pair<std::string, bool>>::iterator turnHashIt = m_ReplayHash.find(turn);
 	if (m_HasSyncError || turnHashIt == m_ReplayHash.end())
 		return;
 
-	std::string expectedHash = turnHashIt->second.first;
-	bool quickHash = turnHashIt->second.second;
+	const std::string expectedHash = turnHashIt->second.first;
+	const bool quickHash = turnHashIt->second.second;
 
 	// Compute hash
 	std::string hash;
@@ -102,22 +102,25 @@ void CReplayTurnManager::NotifyFinishedUpdate(u32 turn)
 	m_HasSyncError = true;
 	LOGERROR("Replay out of sync on turn %d", turn);
 
-	const ScriptInterface& scriptInterface = m_Simulation2.GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	ScriptCommand([this, turn, &expectedHash, &hash]()
+	{
+		const ScriptInterface& scriptInterface = m_Simulation2.GetScriptInterface();
+		const ScriptRequest rq(scriptInterface);
 
-	JS::RootedValueVector paramData(rq.cx);
+		JS::RootedValueVector paramData(rq.cx);
 
-	std::ignore = paramData.append(JS::NumberValue(turn));
+		std::ignore = paramData.append(JS::NumberValue(turn));
 
-	JS::RootedValue hashVal(rq.cx);
-	Script::ToJSVal(rq, &hashVal, hash);
-	std::ignore = paramData.append(hashVal);
+		JS::RootedValue hashVal(rq.cx);
+		Script::ToJSVal(rq, &hashVal, hash);
+		std::ignore = paramData.append(hashVal);
 
-	JS::RootedValue expectedHashVal(rq.cx);
-	Script::ToJSVal(rq, &expectedHashVal, expectedHash);
-	std::ignore = paramData.append(expectedHashVal);
+		JS::RootedValue expectedHashVal(rq.cx);
+		Script::ToJSVal(rq, &expectedHashVal, expectedHash);
+		std::ignore = paramData.append(expectedHashVal);
 
-	g_GUI->SendEventToAll(EventNameReplayOutOfSync, paramData);
+		g_GUI->SendEventToAll(EventNameReplayOutOfSync, paramData);
+	}).Wait();
 }
 
 void CReplayTurnManager::DoTurn(u32 turn)
@@ -126,15 +129,18 @@ void CReplayTurnManager::DoTurn(u32 turn)
 
 	m_TurnLength = m_ReplayTurnLengths[turn];
 
-	ScriptRequest rq(m_Simulation2.GetScriptInterface());
-
-	// Simulate commands for that turn
-	for (const std::pair<player_id_t, std::string>& p : m_ReplayCommands[turn])
+	ScriptCommand([this, turn]()
 	{
-		JS::RootedValue command(rq.cx);
-		Script::ParseJSON(rq, p.second, &command);
-		AddCommand(m_ClientId, p.first, command, m_CurrentTurn + 1);
-	}
+		const ScriptRequest rq(m_Simulation2.GetScriptInterface());
+
+		// Simulate commands for that turn
+		for (const std::pair<player_id_t, std::string>& p : m_ReplayCommands[turn])
+		{
+			JS::RootedValue command(rq.cx);
+			Script::ParseJSON(rq, p.second, &command);
+			AddCommand(m_ClientId, p.first, command, m_CurrentTurn + 1);
+		}
+	}).Wait();
 
 	if (turn == m_FinalTurn)
 		g_GUI->SendEventToAll(EventNameReplayFinished);

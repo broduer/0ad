@@ -78,18 +78,21 @@ public:
 
 	void Deserialize(const CParamNode&, IDeserializer& deserialize) override
 	{
-		ScriptRequest rq(GetSimContext().GetScriptInterface());
-
-		u32 numCmds;
-		deserialize.NumberU32_Unbounded("num commands", numCmds);
-		for (size_t i = 0; i < numCmds; ++i)
+		ScriptCommand([this, &deserialize]()
 		{
-			i32 player;
-			JS::RootedValue data(rq.cx);
-			deserialize.NumberI32_Unbounded("player", player);
-			deserialize.ScriptVal("data", &data);
-			m_LocalQueue.emplace_back(SimulationCommand(player, rq.cx, data));
-		}
+			const ScriptRequest rq(GetSimContext().GetScriptInterface());
+
+			u32 numCmds;
+			deserialize.NumberU32_Unbounded("num commands", numCmds);
+			for (size_t i = 0; i < numCmds; ++i)
+			{
+				i32 player;
+				JS::RootedValue data(rq.cx);
+				deserialize.NumberI32_Unbounded("player", player);
+				deserialize.ScriptVal("data", &data);
+				m_LocalQueue.emplace_back(SimulationCommand(player, rq.cx, data));
+			}
+		}).Wait();
 	}
 
 	void PushLocalCommand(player_id_t player, JS::HandleValue cmd) override
@@ -100,7 +103,7 @@ public:
 
 	void PostNetworkCommand(JS::HandleValue cmd1) override
 	{
-		ScriptRequest rq(GetSimContext().GetScriptInterface());
+		const ScriptRequest rq(GetSimContext().GetScriptInterface());
 
 		// TODO: This is a workaround because we need to pass a MutableHandle to StringifyJSON.
 		JS::RootedValue cmd(rq.cx, cmd1.get());
@@ -115,26 +118,29 @@ public:
 
 	void FlushTurn(const std::vector<SimulationCommand>& commands) override
 	{
-		const ScriptInterface& scriptInterface = GetSimContext().GetScriptInterface();
-		ScriptRequest rq(scriptInterface);
-
-		JS::RootedValue global(rq.cx, rq.globalValue());
-		std::vector<SimulationCommand> localCommands;
-		m_LocalQueue.swap(localCommands);
-
-		for (size_t i = 0; i < localCommands.size(); ++i)
+		ScriptCommand([this, &commands]()
 		{
-			bool ok = ScriptFunction::CallVoid(rq, global, "ProcessCommand", localCommands[i].player, localCommands[i].data);
-			if (!ok)
-				LOGERROR("Failed to call ProcessCommand() global script function");
-		}
+			const ScriptInterface& scriptInterface = GetSimContext().GetScriptInterface();
+			const ScriptRequest rq(scriptInterface);
 
-		for (size_t i = 0; i < commands.size(); ++i)
-		{
-			bool ok = ScriptFunction::CallVoid(rq, global, "ProcessCommand", commands[i].player, commands[i].data);
-			if (!ok)
-				LOGERROR("Failed to call ProcessCommand() global script function");
-		}
+			const JS::RootedValue global(rq.cx, rq.globalValue());
+			std::vector<SimulationCommand> localCommands;
+			m_LocalQueue.swap(localCommands);
+
+			for (size_t i = 0; i < localCommands.size(); ++i)
+			{
+				const bool ok = ScriptFunction::CallVoid(rq, global, "ProcessCommand", localCommands[i].player, localCommands[i].data);
+				if (!ok)
+					LOGERROR("Failed to call ProcessCommand() global script function");
+			}
+
+			for (size_t i = 0; i < commands.size(); ++i)
+			{
+				const bool ok = ScriptFunction::CallVoid(rq, global, "ProcessCommand", commands[i].player, commands[i].data);
+				if (!ok)
+					LOGERROR("Failed to call ProcessCommand() global script function");
+			}
+		}).Wait();
 	}
 };
 

@@ -95,7 +95,7 @@ CModInstaller::ModInstallationResult CModInstaller::Install(
 	CStr modName;
 	{
 		ScriptInterface scriptInterface("Engine", "ModInstaller", scriptContext);
-		const auto retCode = g_ScriptThread.Run([&modinfo, &modName, &scriptInterface]()
+		const auto retCode = ScriptCommand([&modinfo, &modName, &scriptInterface]()
 		{
 			const ScriptRequest rq(scriptInterface);
 

@@ -75,30 +75,27 @@ CReplayLogger::~CReplayLogger()
 
 void CReplayLogger::StartGame(JS::MutableHandleValue attribs)
 {
-	g_ScriptThread.Run([this, &attribs]()
-	{
-		const ScriptRequest rq(m_ScriptInterface);
+	const ScriptRequest rq(m_ScriptInterface);
 
-		// Add timestamp, since the file-modification-date can change
-		Script::SetProperty(rq, attribs, "timestamp", static_cast<double>(std::time(nullptr)));
+	// Add timestamp, since the file-modification-date can change
+	Script::SetProperty(rq, attribs, "timestamp", static_cast<double>(std::time(nullptr)));
 
-		// Add engine version and currently loaded mods for sanity checks when replaying
-		Script::SetProperty(rq, attribs, "engine_version", engine_version);
-		JS::RootedValue mods(rq.cx);
-		Script::ToJSVal(rq, &mods, g_Mods.GetEnabledModsData());
-		Script::SetProperty(rq, attribs, "mods", mods);
+	// Add engine version and currently loaded mods for sanity checks when replaying
+	Script::SetProperty(rq, attribs, "engine_version", engine_version);
+	JS::RootedValue mods(rq.cx);
+	Script::ToJSVal(rq, &mods, g_Mods.GetEnabledModsData());
+	Script::SetProperty(rq, attribs, "mods", mods);
 
-		m_Directory = createDateIndexSubdirectory(VisualReplay::GetDirectoryPath());
-		debug_printf("FILES| Replay written to '%s'\n", m_Directory.string8().c_str());
+	m_Directory = createDateIndexSubdirectory(VisualReplay::GetDirectoryPath());
+	debug_printf("FILES| Replay written to '%s'\n", m_Directory.string8().c_str());
 
-		m_Stream = new std::ofstream(OsString(m_Directory / L"commands.txt"), std::ofstream::out | std::ofstream::trunc);
-		*m_Stream << "start " << Script::StringifyJSON(rq, attribs, false) << "\n";
-	}).Wait();
+	m_Stream = new std::ofstream(OsString(m_Directory / L"commands.txt"), std::ofstream::out | std::ofstream::trunc);
+	*m_Stream << "start " << Script::StringifyJSON(rq, attribs, false) << "\n";
 }
 
 void CReplayLogger::Turn(const u32 n, const u32 turnLength, std::vector<SimulationCommand>& commands)
 {
-	g_ScriptThread.Run([this, n, turnLength, &commands]()
+	ScriptCommand([this, n, turnLength, &commands]()
 	{
 		const ScriptRequest rq(m_ScriptInterface);
 
@@ -129,7 +126,7 @@ void CReplayLogger::SaveMetadata(const CSimulation2& simulation)
 		return;
 	}
 
-	g_ScriptThread.Run([this, &simulation, &cmpGuiInterface]()
+	ScriptCommand([this, &simulation, &cmpGuiInterface]()
 	{
 		ScriptInterface& scriptInterface = simulation.GetScriptInterface();
 		ScriptRequest rq(scriptInterface);
@@ -211,7 +208,7 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 
 	constexpr int contextSize = 384 * 1024 * 1024;
 	constexpr int heapGrowthBytesGCTrigger = 12 * 1024 * 1024;
-	g_ScriptThread.Run([]()
+	ScriptCommand([]()
 	{
 		g_ScriptThread.Context = ScriptContext::CreateContext(contextSize, heapGrowthBytesGCTrigger);
 	}).Wait();
@@ -228,7 +225,7 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 			{
 				std::string attribsStr;
 				{
-					g_ScriptThread.Run([this, &attribsStr]()
+					ScriptCommand([this, &attribsStr]()
 					{
 						const ScriptInterface scriptInterface("Engine", "Replay", g_ScriptThread.Context);
 						const ScriptRequest rq(scriptInterface);
@@ -272,7 +269,7 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 				if (ooslog)
 					g_Game->GetSimulation2()->EnableOOSLog();
 
-				g_ScriptThread.Run([&attribsStr]()
+				ScriptCommand([&attribsStr]()
 				{
 					const ScriptRequest rq(g_Game->GetSimulation2()->GetScriptInterface());
 					JS::RootedValue attribs(rq.cx);
@@ -298,7 +295,7 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 
 				std::string line;
 				std::getline(*m_Stream, line);
-				g_ScriptThread.Run([&commands, &player, &line]()
+				ScriptCommand([&commands, &player, &line]()
 				{
 					const ScriptRequest rq(g_Game->GetSimulation2()->GetScriptInterface());
 					JS::RootedValue data(rq.cx);
@@ -349,7 +346,7 @@ void CReplayPlayer::Replay(const bool serializationtest, const int rejointesttur
 
 	// Must be explicitly destructed here to avoid callbacks from the JSAPI trying to use g_Profiler2 when
 	// it's already destructed.
-	g_ScriptThread.Run([]()
+	ScriptCommand([]()
 	{
 		g_ScriptThread.Context.reset();
 	}).Wait();

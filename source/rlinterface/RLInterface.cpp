@@ -34,6 +34,7 @@
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpAIInterface.h"
 #include "simulation2/components/ICmpTemplateManager.h"
@@ -44,7 +45,6 @@
 #include <cstdlib>
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
-#include <js/Value.h>
 #include <sstream>
 #include <utility>
 
@@ -348,64 +348,68 @@ void Interface::ApplyMessage(const GameMessage& msg)
 	switch (msg.type)
 	{
 		case GameMessageType::Reset:
-		{
-			if (isGameStarted)
-				EndGame();
-
-			g_Game = new CGame(m_ScenarioConfig.saveReplay);
-			ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
-			ScriptRequest rq(scriptInterface);
-			JS::RootedValue attrs(rq.cx);
-			Script::ParseJSON(rq, m_ScenarioConfig.content, &attrs);
-
-			g_Game->SetPlayerID(m_ScenarioConfig.playerID);
-			g_Game->StartGame(&attrs, "");
-
-			if (nonVisual)
 			{
-				LDR_NonprogressiveLoad();
-				ENSURE(g_Game->ReallyStartGame() == PSRETURN_OK);
-				m_ReturnValue = GetGameState();
-				m_MsgApplied.notify_one();
-				m_MsgLock.unlock();
-			}
-			else
-			{
-				JS::RootedValue initData(rq.cx);
-				Script::CreateObject(rq, &initData);
-				Script::SetProperty(rq, initData, "attribs", attrs);
+				if (isGameStarted)
+					EndGame();
 
-				JS::RootedValue playerAssignments(rq.cx);
-				Script::CreateObject(rq, &playerAssignments);
-				Script::SetProperty(rq, initData, "playerAssignments", playerAssignments);
+				g_Game = new CGame(m_ScenarioConfig.saveReplay);
+				ScriptCommand([this, nonVisual]() {
+					ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+					const ScriptRequest rq(scriptInterface);
+					JS::RootedValue attrs(rq.cx);
+					Script::ParseJSON(rq, m_ScenarioConfig.content, &attrs);
 
-				g_GUI->SwitchPage(L"page_loading.xml", &scriptInterface, initData);
-				m_NeedsGameState = true;
-			}
+					g_Game->SetPlayerID(m_ScenarioConfig.playerID);
+					g_Game->StartGame(&attrs, "");
+
+					if (nonVisual)
+					{
+						LDR_NonprogressiveLoad();
+						ENSURE(g_Game->ReallyStartGame() == PSRETURN_OK);
+						m_ReturnValue = GetGameState();
+						m_MsgApplied.notify_one();
+						m_MsgLock.unlock();
+					}
+					else
+					{
+						JS::RootedValue initData(rq.cx);
+						Script::CreateObject(rq, &initData);
+						Script::SetProperty(rq, initData, "attribs", attrs);
+
+						JS::RootedValue playerAssignments(rq.cx);
+						Script::CreateObject(rq, &playerAssignments);
+						Script::SetProperty(rq, initData, "playerAssignments", playerAssignments);
+
+						g_GUI->SwitchPage(L"page_loading.xml", &scriptInterface, initData);
+						m_NeedsGameState = true;
+					}
+			}).Wait();
 			break;
 		}
 
 		case GameMessageType::Commands:
-		{
-			if (!g_Game)
 			{
-				m_ReturnValue = EMPTY_STATE;
-				m_MsgApplied.notify_one();
-				m_MsgLock.unlock();
-				return;
-			}
-			const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
-			CLocalTurnManager* turnMgr = static_cast<CLocalTurnManager*>(g_Game->GetTurnManager());
+				if (!g_Game)
+				{
+					m_ReturnValue = EMPTY_STATE;
+					m_MsgApplied.notify_one();
+					m_MsgLock.unlock();
+					return;
+				}
+				ScriptCommand([&msg]() {
+					const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+					CLocalTurnManager* turnMgr = static_cast<CLocalTurnManager*>(g_Game->GetTurnManager());
 
-			for (const GameCommand& command : msg.commands)
-			{
-				ScriptRequest rq(scriptInterface);
-				JS::RootedValue commandJSON(rq.cx);
-				Script::ParseJSON(rq, command.json_cmd, &commandJSON);
-				turnMgr->PostCommand(command.playerID, commandJSON);
-			}
+					for (const GameCommand& command : msg.commands)
+					{
+						const ScriptRequest rq(scriptInterface);
+						JS::RootedValue commandJSON(rq.cx);
+						Script::ParseJSON(rq, command.json_cmd, &commandJSON);
+						turnMgr->PostCommand(command.playerID, commandJSON);
+					}
+				}).Wait();
 
-			const u32 deltaRealTime = DEFAULT_TURN_LENGTH;
+			constexpr u32 deltaRealTime = DEFAULT_TURN_LENGTH;
 			if (nonVisual)
 			{
 				const double deltaSimTime = deltaRealTime * g_Game->GetSimRate();
@@ -429,13 +433,16 @@ void Interface::ApplyMessage(const GameMessage& msg)
 				m_MsgLock.unlock();
 				return;
 			}
-			const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
-			ScriptRequest rq(scriptInterface);
-			JS::RootedValue ret(rq.cx);
-			scriptInterface.Eval(m_Code.c_str(), &ret);
-			m_ReturnValue = Script::StringifyJSON(rq, &ret, false);
-			m_MsgApplied.notify_one();
-			m_MsgLock.unlock();
+			ScriptCommand([this]()
+			{
+				const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+				const ScriptRequest rq(scriptInterface);
+				JS::RootedValue ret(rq.cx);
+				scriptInterface.Eval(m_Code.c_str(), &ret);
+				m_ReturnValue = Script::StringifyJSON(rq, &ret, false);
+				m_MsgApplied.notify_one();
+				m_MsgLock.unlock();
+			}).Wait();
 			break;
 		}
 		default:
@@ -445,13 +452,16 @@ void Interface::ApplyMessage(const GameMessage& msg)
 
 std::string Interface::GetGameState() const
 {
-	const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
-	const CSimContext simContext = g_Game->GetSimulation2()->GetSimContext();
-	CmpPtr<ICmpAIInterface> cmpAIInterface(simContext.GetSystemEntity());
-	ScriptRequest rq(scriptInterface);
-	JS::RootedValue state(rq.cx);
-	cmpAIInterface->GetFullRepresentation(&state, true);
-	return Script::StringifyJSON(rq, &state, false);
+	return ScriptCommand([]() -> std::string
+	{
+		const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+		const CSimContext simContext = g_Game->GetSimulation2()->GetSimContext();
+		CmpPtr<ICmpAIInterface> cmpAIInterface(simContext.GetSystemEntity());
+		const ScriptRequest rq(scriptInterface);
+		JS::RootedValue state(rq.cx);
+		cmpAIInterface->GetFullRepresentation(&state, true);
+		return Script::StringifyJSON(rq, &state, false);
+	}).GetMoved();
 }
 
 bool Interface::IsGameRunning() const

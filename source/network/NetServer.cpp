@@ -61,6 +61,8 @@
 #include <string>
 #include <utility>
 
+#include "scriptinterface/ScriptThread.h"
+
 #if CONFIG2_MINIUPNPC
 #include <miniupnpc/igd_desc_parse.h>
 #include <miniupnpc/miniupnpc.h>
@@ -443,35 +445,42 @@ bool CNetServerWorker::RunStep()
 	debug_printf("GC checked\n");
 	m_ScriptInterface->GetContext().MaybeIncrementalGC();
 
-	ScriptRequest rq(m_ScriptInterface);
-
 	std::vector<bool> newStartGame;
 	std::vector<std::string> newGameAttributes;
 	std::vector<std::pair<CStr, CStr>> newLobbyAuths;
 	std::vector<u32> newTurnLength;
 
+	if (ScriptCommand([this, &newStartGame, &newGameAttributes, &newLobbyAuths, &newTurnLength]()
 	{
-		std::lock_guard<std::mutex> lock(m_WorkerMutex);
+		const ScriptRequest rq(m_ScriptInterface);
 
-		if (m_Shutdown)
-			return false;
-
-		newStartGame.swap(m_StartGameQueue);
-		newGameAttributes.swap(m_InitAttributesQueue);
-		newLobbyAuths.swap(m_LobbyAuthQueue);
-		newTurnLength.swap(m_TurnLengthQueue);
-	}
-
-	if (!newGameAttributes.empty())
-	{
-		if (m_State != SERVER_STATE_UNCONNECTED && m_State != SERVER_STATE_PREGAME)
-			LOGERROR("NetServer: Init Attributes cannot be changed after the server starts loading.");
-		else
 		{
-			JS::RootedValue gameAttributesVal(rq.cx);
-			Script::ParseJSON(rq, newGameAttributes.back(), &gameAttributesVal);
-			m_InitAttributes = gameAttributesVal;
+			std::lock_guard<std::mutex> lock(m_WorkerMutex);
+
+			if (m_Shutdown)
+				return true;
+
+			newStartGame.swap(m_StartGameQueue);
+			newGameAttributes.swap(m_InitAttributesQueue);
+			newLobbyAuths.swap(m_LobbyAuthQueue);
+			newTurnLength.swap(m_TurnLengthQueue);
 		}
+
+		if (!newGameAttributes.empty())
+		{
+			if (m_State != SERVER_STATE_UNCONNECTED && m_State != SERVER_STATE_PREGAME)
+				LOGERROR("NetServer: Init Attributes cannot be changed after the server starts loading.");
+			else
+			{
+				JS::RootedValue gameAttributesVal(rq.cx);
+				Script::ParseJSON(rq, newGameAttributes.back(), &gameAttributesVal);
+				m_InitAttributes = gameAttributesVal;
+			}
+		}
+		return false;
+	}).Get())
+	{
+		return false;
 	}
 
 	if (!newTurnLength.empty())
@@ -1205,12 +1214,15 @@ bool CNetServerWorker::OnSimulationCommand(CNetServerSession* session, CFsmEvent
 	// Ignore messages sent by one player on behalf of another player
 	// unless cheating is enabled
 	bool cheatsEnabled = false;
-	const ScriptInterface& scriptInterface = server.GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
-	JS::RootedValue settings(rq.cx);
-	Script::GetProperty(rq, server.m_InitAttributes, "settings", &settings);
-	if (Script::HasProperty(rq, settings, "CheatsEnabled"))
-		Script::GetProperty(rq, settings, "CheatsEnabled", cheatsEnabled);
+	ScriptCommand([&server, &cheatsEnabled]()
+	{
+		const ScriptInterface& scriptInterface = server.GetScriptInterface();
+		ScriptRequest rq(scriptInterface);
+		JS::RootedValue settings(rq.cx);
+		Script::GetProperty(rq, server.m_InitAttributes, "settings", &settings);
+		if (Script::HasProperty(rq, settings, "CheatsEnabled"))
+			Script::GetProperty(rq, settings, "CheatsEnabled", cheatsEnabled);
+	}).Wait();
 
 	PlayerAssignmentMap::iterator it = server.m_PlayerAssignments.find(session->GetGUID());
 	// When cheating is disabled, fail if the player the message claims to

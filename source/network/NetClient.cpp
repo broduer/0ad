@@ -41,6 +41,7 @@
 #include "ps/Threading.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/system/TurnManager.h"
 
@@ -391,18 +392,21 @@ void CNetClient::GuiPoll(JS::MutableHandleValue ret)
 
 std::string CNetClient::TestReadGuiMessages()
 {
-	ScriptRequest rq(GetScriptInterface());
-
-	std::string r;
-	JS::RootedValue msg(rq.cx);
-	while (true)
+	return ScriptCommand([this]()
 	{
-		GuiPoll(&msg);
-		if (msg.isUndefined())
-			break;
-		r += Script::ToString(rq, &msg) + "\n";
-	}
-	return r;
+		const ScriptRequest rq(GetScriptInterface());
+
+		std::string r;
+		JS::RootedValue msg(rq.cx);
+		while (true)
+		{
+			GuiPoll(&msg);
+			if (msg.isUndefined())
+				break;
+			r += Script::ToString(rq, &msg) + "\n";
+		}
+		return r;
+	}).GetMoved();
 }
 
 const ScriptInterface& CNetClient::GetScriptInterface()
@@ -827,13 +831,17 @@ bool CNetClient::OnGameStart(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 
 	CGameStartMessage* message = static_cast<CGameStartMessage*>(event->GetParamRef());
 
-	const ScriptInterface& scriptInterface{client->m_Game->GetSimulation2()->GetScriptInterface()};
-	ScriptRequest rq{scriptInterface};
-	JS::RootedValue initAttribs{rq.cx};
-	Script::ParseJSON(rq, message->m_InitAttributes, &initAttribs);
+	ScriptCommand([client, message]()
+	{
+		const ScriptInterface& scriptInterface{client->m_Game->GetSimulation2()->GetScriptInterface()};
+		const ScriptRequest rq{scriptInterface};
+		JS::RootedValue initAttribs{rq.cx};
+		Script::ParseJSON(rq, message->m_InitAttributes, &initAttribs);
 
-	client->PushGuiMessage("type", "start", "initAttributes", initAttribs);
-	client->StartGame(&initAttribs, "");
+		client->PushGuiMessage("type", "start", "initAttributes", initAttribs);
+		client->StartGame(&initAttribs, "");
+	}).Wait();
+
 	return true;
 }
 
@@ -842,21 +850,25 @@ bool CNetClient::OnSavedGameStart(CNetClient* client, CFsmEvent<CNetMessage*>* e
 	ENSURE(event->GetType() == static_cast<uint>(NMT_SAVED_GAME_START));
 	CGameSavedStartMessage* message{static_cast<CGameSavedStartMessage*>(event->GetParamRef())};
 
-	const ScriptInterface& scriptInterface{client->m_Game->GetSimulation2()->GetScriptInterface()};
-	ScriptRequest rq{scriptInterface};
-	const std::shared_ptr<JS::RootedValue> initAttribs{std::make_shared<JS::RootedValue>(rq.cx)};
-	Script::ParseJSON(rq, message->m_InitAttributes, &*initAttribs);
+	ScriptCommand([client, message]()
+	{
+		const ScriptInterface& scriptInterface{client->m_Game->GetSimulation2()->GetScriptInterface()};
+		ScriptRequest rq{scriptInterface};
+		const std::shared_ptr<JS::RootedValue> initAttribs{std::make_shared<JS::RootedValue>(rq.cx)};
+		Script::ParseJSON(rq, message->m_InitAttributes, &*initAttribs);
 
-	client->PushGuiMessage("type", "start", "initAttributes", *initAttribs);
+		client->PushGuiMessage("type", "start", "initAttributes", *initAttribs);
 
-	client->m_Session->GetFileTransferer().StartTask(CNetFileTransferer::RequestType::LOADGAME,
-		[client, initAttribs](std::string buffer)
-		{
-			std::string state;
-			DecompressZLib(buffer, state, true);
+		client->m_Session->GetFileTransferer().StartTask(CNetFileTransferer::RequestType::LOADGAME,
+			[client, initAttribs](std::string buffer)
+			{
+				std::string state;
+				DecompressZLib(buffer, state, true);
 
-			client->StartGame(&*initAttribs, state);
-		});
+				client->StartGame(&*initAttribs, state);
+			});
+	}).Wait();
+
 	return true;
 }
 
@@ -1021,8 +1033,7 @@ bool CNetClient::OnLoadedGame(CNetClient* client, CFsmEvent<CNetMessage*>* event
 bool CNetClient::OnInGame(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	// TODO: should split each of these cases into a separate method
-
-	CNetMessage* message = static_cast<CNetMessage*>(event->GetParamRef());
+	CNetMessage* message = event->GetParamRef();
 
 	if (message)
 	{
@@ -1050,23 +1061,26 @@ bool CNetClient::OnFlare(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 {
 	ENSURE(event->GetType() == static_cast<uint>(NMT_FLARE));
 
-	CFlareMessage* message = static_cast<CFlareMessage*>(event->GetParamRef());
+	const CFlareMessage* message = static_cast<CFlareMessage*>(event->GetParamRef());
 
-	const ScriptInterface& scriptInterface = client->m_Game->GetSimulation2()->GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
-	JS::RootedValue position(rq.cx);
-	Script::CreateObject(
-		rq, &position,
-		// The coordinates are transmitted as strings (because because direct (de)serialisation of floating point numbers is not supported).
-		"x", message->m_PositionX.ToDouble(),
-		"y", message->m_PositionY.ToDouble(),
-		"z", message->m_PositionZ.ToDouble()
-	);
+	ScriptCommand([client, message]() -> void
+	{
+		const ScriptInterface& scriptInterface = client->m_Game->GetSimulation2()->GetScriptInterface();
+		const ScriptRequest rq(scriptInterface);
+		JS::RootedValue position(rq.cx);
+		Script::CreateObject(
+			rq, &position,
+			// The coordinates are transmitted as strings (because direct (de)serialisation of floating point numbers is not supported).
+			"x", message->m_PositionX.ToDouble(),
+			"y", message->m_PositionY.ToDouble(),
+			"z", message->m_PositionZ.ToDouble()
+		);
 
-	client->PushGuiMessage(
-		"type", "flare",
-		"guid", message->m_GUID,
-		"position", position);
+		client->PushGuiMessage(
+			"type", "flare",
+			"guid", message->m_GUID,
+			"position", position);
+	}).Wait();
 
 	return true;
 }

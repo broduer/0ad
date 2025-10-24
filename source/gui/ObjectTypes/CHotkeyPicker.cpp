@@ -28,6 +28,7 @@
 #include "ps/KeyName.h"
 #include "scriptinterface/ScriptConversions.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 
 #include <SDL_events.h>
 #include <SDL_mouse.h>
@@ -65,13 +66,16 @@ CHotkeyPicker::CHotkeyPicker(CGUI& pGUI) : IGUIObject(pGUI), m_TimeToCombination
 
 void CHotkeyPicker::FireEvent(const CStr& event)
 {
-	ScriptRequest rq(*m_pGUI.GetScriptInterface());
+	ScriptCommand([this, &event]()
+	{
+		const ScriptRequest rq(*m_pGUI.GetScriptInterface());
 
-	JS::RootedValueArray<1> args(rq.cx);
-	JS::RootedValue keys(rq.cx);
-	Script::ToJSVal(rq, &keys, m_KeysPressed);
-	args[0].set(keys);
-	ScriptEvent(event, args);
+		JS::RootedValueArray<1> args(rq.cx);
+		JS::RootedValue keys(rq.cx);
+		Script::ToJSVal(rq, &keys, m_KeysPressed);
+		args[0].set(keys);
+		ScriptEvent(event, args);
+	}).Wait();
 }
 
 void CHotkeyPicker::Tick()

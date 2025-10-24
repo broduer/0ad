@@ -62,6 +62,8 @@
 #include <string>
 #include <vector>
 
+#include "scriptinterface/ScriptThread.h"
+
 struct JSContext;
 
 namespace
@@ -85,47 +87,50 @@ public:
 	{
 		m_ScriptInterface.SetCallbackData(static_cast<void*>(this));
 
-		// Enable the script to be aborted
-		JS_AddInterruptCallback(m_ScriptInterface.GetGeneralJSContext(),
-			&MapGenerationInterruptCallback);
+		ScriptCommand([this, flags]()
+		{
+			// Enable the script to be aborted
+			JS_AddInterruptCallback(m_ScriptInterface.GetGeneralJSContext(),
+				&MapGenerationInterruptCallback);
 
-		// Set initial seed, callback data.
-		// Expose functions, globals and classes relevant to the map scripts.
-#define REGISTER_MAPGEN_FUNC(func) \
-	ScriptFunction::Register<&CMapGenerationCallbacks::func, \
+			// Set initial seed, callback data.
+			// Expose functions, globals and classes relevant to the map scripts.
+	#define REGISTER_MAPGEN_FUNC(func) \
+		ScriptFunction::Register<&CMapGenerationCallbacks::func, \
 		ScriptInterface::ObjectFromCBData<CMapGenerationCallbacks>>(rq, #func, flags);
 
-		// VFS
-		JSI_VFS::RegisterScriptFunctions_ReadOnlySimulationMaps(m_ScriptInterface, flags);
+			// VFS
+			JSI_VFS::RegisterScriptFunctions_ReadOnlySimulationMaps(m_ScriptInterface, flags);
 
-		// Globalscripts may use VFS script functions
-		m_ScriptInterface.LoadGlobalScripts();
+			// Globalscripts may use VFS script functions
+			m_ScriptInterface.LoadGlobalScripts();
 
-		// File loading
-		ScriptRequest rq(m_ScriptInterface);
-		REGISTER_MAPGEN_FUNC(LoadLibrary);
-		REGISTER_MAPGEN_FUNC(LoadHeightmapImage);
-		REGISTER_MAPGEN_FUNC(LoadMapTerrain);
+			// File loading
+			const ScriptRequest rq(m_ScriptInterface);
+			REGISTER_MAPGEN_FUNC(LoadLibrary);
+			REGISTER_MAPGEN_FUNC(LoadHeightmapImage);
+			REGISTER_MAPGEN_FUNC(LoadMapTerrain);
 
-		// Template functions
-		REGISTER_MAPGEN_FUNC(GetTemplate);
-		REGISTER_MAPGEN_FUNC(TemplateExists);
-		REGISTER_MAPGEN_FUNC(FindTemplates);
-		REGISTER_MAPGEN_FUNC(FindActorTemplates);
+			// Template functions
+			REGISTER_MAPGEN_FUNC(GetTemplate);
+			REGISTER_MAPGEN_FUNC(TemplateExists);
+			REGISTER_MAPGEN_FUNC(FindTemplates);
+			REGISTER_MAPGEN_FUNC(FindActorTemplates);
 
-		// Profiling
-		REGISTER_MAPGEN_FUNC(GetMicroseconds);
+			// Profiling
+			REGISTER_MAPGEN_FUNC(GetMicroseconds);
 
-		// Engine constants
+	#undef REGISTER_MAPGEN_FUNC
 
-		// Length of one tile of the terrain grid in metres.
-		// Useful to transform footprint sizes to the tilegrid coordinate system.
-		m_ScriptInterface.SetGlobal("TERRAIN_TILE_SIZE", static_cast<int>(TERRAIN_TILE_SIZE));
+			// Engine constants
 
-		// Number of impassable tiles at the map border
-		m_ScriptInterface.SetGlobal("MAP_BORDER_WIDTH", static_cast<int>(MAP_EDGE_TILES));
+			// Length of one tile of the terrain grid in metres.
+			// Useful to transform footprint sizes to the tilegrid coordinate system.
+			m_ScriptInterface.SetGlobal("TERRAIN_TILE_SIZE", static_cast<int>(TERRAIN_TILE_SIZE));
 
-#undef REGISTER_MAPGEN_FUNC
+			// Number of impassable tiles at the map border
+			m_ScriptInterface.SetGlobal("MAP_BORDER_WIDTH", static_cast<int>(MAP_EDGE_TILES));
+		}).Wait();
 	}
 
 	~CMapGenerationCallbacks()
@@ -149,7 +154,7 @@ private:
 	bool LoadLibrary(const VfsPath& libraryName)
 	{
 		// Ignore libraries that are already loaded
-		if (m_LoadedLibraries.find(libraryName) != m_LoadedLibraries.end())
+		if (m_LoadedLibraries.contains(libraryName))
 			return true;
 
 		// Mark this as loaded, to prevent it recursively loading itself
@@ -200,10 +205,13 @@ private:
 			return JS::UndefinedValue();
 		}
 
-		ScriptRequest rq(m_ScriptInterface);
-		JS::RootedValue returnValue(rq.cx);
-		Script::ToJSVal(rq, &returnValue, heightmap);
-		return returnValue;
+		return ScriptCommand([this, &heightmap]() -> JS::Value
+		{
+			const ScriptRequest rq(m_ScriptInterface);
+			JS::RootedValue returnValue(rq.cx);
+			Script::ToJSVal(rq, &returnValue, heightmap);
+			return returnValue;
+		}).Get();
 	}
 
 	/**
@@ -213,8 +221,6 @@ private:
 	 */
 	JS::Value LoadMapTerrain(const VfsPath& filename)
 	{
-		ScriptRequest rq(m_ScriptInterface);
-
 		if (!VfsFileExists(filename))
 		{
 			throw std::runtime_error{fmt::format("Terrain file \"{}\" does not exist!",
@@ -272,16 +278,21 @@ private:
 			}
 		}
 
-		JS::RootedValue returnValue(rq.cx);
+		return ScriptCommand([this, &textureNames, &heightmap, &textureIDs]() -> JS::Value
+		{
+			const ScriptRequest rq(m_ScriptInterface);
 
-		Script::CreateObject(
-			rq,
-			&returnValue,
-			"height", heightmap,
-			"textureNames", textureNames,
-			"textureIDs", textureIDs);
+			JS::RootedValue returnValue(rq.cx);
 
-		return returnValue;
+			Script::CreateObject(
+				rq,
+				&returnValue,
+				"height", heightmap,
+				"textureNames", textureNames,
+				"textureIDs", textureIDs);
+
+			return returnValue;
+		}).Get();
 	}
 
 	/**

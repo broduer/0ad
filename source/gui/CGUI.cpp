@@ -118,15 +118,17 @@ InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 
 		const CStr& eventName = ev->ev.type == SDL_HOTKEYPRESS ? EventNamePress : ev->ev.type == SDL_HOTKEYDOWN ? EventNameKeyDown : EventNameRelease;
 
-		if (m_GlobalHotkeys.find(hotkey) != m_GlobalHotkeys.end() && m_GlobalHotkeys[hotkey].find(eventName) != m_GlobalHotkeys[hotkey].end())
+		if (m_GlobalHotkeys.contains(hotkey) && m_GlobalHotkeys[hotkey].contains(eventName))
 		{
 			ret = IN_HANDLED;
 
-			ScriptRequest rq(m_ScriptInterface);
-			JS::RootedObject globalObj(rq.cx, rq.glob);
-			JS::RootedValue result(rq.cx);
-			if (!JS_CallFunctionValue(rq.cx, globalObj, m_GlobalHotkeys[hotkey][eventName], JS::HandleValueArray::empty(), &result))
-				ScriptException::CatchPending(rq);
+			ScriptCommand([this, hotkey, eventName]() {
+				const ScriptRequest rq(m_ScriptInterface);
+				JS::RootedObject globalObj(rq.cx, rq.glob);
+				JS::RootedValue result(rq.cx);
+				if (!JS_CallFunctionValue(rq.cx, globalObj, m_GlobalHotkeys[hotkey][eventName], JS::HandleValueArray::empty(), &result))
+					ScriptException::CatchPending(rq);
+			}).Wait();
 		}
 
 		std::map<CStr, std::vector<IGUIObject*> >::iterator it = m_HotkeyObjects.find(hotkey);
@@ -432,7 +434,7 @@ IGUIObject* CGUI::GetBaseObject()
 
 bool CGUI::ObjectExists(const CStr& Name) const
 {
-	return m_pAllObjects.find(Name) != m_pAllObjects.end();
+	return m_pAllObjects.contains(Name);
 }
 
 IGUIObject* CGUI::TryFindObjectByName(const CStr& Name) const
@@ -531,7 +533,7 @@ void CGUI::UnsetObjectHotkey(IGUIObject& object, const CStr& hotkeyTag)
 
 void CGUI::SetGlobalHotkey(const CStr& hotkeyTag, const CStr& eventName, JS::HandleValue function)
 {
-	ScriptRequest rq(*m_ScriptInterface);
+	const ScriptRequest rq(*m_ScriptInterface);
 
 	if (hotkeyTag.empty())
 		throw std::invalid_argument{"Cannot assign a function to an empty hotkey identifier!"};
@@ -558,7 +560,7 @@ void CGUI::UnsetGlobalHotkey(const CStr& hotkeyTag, const CStr& eventName)
 
 	m_GlobalHotkeys[hotkeyTag].erase(eventName);
 
-	if (m_GlobalHotkeys.count(hotkeyTag) == 0)
+	if (!m_GlobalHotkeys.contains(hotkeyTag))
 		m_GlobalHotkeys.erase(it);
 }
 
@@ -1051,7 +1053,7 @@ void CGUI::Xeromyces_ReadSprite(const XMBData& xmb, XMBElement element)
 	// Get name, we know it exists because of DTD requirements
 	CStr name = element.GetAttributes().GetNamedItem(xmb.GetAttributeID("name"));
 
-	if (m_Sprites.find(name) != m_Sprites.end())
+	if (m_Sprites.contains(name))
 		LOGWARNING("GUI sprite name '%s' used more than once; first definition will be discarded", name.c_str());
 
 	// shared_ptr to link the effect to every image, faster than copy.

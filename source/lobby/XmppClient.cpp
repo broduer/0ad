@@ -36,6 +36,7 @@
 #include "scriptinterface/ScriptConversions.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 #include "scriptinterface/StructuredClone.h"
 
 #include <iostream>
@@ -774,17 +775,20 @@ JS::Value XmppClient::GuiPollHistoricMessages(const ScriptInterface& guiInterfac
 	if (m_HistoricGuiMessages.empty())
 		return JS::UndefinedValue();
 
-	ScriptRequest rq(m_ScriptInterface);
+	return ScriptCommand([this, &guiInterface]()
+	{
+		ScriptRequest rq(m_ScriptInterface);
 
-	JS::RootedValue messages(rq.cx);
-	Script::CreateArray(rq, &messages);
+		JS::RootedValue messages(rq.cx);
+		Script::CreateArray(rq, &messages);
 
-	int j = 0;
-	for (const JS::Heap<JS::Value>& message : m_HistoricGuiMessages)
-		Script::SetPropertyInt(rq, messages, j++, message);
+		int j = 0;
+		for (const JS::Heap<JS::Value>& message : m_HistoricGuiMessages)
+			Script::SetPropertyInt(rq, messages, j++, message);
 
-	// Copy the messages over to the caller script interface.
-	return Script::CloneValueFromOtherCompartment(guiInterface, *m_ScriptInterface, messages);
+		// Copy the messages over to the caller script interface.
+		return Script::CloneValueFromOtherCompartment(guiInterface, *m_ScriptInterface, messages);
+	}).Get();
 }
 
 /**
@@ -1040,7 +1044,7 @@ void XmppClient::handleMUCParticipantPresence(gloox::MUCRoom*, const gloox::MUCR
 		if (!participant.newNick.empty() && (participant.flags & (gloox::UserNickChanged | gloox::UserSelf)))
 		{
 			// we have a nick change
-			if (m_PlayerMap.find(participant.newNick) == m_PlayerMap.end())
+			if (!m_PlayerMap.contains(participant.newNick))
 				m_PlayerMap.emplace(
 					std::piecewise_construct,
 					std::forward_as_tuple(participant.newNick),

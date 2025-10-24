@@ -159,36 +159,39 @@ QUERYHANDLER(GenerateMap)
 
 		InitGame();
 
-		const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
-		ScriptRequest rq(scriptInterface);
-
-		// Set up 8-element array of empty objects to satisfy init
-		JS::RootedValue playerData(rq.cx);
-		Script::CreateArray(rq, &playerData);
-
-		for (int i = 0; i < 8; ++i)
+		ScriptCommand([]()
 		{
-			JS::RootedValue player(rq.cx);
-			Script::CreateObject(rq, &player);
-			Script::SetPropertyInt(rq, playerData, i, player);
-		}
+			const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+			const ScriptRequest rq(scriptInterface);
 
-		JS::RootedValue settings(rq.cx);
-		Script::CreateObject(
-			rq,
-			&settings,
-			"mapType", "scenario",
-			"PlayerData", playerData);
+			// Set up 8-element array of empty objects to satisfy init
+			JS::RootedValue playerData(rq.cx);
+			Script::CreateArray(rq, &playerData);
 
-		JS::RootedValue attrs(rq.cx);
-		Script::CreateObject(
-			rq,
-			&attrs,
-			"mapType", "scenario",
-			"map", "maps/scenarios/_default",
-			"settings", settings);
+			for (int i = 0; i < 8; ++i)
+			{
+				JS::RootedValue player(rq.cx);
+				Script::CreateObject(rq, &player);
+				Script::SetPropertyInt(rq, playerData, i, player);
+			}
 
-		StartGame(&attrs);
+			JS::RootedValue settings(rq.cx);
+			Script::CreateObject(
+				rq,
+				&settings,
+				"mapType", "scenario",
+				"PlayerData", playerData);
+
+			JS::RootedValue attrs(rq.cx);
+			Script::CreateObject(
+				rq,
+				&attrs,
+				"mapType", "scenario",
+				"map", "maps/scenarios/_default",
+				"settings", settings);
+
+			StartGame(&attrs);
+		}).Wait();
 
 		msg->status = -1;
 	}
@@ -198,22 +201,25 @@ MESSAGEHANDLER(LoadMap)
 {
 	InitGame();
 
-	const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	ScriptCommand([msg]()
+	{
+		const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+		const ScriptRequest rq(scriptInterface);
 
-	// Scenario
-	CStrW map = *msg->filename;
-	CStrW mapBase = map.BeforeLast(L".pmp"); // strip the file extension, if any
+		// Scenario
+		const CStrW map = *msg->filename;
+		CStrW mapBase = map.BeforeLast(L".pmp"); // strip the file extension, if any
 
-	JS::RootedValue attrs(rq.cx);
+		JS::RootedValue attrs(rq.cx);
 
-	Script::CreateObject(
-		rq,
-		&attrs,
-		"mapType", "scenario",
-		"map", mapBase);
+		Script::CreateObject(
+			rq,
+			&attrs,
+			"mapType", "scenario",
+			"map", mapBase);
 
-	StartGame(&attrs);
+		StartGame(&attrs);
+	}).Wait();
 }
 
 MESSAGEHANDLER(ImportHeightmap)

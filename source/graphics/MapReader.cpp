@@ -59,6 +59,7 @@
 #include "scriptinterface/ScriptContext.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 #include "scriptinterface/StructuredClone.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpCinemaManager.h"
@@ -1422,19 +1423,21 @@ int CMapReader::PollMapGeneration()
 	if (!m_GeneratorState->task.IsDone())
 		return m_GeneratorState->progress.load();
 
-	const Script::StructuredClone results{m_GeneratorState->task.Get()};
-	if (!results)
-		ThrowMapGenerationError();
+	ScriptCommand([this]() {
+		const Script::StructuredClone results{m_GeneratorState->task.Get()};
+		if (!results)
+			ThrowMapGenerationError();
 
-	// Parse data into simulation context
-	ScriptRequest rq(pSimulation2->GetScriptInterface());
-	JS::RootedValue data{rq.cx};
-	Script::ReadStructuredClone(rq, results, &data);
+		// Parse data into simulation context
+		const ScriptRequest rq(pSimulation2->GetScriptInterface());
+		JS::RootedValue data{rq.cx};
+		Script::ReadStructuredClone(rq, results, &data);
 
-	if (data.isUndefined())
-		ThrowMapGenerationError();
+		if (data.isUndefined())
+			ThrowMapGenerationError();
 
-	m_MapData.init(rq.cx, data);
+		m_MapData.init(rq.cx, data);
+	}).Wait();
 
 	return 0;
 };
@@ -1443,52 +1446,59 @@ int CMapReader::PollMapGeneration()
 int CMapReader::ParseTerrain()
 {
 	PROFILE2("ParseTerrain");
-	ScriptRequest rq(pSimulation2->GetScriptInterface());
-
-	// parse terrain from map data
-	//	an error here should stop the loading process
-#define GET_TERRAIN_PROPERTY(val, prop, out)\
-if (!Script::GetProperty(rq, val, #prop, out))\
-		{	LOGERROR("CMapReader::ParseTerrain() failed to get '%s' property", #prop);\
-			throw PSERROR_Game_World_MapLoadFailed("Error parsing terrain data.\nCheck application log for details"); }
 
 	u32 size;
-	GET_TERRAIN_PROPERTY(m_MapData, size, size)
-
-	m_PatchesPerSide = size / PATCH_SIZE;
-
-	// flat heightmap of u16 data
-	GET_TERRAIN_PROPERTY(m_MapData, height, m_Heightmap)
-
-	// load textures
-	std::vector<std::string> textureNames;
-	GET_TERRAIN_PROPERTY(m_MapData, textureNames, textureNames)
-	num_terrain_tex = textureNames.size();
-
-	while (cur_terrain_tex < num_terrain_tex)
-	{
-		if (CTerrainTextureManager::IsInitialised())
-		{
-			CTerrainTextureEntry* texentry = g_TexMan.FindTexture(textureNames[cur_terrain_tex]);
-			m_TerrainTextures.push_back(texentry);
-		}
-
-		cur_terrain_tex++;
-	}
-
-	// build tile data
-	m_Tiles.resize(SQR(size));
-
-	JS::RootedValue tileData(rq.cx);
-	GET_TERRAIN_PROPERTY(m_MapData, tileData, &tileData)
-
-	// parse tile data object into flat arrays
 	std::vector<u16> tileIndex;
 	std::vector<u16> tilePriority;
-	GET_TERRAIN_PROPERTY(tileData, index, tileIndex);
-	GET_TERRAIN_PROPERTY(tileData, priority, tilePriority);
 
-	ENSURE(SQR(size) == tileIndex.size() && SQR(size) == tilePriority.size());
+	ScriptCommand([this, &size, &tileIndex, &tilePriority]()
+	{
+		const ScriptRequest rq(pSimulation2->GetScriptInterface());
+
+		// parse terrain from map data
+		//	an error here should stop the loading process
+#define GET_TERRAIN_PROPERTY(val, prop, out)\
+if (!Script::GetProperty(rq, val, #prop, out))\
+{	LOGERROR("CMapReader::ParseTerrain() failed to get '%s' property", #prop);\
+throw PSERROR_Game_World_MapLoadFailed("Error parsing terrain data.\nCheck application log for details"); }
+
+		GET_TERRAIN_PROPERTY(m_MapData, size, size)
+
+		m_PatchesPerSide = size / PATCH_SIZE;
+
+		// flat heightmap of u16 data
+		GET_TERRAIN_PROPERTY(m_MapData, height, m_Heightmap)
+
+		// load textures
+		std::vector<std::string> textureNames;
+		GET_TERRAIN_PROPERTY(m_MapData, textureNames, textureNames)
+		num_terrain_tex = textureNames.size();
+
+		while (cur_terrain_tex < num_terrain_tex)
+		{
+			if (CTerrainTextureManager::IsInitialised())
+			{
+				CTerrainTextureEntry* texentry = g_TexMan.FindTexture(textureNames[cur_terrain_tex]);
+				m_TerrainTextures.push_back(texentry);
+			}
+
+			cur_terrain_tex++;
+		}
+
+		// build tile data
+		m_Tiles.resize(SQR(size));
+
+		JS::RootedValue tileData(rq.cx);
+		GET_TERRAIN_PROPERTY(m_MapData, tileData, &tileData)
+
+		// parse tile data object into flat arrays
+		GET_TERRAIN_PROPERTY(tileData, index, tileIndex);
+		GET_TERRAIN_PROPERTY(tileData, priority, tilePriority);
+
+		ENSURE(SQR(size) == tileIndex.size() && SQR(size) == tilePriority.size());
+
+#undef GET_TERRAIN_PROPERTY
+	}).Wait();
 
 	// reorder by patches and store
 	for (size_t x = 0; x < size; ++x)
@@ -1512,21 +1522,22 @@ if (!Script::GetProperty(rq, val, #prop, out))\
 	// reset generator state
 	cur_terrain_tex = 0;
 
-#undef GET_TERRAIN_PROPERTY
-
 	return 0;
 }
 
 int CMapReader::ParseEntities()
 {
 	PROFILE2("ParseEntities");
-	ScriptRequest rq(pSimulation2->GetScriptInterface());
-
-	// parse entities from map data
 	std::vector<Entity> entities;
 
-	if (!Script::GetProperty(rq, m_MapData, "entities", entities))
-		LOGWARNING("CMapReader::ParseEntities() failed to get 'entities' property");
+	ScriptCommand([this, &entities]()
+	{
+		const ScriptRequest rq(pSimulation2->GetScriptInterface());
+
+		// parse entities from map data
+		if (!Script::GetProperty(rq, m_MapData, "entities", entities))
+			LOGWARNING("CMapReader::ParseEntities() failed to get 'entities' property");
+	}).Wait();
 
 	CSimulation2& sim = *pSimulation2;
 	CmpPtr<ICmpPlayerManager> cmpPlayerManager(sim, SYSTEM_ENTITY);
@@ -1590,126 +1601,131 @@ int CMapReader::ParseEntities()
 
 int CMapReader::ParseEnvironment()
 {
-	// parse environment settings from map data
-	ScriptRequest rq(pSimulation2->GetScriptInterface());
+	return ScriptCommand([this]()
+	{
+		// parse environment settings from map data
+		const ScriptRequest rq(pSimulation2->GetScriptInterface());
 
 #define GET_ENVIRONMENT_PROPERTY(val, prop, out)\
-	if (!Script::GetProperty(rq, val, #prop, out))\
-		LOGWARNING("CMapReader::ParseEnvironment() failed to get '%s' property", #prop);
+if (!Script::GetProperty(rq, val, #prop, out))\
+LOGWARNING("CMapReader::ParseEnvironment() failed to get '%s' property", #prop);
 
-	JS::RootedValue envObj(rq.cx);
-	GET_ENVIRONMENT_PROPERTY(m_MapData, Environment, &envObj)
+		JS::RootedValue envObj(rq.cx);
+		GET_ENVIRONMENT_PROPERTY(m_MapData, Environment, &envObj)
 
-	if (envObj.isUndefined())
-	{
-		LOGWARNING("CMapReader::ParseEnvironment(): Environment settings not found");
+		if (envObj.isUndefined())
+		{
+			LOGWARNING("CMapReader::ParseEnvironment(): Environment settings not found");
+			return 0;
+		}
+
+		if (pPostproc)
+			pPostproc->SetPostEffect(L"default");
+
+		std::wstring skySet;
+		GET_ENVIRONMENT_PROPERTY(envObj, SkySet, skySet)
+		if (pSkyMan)
+			pSkyMan->SetSkySet(skySet);
+
+		CColor sunColor;
+		GET_ENVIRONMENT_PROPERTY(envObj, SunColor, sunColor)
+		m_LightEnv.m_SunColor = RGBColor(sunColor.r, sunColor.g, sunColor.b);
+
+		GET_ENVIRONMENT_PROPERTY(envObj, SunElevation, m_LightEnv.m_Elevation)
+		GET_ENVIRONMENT_PROPERTY(envObj, SunRotation, m_LightEnv.m_Rotation)
+
+		CColor ambientColor;
+		GET_ENVIRONMENT_PROPERTY(envObj, AmbientColor, ambientColor)
+		m_LightEnv.m_AmbientColor = RGBColor(ambientColor.r, ambientColor.g, ambientColor.b);
+
+		// Water properties
+		JS::RootedValue waterObj(rq.cx);
+		GET_ENVIRONMENT_PROPERTY(envObj, Water, &waterObj)
+
+		JS::RootedValue waterBodyObj(rq.cx);
+		GET_ENVIRONMENT_PROPERTY(waterObj, WaterBody, &waterBodyObj)
+
+		// Water level - necessary
+		float waterHeight;
+		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Height, waterHeight)
+
+		CmpPtr<ICmpWaterManager> cmpWaterManager(*pSimulation2, SYSTEM_ENTITY);
+		ENSURE(cmpWaterManager);
+		cmpWaterManager->SetWaterLevel(entity_pos_t::FromFloat(waterHeight));
+
+		// If we have graphics, get rest of settings
+		if (pWaterMan)
+		{
+			GET_ENVIRONMENT_PROPERTY(waterBodyObj, Type, pWaterMan->m_WaterType)
+			if (pWaterMan->m_WaterType == L"default")
+				pWaterMan->m_WaterType = L"ocean";
+			GET_ENVIRONMENT_PROPERTY(waterBodyObj, Color, pWaterMan->m_WaterColor)
+			GET_ENVIRONMENT_PROPERTY(waterBodyObj, Tint, pWaterMan->m_WaterTint)
+			GET_ENVIRONMENT_PROPERTY(waterBodyObj, Waviness, pWaterMan->m_Waviness)
+			GET_ENVIRONMENT_PROPERTY(waterBodyObj, Murkiness, pWaterMan->m_Murkiness)
+			GET_ENVIRONMENT_PROPERTY(waterBodyObj, WindAngle, pWaterMan->m_WindAngle)
+		}
+
+		JS::RootedValue fogObject(rq.cx);
+		GET_ENVIRONMENT_PROPERTY(envObj, Fog, &fogObject);
+
+		GET_ENVIRONMENT_PROPERTY(fogObject, FogFactor, m_LightEnv.m_FogFactor);
+		GET_ENVIRONMENT_PROPERTY(fogObject, FogThickness, m_LightEnv.m_FogMax);
+
+		CColor fogColor;
+		GET_ENVIRONMENT_PROPERTY(fogObject, FogColor, fogColor);
+		m_LightEnv.m_FogColor = RGBColor(fogColor.r, fogColor.g, fogColor.b);
+
+		JS::RootedValue postprocObject(rq.cx);
+		GET_ENVIRONMENT_PROPERTY(envObj, Postproc, &postprocObject);
+
+		std::wstring postProcEffect;
+		GET_ENVIRONMENT_PROPERTY(postprocObject, PostprocEffect, postProcEffect);
+
+		if (pPostproc)
+			pPostproc->SetPostEffect(postProcEffect);
+
+		GET_ENVIRONMENT_PROPERTY(postprocObject, Brightness, m_LightEnv.m_Brightness);
+		GET_ENVIRONMENT_PROPERTY(postprocObject, Contrast, m_LightEnv.m_Contrast);
+		GET_ENVIRONMENT_PROPERTY(postprocObject, Saturation, m_LightEnv.m_Saturation);
+		GET_ENVIRONMENT_PROPERTY(postprocObject, Bloom, m_LightEnv.m_Bloom);
+
+		m_LightEnv.CalculateSunDirection();
+
 		return 0;
-	}
-
-	if (pPostproc)
-		pPostproc->SetPostEffect(L"default");
-
-	std::wstring skySet;
-	GET_ENVIRONMENT_PROPERTY(envObj, SkySet, skySet)
-	if (pSkyMan)
-		pSkyMan->SetSkySet(skySet);
-
-	CColor sunColor;
-	GET_ENVIRONMENT_PROPERTY(envObj, SunColor, sunColor)
-	m_LightEnv.m_SunColor = RGBColor(sunColor.r, sunColor.g, sunColor.b);
-
-	GET_ENVIRONMENT_PROPERTY(envObj, SunElevation, m_LightEnv.m_Elevation)
-	GET_ENVIRONMENT_PROPERTY(envObj, SunRotation, m_LightEnv.m_Rotation)
-
-	CColor ambientColor;
-	GET_ENVIRONMENT_PROPERTY(envObj, AmbientColor, ambientColor)
-	m_LightEnv.m_AmbientColor = RGBColor(ambientColor.r, ambientColor.g, ambientColor.b);
-
-	// Water properties
-	JS::RootedValue waterObj(rq.cx);
-	GET_ENVIRONMENT_PROPERTY(envObj, Water, &waterObj)
-
-	JS::RootedValue waterBodyObj(rq.cx);
-	GET_ENVIRONMENT_PROPERTY(waterObj, WaterBody, &waterBodyObj)
-
-	// Water level - necessary
-	float waterHeight;
-	GET_ENVIRONMENT_PROPERTY(waterBodyObj, Height, waterHeight)
-
-	CmpPtr<ICmpWaterManager> cmpWaterManager(*pSimulation2, SYSTEM_ENTITY);
-	ENSURE(cmpWaterManager);
-	cmpWaterManager->SetWaterLevel(entity_pos_t::FromFloat(waterHeight));
-
-	// If we have graphics, get rest of settings
-	if (pWaterMan)
-	{
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Type, pWaterMan->m_WaterType)
-		if (pWaterMan->m_WaterType == L"default")
-			pWaterMan->m_WaterType = L"ocean";
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Color, pWaterMan->m_WaterColor)
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Tint, pWaterMan->m_WaterTint)
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Waviness, pWaterMan->m_Waviness)
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Murkiness, pWaterMan->m_Murkiness)
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj, WindAngle, pWaterMan->m_WindAngle)
-	}
-
-	JS::RootedValue fogObject(rq.cx);
-	GET_ENVIRONMENT_PROPERTY(envObj, Fog, &fogObject);
-
-	GET_ENVIRONMENT_PROPERTY(fogObject, FogFactor, m_LightEnv.m_FogFactor);
-	GET_ENVIRONMENT_PROPERTY(fogObject, FogThickness, m_LightEnv.m_FogMax);
-
-	CColor fogColor;
-	GET_ENVIRONMENT_PROPERTY(fogObject, FogColor, fogColor);
-	m_LightEnv.m_FogColor = RGBColor(fogColor.r, fogColor.g, fogColor.b);
-
-	JS::RootedValue postprocObject(rq.cx);
-	GET_ENVIRONMENT_PROPERTY(envObj, Postproc, &postprocObject);
-
-	std::wstring postProcEffect;
-	GET_ENVIRONMENT_PROPERTY(postprocObject, PostprocEffect, postProcEffect);
-
-	if (pPostproc)
-		pPostproc->SetPostEffect(postProcEffect);
-
-	GET_ENVIRONMENT_PROPERTY(postprocObject, Brightness, m_LightEnv.m_Brightness);
-	GET_ENVIRONMENT_PROPERTY(postprocObject, Contrast, m_LightEnv.m_Contrast);
-	GET_ENVIRONMENT_PROPERTY(postprocObject, Saturation, m_LightEnv.m_Saturation);
-	GET_ENVIRONMENT_PROPERTY(postprocObject, Bloom, m_LightEnv.m_Bloom);
-
-	m_LightEnv.CalculateSunDirection();
-
 #undef GET_ENVIRONMENT_PROPERTY
-
-	return 0;
+	}).Get();
 }
 
 int CMapReader::ParseCamera()
 {
-	ScriptRequest rq(pSimulation2->GetScriptInterface());
-
 	// parse camera settings from map data
 	// defaults if we don't find player starting camera
 	float declination = DEGTORAD(30.f), rotation = DEGTORAD(-45.f);
 	CVector3D translation = CVector3D(100, 150, -100);
 
+	ScriptCommand([this, &declination, &rotation, &translation]()
+	{
 #define GET_CAMERA_PROPERTY(val, prop, out)\
 	if (!Script::GetProperty(rq, val, #prop, out))\
 		LOGWARNING("CMapReader::ParseCamera() failed to get '%s' property", #prop);
 
-	JS::RootedValue cameraObj(rq.cx);
-	GET_CAMERA_PROPERTY(m_MapData, Camera, &cameraObj)
+		const ScriptRequest rq(pSimulation2->GetScriptInterface());
 
-	if (!cameraObj.isUndefined())
-	{	// If camera property exists, read values
-		CFixedVector3D pos;
-		GET_CAMERA_PROPERTY(cameraObj, Position, pos)
-		translation = pos;
+		JS::RootedValue cameraObj(rq.cx);
+		GET_CAMERA_PROPERTY(m_MapData, Camera, &cameraObj)
 
-		GET_CAMERA_PROPERTY(cameraObj, Rotation, rotation)
-		GET_CAMERA_PROPERTY(cameraObj, Declination, declination)
-	}
+		if (!cameraObj.isUndefined())
+		{	// If camera property exists, read values
+			CFixedVector3D pos;
+			GET_CAMERA_PROPERTY(cameraObj, Position, pos)
+			translation = pos;
+
+			GET_CAMERA_PROPERTY(cameraObj, Rotation, rotation)
+			GET_CAMERA_PROPERTY(cameraObj, Declination, declination)
+		}
 #undef GET_CAMERA_PROPERTY
+	}).Wait();
 
 	if (pGameView)
 	{

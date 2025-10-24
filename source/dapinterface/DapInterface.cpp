@@ -42,6 +42,8 @@
 #include <thread>
 #include <utility>
 
+#include "scriptinterface/ScriptThread.h"
+
 #if OS_WIN
 #include <WinSock2.h>
 #include <ws2tcpip.h>
@@ -218,7 +220,7 @@ namespace DAP
 					LOGMESSAGE("Sending response to client: %s", dapResponse.c_str());
 					send(m_ClientSocket, dapResponse.c_str(), dapResponse.size(), 0);
 
-					// Validate if there more messages.
+					// Validate if there's more messages.
 					message = message.substr(endPos + 4 + length);
 				}
 			}
@@ -299,36 +301,39 @@ namespace DAP
 		if (!VfsFileExists(fntPath))
 			throw DapInterfaceNoJSDebuggerException{ fmt::format("DAP entry script not found at {}", fntPath.string8().c_str())};
 
-		m_ScriptInterface = std::make_unique<ScriptInterface>("Engine", "Debugger", scriptContext, [](const VfsPath& path) {
-			return path.string8().find("tools/dap/") == 0;
-		});
-		m_ScriptInterface->SetCallbackData(this);
-
-		ScriptRequest rq(m_ScriptInterface.get());
-		if (!JS_DefineDebuggerObject(rq.cx, rq.glob))
+		ScriptCommand([this, &scriptContext, &fntPath]()
 		{
-			ScriptException::CatchPending(rq);
-			throw DapInterfaceNoJSDebuggerException{"Failed to define debugger object"};
-		}
+			m_ScriptInterface = std::make_unique<ScriptInterface>("Engine", "Debugger", scriptContext, [](const VfsPath& path) {
+				return path.string8().find("tools/dap/") == 0;
+			});
+			m_ScriptInterface->SetCallbackData(this);
 
-		// Register methods.
-		constexpr ScriptFunction::ObjectGetter<DAP::Interface> Getter{&ScriptInterface::ObjectFromCBData<DAP::Interface>};
-		ScriptFunction::Register<&DAP::Interface::WaitForMessage, Getter>(rq, "WaitForMessage");
-		ScriptFunction::Register<&DAP::Interface::EndWaitingForMessage, Getter>(rq, "EndWaitingForMessage");
+			ScriptRequest rq(m_ScriptInterface.get());
+			if (!JS_DefineDebuggerObject(rq.cx, rq.glob))
+			{
+				ScriptException::CatchPending(rq);
+				throw DapInterfaceNoJSDebuggerException{"Failed to define debugger object"};
+			}
 
-		auto result{m_ScriptInterface->GetModuleLoader().LoadModule(rq, fntPath)};
+			// Register methods.
+			constexpr ScriptFunction::ObjectGetter<DAP::Interface> Getter{&ScriptInterface::ObjectFromCBData<DAP::Interface>};
+			ScriptFunction::Register<&DAP::Interface::WaitForMessage, Getter>(rq, "WaitForMessage");
+			ScriptFunction::Register<&DAP::Interface::EndWaitingForMessage, Getter>(rq, "EndWaitingForMessage");
 
-		scriptContext.RunJobs();
+			auto result{m_ScriptInterface->GetModuleLoader().LoadModule(rq, fntPath)};
 
-		auto& future{*result.begin()};
-		JS::RootedObject ns{rq.cx, future.Get()};
-		m_ModuleValue = {rq.cx, JS::ObjectValue(*ns)};
+			scriptContext.RunJobs();
 
-		// Validate that message handler function is defined in the script.
-		if (!this->isJSHandlerDefined())
-			throw DapInterfaceNoJSDebuggerException{"Message handler function not defined in the script"};
+			auto& future{*result.begin()};
+			const JS::RootedObject ns{rq.cx, future.Get()};
+			m_ModuleValue = {rq.cx, JS::ObjectValue(*ns)};
 
-		// Now its time to start the server thread.
+			// Validate that message handler function is defined in the script.
+			if (!this->isJSHandlerDefined())
+				throw DapInterfaceNoJSDebuggerException{"Message handler function not defined in the script"};
+		}).Wait();
+
+		// Now it's time to start the server thread.
 		m_SocketImpl->StartServerThread();
 	}
 
@@ -336,20 +341,23 @@ namespace DAP
 
 	bool Interface::isJSHandlerDefined()
 	{
-		ScriptRequest rq{m_ScriptInterface.get()};
-		JS::RootedValue handler{rq.cx};
-
-		if (!Script::GetProperty(rq, m_ModuleValue, "handleMessage", &handler))
+		return ScriptCommand([this]()
 		{
-			ScriptException::CatchPending(rq);
-			return false;
-		}
+			const ScriptRequest rq{m_ScriptInterface.get()};
+			JS::RootedValue handler{rq.cx};
 
-		if (!handler.isObject())
-			return false;
+			if (!Script::GetProperty(rq, m_ModuleValue, "handleMessage", &handler))
+			{
+				ScriptException::CatchPending(rq);
+				return false;
+			}
 
-		JS::RootedObject obj{rq.cx, &handler.toObject()};
-		return JS_ObjectIsFunction(obj);
+			if (!handler.isObject())
+				return false;
+
+			const JS::RootedObject obj{rq.cx, &handler.toObject()};
+			return JS_ObjectIsFunction(obj);
+		}).Get();
 	}
 
 	std::string Interface::SendDapMessage(const std::string& message)
@@ -365,50 +373,56 @@ namespace DAP
 
 	std::string Interface::OnMessage(const std::string& message)
 	{
-		ScriptRequest rq{m_ScriptInterface.get()};
-
-		JS::RootedValue msg{rq.cx};
-		if (!Script::ParseJSON(rq, message, &msg))
+		return ScriptCommand([this, &message]()
 		{
-			LOGERROR("Failed to parse JSON message");
-			return "";
-		}
+			const ScriptRequest rq{m_ScriptInterface.get()};
 
-		JS::RootedValue rval{rq.cx};
-		if (!ScriptFunction::Call(rq, m_ModuleValue, "handleMessage", &rval, msg))
-		{
-			LOGERROR("Failed to call message handler");
-			return "";
-		}
+			JS::RootedValue msg{rq.cx};
+			if (!Script::ParseJSON(rq, message, &msg))
+			{
+				LOGERROR("Failed to parse JSON message");
+				return std::string();
+			}
 
-		return Script::StringifyJSON(rq, &rval, false);
+			JS::RootedValue rval{rq.cx};
+			if (!ScriptFunction::Call(rq, m_ModuleValue, "handleMessage", &rval, msg))
+			{
+				LOGERROR("Failed to call message handler");
+				return std::string();
+			}
+
+			return std::string(Script::StringifyJSON(rq, &rval, false));
+		}).GetMoved();
 	}
 
 	void Interface::SendEventToClient()
 	{
-		ScriptRequest rq{m_ScriptInterface.get()};
-		JS::RootedValue global{rq.cx, rq.globalValue()};
-		JS::RootedValue rval{rq.cx};
-
-		while (true)
+		ScriptCommand([this]()
 		{
-			if (!ScriptFunction::Call(rq, m_ModuleValue, "sendEventToClient", &rval))
+			const ScriptRequest rq{m_ScriptInterface.get()};
+			JS::RootedValue global{rq.cx, rq.globalValue()};
+			JS::RootedValue rval{rq.cx};
+
+			while (true)
 			{
-				LOGERROR("Failed to call sendEventToClient");
-				return;
+				if (!ScriptFunction::Call(rq, m_ModuleValue, "sendEventToClient", &rval))
+				{
+					LOGERROR("Failed to call sendEventToClient");
+					return;
+				}
+
+				// Nothing to send.
+				if (rval.isUndefined() || rval.isNull())
+					return;
+
+				const std::string ret{Script::StringifyJSON(rq, &rval, false)};
+
+				// Send to socket client.
+				const std::string dapResponse{"Content-Length: " + std::to_string(ret.size()) + "\r\n\r\n" + ret};
+				LOGMESSAGE("Sending event to client: %s", ret.c_str());
+				m_SocketImpl->SendToClient(dapResponse);
 			}
-
-			// Nothing to send.
-			if (rval.isUndefined() || rval.isNull())
-				return;
-
-			const std::string ret{Script::StringifyJSON(rq, &rval, false)};
-
-			// Send to socket client.
-			const std::string dapResponse{"Content-Length: " + std::to_string(ret.size()) + "\r\n\r\n" + ret};
-			LOGMESSAGE("Sending event to client: %s", ret.c_str());
-			m_SocketImpl->SendToClient(dapResponse);
-		}
+		}).Wait();
 	}
 
 	void Interface::TryHandleMessage()

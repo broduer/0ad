@@ -37,6 +37,7 @@
 #include "ps/Pyrogenesis.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 
 #include <SDL_events.h>
 #include <SDL_keycode.h>
@@ -451,22 +452,28 @@ namespace
 		DumpTable(DumpTable && original) :
 			m_ScriptInterface(original.m_ScriptInterface)
 		{
-			ScriptRequest rq(m_ScriptInterface);
-			m_Root.init(rq.cx, original.m_Root.get());
+			ScriptCommand([this, &original]()
+			{
+				const ScriptRequest rq(m_ScriptInterface);
+				m_Root.init(rq.cx, original.m_Root.get());
+			}).Wait();
 		}
 
 		void operator() (AbstractProfileTable* table)
 		{
-			ScriptRequest rq(m_ScriptInterface);
+			ScriptCommand([this, table]()
+			{
+				const ScriptRequest rq(m_ScriptInterface);
 
-			JS::RootedValue t(rq.cx);
-			Script::CreateObject(
-				rq,
-				&t,
-				"cols", DumpCols(table),
-				"data", DumpRows(table));
+				JS::RootedValue t(rq.cx);
+				Script::CreateObject(
+					rq,
+					&t,
+					"cols", DumpCols(table),
+					"data", DumpRows(table));
 
-			Script::SetProperty(rq, m_Root, table->GetTitle().c_str(), t);
+				Script::SetProperty(rq, m_Root, table->GetTitle().c_str(), t);
+			}).Wait();
 		}
 
 		std::vector<std::string> DumpCols(AbstractProfileTable* table)
@@ -483,31 +490,34 @@ namespace
 
 		JS::Value DumpRows(AbstractProfileTable* table)
 		{
-			ScriptRequest rq(m_ScriptInterface);
-
-			JS::RootedValue data(rq.cx);
-			Script::CreateObject(rq, &data);
-
-			const std::vector<ProfileColumn>& columns = table->GetColumns();
-
-			for (size_t r = 0; r < table->GetNumberRows(); ++r)
+			return ScriptCommand([this, table]() -> JS::Value
 			{
-				JS::RootedValue row(rq.cx);
-				Script::CreateArray(rq, &row);
+				const ScriptRequest rq(m_ScriptInterface);
 
-				Script::SetProperty(rq, data, table->GetCellText(r, 0).c_str(), row);
+				JS::RootedValue data(rq.cx);
+				Script::CreateObject(rq, &data);
 
-				if (table->GetChild(r))
+				const std::vector<ProfileColumn>& columns = table->GetColumns();
+
+				for (size_t r = 0; r < table->GetNumberRows(); ++r)
 				{
-					JS::RootedValue childRows(rq.cx, DumpRows(table->GetChild(r)));
-					Script::SetPropertyInt(rq, row, 0, childRows);
+					JS::RootedValue row(rq.cx);
+					Script::CreateArray(rq, &row);
+
+					Script::SetProperty(rq, data, table->GetCellText(r, 0).c_str(), row);
+
+					if (table->GetChild(r))
+					{
+						JS::RootedValue childRows(rq.cx, DumpRows(table->GetChild(r)));
+						Script::SetPropertyInt(rq, row, 0, childRows);
+					}
+
+					for (size_t c = 1; c < columns.size(); ++c)
+						Script::SetPropertyInt(rq, row, c, table->GetCellText(r, c));
 				}
 
-				for (size_t c = 1; c < columns.size(); ++c)
-					Script::SetPropertyInt(rq, row, c, table->GetCellText(r, c));
-			}
-
-			return data;
+				return data;
+			}).Get();
 		}
 
 	private:

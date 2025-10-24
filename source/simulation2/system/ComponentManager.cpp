@@ -761,62 +761,65 @@ void CComponentManager::AddSystemComponents(bool skipScriptedComponents, bool sk
 
 IComponent* CComponentManager::ConstructComponent(CEntityHandle ent, ComponentTypeId cid)
 {
-	ScriptRequest rq(m_ScriptInterface);
-
-	std::map<ComponentTypeId, ComponentType>::const_iterator it = m_ComponentTypesById.find(cid);
-	if (it == m_ComponentTypesById.end())
+	return ScriptCommand([this, ent, cid]() -> IComponent*
 	{
-		LOGERROR("Invalid component id %d", cid);
-		return NULL;
-	}
+		const ScriptRequest rq(m_ScriptInterface);
 
-	const ComponentType& ct = it->second;
-
-	ENSURE((size_t)ct.iid < m_ComponentsByInterface.size());
-
-	std::unordered_map<entity_id_t, IComponent*>& emap1 = m_ComponentsByInterface[ct.iid];
-	if (emap1.find(ent.GetId()) != emap1.end())
-	{
-		LOGERROR("Multiple components for interface %d", ct.iid);
-		return NULL;
-	}
-
-	std::map<entity_id_t, IComponent*>& emap2 = m_ComponentsByTypeId[cid];
-
-	// If this is a scripted component, construct the appropriate JS object first
-	JS::RootedValue obj(rq.cx);
-	if (ct.type == CT_Script)
-	{
-		m_ScriptInterface.CallConstructor(*ct.ctor, JS::HandleValueArray::empty(), &obj);
-		if (obj.isNull())
+		const std::map<ComponentTypeId, ComponentType>::const_iterator it = m_ComponentTypesById.find(cid);
+		if (it == m_ComponentTypesById.end())
 		{
-			LOGERROR("Script component constructor failed");
-			return NULL;
+			LOGERROR("Invalid component id %d", cid);
+			return nullptr;
 		}
-	}
 
-	// Construct the new component
-	// NB: The unit motion manager relies on components not moving in memory once constructed.
-	IComponent* component = ct.alloc(m_ScriptInterface, obj);
-	ENSURE(component);
+		const ComponentType& ct = it->second;
 
-	component->SetEntityHandle(ent);
-	component->SetSimContext(m_SimContext);
+		ENSURE(static_cast<size_t>(ct.iid) < m_ComponentsByInterface.size());
 
-	// Store a reference to the new component
-	emap1.insert(std::make_pair(ent.GetId(), component));
-	emap2.insert(std::make_pair(ent.GetId(), component));
-	// TODO: We need to more careful about this - if an entity is constructed by a component
-	// while we're iterating over all components, this will invalidate the iterators and everything
-	// will break.
-	// We probably need some kind of delayed addition, so they get pushed onto a queue and then
-	// inserted into the world later on. (Be careful about immediation deletion in that case, too.)
+		std::unordered_map<entity_id_t, IComponent*>& emap1 = m_ComponentsByInterface[ct.iid];
+		if (emap1.contains(ent.GetId()))
+		{
+			LOGERROR("Multiple components for interface %d", ct.iid);
+			return nullptr;
+		}
 
-	SEntityComponentCache* cache = ent.GetComponentCache();
-	ENSURE(cache != NULL && ct.iid < (int)cache->numInterfaces && cache->interfaces[ct.iid] == NULL);
-	cache->interfaces[ct.iid] = component;
+		std::map<entity_id_t, IComponent*>& emap2 = m_ComponentsByTypeId[cid];
 
-	return component;
+		// If this is a scripted component, construct the appropriate JS object first
+		JS::RootedValue obj(rq.cx);
+		if (ct.type == CT_Script)
+		{
+			m_ScriptInterface.CallConstructor(*ct.ctor, JS::HandleValueArray::empty(), &obj);
+			if (obj.isNull())
+			{
+				LOGERROR("Script component constructor failed");
+				return nullptr;
+			}
+		}
+
+		// Construct the new component
+		// NB: The unit motion manager relies on components not moving in memory once constructed.
+		IComponent* component = ct.alloc(m_ScriptInterface, obj);
+		ENSURE(component);
+
+		component->SetEntityHandle(ent);
+		component->SetSimContext(m_SimContext);
+
+		// Store a reference to the new component
+		emap1.insert(std::make_pair(ent.GetId(), component));
+		emap2.insert(std::make_pair(ent.GetId(), component));
+		// TODO: We need to more careful about this - if an entity is constructed by a component
+		// while we're iterating over all components, this will invalidate the iterators and everything
+		// will break.
+		// We probably need some kind of delayed addition, so they get pushed onto a queue and then
+		// inserted into the world later on. (Be careful about immediate deletion in that case, too.)
+
+		SEntityComponentCache* cache = ent.GetComponentCache();
+		ENSURE(cache != nullptr && ct.iid < static_cast<int>(cache->numInterfaces) && cache->interfaces[ct.iid] == nullptr);
+		cache->interfaces[ct.iid] = component;
+
+		return component;
+	}).Get();
 }
 
 void CComponentManager::AddMockComponent(CEntityHandle ent, InterfaceId iid, IComponent& component)

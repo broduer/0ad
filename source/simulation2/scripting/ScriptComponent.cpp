@@ -57,14 +57,17 @@ bool CComponentTypeScript::HasMessageHandler(const CMessage& msg, const bool glo
 
 void CComponentTypeScript::HandleMessage(const CMessage& msg, bool global)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	ScriptCommand([this, &msg, global]()
+	{
+		const ScriptRequest rq(m_ScriptInterface);
 
-	const char* name = global ? msg.GetScriptGlobalHandlerName() : msg.GetScriptHandlerName();
+		const char* name = global ? msg.GetScriptGlobalHandlerName() : msg.GetScriptHandlerName();
 
-	JS::RootedValue msgVal(rq.cx, msg.ToJSValCached(rq));
+		const JS::RootedValue msgVal(rq.cx, msg.ToJSValCached(rq));
 
-	if (!ScriptFunction::CallVoid(rq, GetInstance(), name, msgVal))
-		LOGERROR("Script message handler %s failed", name);
+		if (!ScriptFunction::CallVoid(rq, GetInstance(), name, msgVal))
+			LOGERROR("Script message handler %s failed", name);
+	}).Wait();
 }
 
 void CComponentTypeScript::Serialize(ISerializer& serialize)

@@ -68,25 +68,28 @@ public:
 
 	static Status Callback(const VfsPath& pathname, const CFileInfo&, const uintptr_t cbData)
 	{
-		GetAIsHelper* self = (GetAIsHelper*)cbData;
-		ScriptRequest rq(self->m_ScriptInterface);
+		ScriptCommand([&pathname, cbData]()
+		{
+			const GetAIsHelper* self = reinterpret_cast<GetAIsHelper*>(cbData);
+			const ScriptRequest rq(self->m_ScriptInterface);
 
-		// Extract the 3rd component of the path (i.e. the directory after simulation/ai/)
-		boost::filesystem::path components = pathname.string();
-		boost::filesystem::path::iterator it = components.begin();
-		std::advance(it, 2);
-		std::wstring dirname = it->wstring();
+			// Extract the 3rd component of the path (i.e. the directory after simulation/ai/)
+			const boost::filesystem::path components = pathname.string();
+			boost::filesystem::path::iterator it = components.begin();
+			std::advance(it, 2);
+			const std::wstring dirname = it->wstring();
 
-		JS::RootedValue ai(rq.cx);
-		Script::CreateObject(rq, &ai);
+			JS::RootedValue ai(rq.cx);
+			Script::CreateObject(rq, &ai);
 
-		JS::RootedValue data(rq.cx);
-		Script::ReadJSONFile(rq, pathname, &data);
-		Script::SetProperty(rq, ai, "id", dirname, true);
-		Script::SetProperty(rq, ai, "data", data, true);
-		u32 length;
-		JS::GetArrayLength(rq.cx, self->m_AIs, &length);
-		JS_SetElement(rq.cx, self->m_AIs, length, ai);
+			JS::RootedValue data(rq.cx);
+			Script::ReadJSONFile(rq, pathname, &data);
+			Script::SetProperty(rq, ai, "id", dirname, true);
+			Script::SetProperty(rq, ai, "data", data, true);
+			u32 length;
+			JS::GetArrayLength(rq.cx, self->m_AIs, &length);
+			JS_SetElement(rq.cx, self->m_AIs, length, ai);
+		}).Wait();
 
 		return INFO::OK;
 	}

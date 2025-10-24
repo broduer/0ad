@@ -332,7 +332,7 @@ void RunHardwareDetection(const bool writeSystemInfoBeforeDetection, Renderer::B
 
 	PROFILE2("RunHardwareDetection");
 
-	g_ScriptThread.Run([device, &un]()
+	ScriptCommand([device, &un]()
 	{
 		const ScriptInterface scriptInterface("Engine", "HWDetect", g_ScriptThread.Context);
 

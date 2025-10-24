@@ -206,12 +206,15 @@ bool CGame::StartVisualReplay(const OsPath& replayPath)
 	std::string line;
 	std::getline(*m_ReplayStream, line);
 
-	const ScriptInterface& scriptInterface = m_Simulation2->GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	ScriptCommand([this, &line]()
+	{
+		const ScriptInterface& scriptInterface = m_Simulation2->GetScriptInterface();
+		const ScriptRequest rq(scriptInterface);
 
-	JS::RootedValue attribs(rq.cx);
-	Script::ParseJSON(rq, line, &attribs);
-	StartGame(&attribs, "");
+		JS::RootedValue attribs(rq.cx);
+		Script::ParseJSON(rq, line, &attribs);
+		StartGame(&attribs, "");
+	}).Wait();
 
 	return true;
 }
@@ -223,9 +226,6 @@ bool CGame::StartVisualReplay(const OsPath& replayPath)
  **/
 void CGame::RegisterInit(const JS::HandleValue attribs, const std::string& savedState)
 {
-	g_ScriptThread.Run([]()
-	{
-	}).Wait();
 	const ScriptInterface& scriptInterface = m_Simulation2->GetScriptInterface();
 	ScriptRequest rq(scriptInterface);
 
@@ -362,15 +362,15 @@ PSRETURN CGame::ReallyStartGame()
 	// Call the reallyStartGame GUI function, but only if it exists
 	if (g_GUI && g_GUI->GetPageCount())
 	{
-		g_ScriptThread.Run([]()
+		ScriptCommand([]()
 		{
-		}).Wait();
-		std::shared_ptr<ScriptInterface> scriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
-		ScriptRequest rq(scriptInterface);
+			std::shared_ptr<ScriptInterface> scriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
+			const ScriptRequest rq(scriptInterface);
 
-		JS::RootedValue global(rq.cx, rq.globalValue());
-		if (Script::HasProperty(rq, global, "reallyStartGame"))
-			ScriptFunction::CallVoid(rq, global, "reallyStartGame");
+			JS::RootedValue global(rq.cx, rq.globalValue());
+			if (Script::HasProperty(rq, global, "reallyStartGame"))
+				ScriptFunction::CallVoid(rq, global, "reallyStartGame");
+		}).Wait();
 	}
 
 	debug_printf("GAME STARTED, ALL INIT COMPLETE\n");

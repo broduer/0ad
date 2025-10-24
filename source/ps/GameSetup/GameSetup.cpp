@@ -403,7 +403,7 @@ void ShutdownConfigAndSubsequent()
 
 	// This is needed to ensure that no callbacks from the JSAPI try to use
 	// the profiler when it's already destructed
-	g_ScriptThread.Run([]()
+	ScriptCommand([]()
 	{
 		g_ScriptThread.Context.reset();
 	}).Wait();
@@ -558,7 +558,7 @@ bool Init(const CmdLineArgs& args, const int flags)
 	constexpr int contextSize = 384 * 1024 * 1024;
 	constexpr int heapGrowthBytesGCTrigger = 12 * 1024 * 1024;
 
-	g_ScriptThread.Run([contextSize, heapGrowthBytesGCTrigger]() {
+	ScriptCommand([contextSize, heapGrowthBytesGCTrigger]() {
 		g_ScriptThread.Context = ScriptContext::CreateContext(contextSize, heapGrowthBytesGCTrigger);
 	}).Wait();
 
@@ -568,7 +568,7 @@ bool Init(const CmdLineArgs& args, const int flags)
 	// to avoid overwriting the newly selected mods.
 	if (flags & INIT_MODS)
 	{
-		g_ScriptThread.Run([]()
+		ScriptCommand([]()
 		{
 			const ScriptInterface modInterface("Engine", "Mod", g_ScriptThread.Context);
 			g_Mods.UpdateAvailableMods(modInterface);
@@ -692,17 +692,16 @@ void InitGraphics(const CmdLineArgs& args, int flags, const std::vector<CStr>& i
 		{
 			const bool setup_gui = ((flags & INIT_NO_GUI) == 0);
 
-			JS::HandleValue data = ScriptCommand([&installedMods]()
+			ScriptCommand([&installedMods, setup_gui]()
 			{
 				const ScriptRequest rq{g_GUI->GetScriptInterface()};
 				JS::RootedValue data(rq.cx);
 				Script::CreateObject(rq, &data, "isStartup", true);
 				if (!installedMods.empty())
 					Script::SetProperty(rq, data, "installedMods", installedMods);
-				return JS::HandleValue(std::move(data));
-			}).GetMoved();
 
-			InitPs(setup_gui, installedMods.empty() ? L"page_pregame.xml" : L"page_modmod.xml", &g_GUI->GetScriptInterface(), data);
+				InitPs(setup_gui, installedMods.empty() ? L"page_pregame.xml" : L"page_modmod.xml", &g_GUI->GetScriptInterface(), data);
+			}).Wait();
 		}
 	}
 	catch (PSERROR_Game_World_MapLoadFailed& e)
@@ -798,7 +797,7 @@ bool Autostart(const CmdLineArgs& args)
 	};
 
 	// Create some script interface to store the js values for the settings.
-	if (!g_ScriptThread.Run([&args]()
+	if (!ScriptCommand([&args]()
 	{
 		ScriptInterface scriptInterface("Engine", "Game Setup", g_ScriptThread.Context);
 		ScriptRequest rq(scriptInterface);
@@ -899,7 +898,7 @@ bool AutostartVisualReplay(const std::string& replayFile)
 	g_Game->SetPlayerID(-1);
 	g_Game->StartVisualReplay(replayFile);
 
-	g_ScriptThread.Run([]()
+	ScriptCommand([]()
 	{
 		ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
 		const ScriptRequest rq(scriptInterface);
@@ -927,7 +926,7 @@ bool AutostartVisualReplay(const std::string& replayFile)
 
 void CancelLoad(const CStrW& message)
 {
-	g_ScriptThread.Run([&message]()
+	ScriptCommand([&message]()
 	{
 		const std::shared_ptr<ScriptInterface> pScriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
 		const ScriptRequest rq(pScriptInterface);

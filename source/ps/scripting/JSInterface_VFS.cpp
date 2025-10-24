@@ -38,6 +38,7 @@
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptConversions.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 
 #include <algorithm>
 #include <array>
@@ -133,12 +134,16 @@ struct BuildDirEntListState
 // called for each matching directory entry; add its full pathname to array.
 static Status BuildDirEntListCB(const VfsPath& pathname, const CFileInfo&, uintptr_t cbData)
 {
-	BuildDirEntListState* s = (BuildDirEntListState*)cbData;
+	ScriptCommand([&pathname, cbData]()
+	{
+		BuildDirEntListState* s = reinterpret_cast<BuildDirEntListState*>(cbData);
 
-	JS::RootedObject filenameArrayObj(s->rq.cx, s->filename_array);
-	JS::RootedValue val(s->rq.cx);
-	Script::ToJSVal(s->rq, &val, CStrW(pathname.string()) );
-	JS_SetElement(s->rq.cx, filenameArrayObj, s->cur_idx++, val);
+		const JS::RootedObject filenameArrayObj(s->rq.cx, s->filename_array);
+		JS::RootedValue val(s->rq.cx);
+		Script::ToJSVal(s->rq, &val, CStrW(pathname.string()) );
+		JS_SetElement(s->rq.cx, filenameArrayObj, s->cur_idx++, val);
+	}).Wait();
+
 	return INFO::OK;
 }
 
@@ -156,7 +161,7 @@ JS::Value BuildDirEntList(const ScriptRequest& rq, const std::wstring& path, con
 
 	// convert to const wchar_t*; if there's no filter, pass 0 for speed
 	// (interpreted as: "accept all files without comparing").
-	const wchar_t* filter = 0;
+	const wchar_t* filter = nullptr;
 	if (!filterStr.empty())
 		filter = filterStr.c_str();
 

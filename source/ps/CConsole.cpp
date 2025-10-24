@@ -70,6 +70,8 @@
 #include <utility>
 #include <vector>
 
+#include "scriptinterface/ScriptThread.h"
+
 namespace
 {
 
@@ -611,13 +613,16 @@ void CConsole::ProcessBuffer(const wchar_t* szLine)
 	}
 
 	// Process it as JavaScript
-	std::shared_ptr<ScriptInterface> pScriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
-	ScriptRequest rq(*pScriptInterface);
+	ScriptCommand([this, szLine]()
+	{
+		std::shared_ptr<ScriptInterface> pScriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
+		const ScriptRequest rq(*pScriptInterface);
 
-	JS::RootedValue rval(rq.cx);
-	pScriptInterface->Eval(CStrW(szLine).ToUTF8().c_str(), &rval);
-	if (!rval.isUndefined())
-		InsertMessage(Script::ToString(rq, &rval));
+		JS::RootedValue rval(rq.cx);
+		pScriptInterface->Eval(CStrW(szLine).ToUTF8().c_str(), &rval);
+		if (!rval.isUndefined())
+			InsertMessage(Script::ToString(rq, &rval));
+	}).Wait();
 }
 
 void CConsole::LoadHistory()

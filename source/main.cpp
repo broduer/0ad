@@ -737,7 +737,7 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 
 		if (isVisual)
 		{
-			g_ScriptThread.Run([&guiScriptInterface, &args, &installedMods]()
+			ScriptCommand([&guiScriptInterface, &args, &installedMods]()
 			{
 				guiScriptInterface.emplace("Engine", "gui", *g_ScriptThread.Context);
 			}).Wait();

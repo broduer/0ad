@@ -474,21 +474,24 @@ JS::Value VisualReplay::GetReplayAttributes(const ScriptInterface& scriptInterfa
 void VisualReplay::AddReplayToCache(const ScriptInterface& scriptInterface, const CStrW& directoryName)
 {
 	PROFILE2("AddReplayToCache");
-	ScriptRequest rq(scriptInterface);
+	ScriptCommand([&scriptInterface, &directoryName]()
+	{
+		const ScriptRequest rq(scriptInterface);
 
-	JS::RootedValue replayData(rq.cx, LoadReplayData(scriptInterface, OsPath(directoryName)));
-	if (replayData.isNull())
-		return;
+		const JS::RootedValue replayData(rq.cx, LoadReplayData(scriptInterface, OsPath(directoryName)));
+		if (replayData.isNull())
+			return;
 
-	JS::RootedObject cachedReplaysObject(rq.cx);
-	if (!ReadCacheFile(scriptInterface, &cachedReplaysObject))
-		cachedReplaysObject = JS::NewArrayObject(rq.cx, 0);
+		JS::RootedObject cachedReplaysObject(rq.cx);
+		if (!ReadCacheFile(scriptInterface, &cachedReplaysObject))
+			cachedReplaysObject = JS::NewArrayObject(rq.cx, 0);
 
-	u32 cacheLength = 0;
-	JS::GetArrayLength(rq.cx, cachedReplaysObject, &cacheLength);
-	JS_SetElement(rq.cx, cachedReplaysObject, cacheLength, replayData);
+		u32 cacheLength = 0;
+		JS::GetArrayLength(rq.cx, cachedReplaysObject, &cacheLength);
+		JS_SetElement(rq.cx, cachedReplaysObject, cacheLength, replayData);
 
-	StoreCacheFile(scriptInterface, cachedReplaysObject);
+		StoreCacheFile(scriptInterface, cachedReplaysObject);
+	}).Wait();
 }
 
 bool VisualReplay::HasReplayMetadata(const OsPath& directoryName)

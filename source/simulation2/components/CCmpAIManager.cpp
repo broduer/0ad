@@ -131,7 +131,7 @@ private:
 
 		bool Initialise()
 		{
-			return g_ScriptThread.Run([this]()
+			return ScriptCommand([this]()
 			{
 				ScriptRequest rq(m_ScriptInterface);
 
@@ -210,7 +210,7 @@ private:
 		void Run(JS::HandleValue state, const int playerID)
 		{
 			m_Commands.clear();
-			g_ScriptThread.Run([this, &state, playerID]()
+			ScriptCommand([this, &state, playerID]()
 			{
 				const ScriptRequest rq(m_ScriptInterface);
 				ScriptFunction::CallVoid(rq, m_Obj, "HandleMessage", state, playerID);
@@ -221,7 +221,7 @@ private:
 		void Run(JS::HandleValue state, const int playerID, JS::HandleValue SharedAI)
 		{
 			m_Commands.clear();
-			g_ScriptThread.Run([this, &state, playerID, &SharedAI]()
+			ScriptCommand([this, &state, playerID, &SharedAI]()
 			{
 				const ScriptRequest rq(m_ScriptInterface);
 				ScriptFunction::CallVoid(rq, m_Obj, "HandleMessage", state, playerID, SharedAI);
@@ -230,7 +230,7 @@ private:
 		void InitAI(JS::HandleValue state, JS::HandleValue SharedAI)
 		{
 			m_Commands.clear();
-			g_ScriptThread.Run([this, &state, &SharedAI]()
+			ScriptCommand([this, &state, &SharedAI]()
 			{
 				const ScriptRequest rq(m_ScriptInterface);
 				ScriptFunction::CallVoid(rq, m_Obj, "Init", state, m_Player, SharedAI);
@@ -269,7 +269,7 @@ public:
 
 	~CAIWorker()
 	{
-		g_ScriptThread.Run([this]()
+		ScriptCommand([this]()
 		{
 			// Init will always be called.
 			JS_RemoveExtraGCRootsTracer(m_ScriptInterface->GetGeneralJSContext(), Trace, this);
@@ -278,7 +278,7 @@ public:
 
 	void Init(const ScriptInterface& simInterface)
 	{
-		g_ScriptThread.Run([this, &simInterface]()
+		ScriptCommand([this, &simInterface]()
 		{
 			// Create the script interface in the same compartment as the simulation interface.
 			// This will allow us to directly share data from the sim to the AI (and vice versa, should the need arise).
@@ -334,7 +334,7 @@ public:
 
 	void PostCommand(const int playerid, JS::HandleValue cmd)
 	{
-		g_ScriptThread.Run([this, playerid, &cmd]()
+		ScriptCommand([this, playerid, &cmd]()
 		{
 			const ScriptRequest rq(m_ScriptInterface);
 			for (size_t i=0; i<m_Players.size(); i++)
@@ -351,7 +351,7 @@ public:
 
 	JS::Value ComputePathScript(JS::HandleValue position, JS::HandleValue goal, const pass_class_t passClass)
 	{
-		return g_ScriptThread.Run([this, &position, &goal, passClass]() -> JS::Value
+		return ScriptCommand([this, &position, &goal, passClass]() -> JS::Value
 		{
 			const ScriptRequest rq(m_ScriptInterface);
 
@@ -431,7 +431,7 @@ public:
 
 	bool TryLoadSharedComponent()
 	{
-		return g_ScriptThread.Run([this]()
+		return ScriptCommand([this]()
 		{
 			ScriptRequest rq(m_ScriptInterface);
 
@@ -511,7 +511,7 @@ public:
 	bool RunGamestateInit(const Script::StructuredClone& gameState, const Grid<NavcellData>& passabilityMap, const Grid<u8>& territoryMap,
 		const std::map<std::string, pass_class_t>& nonPathfindingPassClassMasks, const std::map<std::string, pass_class_t>& pathfindingPassClassMasks)
 	{
-		return g_ScriptThread.Run([this, &gameState, &passabilityMap, &territoryMap, &nonPathfindingPassClassMasks, &pathfindingPassClassMasks]()
+		return ScriptCommand([this, &gameState, &passabilityMap, &territoryMap, &nonPathfindingPassClassMasks, &pathfindingPassClassMasks]()
 		{
 			// this will be run last by InitGame.js, passing the full game representation.
 			// For now it will run for the shared Component.
@@ -549,7 +549,7 @@ public:
 
 	void UpdateGameState(JS::HandleValue gameState)
 	{
-		g_ScriptThread.Run([this, &gameState]()
+		ScriptCommand([this, &gameState]()
 		{
 			ENSURE(m_CommandsComputed);
 			m_GameState.reset();
@@ -575,7 +575,7 @@ public:
 			m_HierarchicalPathfinder.Update(&m_PassabilityMap, dirtinessGrid);
 		}
 
-		g_ScriptThread.Run([this, dimensionChange, justDeserialized]()
+		ScriptCommand([this, dimensionChange, justDeserialized]()
 		{
 			const ScriptRequest rq(m_ScriptInterface);
 			if (dimensionChange || justDeserialized)
@@ -606,7 +606,7 @@ public:
 
 		m_TerritoryMap = territoryMap;
 
-		g_ScriptThread.Run([this, dimensionChange]()
+		ScriptCommand([this, dimensionChange]()
 		{
 			const ScriptRequest rq(m_ScriptInterface);
 			if (dimensionChange)
@@ -659,7 +659,7 @@ public:
 
 	void LoadEntityTemplates(const std::vector<std::pair<std::string, const CParamNode*> >& templates)
 	{
-		g_ScriptThread.Run([this, &templates]()
+		ScriptCommand([this, &templates]()
 		{
 			const ScriptRequest rq(m_ScriptInterface);
 
@@ -698,7 +698,7 @@ public:
 		if (m_Players.empty())
 			return;
 
-		g_ScriptThread.Run([this, &serializer]()
+		ScriptCommand([this, &serializer]()
 		{
 			const ScriptRequest rq(m_ScriptInterface);
 
@@ -747,7 +747,7 @@ public:
 		if (numAis == 0)
 			return;
 
-		g_ScriptThread.Run([this, &stream, numAis]()
+		ScriptCommand([this, &stream, numAis]()
 		{
 			const ScriptRequest rq(m_ScriptInterface);
 
@@ -830,7 +830,7 @@ private:
 	{
 		if (!m_PlayerMetadata.contains(path))
 		{
-			g_ScriptThread.Run([this, &path, &out]()-> void
+			ScriptCommand([this, &path, &out]()-> void
 			{
 				// Load and cache the AI player metadata
 				Script::ReadJSONFile(ScriptRequest(m_ScriptInterface), path, out);
@@ -843,7 +843,7 @@ private:
 
 	void PerformComputation()
 	{
-		g_ScriptThread.Run([this]()
+		ScriptCommand([this]()
 		{
 			// Deserialize the game state, to pass to the AI's HandleMessage
 			ScriptRequest rq(m_ScriptInterface);
@@ -995,10 +995,10 @@ public:
 
 	void RunGamestateInit() override
 	{
-		g_ScriptThread.Run([this]()
+		ScriptCommand([this]()
 		{
 			const ScriptInterface& scriptInterface = GetSimContext().GetScriptInterface();
-			ScriptRequest rq(scriptInterface);
+			const ScriptRequest rq(scriptInterface);
 
 			CmpPtr<ICmpAIInterface> cmpAIInterface(GetSystemEntity());
 			ENSURE(cmpAIInterface);
@@ -1037,10 +1037,10 @@ public:
 	{
 		PROFILE("AI setup");
 
-		if (g_ScriptThread.Run([this]()
+		if (ScriptCommand([this]()
 		{
 			const ScriptInterface& scriptInterface = GetSimContext().GetScriptInterface();
-			ScriptRequest rq(scriptInterface);
+			const ScriptRequest rq(scriptInterface);
 
 			if (m_Worker.getPlayerSize() == 0)
 				return true;
@@ -1109,10 +1109,10 @@ public:
 		if (!cmpCommandQueue)
 			return;
 
-		g_ScriptThread.Run([this, &commands, &cmpCommandQueue]()
+		ScriptCommand([this, &commands, &cmpCommandQueue]()
 		{
 			const ScriptInterface& scriptInterface = GetSimContext().GetScriptInterface();
-			ScriptRequest rq(scriptInterface);
+			const ScriptRequest rq(scriptInterface);
 			JS::RootedValue clonedCommandVal(rq.cx);
 
 			for (size_t i = 0; i < commands.size(); ++i)
@@ -1163,10 +1163,10 @@ private:
 		if (!cmpPathfinder)
 			return;
 
-		g_ScriptThread.Run([this, &state, &cmpPathfinder]()
+		ScriptCommand([this, &state, &cmpPathfinder]()
 		{
 			const ScriptInterface& scriptInterface = GetSimContext().GetScriptInterface();
-			ScriptRequest rq(scriptInterface);
+			const ScriptRequest rq(scriptInterface);
 
 			JS::RootedValue classesVal(rq.cx);
 			Script::CreateObject(rq, &classesVal);

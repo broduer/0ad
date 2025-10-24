@@ -46,6 +46,7 @@
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptConversions.h"
 #include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/ScriptThread.h"
 #include "simulation2/components/ICmpRangeManager.h"
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"
@@ -257,22 +258,25 @@ CVector2D CMiniMap::WorldSpaceToMiniMapSpace(const CVector3D& worldPosition) con
 
 bool CMiniMap::FireWorldClickEvent(int button, int /*clicks*/)
 {
-	ScriptRequest rq(g_GUI->GetActiveGUI()->GetScriptInterface());
+	return ScriptCommand([this, button]()
+	{
+		const ScriptRequest rq(g_GUI->GetActiveGUI()->GetScriptInterface());
 
-	float x, z;
-	GetMouseWorldCoordinates(x, z);
+		float x, z;
+		GetMouseWorldCoordinates(x, z);
 
-	JS::RootedValue coords(rq.cx);
-	Script::CreateObject(rq, &coords, "x", x, "z", z);
+		JS::RootedValue coords(rq.cx);
+		Script::CreateObject(rq, &coords, "x", x, "z", z);
 
-	JS::RootedValue buttonJs(rq.cx);
-	Script::ToJSVal(rq, &buttonJs, button);
+		JS::RootedValue buttonJs(rq.cx);
+		Script::ToJSVal(rq, &buttonJs, button);
 
-	JS::RootedValueVector paramData(rq.cx);
-	std::ignore = paramData.append(coords);
-	std::ignore = paramData.append(buttonJs);
+		JS::RootedValueVector paramData(rq.cx);
+		std::ignore = paramData.append(coords);
+		std::ignore = paramData.append(buttonJs);
 
-	return ScriptEventWithReturn(EventNameWorldClick, paramData);
+		return ScriptEventWithReturn(EventNameWorldClick, paramData);
+	}).Get();
 }
 
 // This sets up and draws the rectangle on the minimap
