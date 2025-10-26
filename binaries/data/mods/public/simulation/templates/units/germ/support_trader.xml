@@ -3,6 +3,7 @@
   <Identity>
     <Civ>germ</Civ>
     <GenericName>Germanic Trader</GenericName>
+    <SpecificName>Kaupô</SpecificName>
     <Icon>units/celt/support_trader.png</Icon>
   </Identity>
   <VisualActor>

@@ -9,7 +9,8 @@
   </Cost>
   <Identity>
     <Civ>germ</Civ>
-    <GenericName>Cimbrian Clubman Raider</GenericName>
+    <GenericName>Cimbrian Clubman</GenericName>
+    <SpecificName>Kulbawigô</SpecificName>
     <VisibleClasses datatype="tokens">Club</VisibleClasses>
     <Requirements>
       <Techs datatype="tokens">phase_village</Techs>

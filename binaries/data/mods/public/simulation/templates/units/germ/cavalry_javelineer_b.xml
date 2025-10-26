@@ -4,6 +4,7 @@
     <Civ>germ</Civ>
     <SelectionGroupName>units/germ/cavalry_javelineer_b</SelectionGroupName>
     <GenericName>Tigurinian Light Cavalry</GenericName>
+    <SpecificName>Skeutazridjô</SpecificName>
     <Icon>units/germ/cavalry_javelineer.png</Icon>
   </Identity>
   <Promotion>

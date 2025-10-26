@@ -3,6 +3,7 @@
   <Identity>
     <Civ>germ</Civ>
     <GenericName>Germanic Worker</GenericName>
+    <SpecificName>Būraz</SpecificName>
     <Icon>units/celt/support_civilian.png</Icon>
     <SelectionGroupName>units/{civ}/support_civilian</SelectionGroupName>
   </Identity>

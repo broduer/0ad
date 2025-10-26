@@ -3,6 +3,7 @@
   <Identity>
     <Civ>germ</Civ>
     <GenericName>Cimbrian Spear Cavalry</GenericName>
+    <SpecificName>Gaizazridjô</SpecificName>
     <SelectionGroupName>units/germ/cavalry_spearman_b</SelectionGroupName>
     <Icon>units/germ/cavalry_spearman.png</Icon>
     <Requirements>

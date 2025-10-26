@@ -4,6 +4,7 @@
     <Civ>germ</Civ>
     <SelectionGroupName>units/germ/infantry_spearman_b</SelectionGroupName>
     <GenericName>Cimbrian Spearman</GenericName>
+    <SpecificName>Gaizamannaz</SpecificName>
     <VisibleClasses datatype="tokens">Guerilla</VisibleClasses>
     <Icon>units/germ/infantry_spearman.png</Icon>
   </Identity>

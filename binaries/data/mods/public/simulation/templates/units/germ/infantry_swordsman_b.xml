@@ -3,6 +3,7 @@
   <Identity>
     <Civ>germ</Civ>
     <GenericName>Teutonic Swordsman</GenericName>
+    <SpecificName>Swerdamannaz</SpecificName>
     <SelectionGroupName>units/germ/infantry_swordsman_b</SelectionGroupName>
     <Requirements>
       <Techs datatype="tokens">phase_town</Techs>

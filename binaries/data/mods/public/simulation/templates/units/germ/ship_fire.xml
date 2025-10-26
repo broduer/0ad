@@ -3,6 +3,7 @@
   <Identity>
     <Civ>germ</Civ>
     <GenericName>Germanic Fire Ship</GenericName>
+    <SpecificName>Brandabaitaz</SpecificName>
     <Icon>units/iber/ship_fire.png</Icon>
   </Identity>
   <VisualActor>

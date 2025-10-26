@@ -4,6 +4,7 @@
     <Civ>germ</Civ>
     <SelectionGroupName>units/germ/infantry_slinger_b</SelectionGroupName>
     <GenericName>Celto-Germanic Slinger</GenericName>
+    <SpecificName>Slingwanaz</SpecificName>
     <Icon>units/germ/infantry_slinger.png</Icon>
   </Identity>
   <Promotion>

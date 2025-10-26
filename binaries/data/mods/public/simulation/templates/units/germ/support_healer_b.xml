@@ -4,6 +4,7 @@
     <Civ>germ</Civ>
     <SelectionGroupName>units/germ/support_healer_b</SelectionGroupName>
     <GenericName>Germanic Priest</GenericName>
+    <SpecificName>Gudjô</SpecificName>
     <Icon>units/germ/support_healer.png</Icon>
     <Rank>Basic</Rank>
   </Identity>

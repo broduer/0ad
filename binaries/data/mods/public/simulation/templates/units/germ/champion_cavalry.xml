@@ -3,6 +3,7 @@
   <Identity>
     <Civ>germ</Civ>
     <GenericName>Cimbrian Noble Cavalry</GenericName>
+    <SpecificName>Aþalazridjô</SpecificName>
     <SelectionGroupName>units/germ/champion_cavalry</SelectionGroupName>
     <Icon>units/germ/champion_cavalry.png</Icon>
     <Requirements>
