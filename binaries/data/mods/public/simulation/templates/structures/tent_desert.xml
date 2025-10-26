@@ -33,7 +33,7 @@
   <Identity>
     <Civ>ptol</Civ>
     <GenericName>Desert Army Tent</GenericName>
-    <SpecificName>Skene</SpecificName>
+    <SpecificName>Skené</SpecificName>
     <Icon>structures/mercenary_camp.png</Icon>
     <VisibleClasses datatype="tokens">Tent</VisibleClasses>
 	<Tooltip>A temporary shelter for soldiers. +5 population bonus.</Tooltip>
