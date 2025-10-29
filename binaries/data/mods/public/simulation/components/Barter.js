@@ -113,7 +113,7 @@ Barter.prototype.ExchangeResources = function(playerID, resourceToSell, resource
 		cmpStatisticsTracker.IncreaseResourcesBoughtCounter(resourceToBuy, amountToAdd);
 	}
 
-	const difference = this.DIFFERENCE_PER_DEAL * amount / this.DEAL_AMOUNT;
+	const difference = this.DIFFERENCE_PER_DEAL * amountToAdd / this.DEAL_AMOUNT;
 	// Overall price difference (dynamic +/- constant) can't exceed +-99%.
 	const maxDifference = this.DEAL_AMOUNT * 0.99;
 

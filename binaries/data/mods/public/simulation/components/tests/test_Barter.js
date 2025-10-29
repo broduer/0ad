@@ -100,7 +100,7 @@ cmpBarter.priceDifferences = { "wood": 0, "stone": 0, "metal": 0 };
 cmpBarter.ExchangeResources(playerID, "wood", "stone", 100);
 TS_ASSERT_EQUALS(cmpBarter.restoreTimer, 7);
 TS_ASSERT(timerActivated);
-TS_ASSERT_UNEVAL_EQUALS(cmpBarter.priceDifferences, { "wood": -cmpBarter.DIFFERENCE_PER_DEAL, "stone": cmpBarter.DIFFERENCE_PER_DEAL, "metal": 0 });
+TS_ASSERT_UNEVAL_EQUALS(cmpBarter.priceDifferences, { "wood": -cmpBarter.DIFFERENCE_PER_DEAL * bought / 100, "stone": cmpBarter.DIFFERENCE_PER_DEAL * bought / 100, "metal": 0 });
 TS_ASSERT_EQUALS(sold, 100);
 TS_ASSERT_EQUALS(bought, Math.round(100 * (100 - cmpBarter.CONSTANT_DIFFERENCE + 0) / (100 + cmpBarter.CONSTANT_DIFFERENCE + 0)));
 
@@ -125,12 +125,12 @@ TS_ASSERT_EQUALS(bought, 0);
 
 cmpBarter.priceDifferences = { "wood": 0, "stone": 99 - cmpBarter.CONSTANT_DIFFERENCE, "metal": 0 };
 cmpBarter.ExchangeResources(playerID, "wood", "stone", 100);
-TS_ASSERT_UNEVAL_EQUALS(cmpBarter.priceDifferences, { "wood": -cmpBarter.DIFFERENCE_PER_DEAL, "stone": 99 - cmpBarter.CONSTANT_DIFFERENCE, "metal": 0 });
+TS_ASSERT_UNEVAL_EQUALS(cmpBarter.priceDifferences, { "wood": -cmpBarter.DIFFERENCE_PER_DEAL * bought / 100, "stone": 99 - cmpBarter.CONSTANT_DIFFERENCE, "metal": 0 });
 TS_ASSERT_EQUALS(bought, Math.round(100 * (100 - cmpBarter.CONSTANT_DIFFERENCE + 0) / (100 + cmpBarter.CONSTANT_DIFFERENCE + 99 - cmpBarter.CONSTANT_DIFFERENCE)));
 
 cmpBarter.priceDifferences = { "wood": -99 + cmpBarter.CONSTANT_DIFFERENCE, "stone": 0, "metal": 0 };
 cmpBarter.ExchangeResources(playerID, "wood", "stone", 100);
-TS_ASSERT_UNEVAL_EQUALS(cmpBarter.priceDifferences, { "wood": -99 + cmpBarter.CONSTANT_DIFFERENCE, "stone": cmpBarter.DIFFERENCE_PER_DEAL, "metal": 0 });
+TS_ASSERT_UNEVAL_EQUALS(cmpBarter.priceDifferences, { "wood": -99 + cmpBarter.CONSTANT_DIFFERENCE, "stone": cmpBarter.DIFFERENCE_PER_DEAL * bought / 100, "metal": 0 });
 TS_ASSERT_EQUALS(bought, Math.round(100 * (100 - cmpBarter.CONSTANT_DIFFERENCE - 99 + cmpBarter.CONSTANT_DIFFERENCE) / (100 + cmpBarter.CONSTANT_DIFFERENCE + 0)));
 
 cmpBarter.priceDifferences = { "wood": 0, "stone": 0, "metal": 0 };
