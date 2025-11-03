@@ -117,10 +117,13 @@ protected:
     	thread_id = std::this_thread::get_id();
     	const std::string name = Manager::TaskNamePrefix + std::to_string(local_id);
     	debug_SetThreadName(name.c_str());
+        g_Profiler2.RegisterCurrentThread(name);
+
+#ifdef DEBUG_THREAD_PULLS
     	std::ostringstream os;
 		os << thread_id;
     	debug_printf("Starting thread %s, TID: %s\n", name.c_str(), os.str().c_str());
-        g_Profiler2.RegisterCurrentThread(name);
+#endif
 
         bool hasTask = false;
         std::unique_lock<std::mutex> lock(m_Mutex, std::defer_lock);
@@ -194,10 +197,14 @@ protected:
 		thread_id = std::this_thread::get_id();
 		const std::string name = Manager::TaskNamePrefix + std::to_string(local_id);
 		debug_SetThreadName(name.c_str());
+		g_Profiler2.RegisterCurrentThread(name);
+
+#ifdef DEBUG_THREAD_PULLS
 		std::ostringstream os;
 		os << thread_id;
 		debug_printf("Starting thread %s, TID: %s\n", name.c_str(), os.str().c_str());
-		g_Profiler2.RegisterCurrentThread(name);
+#endif
+
 
 		bool hasTask = false;
 		std::unique_lock<std::mutex> lock(m_Mutex, std::defer_lock);
