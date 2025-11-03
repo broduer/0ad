@@ -33,7 +33,7 @@
 # include "lib/sysdep/os/osx/osx_bundle.h"
 #endif
 
-static void* const HANDLE_UNAVAILABLE = (void*)-1;
+static void* const HANDLE_UNAVAILABLE = reinterpret_cast<void*>(-1);
 
 // directory to search for libraries (optionally set by --libdir at build-time,
 // optionally overridden by -libdir at run-time in the test executable);
@@ -125,7 +125,7 @@ static void* LoadAnyVariant(const CStr& name, std::stringstream& errors)
 			// we don't really care when relocations take place, but one of
 			// {RTLD_NOW, RTLD_LAZY} must be specified. go with the former because
 			// it is safer and matches the Windows load behavior.
-			const int flags = RTLD_LOCAL|RTLD_NOW;
+			constexpr int flags = RTLD_LOCAL|RTLD_NOW;
 			void* handle = dlopen(filename.c_str(), flags);
 			if (handle)
 				return handle;
@@ -134,12 +134,12 @@ static void* LoadAnyVariant(const CStr& name, std::stringstream& errors)
 		}
 	}
 
-	return 0;	// none worked
+	return nullptr;	// none worked
 }
 
 
 DllLoader::DllLoader(const char* name, CLogger::ELogMethod loadErrorLogMethod)
-	: m_Name(name), m_Handle(0), m_LoadErrorLogMethod(loadErrorLogMethod)
+	: m_Name(name), m_Handle(nullptr), m_LoadErrorLogMethod(loadErrorLogMethod)
 {
 }
 
@@ -151,14 +151,18 @@ DllLoader::~DllLoader()
 
 bool DllLoader::IsLoaded() const
 {
-	return (m_Handle != 0 && m_Handle != HANDLE_UNAVAILABLE);
+	std::lock_guard lock(m_Mutex);
+
+	return (m_Handle != nullptr && m_Handle != HANDLE_UNAVAILABLE);
 }
 
 bool DllLoader::LoadDLL()
 {
+	std::lock_guard lock(m_Mutex);
+
 	// first time: try to open the shared object
 	// postcondition: m_Handle valid or == HANDLE_UNAVAILABLE.
-	if (m_Handle == 0)
+	if (m_Handle == nullptr)
 	{
 		PROFILE2("LoadDLL");
 
@@ -166,7 +170,10 @@ bool DllLoader::LoadDLL()
 		m_Handle = LoadAnyVariant(m_Name, errors);
 		if (!m_Handle)	// (only report errors if nothing worked)
 		{
+			const std::string msg = errors.str();
+			debug_printf("%s", msg.c_str());
 			LogLoadError(errors.str().c_str());
+			ENSURE(false);
 			m_Handle = HANDLE_UNAVAILABLE;
 		}
 	}
@@ -179,8 +186,10 @@ void DllLoader::Unload()
 	if (!IsLoaded())
 		return;
 
+	std::lock_guard lock(m_Mutex);
+
 	dlclose(m_Handle);
-	m_Handle = 0;
+	m_Handle = nullptr;
 }
 
 void DllLoader::LoadSymbolInternal(const char* name, void** fptr) const
@@ -188,12 +197,14 @@ void DllLoader::LoadSymbolInternal(const char* name, void** fptr) const
 	if (!IsLoaded())
 	{
 		debug_warn(L"Loading symbol from invalid DLL");
-		*fptr = NULL;
+		*fptr = nullptr;
 		throw PSERROR_DllLoader_DllNotLoaded();
 	}
 
+	std::lock_guard lock(m_Mutex);
+
 	*fptr = dlsym(m_Handle, name);
-	if (*fptr == NULL)
+	if (*fptr == nullptr)
 		throw PSERROR_DllLoader_SymbolNotFound();
 }
 

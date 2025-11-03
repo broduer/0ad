@@ -141,7 +141,11 @@ CComponentManager::CComponentManager(CSimContext& context, ScriptContext& cx, bo
 
 CComponentManager::~CComponentManager()
 {
-	JS_RemoveExtraGCRootsTracer(m_ScriptInterface.GetGeneralJSContext(), Trace, (void*)this);
+	ScriptCommand([this]()
+	{
+		JS_RemoveExtraGCRootsTracer(m_ScriptInterface.GetGeneralJSContext(), Trace, reinterpret_cast<void*>(this));
+	}).Wait();
+
 	ResetState();
 }
 
@@ -456,7 +460,7 @@ CMessage* CComponentManager::ConstructMessage(int mtid, JS::HandleValue data)
 	if (mtid == MT__Invalid || mtid > (int)m_MessageTypeIdsByName.size()) // (IDs start at 1 so use '>' here)
 		LOGERROR("PostMessage with invalid message type ID '%d'", mtid);
 
-	ScriptRequest rq(m_ScriptInterface);
+	const ScriptRequest rq(m_ScriptInterface);
 	if (mtid < MT__LastNative)
 	{
 		return CMessageFromJSVal(mtid, rq, data);
@@ -469,7 +473,7 @@ CMessage* CComponentManager::ConstructMessage(int mtid, JS::HandleValue data)
 
 void CComponentManager::Script_PostMessage(int ent, int mtid, JS::HandleValue data)
 {
-	CMessage* msg = ConstructMessage(mtid, data);
+	const CMessage* msg = ConstructMessage(mtid, data);
 	if (!msg)
 		return; // error
 
@@ -480,7 +484,7 @@ void CComponentManager::Script_PostMessage(int ent, int mtid, JS::HandleValue da
 
 void CComponentManager::Script_BroadcastMessage(int mtid, JS::HandleValue data)
 {
-	CMessage* msg = ConstructMessage(mtid, data);
+	const CMessage* msg = ConstructMessage(mtid, data);
 	if (!msg)
 		return; // error
 
@@ -1140,46 +1144,69 @@ void CComponentManager::BroadcastMessage(const CMessage& msg)
 
 void CComponentManager::SendGlobalMessage(entity_id_t ent, const CMessage& msg)
 {
-	std::lock_guard lock(m_subscriptionMutex);
+	/*
+	 * The thread synchronization here may look a bit strange as we call
+	 * std::recursive_mutex::lock and std::recursive_mutex::unlock manually
+	 * but this is required to avoid deadlocks. We need to lock and unlock
+	 * on the very shared parts and let the others free. Otherwise, we may
+	 * encounter a deadlock during the message broadcasting.
+	 */
 
 	// (Common functionality for PostMessage and BroadcastMessage)
 
 	// Send the message to components of all entities that subscribed globally to this message
+	m_subscriptionMutex.lock();
 	const auto it = m_GlobalMessageSubscriptions.find(msg.GetType());
 	if (it != m_GlobalMessageSubscriptions.end())
 	{
+		m_subscriptionMutex.unlock();
+
 		for (const auto &ctit : it->second)
 		{
-			// Special case: Messages for local entities shouldn't be sent to script
-			// components that subscribed globally, so that we don't have to worry about
-			// them accidentally picking up non-network-synchronised data.
-			if (ENTITY_IS_LOCAL(ent))
+			std::map<ComponentTypeId, std::map<entity_id_t, IComponent*> >::const_iterator emap;
+
 			{
-				const auto cit = m_ComponentTypesById.find(ctit);
-				if (cit != m_ComponentTypesById.end() && cit->second.type == CT_Script)
+				std::lock_guard lock(m_subscriptionMutex);
+
+				// Special case: Messages for local entities shouldn't be sent to script
+				// components that subscribed globally, so that we don't have to worry about
+				// them accidentally picking up non-network-synchronised data.
+				if (ENTITY_IS_LOCAL(ent))
+				{
+					const auto cit = m_ComponentTypesById.find(ctit);
+					if (cit != m_ComponentTypesById.end() && cit->second.type == CT_Script)
+						continue;
+				}
+
+				// Find the component instances of this type (if any)
+				emap = m_ComponentsByTypeId.find(ctit);
+				if (emap == m_ComponentsByTypeId.end())
 					continue;
 			}
-
-			// Find the component instances of this type (if any)
-			std::map<ComponentTypeId, std::map<entity_id_t, IComponent*> >::const_iterator emap = m_ComponentsByTypeId.find(ctit);
-			if (emap == m_ComponentsByTypeId.end())
-				continue;
 
 			// Send the message to all of them
 			for (auto &eit : emap->second)
 				eit.second->HandleMessage(msg, true);
 		}
+	} else {
+		m_subscriptionMutex.unlock();
 	}
 
 	// Send the message to component instances that dynamically subscribed to this message
-	auto dit = m_DynamicMessageSubscriptionsNonsync.find(msg.GetType());
+	m_subscriptionMutex.lock();
+	const auto dit = m_DynamicMessageSubscriptionsNonsync.find(msg.GetType());
 	if (dit != m_DynamicMessageSubscriptionsNonsync.end())
 	{
+		m_subscriptionMutex.unlock();
+
 		dit->second.Flatten();
 
 		const std::vector<IComponent*>& dynamic = dit->second.GetComponents();
 		for (size_t i = 0; i < dynamic.size(); i++)
 			dynamic[i]->HandleMessage(msg, false);
+	} else
+	{
+		m_subscriptionMutex.unlock();
 	}
 }
 

@@ -22,6 +22,8 @@
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 
+#include <mutex>
+
 ERROR_GROUP(DllLoader);
 ERROR_TYPE(DllLoader, DllNotLoaded);
 ERROR_TYPE(DllLoader, SymbolNotFound);
@@ -89,6 +91,7 @@ private:
 	const char* m_Name;
 	void* m_Handle;
 	CLogger::ELogMethod m_LoadErrorLogMethod;
+	mutable std::mutex m_Mutex;
 };
 
 template <typename T>
