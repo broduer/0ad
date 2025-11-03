@@ -64,9 +64,11 @@ public:
 			m_Queue.emplace_back(id, std::this_thread::get_id(), std::move(task));
 			m_HasWork = true;
 
+#ifdef DEBUG_THREAD_PULLS
 			std::ostringstream os;
 			os << "src: " << std::this_thread::get_id() << " target: " << m_Worker.GetThreadId() << " pushed: " << id << "\n";
 			debug_printf(os.str().c_str());
+#endif
 		}
 
 		m_Worker.Wake();
@@ -86,9 +88,12 @@ protected:
 			m_Queue.pop_front();
 			m_HasWork = !m_Queue.empty();
 
+#ifdef DEBUG_THREAD_PULLS
 			std::ostringstream os;
 			os << std::this_thread::get_id() << " pops " << std::get<0>(tup) << " pushed by " << m_CurrentThreadId << "\n";
 			debug_printf(os.str().c_str());
+#endif
+
 			return true;
 		} else {
 			m_CurrentThreadId = std::thread::id();
@@ -106,9 +111,12 @@ protected:
 
 		// We also do not need additional thread syncs primitives, as the caller is the only thread that can modify the queue at this point.
 
+#ifdef DEBUG_THREAD_PULLS
 		std::ostringstream os;
 		os << "src: " << std::this_thread::get_id() << " removes " << id << "\n";
 		printf(os.str().c_str());
+#endif
+
 		const auto it = std::find_if(m_Queue.cbegin(), m_Queue.cend(),
 			[id](const QueueItem& item) {
 				return std::get<0>(item) == id;
@@ -155,9 +163,11 @@ bool ScriptThread::IsThreadWorking()
 	const auto v = GetCurrentThreadId();
 	const bool out = v == std::this_thread::get_id();
 
+#ifdef DEBUG_THREAD_PULLS
 	std::ostringstream os;
 	os << "ScriptThread - IsThreadWorking: from " << std::this_thread::get_id() << " against " << v << " results " << out << "\n";
 	debug_printf(os.str().c_str());
+#endif
 
 	return out;
 }
