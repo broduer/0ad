@@ -38,7 +38,7 @@
 
 #define DEFAULT_COMPONENT_ALLOCATOR(cname) \
 	static IComponent* Allocate(const ScriptInterface&, JS::HandleValue) { return new CCmp##cname(); } \
-	static void Deallocate(IComponent* cmp) { delete static_cast<CCmp##cname*> (cmp); } \
+	static void Deallocate(IComponent* cmp) { ScriptCommand([cmp]() { delete static_cast<CCmp##cname*> (cmp); }).Wait(); } \
 	int GetComponentTypeId() const override \
 	{ \
 		return CID_##cname; \

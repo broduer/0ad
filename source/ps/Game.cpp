@@ -348,7 +348,9 @@ PSRETURN CGame::ReallyStartGame()
 	// Run a shrinking GC to reset the memory before starting the game proper.
 	// This also clears JIT code, which seems like a good idea as the game init
 	// might have different patterns to the game itself.
-	m_Simulation2->GetScriptInterface().GetContext().ShrinkingGC();
+	ScriptCommand([this]() {
+		m_Simulation2->GetScriptInterface().GetContext().ShrinkingGC();
+	}).Wait();
 
 	m_GameStarted = true;
 

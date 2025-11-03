@@ -47,15 +47,21 @@ void CComponentTypeScript::Init(CComponentManager& cmpMgr, const CParamNode& par
 
 void CComponentTypeScript::Deinit()
 {
-	ScriptRequest rq(m_ScriptInterface);
-	ScriptFunction::CallVoid(rq, GetInstance(), "Deinit");
+	ScriptCommand([this]()
+	{
+		const ScriptRequest rq(m_ScriptInterface);
+		ScriptFunction::CallVoid(rq, GetInstance(), "Deinit");
+	}).Wait();
 }
 
 bool CComponentTypeScript::HasMessageHandler(const CMessage& msg, const bool global)
 {
-	const ScriptRequest rq(m_ScriptInterface);
-	return Script::HasProperty(rq, GetInstance(), global ? msg.GetScriptGlobalHandlerName() :
-		msg.GetScriptHandlerName());
+	return ScriptCommand([this, &msg, global]()
+	{
+		const ScriptRequest rq(m_ScriptInterface);
+		return Script::HasProperty(rq, GetInstance(), global ? msg.GetScriptGlobalHandlerName() :
+			msg.GetScriptHandlerName());
+	}).Get();
 }
 
 void CComponentTypeScript::HandleMessage(const CMessage& msg, bool global)
