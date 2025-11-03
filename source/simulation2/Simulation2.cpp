@@ -497,7 +497,7 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 		if (primaryStateBefore.state.str() != secondaryStateBefore.state.str() ||
 			primaryStateBefore.hash != secondaryStateBefore.hash)
 		{
-			ReportSerializationFailure(&primaryStateBefore, NULL, &secondaryStateBefore, NULL);
+			ReportSerializationFailure(&primaryStateBefore, nullptr, &secondaryStateBefore, nullptr);
 		}
 
 		SerializationTestState primaryStateAfter;
@@ -525,7 +525,7 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 
 	// (TODO: we ought to schedule this for a frame where we're not
 	// running the sim update, to spread the load)
-	scriptInterface.GetContext().MaybeIncrementalGC();
+	ScriptCommand([&scriptInterface]() { scriptInterface.GetContext().MaybeIncrementalGC(); }).Wait();
 
 	if (m_EnableOOSLog)
 		DumpState();

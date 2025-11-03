@@ -222,12 +222,17 @@ bool JSI_GUIProxy<T>::get(JSContext* cx, JS::HandleObject proxy, JS::HandleValue
 	// Use onWhatever to access event handlers
 	if (propName.substr(0, 2) == "on")
 	{
-		CStr eventName(propName.substr(2));
-		std::map<CStr, JS::Heap<JSObject*>>::iterator it = e->m_ScriptHandlers.find(eventName);
-		if (it == e->m_ScriptHandlers.end())
-			vp.setNull();
-		else
-			vp.setObject(*it->second.get());
+		{
+			CStr eventName(propName.substr(2));
+
+			std::lock_guard lock(e->m_Mutex);
+
+			auto it = e->m_ScriptHandlers.find(eventName);
+			if (it == e->m_ScriptHandlers.end())
+				vp.setNull();
+			else
+				vp.setObject(*it->second.get());
+		}
 		return true;
 	}
 
@@ -311,7 +316,7 @@ bool JSI_GUIProxy<T>::set(JSContext* cx, JS::HandleObject proxy, JS::HandleId id
 		}
 
 		CStr eventName(propName.substr(2));
-		e->SetScriptHandler(eventName, vpObj);
+		e->SetScriptHandler(eventName, vpObj, cx);
 
 		return result.succeed();
 	}
@@ -395,12 +400,16 @@ bool JSI_GUIProxy<T>::ownPropertyKeys(JSContext* cx, JS::HandleObject proxy, JS:
 	}
 
 	// Add script handlers.
-	for (const auto& [name, scriptHandler] : e->m_ScriptHandlers)
 	{
-		JS::RootedString str(cx, JS_NewStringCopyZ(cx, fmt::format("on{}", name).c_str()));
-		JS::RootedId id(cx);
-		if (!str || !JS_StringToId(cx, str, &id) || !props.append(id))
-			return false;
+		std::lock_guard lock(e->m_Mutex);
+
+		for (const auto& [name, scriptHandler] : e->m_ScriptHandlers)
+		{
+			JS::RootedString str(cx, JS_NewStringCopyZ(cx, fmt::format("on{}", name).c_str()));
+			JS::RootedId id(cx);
+			if (!str || !JS_StringToId(cx, str, &id) || !props.append(id))
+				return false;
+		}
 	}
 
 	// Add properties from the cache.

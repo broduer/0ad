@@ -39,6 +39,7 @@
 #include <map>
 #include <memory>
 #include <vector>
+#include <mutex>
 
 class CCanvas2D;
 class CGUI;
@@ -439,7 +440,7 @@ protected:
 	/**
 	 * Assigns a JS function to the event name.
 	 */
-	void SetScriptHandler(const CStr& eventName, JS::HandleObject Function);
+	void SetScriptHandler(const CStr& eventName, JS::HandleObject Function, JSContext* cx);
 
 	/**
 	 * Deletes an event handler assigned to the given name, if such a handler exists.
@@ -499,10 +500,8 @@ private:
 
 	static void Trace(JSTracer* trc, void* data)
 	{
-		reinterpret_cast<IGUIObject*>(data)->TraceMember(trc);
+		//static_cast<IGUIObject*>(data)->TraceMember(trc);
 	}
-
-	void TraceMember(JSTracer* trc);
 
 // Variables
 protected:
@@ -536,8 +535,13 @@ protected:
 	// An object can't function stand alone
 	CGUI& m_pGUI;
 
-	// Internal storage for registered script handlers.
-	std::map<CStr, JS::Heap<JSObject*> > m_ScriptHandlers;
+	/**
+	 * @brief Internal storage for registered script handlers.
+	 * Access to this member requires locking @var m_Mutex
+	 **/
+	std::map<CStr, JS::PersistentRooted<JSObject *>> m_ScriptHandlers;
+	// Mutex used for accesses to m_ScriptHandlers.
+	std::mutex m_Mutex;
 
 	// Cached JSObject representing this GUI object.
 	std::unique_ptr<IGUIProxyObject> m_JSObject;

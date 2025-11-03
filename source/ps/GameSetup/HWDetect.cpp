@@ -336,11 +336,10 @@ void RunHardwareDetection(const bool writeSystemInfoBeforeDetection, Renderer::B
 	{
 		const ScriptInterface scriptInterface("Engine", "HWDetect", g_ScriptThread.Context);
 
-		const ScriptRequest rq(scriptInterface);
-
 		JSI_Debug::RegisterScriptFunctions(scriptInterface); // Engine.DisplayErrorDialog
 		JSI_ConfigDB::RegisterScriptFunctions(scriptInterface);
 
+		const ScriptRequest rq(scriptInterface);
 		ScriptFunction::Register<SetDisableAudio>(rq, "SetDisableAudio");
 
 		// Load the detection script:
