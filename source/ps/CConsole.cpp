@@ -118,13 +118,14 @@ void CConsole::Init()
 
 	UpdateScreenSize(g_xres, g_yres);
 
-	// Calculate and store the line spacing
+	// Calculate and store the line spacing.
 	const CFontMetrics font{CStrIntern(m_consoleFont)};
 	m_FontHeight = font.GetHeight();
 	m_FontWidth = font.GetCharacterWidth(L'C');
 	m_CharsPerPage = static_cast<size_t>(g_xres / m_FontWidth);
-	// Offset by an arbitrary amount, to make it fit more nicely
-	m_FontOffset = 7.0f;
+	// Fonts constains two dimensions: the full height, and the cap height.
+	// We are adding some offset to move the text up a bit, so it looks better in the console.
+	m_FontOffset = font.GetCapHeight() / 2.f;
 
 	m_CursorBlinkRate = g_ConfigDB.Get("gui.cursorblinkrate", 0.5);
 }
@@ -249,18 +250,18 @@ void CConsole::DrawWindow(CCanvas2D& canvas)
 	for (CVector2D& point : points)
 		point += CVector2D{m_X, m_Y - (1.0f - m_VisibleFrac) * m_Height};
 
-	canvas.DrawRect(CRect(points[1], points[3]), CColor(0.0f, 0.0f, 0.5f, 0.6f));
-	canvas.DrawLine(points, 1.0f, CColor(0.5f, 0.5f, 0.0f, 0.6f));
+	canvas.DrawRect(CRect(points[1], points[3]), CColor(0.05f, 0.05f, 0.2f, 0.85f));
+	canvas.DrawLine(points, 1.0f, CColor(0.5f, 0.5f, 0.0f, 0.85f));
 
-	if (m_Height > m_FontHeight + 4)
+	if (m_Height > m_FontHeight + 2.0f * m_FontOffset)
 	{
 		points = {
-			CVector2D{0.0f, m_Height - m_FontHeight - 4.0f},
-			CVector2D{m_Width, m_Height - m_FontHeight - 4.0f}
+			CVector2D{0.0f, m_Height - m_FontHeight - 2.0f * m_FontOffset},
+			CVector2D{m_Width, m_Height - m_FontHeight - 2.0f * m_FontOffset}
 		};
 		for (CVector2D& point : points)
 			point += CVector2D{m_X, m_Y - (1.0f - m_VisibleFrac) * m_Height};
-		canvas.DrawLine(points, 1.0f, CColor(0.5f, 0.5f, 0.0f, 0.6f));
+		canvas.DrawLine(points, 1.0f, CColor(0.5f, 0.5f, 0.0f, 0.85f));
 	}
 }
 
@@ -283,7 +284,7 @@ void CConsole::DrawHistory(CTextRenderer& textRenderer)
 		{
 			textRenderer.Put(
 				9.0f,
-				m_Height - m_FontOffset - m_FontHeight * (i - m_MsgHistPos + 1),
+				m_Height - 3.0f * m_FontOffset - m_FontHeight * (i - m_MsgHistPos + 1),
 				it->c_str());
 		}
 
@@ -299,7 +300,7 @@ void CConsole::DrawBuffer(CTextRenderer& textRenderer)
 
 	const CVector2D savedTranslate = textRenderer.GetTranslate();
 
-	textRenderer.Translate(2.0f, m_Height - m_FontOffset + 1.0f);
+	textRenderer.Translate(2.0f, m_Height - m_FontOffset);
 
 	textRenderer.SetCurrentColor(CColor(1.0f, 1.0f, 0.0f, 1.0f));
 	textRenderer.PutAdvance(L"]");

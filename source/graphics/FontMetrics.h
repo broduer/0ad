@@ -33,7 +33,7 @@ public:
 	CFontMetrics(CStrIntern font, CStrIntern locale);
 
 	float GetHeight() const;
-	float GetCapHeight();
+	float GetCapHeight() const;
 	float GetCharacterWidth(wchar_t c) const;
 	void CalculateStringSize(const wchar_t* string, float& w, float& h) const;
 

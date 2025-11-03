@@ -56,7 +56,7 @@ void CFontMetrics::CalculateStringSize(const wchar_t* string, float& w, float& h
 		m_Font->CalculateStringSize(string, w, h);
 }
 
-float CFontMetrics::GetCapHeight()
+float CFontMetrics::GetCapHeight() const
 {
 	if (!m_Font)
 		return 0.0f;
