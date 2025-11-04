@@ -498,9 +498,11 @@ private:
 	 */
 	bool IsRootObject() const;
 
+	void TraceMember(JSTracer* trc);
+
 	static void Trace(JSTracer* trc, void* data)
 	{
-		//static_cast<IGUIObject*>(data)->TraceMember(trc);
+		static_cast<IGUIObject*>(data)->TraceMember(trc);
 	}
 
 // Variables
@@ -539,9 +541,10 @@ protected:
 	 * @brief Internal storage for registered script handlers.
 	 * Access to this member requires locking @var m_Mutex
 	 **/
-	std::map<CStr, JS::PersistentRooted<JSObject *>> m_ScriptHandlers;
+	//std::map<CStr, JS::PersistentRooted<JSObject *>> m_ScriptHandlers;
+	std::map<CStr, JS::Heap<JSObject *>> m_ScriptHandlers;
 	// Mutex used for accesses to m_ScriptHandlers.
-	std::mutex m_Mutex;
+	std::recursive_mutex m_Mutex;
 
 	// Cached JSObject representing this GUI object.
 	std::unique_ptr<IGUIProxyObject> m_JSObject;

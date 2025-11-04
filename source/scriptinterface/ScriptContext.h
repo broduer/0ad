@@ -18,9 +18,12 @@
 #ifndef INCLUDED_SCRIPTCONTEXT
 #define INCLUDED_SCRIPTCONTEXT
 
+#include "scriptinterface/bt.h"
+
 #include <cstdint>
 #include <list>
 #include <memory>
+#include <map>
 
 namespace JS { class Realm; }
 struct JSContext;
@@ -116,6 +119,15 @@ private:
 	uint32_t m_HeapGrowthBytesGCTrigger;
 	uint32_t m_LastGCBytes{0};
 };
+
+
+#ifdef WATCH_JS_REALMS
+namespace
+{
+static std::map<void*, BackTrace> g_RealmsTable;
+}
+#endif
+
 
 // Using a global object for the context is a workaround until Simulation, AI, etc,
 // use their own threads and also their own contexts.

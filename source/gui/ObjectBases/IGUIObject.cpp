@@ -81,18 +81,14 @@ IGUIObject::IGUIObject(CGUI& pGUI)
 
 IGUIObject::~IGUIObject()
 {
+	if (!m_ScriptHandlers.empty())
 	{
-		std::lock_guard lock(m_Mutex);
-		if (!m_ScriptHandlers.empty())
-		{
-			ScriptCommand([this]() { JS_RemoveExtraGCRootsTracer(m_pGUI.GetScriptInterface()->GetGeneralJSContext(), Trace, this); }).Wait();
-		}
+		ScriptCommand([this]() { JS_RemoveExtraGCRootsTracer(m_pGUI.GetScriptInterface()->GetGeneralJSContext(), Trace, this); }).Wait();
 	}
 
 	// All JSObjects must be destroyed within the JS thread, it thus requires us to empty it here.
 	ScriptCommand([this]()
 	{
-		std::lock_guard lock(m_Mutex);
 		m_ScriptHandlers.clear();
 	}).Wait();
 
@@ -235,7 +231,6 @@ void IGUIObject::ChooseMouseOverAndClosest(IGUIObject*& pObject)
 	if (GetBufferedZ() >= pObject->GetBufferedZ())
 	{
 		pObject = this;
-		return;
 	}
 }
 
@@ -369,46 +364,27 @@ void IGUIObject::RegisterScriptHandler(const CStr& eventName, const CStr& Code, 
 
 void IGUIObject::SetScriptHandler(const CStr& eventName, JS::HandleObject Function, JSContext *cx)
 {
-	ScriptCommand([this, &eventName, &Function, cx]()
-	{
-		{
-			std::lock_guard lock(m_Mutex);
-			// If this is the first script handler, register the tracer
-			if (m_ScriptHandlers.empty())
-				JS_AddExtraGCRootsTracer(m_pGUI.GetScriptInterface()->GetGeneralJSContext(), Trace, this);
+	if (m_ScriptHandlers.empty())
+		JS_AddExtraGCRootsTracer(m_pGUI.GetScriptInterface()->GetGeneralJSContext(), Trace, this);
 
-			/*JS::PersistentRooted<JSObject *> persRooted;
-			persRooted.init(cx, Function);
-			m_ScriptHandlers[eventName] = persRooted;*/
-			m_ScriptHandlers.try_emplace(eventName, cx, Function);
-		}
+	m_ScriptHandlers[eventName] = JS::Heap<JSObject*>(Function);
 
-		if (std::find(m_pGUI.m_EventObjects[eventName].begin(), m_pGUI.m_EventObjects[eventName].end(), this) == m_pGUI.m_EventObjects[eventName].end())
-			m_pGUI.m_EventObjects[eventName].emplace_back(this);
-	}).Wait();
+	if (std::find(m_pGUI.m_EventObjects[eventName].begin(), m_pGUI.m_EventObjects[eventName].end(), this) == m_pGUI.m_EventObjects[eventName].end())
+		m_pGUI.m_EventObjects[eventName].emplace_back(this);
 }
 
 void IGUIObject::UnsetScriptHandler(const CStr& eventName)
 {
-	std::map<CStr, JS::PersistentRooted<JSObject*> >::iterator it;
-
+	ScriptCommand([this, &eventName]()
 	{
-		std::lock_guard lock(m_Mutex);
-		it = m_ScriptHandlers.find(eventName);
-
+		const auto it = m_ScriptHandlers.find(eventName);
 		if (it == m_ScriptHandlers.end())
 			return;
-	}
 
-	ScriptCommand([this, &eventName, &it]()
-	{
-		{
-			std::lock_guard lock(m_Mutex);
-			m_ScriptHandlers.erase(it);
+		m_ScriptHandlers.erase(it);
 
-			if (m_ScriptHandlers.empty())
-				JS_RemoveExtraGCRootsTracer(m_pGUI.GetScriptInterface()->GetGeneralJSContext(), Trace, this);
-		}
+		if (m_ScriptHandlers.empty())
+			JS_RemoveExtraGCRootsTracer(m_pGUI.GetScriptInterface()->GetGeneralJSContext(), Trace, this);
 
 		const auto it2 = m_pGUI.m_EventObjects.find(eventName);
 		if (it2 == m_pGUI.m_EventObjects.end())
@@ -447,7 +423,12 @@ InReaction IGUIObject::SendMouseEvent(EGUIMessageType type, const CStr& eventNam
 		msg.Skip();
 	HandleMessage(msg);
 
-	ScriptCommand([this, type, &eventName, &msg]()
+	const auto it = m_ScriptHandlers.find(eventName);
+	if (it == m_ScriptHandlers.end())
+		return msg.skipped ? IN_PASS : IN_HANDLED;
+
+	const JS::Heap<JSObject*> &handler = it->second;
+	ScriptCommand([this, type, &msg, handler]()
 	{
 		const ScriptRequest rq(m_pGUI.GetScriptInterface());
 
@@ -456,27 +437,28 @@ InReaction IGUIObject::SendMouseEvent(EGUIMessageType type, const CStr& eventNam
 
 		const CVector2D& mousePos = m_pGUI.GetMousePos();
 
-		bool eventNamePresent;
+		Script::CreateObject(
+			rq,
+			&mouse,
+			"x", mousePos.X,
+			"y", mousePos.Y,
+			"buttons", m_pGUI.GetMouseButtons());
+		JS::RootedValueVector paramData(rq.cx);
+		if (!paramData.append(mouse))
+			return;
+
+		const JS::RootedObject obj(rq.cx, GetJSObject());
+		const JS::RootedValue handlerVal(rq.cx, JS::ObjectValue(*handler));
+		JS::RootedValue result(rq.cx);
+
+		if (!JS_CallFunctionValue(rq.cx, obj, handlerVal, paramData, &result))
 		{
-			std::lock_guard lock(m_Mutex);
-			eventNamePresent = m_ScriptHandlers.contains(eventName);
+			LOGERROR("Errors executing script event");
+			ScriptException::CatchPending(rq);
 		}
 
-		if (eventNamePresent)
-		{
-			Script::CreateObject(
-				rq,
-				&mouse,
-				"x", mousePos.X,
-				"y", mousePos.Y,
-				"buttons", m_pGUI.GetMouseButtons());
-			JS::RootedValueVector paramData(rq.cx);
-			std::ignore = paramData.append(mouse);
-			ScriptEvent(eventName, paramData);
-
-			if (type == GUIM_MOUSE_WHEEL_UP || type == GUIM_MOUSE_WHEEL_DOWN || type == GUIM_MOUSE_WHEEL_LEFT || type == GUIM_MOUSE_WHEEL_RIGHT)
-				msg.Skip(false);
-		}
+		if (type == GUIM_MOUSE_WHEEL_UP || type == GUIM_MOUSE_WHEEL_DOWN || type == GUIM_MOUSE_WHEEL_LEFT || type == GUIM_MOUSE_WHEEL_RIGHT)
+			msg.Skip(false);
 	}).Wait();
 
 	// inform to parents until get to the root object
@@ -499,17 +481,30 @@ void IGUIObject::ScriptEvent(const CStr& eventName)
 
 bool IGUIObject::ScriptEventWithReturn(const CStr& eventName)
 {
-	{
-		std::lock_guard lock(m_Mutex);
-		if (!m_ScriptHandlers.contains(eventName))
-			return false;
-	}
-
 	return ScriptCommand([this, &eventName]()
 	{
+		std::lock_guard lock(m_Mutex);
+
+		const auto it = m_ScriptHandlers.find(eventName);
+		if (it == m_ScriptHandlers.end())
+			return false;
+
+		const JS::Heap<JSObject*> &handler = it->second;
+
 		const ScriptRequest rq(m_pGUI.GetScriptInterface());
 		const JS::RootedValueVector paramData(rq.cx);
-		return ScriptEventWithReturn(eventName, paramData);
+
+		const JS::RootedObject obj(rq.cx, GetJSObject());
+		const JS::RootedValue handlerVal(rq.cx, JS::ObjectValue(*handler));
+		JS::RootedValue result(rq.cx);
+
+		if (!JS_CallFunctionValue(rq.cx, obj, handlerVal, paramData, &result))
+		{
+			LOGERROR("Errors executing script event");
+			ScriptException::CatchPending(rq);
+			return false;
+		}
+		return JS::ToBoolean(result);
 	}).Get();
 }
 
@@ -520,26 +515,21 @@ void IGUIObject::ScriptEvent(const CStr& eventName, const JS::HandleValueArray& 
 
 bool IGUIObject::ScriptEventWithReturn(const CStr& eventName, const JS::HandleValueArray& paramData)
 {
-	std::map<CStr, JS::PersistentRooted<JSObject*> >::iterator it;
+	const auto it = m_ScriptHandlers.find(eventName);
+	if (it == m_ScriptHandlers.end())
+		return false;
 
-	{
-		std::lock_guard lock(m_Mutex);
-
-		it = m_ScriptHandlers.find(eventName);
-		if (it == m_ScriptHandlers.end())
-			return false;
-	}
-
-	return ScriptCommand([this, &eventName, &paramData, &it]()
+	const JS::Heap<JSObject*> &handler = it->second;
+	return ScriptCommand([this, &paramData, handler]()
 	{
 		const ScriptRequest rq(m_pGUI.GetScriptInterface());
 		const JS::RootedObject obj(rq.cx, GetJSObject());
-		const JS::RootedValue handlerVal(rq.cx, JS::ObjectValue(*it->second));
+		const JS::RootedValue handlerVal(rq.cx, JS::ObjectValue(*handler));
 		JS::RootedValue result(rq.cx);
 
 		if (!JS_CallFunctionValue(rq.cx, obj, handlerVal, paramData, &result))
 		{
-			LOGERROR("Errors executing script event \"%s\"", eventName.c_str());
+			LOGERROR("Errors executing script event");
 			ScriptException::CatchPending(rq);
 			return false;
 		}
@@ -614,6 +604,14 @@ bool IGUIObject::IsBaseObject() const
 bool IGUIObject::IsRootObject() const
 {
 	return m_pParent == m_pGUI.GetBaseObject();
+}
+
+void IGUIObject::TraceMember(JSTracer* trc)
+{
+	// Please ensure to adapt the Tracer enabling and disabling in accordance with the GC things traced!
+
+	for (std::pair<const CStr, JS::Heap<JSObject*>>& handler : m_ScriptHandlers)
+		JS::TraceEdge(trc, &handler.second, "IGUIObject::m_ScriptHandlers");
 }
 
 void IGUIObject::DrawInArea(CCanvas2D& canvas, CRect& area)

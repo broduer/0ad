@@ -36,6 +36,7 @@
 #include "scriptinterface/ScriptStats.h"
 #include "scriptinterface/ScriptThread.h"
 #include "scriptinterface/StructuredClone.h"
+#include "scriptinterface/bt.h"
 
 #include <cstdio>
 #include <cstring>
@@ -67,6 +68,13 @@ namespace mozilla { union Utf8Unit; }
 #include <boost/flyweight/key_value.hpp>
 #include <boost/flyweight/no_locking.hpp>
 #include <boost/flyweight/no_tracking.hpp>
+
+
+namespace
+{
+//std::set<ScriptRequest *> g_RegisteredRealms;
+}
+
 
 /**
  * @file
@@ -116,22 +124,59 @@ ScriptRequest::ScriptRequest(const ScriptInterface& scriptInterface) :
 	m_ScriptInterface(scriptInterface)
 {
 	m_FormerRealm = JS::EnterRealm(cx, scriptInterface.m->m_glob);
+
+#ifdef WATCH_JS_REALMS
+	g_RealmsTable.insert({this, BackTrace(20)});
+#endif
 }
 
 ScriptRequest::ScriptRequest(ScriptRequest &&scriptRequest) :
-	cx(std::exchange(scriptRequest.cx, nullptr)),
+	cx(std::move(scriptRequest.cx)),
 	glob(std::move(scriptRequest.glob)),
 	nativeScope(std::move(scriptRequest.nativeScope)),
 	m_ScriptInterface(std::move(scriptRequest.m_ScriptInterface)),
-	m_FormerRealm(std::exchange(scriptRequest.m_FormerRealm, nullptr))
+	m_FormerRealm(std::move(scriptRequest.m_FormerRealm))
 {
+#ifdef WATCH_JS_REALMS
+	g_RealmsTable.erase(&scriptRequest);
+#endif
+
+#ifdef WATCH_JS_REALMS
+	g_RealmsTable.insert({this, BackTrace(20)});
+#endif
 }
 
 ScriptRequest::~ScriptRequest()
 {
 	// This allows us to have instances of ScriptRequest outside the ScriptThread.
-	if (cx && m_FormerRealm)
-		ScriptCommand([this]() { JS::LeaveRealm(cx, m_FormerRealm); }).Wait();
+	if (cx.has_value() && m_FormerRealm.has_value())
+	{
+		ScriptCommand([this]()
+		{
+			JS::LeaveRealm(cx, m_FormerRealm);
+
+#ifdef WATCH_JS_REALMS
+			g_RealmsTable.erase(this);
+#endif
+		}).Wait();
+	}
+
+#ifdef WATCH_JS_REALMS
+	else
+	{
+		if (g_RealmsTable.contains(this))
+		{
+			debug_printf("Source states: ctx: %s, former realm: %s\n", cx.has_value() ? "true" : "false", m_FormerRealm.has_value() ? "true" : "false");
+			g_RealmsTable.at(this).print();
+			ENSURE(false && "Merde !");
+		}
+	}
+#endif
+
+}
+
+void ScriptRequest::PrintPointers()
+{
 }
 
 ScriptRequest::ScriptRequest(JSContext* cx) : ScriptRequest(ScriptInterface::CmptPrivate::GetScriptInterface(cx))
@@ -167,8 +212,8 @@ JSClass global_class = {
 
 bool print(JSContext* cx, uint argc, JS::Value* vp)
 {
-	JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-	ScriptRequest rq(cx);
+	const JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+	const ScriptRequest rq(cx);
 
 	for (uint i = 0; i < args.length(); ++i)
 	{
@@ -184,14 +229,14 @@ bool print(JSContext* cx, uint argc, JS::Value* vp)
 
 bool logmsg(JSContext* cx, uint argc, JS::Value* vp)
 {
-	JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+	const JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 	if (args.length() < 1)
 	{
 		args.rval().setUndefined();
 		return true;
 	}
 
-	ScriptRequest rq(cx);
+	const ScriptRequest rq(cx);
 	std::wstring str;
 	if (!Script::FromJSVal(rq, args[0], str))
 		return false;
@@ -202,14 +247,14 @@ bool logmsg(JSContext* cx, uint argc, JS::Value* vp)
 
 bool warn(JSContext* cx, uint argc, JS::Value* vp)
 {
-	JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+	const JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 	if (args.length() < 1)
 	{
 		args.rval().setUndefined();
 		return true;
 	}
 
-	ScriptRequest rq(cx);
+	const ScriptRequest rq(cx);
 	std::wstring str;
 	if (!Script::FromJSVal(rq, args[0], str))
 		return false;
@@ -220,14 +265,14 @@ bool warn(JSContext* cx, uint argc, JS::Value* vp)
 
 bool error(JSContext* cx, uint argc, JS::Value* vp)
 {
-	JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+	const JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 	if (args.length() < 1)
 	{
 		args.rval().setUndefined();
 		return true;
 	}
 
-	ScriptRequest rq(cx);
+	const ScriptRequest rq(cx);
 	std::wstring str;
 	if (!Script::FromJSVal(rq, args[0], str))
 		return false;
@@ -255,7 +300,7 @@ JS::Value deepcopy(const ScriptRequest& rq, JS::HandleValue val)
 
 JS::Value deepfreeze(const ScriptInterface& scriptInterface, JS::HandleValue val)
 {
-	ScriptRequest rq(scriptInterface);
+	const ScriptRequest rq(scriptInterface);
 	if (!val.isObject())
 	{
 		ScriptException::Raise(rq, "deepfreeze requires exactly one object as an argument.");
@@ -318,10 +363,10 @@ static double generate_uniform_real(boost::rand48& rng, double min, double max)
 {
 	while (true)
 	{
-		double n = (double)(rng() - rng.min());
-		double d = (double)(rng.max() - rng.min()) + 1.0;
+		const double n = static_cast<double>(rng() - rng.min());
+		const double d = static_cast<double>(rng.max() - rng.min()) + 1.0;
 		ENSURE(d > 0 && n >= 0 && n <= d);
-		double r = n / d * (max - min) + min;
+		const double r = n / d * (max - min) + min;
 		if (r < max)
 			return r;
 	}
@@ -339,7 +384,7 @@ bool ScriptInterface::MathRandom(double& nbr) const
 
 bool ScriptInterface::Math_random(JSContext* cx, uint argc, JS::Value* vp)
 {
-	JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
+	const JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 	double r;
 	if (!ScriptInterface::CmptPrivate::GetScriptInterface(cx).MathRandom(r))
 		return false;
@@ -408,6 +453,7 @@ ScriptInterface::ScriptInterface(const char* nativeScopeName, const char* debugN
 	}).GetMoved())}
 {
 	// Profiler stats table isn't thread-safe, so only enable this on the main thread
+	// [TODO] Gotta do something for this somehow.
 	if (Threading::IsMainThread())
 	{
 		if (g_ScriptStatsTable)
@@ -418,7 +464,7 @@ ScriptInterface::ScriptInterface(const char* nativeScopeName, const char* debugN
 	{
 		const ScriptRequest rq(this);
 		m_CmptPrivate.pScriptInterface = this;
-		JS::SetRealmPrivate(JS::GetObjectRealmOrNull(rq.glob), (void*)&m_CmptPrivate);
+		JS::SetRealmPrivate(JS::GetObjectRealmOrNull(rq.glob), &m_CmptPrivate);
 	}).Wait();
 }
 
@@ -431,6 +477,7 @@ ScriptInterface::ScriptInterface(const char* nativeScopeName, const char* debugN
 		std::move(allowModule));
 
 	// Profiler stats table isn't thread-safe, so only enable this on the main thread
+	// [TODO] Gotta do something for this somehow.
 	if (Threading::IsMainThread())
 	{
 		if (g_ScriptStatsTable)

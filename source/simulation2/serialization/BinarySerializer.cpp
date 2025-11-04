@@ -327,7 +327,7 @@ void CBinarySerializerScriptImpl::HandleScriptVal(const ScriptRequest& rq, JS::H
 		}
 
 		// Find all properties (ordered by insertion time)
-		JS::Rooted<JS::IdVector> ida(rq.cx, JS::IdVector(rq.cx));
+		JS::Rooted<JS::IdVector> ida(rq.cx, JS::IdVector(rq.cx.value()));
 		if (!JS_Enumerate(rq.cx, obj, &ida))
 			throw PSERROR_Serialize_ScriptError("JS_Enumerate failed");
 

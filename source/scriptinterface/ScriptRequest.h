@@ -23,6 +23,7 @@
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
 #include <memory>
+#include <optional>
 
 class ScriptInterface;
 namespace JS { class Realm; }
@@ -50,6 +51,8 @@ class ScriptRequest
 	ScriptRequest(const ScriptRequest& rq) = delete;
 	ScriptRequest& operator=(const ScriptRequest& rq) = delete;
 public:
+	static void PrintPointers();
+
 	/**
 	 * NB: the definitions are in scriptinterface.cpp, because these access members of the PImpled
 	 * implementation of ScriptInterface, and that seemed more convenient.
@@ -76,14 +79,68 @@ public:
 
 	JS::Value globalValue() const;
 
+	template<typename T>
+	class PtrHolder
+	{
+	public:
+		template<typename ...Args>
+		PtrHolder(Args &&...args) : opt(std::forward<Args &&...>(args...)) {}
+		template<typename ...Args>
+		PtrHolder(Args... args) : opt(args...) {}
+		PtrHolder(PtrHolder &&other) : opt(std::exchange(other.opt, std::nullopt)) {}
+		PtrHolder(T *t) : opt(t) {}
+		PtrHolder() : opt() {}
+
+		template<typename V>
+		PtrHolder &operator =(V *ptr)
+		{
+			opt = ptr;
+			return *this;
+		}
+		template<typename V>
+		PtrHolder &operator =(PtrHolder<V> &&other)
+		{
+			opt = std::move(std::exchange(other.opt, std::nullopt));
+			return *this;
+		}
+
+		template<typename V>
+		PtrHolder &operator =(const PtrHolder<V> &other)
+		{
+			opt = other.opt;
+			return *this;
+		}
+
+		operator T*() { return opt.value_or(nullptr); }
+		operator T*() const { return opt.value_or(nullptr); }
+		operator const T*() const { return opt.value_or(nullptr); }
+
+		T *value()
+		{
+			return opt.value();
+		}
+		T* value() const
+		{
+			return opt.value();
+		}
+
+		bool has_value() const
+		{
+			return opt.has_value();
+		}
+
+	private:
+		std::optional<T *> opt;
+	};
+
 	// Note that JSContext actually changes behind the scenes when creating another ScriptRequest for another realm,
 	// so be _very_ careful when juggling between different realms.
-	JSContext* cx;
+	PtrHolder<JSContext> cx;
 	JS::HandleObject glob;
 	JS::HandleObject nativeScope;
 private:
 	const ScriptInterface& m_ScriptInterface;
-	JS::Realm* m_FormerRealm;
+	PtrHolder<JS::Realm> m_FormerRealm;
 };
 
 

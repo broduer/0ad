@@ -184,6 +184,16 @@ ScriptContext::~ScriptContext()
 	// Switch back to normal performance mode to avoid assertion in debug mode.
 	js::gc::SetPerformanceHint(m_cx, js::gc::PerformanceHint::Normal);
 
+#ifdef WATCH_JS_REALMS
+	debug_printf("Remaining realms:\n===============\n");
+	for (auto &entry : g_RealmsTable)
+	{
+		debug_printf("Real ID %p:\n", entry.first);
+		entry.second.print();
+	}
+	debug_printf("===============\n\n");
+#endif
+
 	JS_DestroyContext(m_cx);
 	ScriptEngine::GetSingleton().UnRegisterContext(m_cx);
 }
@@ -192,6 +202,10 @@ void ScriptContext::RegisterRealm(JS::Realm* realm)
 {
 	ENSURE(realm);
 	m_Realms.push_back(realm);
+
+#ifdef WATCH_JS_REALMS
+	g_RealmsTable.insert({realm, BackTrace(20)});
+#endif
 }
 
 void ScriptContext::UnRegisterRealm(JS::Realm* realm)
@@ -201,6 +215,10 @@ void ScriptContext::UnRegisterRealm(JS::Realm* realm)
 		JS::FinishIncrementalGC(m_cx, JS::GCReason::API);
 	JS::PrepareZoneForGC(m_cx, js::GetRealmZone(realm));
 	m_Realms.remove(realm);
+
+#ifdef WATCH_JS_REALMS
+	g_RealmsTable.erase(realm);
+#endif
 }
 
 #define GC_DEBUG_PRINT 0
