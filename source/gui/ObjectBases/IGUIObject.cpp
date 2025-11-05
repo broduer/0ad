@@ -515,26 +515,26 @@ void IGUIObject::ScriptEvent(const CStr& eventName, const JS::HandleValueArray& 
 
 bool IGUIObject::ScriptEventWithReturn(const CStr& eventName, const JS::HandleValueArray& paramData)
 {
+	std::lock_guard lock(m_Mutex);
+
 	const auto it = m_ScriptHandlers.find(eventName);
 	if (it == m_ScriptHandlers.end())
 		return false;
 
 	const JS::Heap<JSObject*> &handler = it->second;
-	return ScriptCommand([this, &paramData, handler]()
-	{
-		const ScriptRequest rq(m_pGUI.GetScriptInterface());
-		const JS::RootedObject obj(rq.cx, GetJSObject());
-		const JS::RootedValue handlerVal(rq.cx, JS::ObjectValue(*handler));
-		JS::RootedValue result(rq.cx);
 
-		if (!JS_CallFunctionValue(rq.cx, obj, handlerVal, paramData, &result))
-		{
-			LOGERROR("Errors executing script event");
-			ScriptException::CatchPending(rq);
-			return false;
-		}
-		return JS::ToBoolean(result);
-	}).Get();
+	const ScriptRequest rq(m_pGUI.GetScriptInterface());
+	const JS::RootedObject obj(rq.cx, GetJSObject());
+	const JS::RootedValue handlerVal(rq.cx, JS::ObjectValue(*handler));
+	JS::RootedValue result(rq.cx);
+
+	if (!JS_CallFunctionValue(rq.cx, obj, handlerVal, paramData, &result))
+	{
+		LOGERROR("Errors executing script event");
+		ScriptException::CatchPending(rq);
+		return false;
+	}
+	return JS::ToBoolean(result);
 }
 
 JSObject* IGUIObject::GetJSObject()

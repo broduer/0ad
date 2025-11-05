@@ -514,7 +514,7 @@ const CParamNode& CGUIManager::GetTemplate(const std::string& templateName)
 void CGUIManager::DisplayLoadProgress(int percent, const wchar_t* pending_task)
 {
 	const ScriptInterface& scriptInterface = *(GetActiveGUI()->GetScriptInterface());
-	const auto paramData = ScriptCommand([this, percent, pending_task, &scriptInterface]() -> JS::HandleValueArray
+	ScriptCommand([this, percent, pending_task, &scriptInterface]()
 	{
 		const ScriptRequest rq(scriptInterface);
 
@@ -526,10 +526,8 @@ void CGUIManager::DisplayLoadProgress(int percent, const wchar_t* pending_task)
 		Script::ToJSVal(rq, &valPendingTask, pending_task);
 		std::ignore = paramData.append(valPendingTask);
 
-		return paramData;
-	}).GetMoved();
-
-	SendEventToAll(EVENT_NAME_GAME_LOAD_PROGRESS, paramData);
+		SendEventToAll(EVENT_NAME_GAME_LOAD_PROGRESS, paramData);
+	}).Wait();
 }
 
 // This returns a shared_ptr to make sure the CGUI doesn't get deallocated
