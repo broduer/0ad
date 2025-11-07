@@ -3,7 +3,7 @@
   <Identity>
     <Civ>brit</Civ>
     <GenericName>Briton Countryman</GenericName>
-    <SpecificName>Brogiacos</SpecificName>
+    <SpecificName>Ambactos</SpecificName>
     <Icon>units/celt/support_civilian.png</Icon>
   </Identity>
   <VisualActor>
