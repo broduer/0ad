@@ -424,10 +424,42 @@ UnitAI.prototype.UnitFsmSpec = {
 
 	"Order.Attack": function(msg)
 	{
-		const type = this.GetBestAttackAgainst(msg.data.target, msg.data.allowCapture);
-		if (!type)
-			return this.FinishOrder();
+		// Check if this is a group attack
+		const isGroupAttack = !!msg.data.targetArray;
 
+		// For group attacks with invalid initial target, find one from the array
+		if (isGroupAttack && (!msg.data.target || msg.data.target === INVALID_ENTITY))
+		{
+			if (!this.FindAndSetNextTarget(msg.data))
+			{
+				this.FinishOrder();
+				return ACCEPT_ORDER;
+			}
+		}
+
+		// Get the attack type for the current target
+		const type = this.GetBestAttackAgainst(msg.data.target, msg.data.allowCapture);
+
+		if (!type)
+		{
+			// Current target can't be attacked
+			if (isGroupAttack)
+			{
+				if (this.FindAndSetNextTarget(msg.data))
+				{
+					msg.data.attackType = this.GetBestAttackAgainst(msg.data.target, msg.data.allowCapture);
+					if (msg.data.attackType)
+					{
+						this.SetNextState("INDIVIDUAL.COMBAT.ATTACKING");
+						return ACCEPT_ORDER;
+					}
+				}
+			}
+			this.FinishOrder();
+			return ACCEPT_ORDER;
+		}
+
+		// Set attackType before range check
 		msg.data.attackType = type;
 
 		this.RememberTargetPosition();
@@ -1366,6 +1398,12 @@ UnitAI.prototype.UnitFsmSpec = {
 				// Wait for individual members to finish
 				"enter": function(msg)
 				{
+					if (this.order.data.targetArray)
+					{
+						// For group attacks, we're done once we distributed targets
+						this.FinishOrder();
+						return true;
+					}
 					const target = this.order.data.target;
 					if (!this.CheckFormationTargetAttackRange(target))
 					{
@@ -1602,6 +1640,26 @@ UnitAI.prototype.UnitFsmSpec = {
 	"INDIVIDUAL": {
 		"Attacked": function(msg)
 		{
+			// First, check if we have a group attack order and the attacker is in our target array
+			if (this.order?.type === "Attack" &&
+				this.order.data?.targetArray?.includes(msg.data.attacker))
+			{
+				// Switch to attack the entity that's attacking us
+				this.order.data.target = msg.data.attacker;
+				this.order.data.attackType = this.GetBestAttackAgainst(msg.data.attacker, this.order.data.allowCapture);
+
+				// Update the current target index
+				const currentIndex = this.order.data.targetArray.indexOf(msg.data.attacker);
+				if (currentIndex !== -1)
+					this.order.data.currentTargetIndex = currentIndex;
+
+				// Make sure we're in the right state to handle this
+				const currentState = this.GetCurrentState();
+				if (currentState === "INDIVIDUAL.IDLE" || currentState === "INDIVIDUAL.WALKING")
+					this.SetNextState("INDIVIDUAL.COMBAT.APPROACHING");
+				return;
+			}
+
 			if (this.GetStance().targetAttackersAlways || !this.order || !this.order.data || !this.order.data.force)
 				this.RespondToTargetedEntities([msg.data.attacker]);
 		},
@@ -2150,6 +2208,35 @@ UnitAI.prototype.UnitFsmSpec = {
 
 			"Attacked": function(msg)
 			{
+				// Check if we're doing a group attack and the attacker is in our target array
+				if (!this.order.data.targetArray ||
+						!this.order.data.targetArray.includes(msg.data.attacker) ||
+						msg.data.attacker === this.order.data.target)
+					return;
+
+				// Switch to attack the entity that's attacking us
+				this.order.data.target = msg.data.attacker;
+				this.order.data.attackType = this.GetBestAttackAgainst(msg.data.attacker, this.order.data.allowCapture);
+
+				// Update the current target index
+				const currentIndex = this.order.data.targetArray.indexOf(msg.data.attacker);
+				if (currentIndex !== -1)
+					this.order.data.currentTargetIndex = currentIndex;
+
+				// Re-evaluate our approach to the new target
+				if (this.CheckTargetAttackRange(this.order.data.target, this.order.data.attackType))
+				{
+					if (this.CanUnpack())
+					{
+						this.PushOrderFront("Unpack", { "force": true });
+						return;
+					}
+					this.SetNextState("ATTACKING");
+				}
+				// Continue approaching the new target
+				else if (!this.MoveToTargetAttackRange(this.order.data.target, this.order.data.attackType))
+					this.FinishOrder();
+
 				// If we're already in combat mode, ignore anyone else who's attacking us
 				// unless it's a melee attack since they may be blocking our way to the target
 				if (msg.data.type == "Melee" && (this.GetStance().targetAttackersAlways || !this.order.data.force))
@@ -2209,7 +2296,23 @@ UnitAI.prototype.UnitFsmSpec = {
 
 				"MovementUpdate": function(msg)
 				{
-					if (msg.likelyFailure)
+					if (!msg.likelyFailure)
+					{
+						if (!this.CheckTargetAttackRange(this.order.data.target, this.order.data.attackType))
+							return;
+
+						if (this.CanUnpack())
+						{
+							this.PushOrderFront("Unpack", { "force": true });
+							return;
+						}
+
+						this.SetNextState("ATTACKING");
+						return;
+					}
+
+					// For group attacks, try next target instead of moving to last position
+					if (!this.order.data.targetArray || this.order.data.currentTargetIndex === undefined)
 					{
 						// This also handles hunting.
 						if (this.orderQueue.length > 1)
@@ -2217,11 +2320,13 @@ UnitAI.prototype.UnitFsmSpec = {
 							this.FinishOrder();
 							return;
 						}
-						else if (!this.order.data.force || !this.order.data.lastPos)
+
+						if (!this.order.data.force || !this.order.data.lastPos)
 						{
 							this.SetNextState("COMBAT.FINDINGNEWTARGET");
 							return;
 						}
+
 						// If the order was forced, try moving to the target position,
 						// under the assumption that this is desirable if the target
 						// was somewhat far away - we'll likely end up closer to where
@@ -2234,21 +2339,30 @@ UnitAI.prototype.UnitFsmSpec = {
 						return;
 					}
 
-					if (this.CheckTargetAttackRange(this.order.data.target, this.order.data.attackType))
+					// Handle group attack case
+					// Remove current unreachable target from array
+					const currentIndex = this.order.data.currentTargetIndex;
+					if (currentIndex < this.order.data.targetArray.length)
+						this.order.data.targetArray.splice(currentIndex, 1);
+
+					// Try to find next valid target
+					if (this.order.data.targetArray.length === 0 || !this.FindAndSetNextTarget(this.order.data))
 					{
-						if (this.CanUnpack())
-						{
-							this.PushOrderFront("Unpack", { "force": true });
-							return;
-						}
-						this.SetNextState("ATTACKING");
+						this.FinishOrder();
+						return;
 					}
-					else if (msg.likelySuccess)
-						// Try moving again,
-						// attack range uses a height-related formula and our actual max range might have changed.
-						if (!this.MoveToTargetAttackRange(this.order.data.target, this.order.data.attackType))
-							this.FinishOrder();
-				},
+
+					this.order.data.attackType = this.GetBestAttackAgainst(this.order.data.target, this.order.data.allowCapture);
+
+					// Try approaching the new target
+					if (this.MoveToTargetAttackRange(this.order.data.target, this.order.data.attackType))
+						return;
+
+					// If we can't approach the new target either, remove it and continue
+					this.order.data.targetArray.splice(this.order.data.currentTargetIndex, 1);
+					if (this.order.data.targetArray.length === 0)
+						this.FinishOrder();
+				}
 			},
 
 			"ATTACKING": {
@@ -2322,6 +2436,18 @@ UnitAI.prototype.UnitFsmSpec = {
 
 				"OutOfRange": function()
 				{
+					// Check if the target is garrisoned or in a turret (turreted entities cannot be attacked by melee units)
+					const cmpTargetUnitAI = Engine.QueryInterface(this.order.data.target, IID_UnitAI);
+					const isTargetGarrisoned = cmpTargetUnitAI && cmpTargetUnitAI.isGarrisoned;
+					const isTargetInTurret = cmpTargetUnitAI && cmpTargetUnitAI.IsTurret();
+
+					// If target is garrisoned or in a turret (and we're not ranged), treat as invalid
+					if (isTargetGarrisoned || (isTargetInTurret && this.order.data.attackType !== "Ranged"))
+					{
+						this.ProcessMessage("TargetInvalidated");
+						return;
+					}
+
 					if (this.ShouldChaseTargetedEntity(this.order.data.target, this.order.data.force))
 					{
 						if (this.CanPack())
@@ -2332,11 +2458,53 @@ UnitAI.prototype.UnitFsmSpec = {
 						this.SetNextState("CHASING");
 						return;
 					}
+
+					// For group attacks, try next target instead of finding new ones
+					if (this.order.data.targetArray && this.order.data.currentTargetIndex !== undefined)
+					{
+						const currentIndex = this.order.data.currentTargetIndex;
+
+						// Remove current target since it's out of range and we can't chase
+						this.order.data.targetArray.splice(currentIndex, 1);
+
+						// Try to find next valid target in sequence
+						if (this.order.data.targetArray.length > 0 && this.FindAndSetNextTarget(this.order.data))
+						{
+							this.order.data.attackType = this.GetBestAttackAgainst(this.order.data.target, this.order.data.allowCapture);
+							this.SetNextState("INDIVIDUAL.COMBAT.ATTACKING");
+							return;
+						}
+					}
+
 					this.SetNextState("FINDINGNEWTARGET");
 				},
 
 				"TargetInvalidated": function()
 				{
+					// For group attacks, remove current target and move to next in array
+					if (this.order.data.targetArray && this.order.data.currentTargetIndex !== undefined)
+					{
+						// Remove the current target from the array
+						const currentIndex = this.order.data.currentTargetIndex;
+						if (currentIndex < this.order.data.targetArray.length)
+						{
+							this.order.data.targetArray.splice(currentIndex, 1);
+
+							// If we have more targets, continue with the next one
+							if (this.order.data.targetArray.length > 0)
+							{
+								// Try to find next valid target in sequence
+								if (this.FindAndSetNextTarget(this.order.data))
+								{
+									this.order.data.attackType = this.GetBestAttackAgainst(this.order.data.target, this.order.data.allowCapture);
+									this.SetNextState("INDIVIDUAL.COMBAT.ATTACKING");
+									return;
+								}
+							}
+						}
+					}
+
+					// No more targets or not a group attack - use original behavior
 					this.SetNextState("FINDINGNEWTARGET");
 				},
 
@@ -2360,7 +2528,26 @@ UnitAI.prototype.UnitFsmSpec = {
 
 				"enter": function()
 				{
-					// Check if we are attacking a formation.
+					// First, check if we have pending targets in a group attack
+					if (this.order.data.targetArray && this.order.data.currentTargetIndex !== undefined)
+					{
+						// Try to find next valid target from the array
+						if (this.FindAndSetNextTarget(this.order.data))
+						{
+							this.order.data.attackType = this.GetBestAttackAgainst(this.order.data.target, this.order.data.allowCapture);
+							this.SetNextState("COMBAT.ATTACKING");
+							return true;
+						}
+
+						// No valid targets in array - clean up and continue with normal behavior
+						this.order.data.targetArray = [];
+						this.order.data.currentTargetIndex = undefined;
+					}
+
+					if (!this.order.data.target)
+						return false;
+
+					// Try to find the formation the target was a part of.
 					let cmpFormation = Engine.QueryInterface(this.order.data.target, IID_Formation);
 					if (cmpFormation)
 						this.order.data.formationTarget = this.order.data.target;
@@ -2468,6 +2655,12 @@ UnitAI.prototype.UnitFsmSpec = {
 				{
 					if (msg.likelyFailure)
 					{
+						// If this is a group attack with pending targets, try the next one
+						if (this.order.data.targetArray && this.order.data.targetArray.length > 0)
+						{
+							this.SetNextState("COMBAT.FINDINGNEWTARGET");
+							return;
+						}
 						// This also handles hunting.
 						if (this.orderQueue.length > 1)
 						{
@@ -3887,6 +4080,9 @@ UnitAI.prototype.OnOwnershipChanged = function(msg)
 
 UnitAI.prototype.OnDestroy = function()
 {
+	// Clean up all group attack states before destruction
+	this.CleanupAllGroupAttackStates();
+
 	// Switch to an empty state to let states execute their leave handlers.
 	this.UnitFsm.SwitchToNextState(this, "");
 
@@ -4093,6 +4289,9 @@ UnitAI.prototype.FsmStateNameChanged = function(state)
  */
 UnitAI.prototype.FinishOrder = function()
 {
+	// Clean up any group attack state before removing order
+	this.CleanupGroupAttackState(this.order);
+
 	if (!this.orderQueue.length)
 	{
 		const stack = new Error().stack.trimRight().replace(/^/mg, '  '); // indent each line
@@ -4318,15 +4517,24 @@ UnitAI.prototype.ReplaceOrder = function(type, data)
 		const idx = this.orderQueue.findIndex(o => o.type == "LeaveFormation");
 		if (idx === -1)
 		{
+			// Clean up all queued orders before clearing them
+			this.CleanupAllGroupAttackStates();
 			this.orderQueue = [];
 			this.order = undefined;
 		}
 		else
+		{
+			// Clean up orders being discarded
+			for (let i = 0; i < idx; ++i)
+				this.CleanupGroupAttackState(this.orderQueue[i]);
 			this.orderQueue.splice(0, idx);
+		}
 		this.PushOrderFront(type, data);
 	}
 	else
 	{
+		// Clean up all queued orders before clearing them
+		this.CleanupAllGroupAttackStates();
 		this.orderQueue = [];
 		this.PushOrder(type, data);
 	}
@@ -4405,6 +4613,7 @@ UnitAI.prototype.BackToWork = function()
 	if (this.IsTurret(cmpTurretable) && !cmpTurretable.LeaveTurret())
 		return false;
 
+	this.CleanupAllGroupAttackStates();
 	this.orderQueue = [];
 
 	this.AddOrders(this.workOrders);
@@ -5060,6 +5269,9 @@ UnitAI.prototype.CheckTargetRange = function(target, iid, type)
  */
 UnitAI.prototype.CheckTargetAttackRange = function(target, type)
 {
+	if (!target || target === INVALID_ENTITY || !type)
+		return false;
+
 	// for formation members, the formation will take care of the range check
 	if (this.IsFormationMember())
 	{
@@ -5791,6 +6003,75 @@ UnitAI.prototype.Attack = function(target, allowCapture = this.DEFAULT_CAPTURE, 
 	}
 
 	this.AddOrder("Attack", order, queued, pushFront);
+};
+
+/**
+ * Adds a group attack order to the queue.
+ * Used when some unit(s) are ordered to attack multiple targets.
+ * Each unit receives the full target list (from Commands) but starts at a different position
+ * based on the startingIndex in the attacking group.
+ *
+ * @param {Array} targets - Array of target entity IDs to attack (pre-sorted by distance)
+ * @param {number} startingIndex - This unit's position in the attacking group (0-based)
+ * @param {number} unitCount - Total number of units in the attacking group
+ * @param {boolean} allowCapture - Whether capturing is allowed
+ * @param {boolean} queued - If true, add to end of queue instead of replacing current order
+ * @param {boolean} pushFront - If true, add to front of queue (interrupt current order)
+ */
+UnitAI.prototype.AttackGroup = function(targets, startingIndex, unitCount, allowCapture = this.DEFAULT_CAPTURE, queued = false, pushFront = false)
+{
+	if (!targets?.length)
+		return;
+
+	// Check if adding these targets would exceed the limit
+	const currentTotal = this.CountTotalTargetsInQueue();
+	const newTargetCount = targets.length;
+
+	if (currentTotal + newTargetCount > this.MAX_TOTAL_TARGETS)
+	{
+		// Trim the targets to fit within the limit
+		const allowedNewTargets = Math.max(0, this.MAX_TOTAL_TARGETS - currentTotal);
+		if (allowedNewTargets === 0)
+			return;
+
+		// Trim the target array
+		targets = targets.slice(0, allowedNewTargets);
+
+		// If trimming results in no targets, just return
+		if (targets.length === 0)
+			return;
+	}
+
+	// If this unit is in a formation, move the formation controller out of the world
+	// This prevents the controller from staying at the coordinates where the units received the order
+	// That can potentially be far apart from where the fighting will occur.
+	// Result: The formation will reform into a more logical position once members are done (idle).
+	this.MoveFormationControllerOutOfWorld();
+
+	const stride = targets.length / unitCount;
+	const startIdx = Math.min(Math.round((startingIndex + 0.5) * stride), targets.length - 1);
+
+	const order = {
+		"force": true,
+		"allowCapture": allowCapture,
+		"targetArray": targets.slice(),
+		"target": INVALID_ENTITY,
+		"currentTargetIndex": startIdx,
+		"originalFirstTarget": targets[0],
+	};
+
+	this.RememberTargetPosition(order);
+	this.AddOrder("Attack", order, queued, pushFront);
+};
+
+UnitAI.prototype.MoveFormationControllerOutOfWorld = function()
+{
+	if (!this.IsFormationMember() || !this.formationController)
+		return;
+
+	const cmpControllerPosition = Engine.QueryInterface(this.formationController, IID_Position);
+	if (cmpControllerPosition?.IsInWorld())
+		cmpControllerPosition.MoveOutOfWorld();
 };
 
 /**
@@ -6726,6 +7007,72 @@ UnitAI.prototype.AttackEntitiesByPreference = function(ents)
 	return this.RespondToTargetedEntities(entsWithoutPref);
 };
 
+UnitAI.prototype.FindAndSetNextTarget = function(data)
+{
+	if (!this.EnsureValidTargetIndex(data))
+		return false;
+
+	const startIdx = data.currentTargetIndex;
+	const currentTarget = data.targetArray[startIdx];
+
+	// First check the starting target
+	if (this.CanAttack(currentTarget) && this.CheckTargetVisible(currentTarget))
+		return this.SetNextTarget(data, startIdx);
+
+	// Search forward using find
+	const forwardFound = data.targetArray
+		.slice(startIdx + 1)
+		.findIndex((target, i) =>
+			this.CanAttack(target) && this.CheckTargetVisible(target)
+		);
+
+	if (forwardFound !== -1)
+		return this.SetNextTarget(data, startIdx + 1 + forwardFound);
+
+	// Search backward using find
+	const backwardFound = data.targetArray
+		.slice(0, startIdx)
+		.reverse()
+		.findIndex((target, i) =>
+			this.CanAttack(target) && this.CheckTargetVisible(target)
+		);
+
+	if (backwardFound !== -1)
+	{
+		// Convert reverse index back to original index
+		const originalIndex = startIdx - 1 - backwardFound;
+		return this.SetNextTarget(data, originalIndex);
+	}
+
+	return false;
+};
+
+UnitAI.prototype.SetNextTarget = function(data, index)
+{
+	const target = data.targetArray[index];
+	data.target = target;
+	data.attackType = this.GetBestAttackAgainst(target, data.allowCapture);
+	data.currentTargetIndex = index;
+	return true;
+};
+
+UnitAI.prototype.EnsureValidTargetIndex = function(data)
+{
+	if (!data.targetArray || data.currentTargetIndex === undefined)
+		return false;
+
+	// If array is empty, clear the index
+	if (data.targetArray.length === 0)
+	{
+		data.currentTargetIndex = undefined;
+		return false;
+	}
+
+	data.currentTargetIndex = Math.clamp(data.currentTargetIndex, 0, data.targetArray.length - 1);
+
+	return true;
+};
+
 /**
  * Call UnitAI.funcname(args) on all formation members.
  * @param resetFinishedEntities - If true, call ResetFinishedEntities first.
@@ -6836,6 +7183,50 @@ UnitAI.prototype.ResetObstructionMitigationFlag = function()
 {
 	delete this.obstructionMitigationAttempted;
 };
+
+/**
+ * Counts the total number of target entities across all queued orders.
+ * This includes targetArray from group attacks and single targets.
+ * Each target reference is counted separately, even if the same entity
+ * appears in multiple orders or in both targetArray and target.
+ * @returns {number} - Total number of target entity references in the order queue
+ */
+UnitAI.prototype.CountTotalTargetsInQueue = function()
+{
+	let total = 0;
+	for (const order of this.orderQueue)
+	{
+		if (order.data)
+		{
+			// Count group attack targets
+			if (order.data.targetArray && Array.isArray(order.data.targetArray))
+				total += order.data.targetArray.length;
+
+			// Add single target for consistency
+			if (order.data.target && order.data.target !== INVALID_ENTITY)
+				total++;
+		}
+	}
+	return total;
+};
+
+UnitAI.prototype.CleanupGroupAttackState = function(order)
+{
+	if (order?.data?.targetArray)
+	{
+		delete order.data.targetArray;
+		delete order.data.currentTargetIndex;
+	}
+};
+
+UnitAI.prototype.CleanupAllGroupAttackStates = function()
+{
+	for (const order of this.orderQueue)
+		this.CleanupGroupAttackState(order);
+};
+
+// Maximum number of target entities allowed across all queued orders
+UnitAI.prototype.MAX_TOTAL_TARGETS = 1000;
 
 UnitAI.prototype.UnitFsm = new FSM(UnitAI.prototype.UnitFsmSpec);
 

@@ -179,6 +179,28 @@ var g_Commands = {
 		});
 	},
 
+	"attack-group": function(player, cmd, data)
+	{
+		const unitAIs = data.entities.flatMap(ent =>
+		{
+			const cmpUnitAI = Engine.QueryInterface(ent, IID_UnitAI);
+			const cmpAttack = Engine.QueryInterface(ent, IID_Attack);
+
+			// Check if unit can move and has attack capability
+			const canAttack = cmpAttack && cmpAttack.GetAttackTypes().length > 0;
+			return (cmpUnitAI && cmpUnitAI.AbleToMove() && canAttack) ? [cmpUnitAI] : [];
+		});
+
+		if (!unitAIs.length || !cmd.targets?.length)
+			return;
+
+		// Pass the entire target array and unit count to each UnitAI
+		unitAIs.forEach((cmpUnitAI, index) =>
+		{
+			cmpUnitAI.AttackGroup(cmd.targets, index, unitAIs.length, cmd.allowCapture, cmd.queued, cmd.pushFront);
+		});
+	},
+
 	"patrol": function(player, cmd, data)
 	{
 		const ents = data.entities.length;

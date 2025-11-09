@@ -500,6 +500,49 @@ var unitFilters = {
 	}
 };
 
+// Choose, inside a list of entities, which ones are targetable foes for boxtargeting.
+// We also filter out entities that aren't visible, or low priority like livestocks
+function getTargetableEntities(ents)
+{
+	const player = g_ViewedPlayer;
+	const simState = GetSimState();
+	const isEnemy = simState.players[player].isEnemy;
+
+	// Filter valid target candidates
+	const candidates = ents.filter(entity =>
+	{
+		const entState = GetEntityState(entity);
+		return entState &&
+			unitFilters.isUnit(entity) &&
+			entState.visibility != "hidden";
+	});
+
+	// Enemy players
+	const enemyPlayers = candidates.filter(entity =>
+	{
+		const entState = GetEntityState(entity);
+		return isEnemy[entState.player] && entState.player !== 0 && !hasClass(entState, "Domestic");
+	});
+	if (enemyPlayers.length > 0)
+		return enemyPlayers;
+
+	// Gaia
+	const gaiaUnits = candidates.filter(entity =>
+	{
+		const entState = GetEntityState(entity);
+		return entState.player === 0;
+	});
+	if (gaiaUnits.length > 0)
+		return gaiaUnits;
+
+	// Domestic animals
+	return candidates.filter(entity =>
+	{
+		const entState = GetEntityState(entity);
+		return hasClass(entState, "Domestic");
+	});
+}
+
 // Choose, inside a list of entities, which ones will be selected.
 // We may use several entity filters, until one returns at least one element.
 function getPreferredEntities(ents)
@@ -565,16 +608,19 @@ function handleInputBeforeGui(ev, hoveredObject)
 	case INPUT_BANDBOXING:
 	{
 		const bandbox = Engine.GetGUIObjectByName("bandbox");
+		const isAttackMode = Engine.HotkeyIsPressed("session.attack") && !g_IsObserver;
 		switch (ev.type)
 		{
 		case "mousemotion":
 		{
 			const rect = updateBandbox(bandbox, ev, false);
 
-			const ents = Engine.PickPlayerEntitiesInRect(rect[0], rect[1], rect[2], rect[3], g_ViewedPlayer);
-			const preferredEntities = getPreferredEntities(ents);
-			g_Selection.setHighlightList(preferredEntities);
+			const player = isAttackMode ? -1 : g_ViewedPlayer;
 
+			const ents = Engine.PickPlayerEntitiesInRect(rect[0], rect[1], rect[2], rect[3], player);
+			const highlightEntities = isAttackMode ? getTargetableEntities(ents) : getPreferredEntities(ents);
+
+			g_Selection.setHighlightList(highlightEntities);
 			return false;
 		}
 
@@ -582,6 +628,30 @@ function handleInputBeforeGui(ev, hoveredObject)
 			if (ev.button == SDL_BUTTON_LEFT)
 			{
 				const rect = updateBandbox(bandbox, ev, true);
+				if (isAttackMode)
+				{
+					// Box attack behavior
+					const ents = Engine.PickPlayerEntitiesInRect(rect[0], rect[1], rect[2], rect[3], -1);
+
+					// Filter to only enemy units
+					const enemyUnits = getTargetableEntities(ents);
+
+					// Get currently selected friendly units
+					const selectedUnits = g_Selection.toList();
+
+					if (selectedUnits.length && enemyUnits.length)
+					{
+						// Sort entities by position
+						const sortedCombattants = sortEntitiesForEngagement(selectedUnits, enemyUnits);
+						// Distribute attack orders
+						distributeAttackOrders(sortedCombattants.attackers, sortedCombattants.targets);
+					}
+					g_Selection.setHighlightList([]);
+					inputState = INPUT_NORMAL;
+
+					return true;
+				}
+
 				const ents = getPreferredEntities(Engine.PickPlayerEntitiesInRect(rect[0], rect[1], rect[2], rect[3], g_ViewedPlayer));
 				g_Selection.setHighlightList([]);
 
@@ -1886,4 +1956,109 @@ function clearSelection()
 	else
 		g_Selection.reset();
 	preSelectedAction = ACTION_NONE;
+}
+
+function distributeAttackOrders(attackers, targets)
+{
+	if (targets.length < 1)
+		return;
+
+	// Play attack sounds from a sample of units in selection
+	const soundCount = Math.min(3, attackers.length);
+	for (let i = 0; i < soundCount; i++)
+	{
+		const t = soundCount === 1 ? 0 : i / (soundCount - 1);
+		const attackerIndex = Math.floor(t * (attackers.length - 1));
+
+		setTimeout(() =>
+		{
+			Engine.GuiInterfaceCall("PlaySound", {
+				"name": "order_attack",
+				"entity": attackers[attackerIndex]
+			});
+		}, i * 180);
+	}
+
+	Engine.PostNetworkCommand({
+		"type": "attack-group",
+		"entities": attackers,
+		"targets": targets,
+		"queued": Engine.HotkeyIsPressed("session.queue"),
+		"allowCapture": false
+	});
+}
+
+/**
+ * Sorts attackers and targets for left-to-right engagement across the battle line.
+ *
+ * Entities are sorted by their perpendicular distance to the line connecting the
+ * two army centers, creating natural pairings across the battle front.
+ *
+ * @param {number[]} attackers - Array of attacking entity IDs.
+ * @param {number[]} targets - Array of target entity IDs.
+ * @returns {Object} { attackers: number[], targets: number[] } - Both arrays sorted
+ *                   for cross-line engagement (targets automatically reversed).
+ */
+function sortEntitiesForEngagement(attackers, targets)
+{
+	const getPosition = (id) => GetEntityState(id).position;
+
+	const computeAveragePosition = (entities) =>
+	{
+		if (entities.length === 0) return new Vector2D(0, 0);
+		const vectors = entities.map(id => Vector2D.from3D(getPosition(id)));
+		return Vector2D.average(vectors);
+	};
+
+	// Calculate the axis of engagement - the line between the groups' average positions
+	const avgAttackers = computeAveragePosition(attackers);
+	const avgTargets = computeAveragePosition(targets);
+
+	// Sort each group by perpendicular distance to the engagement line
+	const sortedAttackers = sortEntitiesAlongLine(attackers, avgAttackers, avgTargets);
+	const sortedTargets = sortEntitiesAlongLine(targets, avgAttackers, avgTargets);
+
+	// Reverse targets so the leftmost attacker pairs with leftmost target
+	return {
+		"attackers": sortedAttackers,
+		"targets": sortedTargets.reverse()
+	};
+}
+
+/**
+ * Sorts entity IDs by their projection onto a line's direction or perpendicular axis.
+ *
+ * @param {number[]} entities - Array of entity IDs.
+ * @param {Vector2D} lineStart - Start point of the reference line.
+ * @param {Vector2D} lineEnd - End point of the reference line.
+ * @param {boolean} sortByDirection - If true, sort by parallel projection (along line);
+ *                                    If false, sort by perpendicular distance (default).
+ * @returns {number[]} Sorted entity IDs.
+ */
+function sortEntitiesAlongLine(entities, lineStart, lineEnd, sortByDirection = false)
+{
+	const dir = lineEnd.sub(lineStart);
+	const length = dir.length();
+	if (length === 0)
+		return entities.slice();
+
+	// Choose basis vector: either parallel or perpendicular to the line
+	let basis;
+	if (sortByDirection)
+		basis = dir.mult(1 / length); // Unit direction vector
+	else
+		basis = new Vector2D(-dir.y, dir.x).normalize(); // Perpendicular
+
+	const withCoord = entities.map(id =>
+	{
+		const pos = GetEntityState(id).position;
+		const point2D = Vector2D.from3D(pos);
+		const rel = point2D.sub(lineStart);
+		const coord = rel.dot(basis); // Project onto basis vector
+		return { id, coord };
+	});
+
+	// Sort by that coordinate
+	withCoord.sort((a, b) => a.coord - b.coord);
+	return withCoord.map(item => item.id);
 }

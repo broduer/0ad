@@ -138,6 +138,7 @@ function TestFormationExiting(mode)
 		"ResetActiveQuery": function(id) { if (mode == 0) return []; return [enemy]; },
 		"DisableActiveQuery": function(id) { },
 		"GetEntityFlagMask": function(identifier) { },
+		"GetLosVisibility": (ent, player) => "visible"
 	});
 
 	AddMock(SYSTEM_ENTITY, IID_TemplateManager, {
@@ -319,7 +320,10 @@ function TestMoveIntoFormationWhileAttacking()
 		"ResetActiveQuery": function(id) { return [enemy]; },
 		"DisableActiveQuery": function(id) { },
 		"GetEntityFlagMask": function(identifier) { },
+		"GetLosVisibility": (target, player) => "visible",
+		"GetLosVisibilityPosition": (x, z, player) => "visible"
 	});
+
 
 	AddMock(SYSTEM_ENTITY, IID_TemplateManager, {
 		"GetCurrentTemplateName": function(ent) { return "special/formations/line_closed"; },
@@ -406,6 +410,10 @@ function TestMoveIntoFormationWhileAttacking()
 		"GetHitpoints": function() { return 40; },
 	});
 
+	AddMock(enemy, IID_Ownership, {
+		"GetOwner": () => 2 // Different player ID (enemy)
+	});
+
 	const controllerFormation = ConstructComponent(controller, "Formation", {
 		"FormationShape": "square",
 		"ShiftRows": "false",
@@ -419,6 +427,10 @@ function TestMoveIntoFormationWhileAttacking()
 	const controllerAI = ConstructComponent(controller, "UnitAI", {
 		"FormationController": "true",
 		"DefaultStance": "aggressive"
+	});
+
+	AddMock(controller, IID_Ownership, {
+		"GetOwner": () => 1
 	});
 
 	AddMock(controller, IID_Position, {
@@ -458,7 +470,7 @@ function TestMoveIntoFormationWhileAttacking()
 
 	controllerFormation.SetMembers(units);
 
-	controllerAI.Attack(enemy, []);
+	controllerAI.Attack(enemy);
 
 	for (const ent of unitAIs)
 		TS_ASSERT_EQUALS(unitAI.fsmStateName, "INDIVIDUAL.COMBAT.ATTACKING");
