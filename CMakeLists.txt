@@ -148,6 +148,11 @@ elseif(UNIX)
 	include(SetupUnixLibs)
 endif()
 
+# Add subprojects
+if(NOT without-atlas)
+	add_subdirectory(${CMAKE_SOURCE_DIR}/source/tools/atlas/)
+endif()
+
 # Add doxygen target
 if(build-docs)
 	add_subdirectory(${CMAKE_SOURCE_DIR}/docs/doxygen)

@@ -1,0 +1,7 @@
+add_subdirectory(Cinema/)
+add_subdirectory(Common/)
+add_subdirectory(Environment/)
+add_subdirectory(Map/)
+add_subdirectory(Object/)
+add_subdirectory(Player/)
+add_subdirectory(Terrain/)

@@ -1,0 +1,17 @@
+target_sources(AtlasUI
+	PRIVATE
+		EditableListCtrl.cpp
+		EditableListCtrl.h
+		EditableListCtrlCommands.cpp
+		EditableListCtrlCommands.h
+		FieldEditCtrl.cpp
+		FieldEditCtrl.h
+		ListCtrlValidator.cpp
+		ListCtrlValidator.h
+		QuickComboBox.cpp
+		QuickComboBox.h
+		QuickFileCtrl.cpp
+		QuickFileCtrl.h
+		QuickTextCtrl.cpp
+		QuickTextCtrl.h
+)

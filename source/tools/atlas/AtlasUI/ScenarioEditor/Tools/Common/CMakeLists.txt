@@ -1,0 +1,11 @@
+target_sources(AtlasUI
+	PRIVATE
+		Brushes.cpp
+		Brushes.h
+		MiscState.cpp
+		MiscState.h
+		ObjectSettings.cpp
+		ObjectSettings.h
+		Tools.cpp
+		Tools.h
+)

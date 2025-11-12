@@ -1,0 +1,16 @@
+target_sources(AtlasUI
+	PRIVATE
+		AtlasClipboard.cpp
+		AtlasClipboard.h
+		AtlasEventLoop.cpp
+		AtlasEventLoop.h
+		AtlasWindowCommand.cpp
+		AtlasWindowCommand.h
+		AtlasWindowCommandProc.cpp
+		AtlasWindowCommandProc.h
+		Datafile.cpp
+		Datafile.h
+		IAtlasSerialiser.h
+		Observable.cpp
+		Observable.h
+)

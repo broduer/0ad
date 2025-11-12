@@ -1,0 +1,5 @@
+add_subdirectory(ActorEditor/)
+add_subdirectory(CustomControls/)
+add_subdirectory(General/)
+add_subdirectory(Misc/)
+add_subdirectory(ScenarioEditor/)

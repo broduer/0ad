@@ -1,0 +1,13 @@
+target_sources(AtlasUI
+	PRIVATE
+		ActorEditor.cpp
+		ActorEditor.h
+		ActorEditorListCtrl.cpp
+		ActorEditorListCtrl.h
+		AnimListEditor.cpp
+		AnimListEditor.h
+		PropListEditor.cpp
+		PropListEditor.h
+		TexListEditor.cpp
+		TexListEditor.h
+)
