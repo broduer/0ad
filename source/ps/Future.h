@@ -250,16 +250,16 @@ private:
  * The callback never runs after the @p Future is destroyed.
  */
 template<typename ResultType, typename Manager>
-class FutureBase
+class Future
 {
 	template<typename T>
 	friend class PackagedTask;
 
 public:
-	FutureBase() = default;
-	FutureBase(const FutureBase& o) = delete;
-	FutureBase(FutureBase&&) = default;
-	FutureBase& operator=(FutureBase&& other) noexcept
+	Future() = default;
+	Future(const Future& o) = delete;
+	Future(Future&&) = default;
+	Future& operator=(Future&& other) noexcept
 	{
 		CancelOrWait();
 		m_Receiver = std::move(other.m_Receiver);
@@ -270,7 +270,7 @@ public:
 	 * Make the future wait for the result of @a callback.
 	 */
 	template<typename Callback, typename... Args>
-	FutureBase(auto& taskManager, Callback&& callback, Args&&... args)
+	Future(auto& taskManager, Callback&& callback, Args&&... args)
 	{
 		// Fix the static_assert - use decay_t to handle lambda types properly
 		static_assert(std::is_same_v<std::decay_t<CallbackResult<Callback>>, std::decay_t<ResultType>>,
@@ -288,7 +288,7 @@ public:
 		m_Identifier = taskManager.PushTask(PackagedTask<Callback>(std::move(temp)), std::forward<Args>(args)...);
 	}
 
-	~FutureBase()
+	~Future()
 	{
 		CancelOrWait();
 	}
@@ -351,31 +351,6 @@ public:
 protected:
 	std::shared_ptr<FutureSharedStateDetail::Receiver<ResultType>> m_Receiver;
 	Manager::IdType m_Identifier = -1;
-};
-
-template<typename ResultType, typename Manager>
-class Future : public FutureBase<ResultType, Manager>
-{
-public:
-    constexpr Future() noexcept = default;
-
-    // Provide a templated constructor that forwards to the base class' task-taking constructor.
-    template<typename Callback, typename... Args>
-    Future(Manager& taskManager, Callback&& callback, Args&&... args) :
-        FutureBase<ResultType, Manager>(taskManager, std::forward<Callback>(callback), std::forward<Args>(args)...)
-    {}
-};
-
-template<typename Manager>
-class Future<void, Manager> : public FutureBase<void, Manager>
-{
-public:
-    constexpr Future() noexcept = default;
-
-    template<typename Callback, typename... Args>
-    Future(Manager& taskManager, Callback&& callback, Args&&... args)
-        : FutureBase<void, Manager>(taskManager, std::forward<Callback>(callback), std::forward<Args>(args)...)
-    {}
 };
 
 template<typename Callback, typename Manager, typename... Args>

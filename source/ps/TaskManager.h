@@ -26,7 +26,7 @@
 #include <thread>
 
 template<typename R, typename M>
-class FutureBase;
+class Future;
 
 namespace Threading
 {
@@ -80,7 +80,7 @@ private:
 	class Impl;
 	friend class PrioritizedWorkerThread<Impl>;
 	template<typename T, typename M>
-	friend class ::FutureBase;
+	friend class ::Future;
 
 	const std::unique_ptr<Impl> m;
 };
