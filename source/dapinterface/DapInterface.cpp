@@ -392,7 +392,7 @@ namespace DAP
 			}
 
 			return std::string(Script::StringifyJSON(rq, &rval, false));
-		}).GetMoved();
+		}).Get();
 	}
 
 	void Interface::SendEventToClient()

@@ -37,7 +37,7 @@ public:
 		return ScriptCommand([this]()
 		{
 			return m_Script.Call<std::string>("GetSelectionGroupName");
-		}).GetMoved();
+		}).Get();
 	}
 
 	std::wstring GetPhenotype() override
@@ -45,7 +45,7 @@ public:
 		return ScriptCommand([this]()
 		{
 			return m_Script.Call<std::wstring>("GetPhenotype");
-		}).GetMoved();
+		}).Get();
 	}
 
 	std::wstring GetCiv() override

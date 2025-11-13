@@ -406,7 +406,7 @@ std::string CNetClient::TestReadGuiMessages()
 			r += Script::ToString(rq, &msg) + "\n";
 		}
 		return r;
-	}).GetMoved();
+	}).Get();
 }
 
 const ScriptInterface& CNetClient::GetScriptInterface()

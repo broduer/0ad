@@ -193,7 +193,7 @@ public:
 				newCommands.emplace_back(std::move(cmd));
 			}
 			return newCommands;
-		}).GetMoved();
+		}).Get();
 	}
 };
 
@@ -1026,5 +1026,5 @@ std::string CSimulation2::GetAIData()
 			return std::string();
 
 		return Script::StringifyJSON(rq, &ais);
-	}).GetMoved();
+	}).Get();
 }

@@ -461,7 +461,7 @@ std::string Interface::GetGameState() const
 		JS::RootedValue state(rq.cx);
 		cmpAIInterface->GetFullRepresentation(&state, true);
 		return Script::StringifyJSON(rq, &state, false);
-	}).GetMoved();
+	}).Get();
 }
 
 bool Interface::IsGameRunning() const

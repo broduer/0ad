@@ -277,7 +277,7 @@ static InReaction MainInputHandler(const SDL_Event_* ev)
 static void PumpEvents()
 {
 
-	ScriptRequest rq(ScriptCommand([]() { return ScriptRequest(g_GUI->GetScriptInterface()); }).GetMoved());
+	ScriptRequest rq(ScriptCommand([]() { return ScriptRequest(g_GUI->GetScriptInterface()); }).Get());
 
 	PROFILE3("dispatch events");
 

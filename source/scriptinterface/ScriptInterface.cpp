@@ -450,7 +450,7 @@ ScriptInterface::ScriptInterface(const char* nativeScopeName, const char* debugN
 	std::function<bool(const VfsPath&)> allowModule) :
 	m{std::move(ScriptCommand([nativeScopeName, &context, &allowModule]() {
 		return std::make_unique<ScriptInterface_impl>(nativeScopeName, context, nullptr, std::move(allowModule));
-	}).GetMoved())}
+	}).Get())}
 {
 	// Profiler stats table isn't thread-safe, so only enable this on the main thread
 	// [TODO] Gotta do something for this somehow.

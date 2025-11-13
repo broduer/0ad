@@ -364,16 +364,6 @@ public:
     Future(Manager& taskManager, Callback&& callback, Args&&... args) :
         FutureBase<ResultType, Manager>(taskManager, std::forward<Callback>(callback), std::forward<Args>(args)...)
     {}
-
-    ResultType GetMoved()
-    {
-    	using _T = FutureBase<ResultType, Manager>;
-        ENSURE(!!_T::m_Receiver);
-
-        FutureBase<ResultType, Manager>::Wait();
-        // This mark the state invalid - can't call Get again.
-        return std::exchange(FutureBase<ResultType, Manager>::m_Receiver, nullptr)->GetResultMoved();
-    }
 };
 
 template<typename Manager>

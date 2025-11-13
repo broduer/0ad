@@ -146,7 +146,7 @@ Status SavedGames::Save(const CStrW& name, const CStrW& description, CSimulation
 		Script::SetProperty(rq, metadata, "description", description);
 
 		return std::string(Script::StringifyJSON(rq, &metadata, true));
-	}).GetMoved();
+	}).Get();
 
 	// Write the saved game as zip file containing the various components
 	PIArchiveWriter archiveWriter = CreateArchiveWriter_Zip(tempSaveFileRealPath, false);

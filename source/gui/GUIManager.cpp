@@ -193,7 +193,7 @@ void CGUIManager::SGUIPage::LoadPage(ScriptContext& scriptContext)
 	inputs.clear();
 	gui.reset(new CGUI(scriptContext));
 
-	const ScriptRequest rq(ScriptCommand([this](){ return ScriptRequest(gui->GetScriptInterface()); }).GetMoved());
+	const ScriptRequest rq(ScriptCommand([this](){ return ScriptRequest(gui->GetScriptInterface()); }).Get());
 	ScriptCommand([this, &rq](){
 		const JS::RootedString jsName{rq.cx, JS_NewStringCopyZ(rq.cx, START_ATLAS)};
 		const JS::RootedValue symbol{rq.cx, JS::SymbolValue(JS::NewSymbol(rq.cx, jsName))};
