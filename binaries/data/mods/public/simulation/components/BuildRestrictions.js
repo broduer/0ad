@@ -44,6 +44,16 @@ BuildRestrictions.prototype.Schema =
 		"<element name='Distance' a:help='Specifies distance restrictions on this building, relative to buildings from the given category.'>" +
 			"<interleave>" +
 				"<element name='FromClass'>" +
+					"<optional>" +
+						"<attribute name='context'>" +
+							"<text/>" +
+						"</attribute>" +
+					"</optional>" +
+					"<optional>" +
+						"<attribute name='comment'>" +
+							"<text/>" +
+						"</attribute>" +
+					"</optional>" +
 					"<text/>" +
 				"</element>" +
 				"<optional><element name='MinDistance'><data type='positiveInteger'/></element></optional>" +

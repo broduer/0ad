@@ -9,6 +9,16 @@ Formation.prototype.Schema =
 		"</data>" +
 	"</element>" +
 	"<element name='DisabledTooltip' a:help='Tooltip shown when the formation is disabled.'>" +
+		"<optional>" +
+			"<attribute name='context'>" +
+				"<text/>" +
+			"</attribute>" +
+		"</optional>" +
+		"<optional>" +
+			"<attribute name='comment'>" +
+				"<text/>" +
+			"</attribute>" +
+		"</optional>" +
 		"<text/>" +
 	"</element>" +
 	"<element name='SpeedMultiplier' a:help='The speed of the formation is determined by the minimum speed of all members, multiplied with this number.'>" +

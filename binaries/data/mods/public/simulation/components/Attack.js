@@ -105,9 +105,14 @@ Attack.prototype.Schema =
 		"<element>" +
 			"<anyName a:help='Currently one of Melee, Ranged, Capture or Slaughter.'/>" +
 			"<interleave>" +
-				"<element name='AttackName' a:help='Name of the attack, to be displayed in the GUI. Optionally includes a translate context attribute.'>" +
+				"<element name='AttackName' a:help='Name of the attack, to be displayed in the GUI.'>" +
 					"<optional>" +
 						"<attribute name='context'>" +
+							"<text/>" +
+						"</attribute>" +
+					"</optional>" +
+					"<optional>" +
+						"<attribute name='comment'>" +
 							"<text/>" +
 						"</attribute>" +
 					"</optional>" +
