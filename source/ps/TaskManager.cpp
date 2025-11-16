@@ -66,7 +66,7 @@ using QueueItem = std::function<void()>;
 class TaskManager::Impl
 {
 	friend class TaskManager;
-	friend class PrioritizedWorkerThread<TaskManager::Impl>;
+	friend class WorkerThread<TaskManager::Impl>;
 public:
 	static constexpr auto TaskNamePrefix = "Task Mgr #";
 
@@ -98,6 +98,7 @@ public:
 protected:
 	void ClearQueue(); // [TODO] May as well be removed if unused.
 
+	bool PopTask(std::function<void()>& taskOut);
 	template<TaskPriority Priority>
 	bool PopTask(std::function<void()>& taskOut);
 
@@ -109,7 +110,7 @@ protected:
 	std::deque<QueueItem> m_GlobalLowPriorityQueue;
 
 	// Ideally this would be a vector, since it does get iterated, but that requires movable types.
-	std::deque<PrioritizedWorkerThread<TaskManager::Impl>> m_Workers;
+	std::deque<WorkerThread<TaskManager::Impl>> m_Workers;
 
 	IdType m_LastIdentifier = 0;
 	std::set<std::thread::id> m_WorkingThreads;
@@ -164,10 +165,18 @@ TaskManager::IdType TaskManager::Impl::PushTask(std::function<void()>&& task, co
 		(priority == TaskPriority::NORMAL ? m_HasWork : m_HasLowPriorityWork) = true;
 	}
 
-	for (PrioritizedWorkerThread<Impl>& worker : m_Workers)
+	for (auto& worker : m_Workers)
 		worker.Wake();
 
 	return id;
+}
+
+bool TaskManager::Impl::PopTask(std::function<void()>& taskOut)
+{
+	if (!PopTask<TaskPriority::NORMAL>(taskOut))
+		return PopTask<TaskPriority::LOW>(taskOut);
+
+	return true;
 }
 
 template<TaskPriority Priority>

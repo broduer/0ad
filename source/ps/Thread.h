@@ -34,10 +34,16 @@ namespace Threading
 /**
  * Light wrapper around std::thread. Ensures Join has been called.
  */
+template<class Manager, class Specifics>
 class Thread
 {
 public:
-    Thread() = default;
+    explicit Thread(Manager &taskManager)
+		: m_TaskManager(taskManager)
+    {
+        Start<Thread, &Thread::RunUntilDeath>(this);
+    }
+
     Thread(const Thread&) = delete;
     Thread(Thread&&) = delete;
 
@@ -53,190 +59,131 @@ public:
         std::invoke(callable, object);
     }
 
-protected:
-    ~Thread()
-    {
-        ENSURE(!m_Thread.joinable());
-    }
-
-    std::thread m_Thread;
-    std::atomic<bool> m_Kill = false;
-};
-
-namespace details
-{
-
-template <size_t N>
-struct StringLiteral {
-	constexpr StringLiteral(const char (&str)[N]) {
-		std::copy_n(str, N, value);
-	}
-	char value[N];
-};
-
-}
-
-/**
- * Worker thread: process the taskManager queues until killed.
- */
-template<class Manager>
-class WorkerThread : public Thread
-{
-public:
-    explicit WorkerThread(Manager& taskManager)
-    : m_TaskManager(taskManager)
-    {
-        Start<WorkerThread, &WorkerThread::RunUntilDeath>(this);
-    }
-
-    ~WorkerThread()
-    {
-        m_Kill = true;
-        m_ConditionVariable.notify_one();
-        if (m_Thread.joinable())
-            m_Thread.join();
-    }
-
-    /**
-     * Wake the worker.
-     */
-    void Wake()
-    {
-        m_ConditionVariable.notify_one();
-    }
-
-	inline auto GetLocalId() const { return local_id; }
-	inline auto GetThreadId() const { return thread_id; }
-
-protected:
-    void RunUntilDeath()
-    {
-        // The profiler does better if the names are unique.
-    	static std::atomic<int> n = 0;
-    	local_id = n++;
-    	thread_id = std::this_thread::get_id();
-    	const std::string name = Manager::TaskNamePrefix + std::to_string(local_id);
-    	debug_SetThreadName(name.c_str());
-        g_Profiler2.RegisterCurrentThread(name);
-
-#ifdef DEBUG_THREAD_PULLS
-    	std::ostringstream os;
-		os << thread_id;
-    	debug_printf("Starting thread %s, TID: %s\n", name.c_str(), os.str().c_str());
-#endif
-
-        bool hasTask = false;
-        std::unique_lock<std::mutex> lock(m_Mutex, std::defer_lock);
-        while (!m_Kill)
-        {
-            lock.lock();
-            m_ConditionVariable.wait(lock, [this](){
-                return m_Kill || m_TaskManager.m_HasWork;
-            });
-            lock.unlock();
-
-            if (m_Kill)
-            {
-				break;
-            }
-
-        	std::function<void()> task;
-            // Fetch work from the global queues.
-            hasTask = m_TaskManager.PopTask(task);
-            if (hasTask)
-                task();
-        }
-    }
-
-    std::mutex m_Mutex;
-	std::condition_variable m_ConditionVariable;
-	int local_id = -1;
-	std::thread::id thread_id;
-
-    Manager& m_TaskManager;
-};
-
-/**
- * Worker thread: process the taskManager queues until killed.
- */
-template<class Manager>
-class PrioritizedWorkerThread : public Thread
-{
-public:
-	explicit PrioritizedWorkerThread(Manager& taskManager)
-	: m_TaskManager(taskManager)
-	{
-		Start<PrioritizedWorkerThread, &PrioritizedWorkerThread::RunUntilDeath>(this);
-	}
-
-	~PrioritizedWorkerThread()
-	{
-		m_Kill = true;
-		m_ConditionVariable.notify_one();
-		if (m_Thread.joinable())
-			m_Thread.join();
-	}
-
 	/**
 	 * Wake the worker.
 	 */
 	void Wake()
-	{
-		m_ConditionVariable.notify_one();
-	}
+    {
+    	m_ConditionVariable.notify_one();
+    }
 
-	inline auto GetLocalId() const { return local_id; }
-	inline auto GetThreadId() const { return thread_id; }
+	auto GetLocalId() const { return local_id; }
+	auto GetThreadId() const { return thread_id; }
 
 protected:
+    ~Thread()
+    {
+    	m_Kill = true;
+    	m_ConditionVariable.notify_one();
+    	if (m_Thread.joinable())
+    		m_Thread.join();
+    }
+
 	void RunUntilDeath()
-	{
-		// The profiler does better if the names are unique.
-		static std::atomic<int> n = 0;
-		local_id = n++;
-		thread_id = std::this_thread::get_id();
-		const std::string name = Manager::TaskNamePrefix + std::to_string(local_id);
-		debug_SetThreadName(name.c_str());
-		g_Profiler2.RegisterCurrentThread(name);
+    {
+    	// The profiler does better if the names are unique.
+    	static std::atomic n = 0;
+    	local_id = n++;
+    	thread_id = std::this_thread::get_id();
+    	const std::string name = Manager::TaskNamePrefix + std::to_string(local_id);
+    	debug_SetThreadName(name.c_str());
+    	g_Profiler2.RegisterCurrentThread(name);
 
 #ifdef DEBUG_THREAD_PULLS
-		std::ostringstream os;
-		os << thread_id;
-		debug_printf("Starting thread %s, TID: %s\n", name.c_str(), os.str().c_str());
+    	std::ostringstream os;
+    	os << thread_id;
+    	debug_printf("Starting thread %s, TID: %s\n", name.c_str(), os.str().c_str());
 #endif
 
-
-		bool hasTask = false;
-		std::unique_lock<std::mutex> lock(m_Mutex, std::defer_lock);
-		while (!m_Kill)
-		{
-			lock.lock();
-			m_ConditionVariable.wait(lock, [this](){
-				return m_Kill || m_TaskManager.m_HasWork || m_TaskManager.m_HasLowPriorityWork;
-			});
-			lock.unlock();
-
-			if (m_Kill)
+    	std::unique_lock lock(m_Mutex, std::defer_lock);
+    	while (!m_Kill)
+    	{
+    		lock.lock();
+    		m_ConditionVariable.wait(lock, [this]
 			{
-				break;
-			}
+				return Specifics::CheckCondition(*static_cast<Specifics *>(this));
+			});
+    		lock.unlock();
 
-			std::function<void()> task;
-			// Fetch work from the global queues.
-			hasTask = m_TaskManager.template PopTask<TaskPriority::NORMAL>(task);
-			if (!hasTask)
-				hasTask = m_TaskManager.template PopTask<TaskPriority::LOW>(task);
-			if (hasTask)
-				task();
-		}
-	}
+    		if (m_Kill)
+    		{
+    			break;
+    		}
 
+    		std::function<void()> task;
+    		if (Specifics::PopTask(*static_cast<Specifics *>(this), task))
+    		{
+    			task();
+    		}
+    	}
+    };
+
+    std::thread m_Thread;
+	std::atomic<bool> m_Kill = false;
 	std::mutex m_Mutex;
 	std::condition_variable m_ConditionVariable;
 	int local_id = -1;
 	std::thread::id thread_id;
 
 	Manager& m_TaskManager;
+};
+
+/**
+ * Worker thread: process the taskManager queues until killed.
+ */
+template<class Manager>
+class WorkerThread : public Thread<Manager, WorkerThread<Manager>>
+{
+public:
+    explicit WorkerThread(Manager& taskManager)
+	    : Thread<Manager, WorkerThread>(taskManager)
+    {
+    }
+
+protected:
+	static bool CheckCondition(WorkerThread &t)
+    {
+    	return t.m_Kill || t.m_TaskManager.m_HasWork;
+    }
+
+	static bool PopTask(WorkerThread &t, std::function<void()> &task)
+    {
+    	return t.m_TaskManager.PopTask(task);
+    }
+
+	friend class Thread<Manager, WorkerThread>;
+};
+
+/**
+ * Worker thread: process the taskManager queues until killed.
+ */
+template<class Manager>
+class PrioritizedWorkerThread : public Thread<Manager, PrioritizedWorkerThread<Manager>>
+{
+public:
+	explicit PrioritizedWorkerThread(Manager& taskManager)
+	: Thread<Manager, PrioritizedWorkerThread>(taskManager)
+	{
+	}
+
+protected:
+	static bool CheckCondition(PrioritizedWorkerThread &t)
+	{
+		return t.m_Kill || t.m_TaskManager.m_HasWork || t.m_TaskManager.m_HasLowPriorityWork;
+	}
+
+	static bool PopTask(PrioritizedWorkerThread &t, std::function<void()> &task)
+	{
+		bool hasTask = t.m_TaskManager.template PopTask<TaskPriority::NORMAL>(task);
+		if (!hasTask)
+		{
+			hasTask = t.m_TaskManager.template PopTask<TaskPriority::LOW>(task);
+		}
+
+		return hasTask;
+	}
+
+	friend class Thread<Manager, PrioritizedWorkerThread>;
 };
 
 }
