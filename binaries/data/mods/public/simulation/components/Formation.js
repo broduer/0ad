@@ -90,9 +90,7 @@ Formation.prototype.variablesToSerialize = [
 	"maxRowsUsed",
 	"maxColumnsUsed",
 	"finishedEntities",
-	"idleEntities",
 	"columnar",
-	"rearrange",
 	"formationMembersWithAura",
 	"width",
 	"depth",
@@ -146,11 +144,8 @@ Formation.prototype.Init = function(deserialized = false)
 	this.maxColumnsUsed = [];
 	// Entities that have finished the original task.
 	this.finishedEntities = new Set();
-	this.idleEntities = new Set();
 	// Whether we're travelling in column (vs box) formation.
 	this.columnar = false;
-	// Whether we should rearrange all formation members.
-	this.rearrange = true;
 	// Members with a formation aura.
 	this.formationMembersWithAura = [];
 	this.width = 0;
@@ -163,7 +158,7 @@ Formation.prototype.Init = function(deserialized = false)
 		return;
 
 	Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer)
-		.SetInterval(this.entity, IID_Formation, "ShapeUpdate", 1000, 1000, null);
+		.SetInterval(this.entity, IID_Formation, "UpdateTwinFormationsForMerge", 1000, 1000, null);
 };
 
 Formation.prototype.Serialize = function()
@@ -210,26 +205,33 @@ Formation.prototype.GetMembers = function()
 	return this.members;
 };
 
-Formation.prototype.GetClosestMember = function(ent, filter)
+/**
+ * Finds the closest formation member to a given position.
+ *
+ * @param {Vector2D} position - The 2D position to find the closest formation member to
+ * @param {function} [filter] - Optional filter function that takes an entity ID and
+ *                             returns true if the entity should be considered
+ * @returns {number} Entity ID of the closest formation member, or INVALID_ENTITY
+ *                   if no suitable member is found
+ */
+Formation.prototype.GetClosestMemberToPosition = function(targetPosition, filter)
 {
-	const cmpEntPosition = Engine.QueryInterface(ent, IID_Position);
-	if (!cmpEntPosition || !cmpEntPosition.IsInWorld())
-		return INVALID_ENTITY;
-
-	const entPosition = cmpEntPosition.GetPosition2D();
 	let closestMember = INVALID_ENTITY;
 	let closestDistance = Infinity;
+
 	for (const member of this.members)
 	{
-		if (filter && !filter(ent))
+		if (filter && !filter(member))
 			continue;
 
-		const cmpPosition = Engine.QueryInterface(member, IID_Position);
-		if (!cmpPosition || !cmpPosition.IsInWorld())
+		const cmpMemberPosition = Engine.QueryInterface(member, IID_Position);
+		if (!cmpMemberPosition || !cmpMemberPosition.IsInWorld())
 			continue;
 
-		const pos = cmpPosition.GetPosition2D();
-		const dist = entPosition.distanceToSquared(pos);
+		const memberPos = cmpMemberPosition.GetPosition2D();
+		const memberPositionVector = new Vector2D(memberPos.x, memberPos.y);
+		const targetPositionVector = new Vector2D(targetPosition.x, targetPosition.y);
+		const dist = targetPositionVector.distanceToSquared(memberPositionVector);
 		if (dist < closestDistance)
 		{
 			closestMember = member;
@@ -237,6 +239,25 @@ Formation.prototype.GetClosestMember = function(ent, filter)
 		}
 	}
 	return closestMember;
+};
+
+/**
+ * Finds the closest formation member to a given entity.
+ *
+ * @param {number} ent - The entity ID to find the closest formation member to
+ * @param {function} [filter] - Optional filter function that takes an entity ID and
+ *                             returns true if the entity should be considered
+ * @returns {number} Entity ID of the closest formation member, or INVALID_ENTITY
+ *                   if no suitable member is found or the reference entity is invalid
+ */
+Formation.prototype.GetClosestMemberToEntity = function(ent, filter)
+{
+	const cmpEntPosition = Engine.QueryInterface(ent, IID_Position);
+	if (!cmpEntPosition || !cmpEntPosition.IsInWorld())
+		return INVALID_ENTITY;
+
+	const entPosition = cmpEntPosition.GetPosition2D();
+	return this.GetClosestMemberToPosition(entPosition, filter);
 };
 
 /**
@@ -320,34 +341,6 @@ Formation.prototype.AreAllMembersFinished = function()
 	return this.finishedEntities.size === this.members.length;
 };
 
-Formation.prototype.SetIdleEntity = function(ent)
-{
-	this.idleEntities.add(ent);
-};
-
-Formation.prototype.UnsetIdleEntity = function(ent)
-{
-	this.idleEntities.delete(ent);
-};
-
-Formation.prototype.ResetIdleEntities = function()
-{
-	this.idleEntities.clear();
-};
-
-Formation.prototype.AreAllMembersIdle = function()
-{
-	return this.idleEntities.size === this.members.length;
-};
-
-/**
- * Set whether we are allowed to rearrange formation members.
- */
-Formation.prototype.SetRearrange = function(rearrange)
-{
-	this.rearrange = rearrange;
-};
-
 /**
  * Initialize the members of this formation.
  * Must only be called once.
@@ -379,10 +372,16 @@ Formation.prototype.SetMembers = function(ents)
 };
 
 /**
- * Remove the given list of entities.
+ * Removes entities from the formation member list.
  * The entities must already be members of this formation.
+ *
+ * Formation geometry and member positions are not recalculated.
+ * As we let UnitAI define proper times and conditions to do so.
+ * This avoids reordering in situations we don't want it to happen like in combat.
+ *
+ * @param {Array} ents - Array of entity IDs to remove from the formation
  * @param {boolean} rename - Whether the removal was part of an entity rename
-	(prevents disbanding of the formation when under the member limit).
+ *                           (prevents disbanding when under the member limit)
  */
 Formation.prototype.RemoveMembers = function(ents, renamed = false)
 {
@@ -412,23 +411,31 @@ Formation.prototype.RemoveMembers = function(ents, renamed = false)
 
 	this.formationMembersWithAura = this.formationMembersWithAura.filter(ent => !ents.includes(ent));
 
+	if (renamed)
+		return;
+
 	// If there's nobody left, destroy the formation
 	// unless this is a rename where we can have 0 members temporarily.
-	if (!renamed && this.members.length < +this.template.RequiredMemberCount)
+	if (this.members.length < +this.template.RequiredMemberCount)
 	{
 		this.Disband();
 		return;
 	}
 
 	this.ComputeMotionParameters();
-
-	if (!this.rearrange)
-		return;
-
-	// Rearrange the remaining members.
-	this.MoveMembersIntoFormation(true, true, this.lastOrderVariant);
 };
 
+/**
+ * Adds entities to the formation member list.
+ *
+ * Formation geometry and member positions are not recalculated.
+ * As we let UnitAI define proper times and conditions to do so.
+ * This avoids reordering in situations we don't want it to happen like in combat.
+ *
+ * @param {Array} ents - Array of entity IDs to add to the formation
+ *
+ * @see ArrangeFormation - To update formation layout after adding members
+ */
 Formation.prototype.AddMembers = function(ents)
 {
 	this.offsets = undefined;
@@ -457,11 +464,6 @@ Formation.prototype.AddMembers = function(ents)
 	}
 
 	this.ComputeMotionParameters();
-
-	if (!this.rearrange)
-		return;
-
-	this.MoveMembersIntoFormation(true, true, this.lastOrderVariant);
 };
 
 /**
@@ -487,7 +489,7 @@ Formation.prototype.Disband = function()
  * otherwise the order to walk into formation is just pushed to the front.
  * @param {string | undefined} variant - Variant to be passed as order parameter.
  */
-Formation.prototype.MoveMembersIntoFormation = function(moveCenter, force, variant)
+Formation.prototype.ArrangeFormation = function(moveCenter, force, variant)
 {
 	if (!this.members.length)
 		return;
@@ -931,21 +933,41 @@ Formation.prototype.ComputeMotionParameters = function()
 	cmpUnitMotion.SetPassabilityClassName(maxPassClass);
 };
 
-Formation.prototype.ShapeUpdate = function()
+Formation.prototype.UpdateTwinFormationsForMerge = function()
 {
-	if (!this.rearrange)
+	const cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
+
+	// If one of the formations is idle, we don't want to merge into that one.
+	// Because the formation controller should keep moving towards the destination
+	// instead of staying at middle point.
+	if (!this.IsRearrangementAllowed() || cmpUnitAI.isIdle)
 		return;
+
+	const thisSize = this.GetSize();
+	const thisMaxHalf = Math.max(thisSize.width, thisSize.depth) / 2;
+	const baseDistance = thisMaxHalf + this.formationSeparation;
 
 	// Check the distance to twin formations, and merge if
 	// the formations could collide.
 	for (let i = this.twinFormations.length - 1; i >= 0; --i)
 	{
-		// Only do the check on one side.
-		if (this.twinFormations[i] <= this.entity)
+		const otherFormationID = this.twinFormations[i];
+
+		// Skip invalid entities and self
+		if (otherFormationID == INVALID_ENTITY || otherFormationID == this.entity)
 			continue;
+
+		const otherFormationAI = Engine.QueryInterface(otherFormationID, IID_UnitAI);
+
+		// If both formations aren't idle, we can do the distance check on only one side,
+		// so skip one of them.
+		if (!otherFormationAI.isIdle && otherFormationID <= this.entity)
+			continue;
+
 		const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
-		const cmpOtherPosition = Engine.QueryInterface(this.twinFormations[i], IID_Position);
-		const cmpOtherFormation = Engine.QueryInterface(this.twinFormations[i], IID_Formation);
+		const cmpOtherPosition = Engine.QueryInterface(otherFormationID, IID_Position);
+		const cmpOtherFormation = Engine.QueryInterface(otherFormationID, IID_Formation);
+
 		if (!cmpPosition || !cmpOtherPosition || !cmpOtherFormation ||
 		     !cmpPosition.IsInWorld() || !cmpOtherPosition.IsInWorld())
 			continue;
@@ -953,36 +975,27 @@ Formation.prototype.ShapeUpdate = function()
 		const thisPosition = cmpPosition.GetPosition2D();
 		const otherPosition = cmpOtherPosition.GetPosition2D();
 
-		const dx = thisPosition.x - otherPosition.x;
-		const dy = thisPosition.y - otherPosition.y;
-		const dist = Math.sqrt(dx * dx + dy * dy);
+		const dist = thisPosition.distanceTo(otherPosition);
 
-		const thisSize = this.GetSize();
 		const otherSize = cmpOtherFormation.GetSize();
-		const minDist = Math.max(thisSize.width / 2, thisSize.depth / 2) +
-			Math.max(otherSize.width / 2, otherSize.depth / 2) +
-			this.formationSeparation;
+		const minDist = baseDistance + Math.max(otherSize.width, otherSize.depth) / 2;
 
 		if (minDist < dist)
 			continue;
 
-		// Merge the members from the twin formation into this one
-		// twin formations should always have exactly the same orders.
+		// Merge the members from the other formation into this one
 		const otherMembers = cmpOtherFormation.members;
 		cmpOtherFormation.RemoveMembers(otherMembers);
-		this.AddMembers(otherMembers);
-	}
-	// Switch between column and box if necessary.
-	const cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
-	const walkingDistance = cmpUnitAI.ComputeWalkingDistance();
-	const columnar = walkingDistance > g_ColumnDistanceThreshold;
-	if (columnar != this.columnar)
-	{
-		this.offsets = undefined;
-		this.columnar = columnar;
-		// Disable moveCenter so we can't get stuck in a loop of switching
-		// shape causing center to change causing shape to switch back.
-		this.MoveMembersIntoFormation(false, true, this.lastOrderVariant);
+
+		// We add members from the other formation to this one.
+		// The other formation will get disbanded for having no members
+		this.AddMembers(otherMembers, true);
+
+		// Remove the merged formation from twin formations list
+		this.twinFormations.splice(i, 1);
+
+		// Update Formation and members position
+		this.UpdateFormation(true, true);
 	}
 };
 
@@ -1009,16 +1022,14 @@ Formation.prototype.OnGlobalEntityRenamed = function(msg)
 	if (this.finishedEntities.delete(msg.entity))
 		this.finishedEntities.add(msg.newentity);
 
-	// Save rearranging to temporarily set it to false.
-	const temp = this.rearrange;
-	this.rearrange = false;
-
 	// First remove the old member to be able to reuse its position.
 	this.RemoveMembers([msg.entity], true);
 	this.AddMembers([msg.newentity]);
 	this.memberPositions[msg.newentity] = this.memberPositions[msg.entity];
 
-	this.rearrange = temp;
+	// Update Formation
+	// to make sure added (renamed) members will move with the controller if applicable.
+	this.UpdateFormation(false, false);
 };
 
 Formation.prototype.RegisterTwinFormation = function(entity)
@@ -1047,6 +1058,98 @@ Formation.prototype.LoadFormation = function(newTemplate)
 	return Engine.QueryInterface(newFormation, IID_UnitAI);
 };
 
+/**
+ * Updates formation members' positions based on current state.
+ * Moves members into appropriate formation type if rearrangement is allowed.
+ *
+ * @param {boolean} moveCenter - Whether to move the formation center
+ * @param {boolean} force - Force rearrangement regardless of state
+ * @param {string} formationType - Formation variant to be passed as order parameter.
+ */
+Formation.prototype.UpdateFormation = function(moveCenter = false, force = false, formationType = "default") {
+	// Move members into appropriate formation type
+	if (this.IsRearrangementAllowed() || force)
+		this.ArrangeFormation(moveCenter, force, formationType);
+};
+
+/**
+ * Checks if the formation should rearrange based on controller and member states.
+ * Prevents rearrangement during critical combat or activity states.
+ *
+ * @returns {boolean} True if formation should rearrange, false otherwise
+ */
+Formation.prototype.IsRearrangementAllowed = function()
+{
+	if (this.IsControllerBlockingRearrangement())
+		return false;
+
+	return !this.AreMembersBlockingRearrangement();
+};
+
+/**
+ * Checks if the formation controller is in a state that prevents rearrangement.
+ *
+ * @returns {boolean} True if controller is in a no-rearrange state
+ */
+Formation.prototype.IsControllerBlockingRearrangement = function()
+{
+	const cmpControllerAI = Engine.QueryInterface(this.entity, IID_UnitAI);
+
+	const noRearrangeStates = [
+		"COMBAT.ATTACKING"
+	];
+	const state = cmpControllerAI.GetCurrentState();
+	return noRearrangeStates.some(noState => state.includes(noState));
+};
+
+/**
+ * Checks if any formation members are in critical states that shouldn't be interrupted.
+ * Uses a threshold to allow rearrangement when only a small percentage are busy.
+ *
+ * @returns {boolean} True if significant number of members are in critical states
+ */
+Formation.prototype.AreMembersBlockingRearrangement = function()
+{
+	const criticalStates = new Set([
+		"COMBAT.ATTACKING",
+		"COMBAT.CHASING",
+		"COMBAT.APPROACHING",
+		"HEAL.HEALING",
+		"GATHER",
+		"REPAIR"
+	]);
+
+	let totalMembers = 0;
+	let criticalMembers = 0;
+
+	for (const member of this.members)
+	{
+		const cmpMemberAI = Engine.QueryInterface(member, IID_UnitAI);
+		if (!cmpMemberAI)
+			continue;
+
+		totalMembers++;
+		const state = cmpMemberAI.GetCurrentState();
+
+		for (const criticalState of criticalStates)
+		{
+			if (state.includes(criticalState))
+			{
+				criticalMembers++;
+				break;
+			}
+		}
+	}
+
+	// If no valid members, return false
+	if (totalMembers === 0)
+		return false;
+
+	// Return true if more than 5% are in critical states.
+	// Cover edge cases where a few members would be stuck
+	// somewhere and still fighting for example.
+	return (criticalMembers / totalMembers) > 0.05;
+};
 
 Formation.prototype.OnEntityRenamed = function(msg)
 {

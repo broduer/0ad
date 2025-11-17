@@ -297,13 +297,7 @@ UnitAI.prototype.UnitFsmSpec = {
 
 		const cmpFormation = Engine.QueryInterface(this.formationController, IID_Formation);
 		if (cmpFormation)
-		{
-			cmpFormation.SetRearrange(false);
-			// Triggers FormationLeave, which ultimately will FinishOrder,
-			// discarding this order.
 			cmpFormation.RemoveMembers([this.entity]);
-			cmpFormation.SetRearrange(true);
-		}
 		return ACCEPT_ORDER;
 	},
 
@@ -772,12 +766,13 @@ UnitAI.prototype.UnitFsmSpec = {
 		},
 
 		"Order.Attack": function(msg) {
-			let target = msg.data.target;
+			const target = msg.data.target;
+			let formationTarget;
 			const cmpTargetUnitAI = Engine.QueryInterface(target, IID_UnitAI);
 			if (cmpTargetUnitAI && cmpTargetUnitAI.IsFormationMember())
-				target = cmpTargetUnitAI.GetFormationController();
+				formationTarget = cmpTargetUnitAI.GetFormationController();
 
-			if (!this.CheckFormationTargetAttackRange(target))
+			if (!this.CheckFormationTargetAttackRange(formationTarget || target))
 			{
 				if (this.AbleToMove() && this.CheckTargetVisible(target))
 				{
@@ -786,7 +781,8 @@ UnitAI.prototype.UnitFsmSpec = {
 				}
 				return this.FinishOrder();
 			}
-			this.CallMemberFunction("Attack", [target, msg.data.allowCapture, false]);
+			this.CallMemberFunction("Attack", [formationTarget || target, msg.data.allowCapture, false]);
+
 			const cmpAttack = Engine.QueryInterface(this.entity, IID_Attack);
 			if (cmpAttack && cmpAttack.CanAttackAsFormation())
 				this.SetNextState("COMBAT.ATTACKING");
@@ -997,12 +993,6 @@ UnitAI.prototype.UnitFsmSpec = {
 
 		"IDLE": {
 			"enter": function(msg) {
-				// Turn rearrange off. Otherwise, if the formation is idle
-				// but individual units go off to fight,
-				// any death will rearrange the formation, which looks odd.
-				// Instead, move idle units in formation on a timer.
-				const cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
-				cmpFormation.SetRearrange(false);
 				// Start the timer on the next turn to catch up with potential stragglers.
 				this.StartTimer(100, 2000);
 				this.isIdle = true;
@@ -1020,17 +1010,16 @@ UnitAI.prototype.UnitFsmSpec = {
 				if (!cmpFormation)
 					return;
 
-				if (this.TestAllMemberFunction("IsIdle"))
-					cmpFormation.MoveMembersIntoFormation(false, false);
+				this.RequestFormationUpdate();
 			},
 
 		},
 
 		"WALKING": {
 			"enter": function() {
-				const cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
-				cmpFormation.SetRearrange(true);
-				cmpFormation.MoveMembersIntoFormation(true, true);
+				this.RequestFormationUpdate(true, true);
+				this.StartTimer(100, 2000);
+
 				if (!this.MoveTo(this.order.data))
 				{
 					this.FinishOrder();
@@ -1045,32 +1034,20 @@ UnitAI.prototype.UnitFsmSpec = {
 			},
 
 			"MovementUpdate": function(msg) {
-				if (msg.veryObstructed && !this.timer)
-				{
-					// It's possible that the controller (with large clearance)
-					// is stuck, but not the individual units.
-					// Ask them to move individually for a little while.
-					this.CallMemberFunction("MoveTo", [this.order.data]);
-					this.StartTimer(3000);
-					return;
-				}
-				else if (this.timer)
-					return;
-				if (msg.likelyFailure || this.CheckRange(this.order.data))
+				if (msg.veryObstructed && !this.obstructionMitigationAttempted)
+					this.AttemptObstructionMitigation();
+				else if (msg.likelyFailure || this.CheckRange(this.order.data))
 					this.FinishOrder();
 			},
-
 			"Timer": function() {
-				// Reenter to reset the pathfinder state.
-				this.SetNextState("WALKING");
+				// Update Formation in case some members left.
+				this.RequestFormationUpdate(false, true);
 			}
 		},
 
 		"WALKINGANDFIGHTING": {
 			"enter": function(msg) {
-				const cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
-				cmpFormation.SetRearrange(true);
-				cmpFormation.MoveMembersIntoFormation(true, true, "combat");
+				this.RequestFormationUpdate(true, true, "combat");
 				if (!this.MoveTo(this.order.data))
 				{
 					this.FinishOrder();
@@ -1095,7 +1072,9 @@ UnitAI.prototype.UnitFsmSpec = {
 			},
 
 			"MovementUpdate": function(msg) {
-				if (msg.likelyFailure || this.CheckRange(this.order.data))
+				if (msg.veryObstructed && !this.obstructionMitigationAttempted)
+					this.AttemptObstructionMitigation();
+				else if (msg.likelyFailure || this.CheckRange(this.order.data))
 					this.FinishOrder();
 			},
 		},
@@ -1128,10 +1107,6 @@ UnitAI.prototype.UnitFsmSpec = {
 
 			"PATROLLING": {
 				"enter": function() {
-					const cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
-					cmpFormation.SetRearrange(true);
-					cmpFormation.MoveMembersIntoFormation(true, true, "combat");
-
 					const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
 					if (!cmpPosition || !cmpPosition.IsInWorld() ||
 					    !this.MoveTo(this.order.data))
@@ -1151,11 +1126,22 @@ UnitAI.prototype.UnitFsmSpec = {
 				},
 
 				"Timer": function(msg) {
+					// Force the units to stick together
+					// TODO : better handling of formation patrolling
+					// See https://gitea.wildfiregames.com/0ad/0ad/issues/8558
+					this.RequestFormationUpdate(true, true, "combat");
+
 					if (this.FindWalkAndFightTargets())
 						this.SetNextState("MEMBER");
 				},
 
 				"MovementUpdate": function(msg) {
+					if (msg.veryObstructed && !this.obstructionMitigationAttempted)
+					{
+						this.AttemptObstructionMitigation();
+						return;
+					}
+
 					if (!msg.likelyFailure && !msg.likelySuccess && !this.RelaxedMaxRangeCheck(this.order.data, this.DefaultRelaxedMaxRange))
 						return;
 
@@ -1202,10 +1188,7 @@ UnitAI.prototype.UnitFsmSpec = {
 						this.FinishOrder();
 						return true;
 					}
-
-					const cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
-					cmpFormation.SetRearrange(true);
-					cmpFormation.MoveMembersIntoFormation(true, true);
+					this.RequestFormationUpdate(true, true);
 
 					// If the holder should pickup, warn it so it can take needed action.
 					const cmpHolder = Engine.QueryInterface(this.order.data.target, this.order.data.garrison ? IID_GarrisonHolder : IID_TurretHolder);
@@ -1245,9 +1228,7 @@ UnitAI.prototype.UnitFsmSpec = {
 
 		"FORMING": {
 			"enter": function() {
-				const cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
-				cmpFormation.SetRearrange(true);
-				cmpFormation.MoveMembersIntoFormation(true, true);
+				this.RequestFormationUpdate(true, true);
 
 				if (!this.MoveTo(this.order.data))
 				{
@@ -1272,9 +1253,7 @@ UnitAI.prototype.UnitFsmSpec = {
 		"COMBAT": {
 			"APPROACHING": {
 				"enter": function() {
-					const cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
-					cmpFormation.SetRearrange(true);
-					cmpFormation.MoveMembersIntoFormation(true, true, "combat");
+					this.RequestFormationUpdate(true, true, "combat");
 
 					if (!this.MoveFormationToTargetAttackRange(this.order.data.target))
 					{
@@ -1316,11 +1295,7 @@ UnitAI.prototype.UnitFsmSpec = {
 						this.FinishOrder();
 						return true;
 					}
-
-					const cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
-					// TODO fix the rearranging while attacking as formation
-					cmpFormation.SetRearrange(!this.IsAttackingAsFormation());
-					cmpFormation.MoveMembersIntoFormation(false, false, "combat");
+					this.RequestFormationUpdate(false, false, "combat");
 					this.StartTimer(200, 200);
 					return false;
 				},
@@ -1341,9 +1316,6 @@ UnitAI.prototype.UnitFsmSpec = {
 
 				"leave": function(msg) {
 					this.StopTimer();
-					var cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
-					if (cmpFormation)
-						cmpFormation.SetRearrange(true);
 				},
 			},
 		},
@@ -1362,11 +1334,6 @@ UnitAI.prototype.UnitFsmSpec = {
 			},
 
 			"enter": function(msg) {
-				// Don't rearrange the formation, as that forces all units to stop
-				// what they're doing.
-				const cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
-				if (cmpFormation)
-					cmpFormation.SetRearrange(false);
 				// While waiting on members, the formation is more like
 				// a group of unit and does not have a well-defined position,
 				// so move the controller out of the world to enforce that.
@@ -1391,10 +1358,6 @@ UnitAI.prototype.UnitFsmSpec = {
 
 			"leave": function(msg) {
 				this.StopTimer();
-				// Reform entirely as members might be all over the place now.
-				const cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
-				if (cmpFormation && (cmpFormation.AreAllMembersIdle() || this.orderQueue.length))
-					cmpFormation.MoveMembersIntoFormation(true);
 
 				// Update the held position so entities respond to orders.
 				const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
@@ -1411,6 +1374,7 @@ UnitAI.prototype.UnitFsmSpec = {
 	// States for entities moving as part of a formation:
 	"FORMATIONMEMBER": {
 		"FormationLeave": function(msg) {
+			// Called when selecting units out of a formation
 			// Stop moving as soon as the formation disbands
 			// Keep current rotation
 			const facePointAfterMove = this.GetFacePointAfterMove();
@@ -1611,7 +1575,6 @@ UnitAI.prototype.UnitFsmSpec = {
 					const cmpFormationAI = Engine.QueryInterface(this.formationController, IID_UnitAI);
 					if (!cmpFormationAI || !cmpFormationAI.IsIdle())
 						return;
-					Engine.QueryInterface(this.formationController, IID_Formation).SetIdleEntity(this.entity);
 				}
 
 				this.isIdle = true;
@@ -1651,8 +1614,6 @@ UnitAI.prototype.UnitFsmSpec = {
 
 				if (this.isIdle)
 				{
-					if (this.IsFormationMember())
-						Engine.QueryInterface(this.formationController, IID_Formation).UnsetIdleEntity(this.entity);
 					this.isIdle = false;
 					Engine.PostMessage(this.entity, MT_UnitIdleChanged, { "idle": this.isIdle });
 				}
@@ -1721,7 +1682,6 @@ UnitAI.prototype.UnitFsmSpec = {
 						const cmpFormationAI = Engine.QueryInterface(this.formationController, IID_UnitAI);
 						if (!cmpFormationAI || !cmpFormationAI.IsIdle())
 							return;
-						Engine.QueryInterface(this.formationController, IID_Formation).SetIdleEntity(this.entity);
 					}
 
 					this.isIdle = true;
@@ -2079,6 +2039,11 @@ UnitAI.prototype.UnitFsmSpec = {
 
 			"APPROACHING": {
 				"enter": function() {
+					// Set this.order.data.target and this.order.formationTarget.
+					// Should only mutate these once, when receiving a order with
+					// a formation controller as target.
+					this.HandleTargetAsFormation();
+
 					if (!this.MoveToTargetAttackRange(this.order.data.target, this.order.data.attackType))
 					{
 						this.FinishOrder();
@@ -2159,14 +2124,10 @@ UnitAI.prototype.UnitFsmSpec = {
 
 			"ATTACKING": {
 				"enter": function() {
-					let target = this.order.data.target;
-					const cmpFormation = Engine.QueryInterface(target, IID_Formation);
-					if (cmpFormation)
-					{
-						this.order.data.formationTarget = target;
-						target = cmpFormation.GetClosestMember(this.entity);
-						this.order.data.target = target;
-					}
+					// Set this.order.data.target and this.order.formationTarget.
+					// Should only mutate these once, when receiving a order with
+					// a formation controller as target.
+					this.HandleTargetAsFormation();
 
 					this.shouldCheer = false;
 
@@ -2177,7 +2138,7 @@ UnitAI.prototype.UnitFsmSpec = {
 						return true;
 					}
 
-					if (!this.CheckTargetAttackRange(target, this.order.data.attackType))
+					if (!this.CheckTargetAttackRange(this.order.data.target, this.order.data.attackType))
 					{
 						if (this.CanPack())
 						{
@@ -2263,18 +2224,25 @@ UnitAI.prototype.UnitFsmSpec = {
 				},
 
 				"enter": function() {
-					// Try to find the formation the target was a part of.
+					// Check if we are attacking a formation.
 					let cmpFormation = Engine.QueryInterface(this.order.data.target, IID_Formation);
-					if (!cmpFormation)
+					if (cmpFormation)
+						this.order.data.formationTarget = this.order.data.target;
+					else
 						cmpFormation = Engine.QueryInterface(this.order.data.formationTarget || INVALID_ENTITY, IID_Formation);
 
 					// If the target is a formation, pick closest member.
 					if (cmpFormation)
 					{
 						const filter = (t) => this.CanAttack(t);
-						this.order.data.formationTarget = this.order.data.target;
-						const target = cmpFormation.GetClosestMember(this.entity, filter);
-						this.order.data.target = target;
+						// As we're also setting this.order.data.target, if GetClosestMemberToEntity returns INVALID_ENTITY, this should prevent us from reentering
+						// here again right away, as cmpFormation would be null.
+						// Now we cannot have an infinite loop if ATTACKING send us to FINDINGNEWTARGET again.
+						this.order.data.target = cmpFormation.GetClosestMemberToEntity(this.entity, filter);
+
+						if (this.order.data.target == INVALID_ENTITY)
+							delete this.order.data.formationTarget;
+
 						this.SetNextState("COMBAT.ATTACKING");
 						return true;
 					}
@@ -3315,12 +3283,7 @@ UnitAI.prototype.UnitFsmSpec = {
 					{
 						const cmpFormation = Engine.QueryInterface(this.formationController, IID_Formation);
 						if (cmpFormation)
-						{
-							const rearrange = cmpFormation.rearrange;
-							cmpFormation.SetRearrange(false);
 							cmpFormation.RemoveMembers([this.entity]);
-							cmpFormation.SetRearrange(rearrange);
-						}
 					}
 
 					const cmpResourceGatherer = Engine.QueryInterface(this.entity, IID_ResourceGatherer);
@@ -4771,7 +4734,7 @@ UnitAI.prototype.MoveToTargetAttackRange = function(target, type)
 
 	const cmpFormation = Engine.QueryInterface(target, IID_Formation);
 	if (cmpFormation)
-		target = cmpFormation.GetClosestMember(this.entity);
+		target = cmpFormation.GetClosestMemberToEntity(this.entity);
 
 	if (type != "Ranged")
 		return this.MoveToTargetRange(target, IID_Attack, type);
@@ -4812,7 +4775,7 @@ UnitAI.prototype.MoveFormationToTargetAttackRange = function(target)
 {
 	const cmpTargetFormation = Engine.QueryInterface(target, IID_Formation);
 	if (cmpTargetFormation)
-		target = cmpTargetFormation.GetClosestMember(this.entity);
+		target = cmpTargetFormation.GetClosestMemberToEntity(this.entity);
 
 	if (!this.CheckTargetVisible(target))
 		return false;
@@ -4824,6 +4787,18 @@ UnitAI.prototype.MoveFormationToTargetAttackRange = function(target)
 
 	const cmpUnitMotion = Engine.QueryInterface(this.entity, IID_UnitMotion);
 	return this.AbleToMove(cmpUnitMotion) && cmpUnitMotion.MoveToTargetRange(target, range.min, range.max);
+};
+
+/**
+ * Requests the formation component to update member positions.
+ * Called by formation controller when formation needs reorganization.
+ */
+UnitAI.prototype.RequestFormationUpdate = function(moveCenter = false, force = false, formationType = "default") {
+	const cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
+	if (!cmpFormation)
+		return;
+
+	cmpFormation.UpdateFormation(moveCenter, force, formationType);
 };
 
 /**
@@ -4883,7 +4858,7 @@ UnitAI.prototype.CheckTargetAttackRange = function(target, type)
 
 	const cmpFormation = Engine.QueryInterface(target, IID_Formation);
 	if (cmpFormation)
-		target = cmpFormation.GetClosestMember(this.entity);
+		target = cmpFormation.GetClosestMemberToEntity(this.entity);
 
 	const cmpAttack = Engine.QueryInterface(this.entity, IID_Attack);
 	return cmpAttack && cmpAttack.IsTargetInRange(target, type);
@@ -4905,7 +4880,7 @@ UnitAI.prototype.CheckFormationTargetAttackRange = function(target)
 {
 	const cmpTargetFormation = Engine.QueryInterface(target, IID_Formation);
 	if (cmpTargetFormation)
-		target = cmpTargetFormation.GetClosestMember(this.entity);
+		target = cmpTargetFormation.GetClosestMemberToEntity(this.entity);
 
 	const cmpFormationAttack = Engine.QueryInterface(this.entity, IID_Attack);
 	if (!cmpFormationAttack)
@@ -5201,6 +5176,23 @@ UnitAI.prototype.ShouldChaseTargetedEntity = function(target, force)
 };
 
 // External interface functions
+
+/**
+ * Checks if the current target is a formation controller.
+ * If it is a formation controller, we identify the closest individual
+ * member within it and set this.order.data.target to it instead.
+ * The original formation controller ID is stored in this.order.data.formationTarget
+ * instead.
+ */
+UnitAI.prototype.HandleTargetAsFormation = function()
+{
+	const cmpFormation = Engine.QueryInterface(this.order.data.target, IID_Formation);
+	if (!cmpFormation)
+		return;
+
+	this.order.data.formationTarget = this.order.data.target;
+	this.order.data.target = cmpFormation.GetClosestMemberToEntity(this.entity);
+};
 
 /**
  * Order a unit to leave the formation it is in.
@@ -6565,16 +6557,67 @@ UnitAI.prototype.CallPlayerOwnedEntitiesFunctionInRange = function(funcname, arg
 };
 
 /**
- * Call obj.functname(args) on UnitAI components of all formation members,
- * and return true if all calls return true.
+ * Attempts to mitigate formation obstruction by teleporting the formation controller
+ * to the member closest to the destination.
+ *
+ * This is used when the formation controller (with large clearance) is stuck on obstacles,
+ * but individual units can still navigate. The controller jumps to a member's position
+ * to bypass the obstruction.
+ *
+ * The mitigation have a cooldown to prevent any weird behaviour.
  */
-UnitAI.prototype.TestAllMemberFunction = function(funcname, args)
+UnitAI.prototype.AttemptObstructionMitigation = function()
 {
+	if (this.obstructionMitigationAttempted)
+		return;
+
 	const cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
-	return cmpFormation && cmpFormation.GetMembers().every(ent => {
-		const cmpUnitAI = Engine.QueryInterface(ent, IID_UnitAI);
-		return cmpUnitAI[funcname].apply(cmpUnitAI, args);
-	});
+	const destination = this.order.data;
+
+	if (!cmpFormation || !destination || destination.x === undefined || destination.z === undefined)
+		return;
+
+	// Convert x,z coordinates to x,y coordinates for GetClosestMemberToPosition
+	const destinationVec = new Vector2D(destination.x, destination.z);
+
+	const closestMember = cmpFormation.GetClosestMemberToPosition(destinationVec);
+	if (closestMember == INVALID_ENTITY)
+		return;
+
+	const cmpMemberPosition = Engine.QueryInterface(closestMember, IID_Position);
+	const cmpControllerPosition = Engine.QueryInterface(this.entity, IID_Position);
+	if (!cmpMemberPosition || !cmpControllerPosition)
+		return;
+
+	const memberPosObj = cmpMemberPosition.GetPosition2D();
+	const controllerPosObj = cmpControllerPosition.GetPosition2D();
+
+	const memberPos = new Vector2D(memberPosObj.x, memberPosObj.y);
+	const controllerPos = new Vector2D(controllerPosObj.x, controllerPosObj.y);
+
+	// Check if member is more than 2 meters closer to destination than controller
+	if (memberPos.distanceTo(destinationVec) < controllerPos.distanceTo(destinationVec) - 2)
+		cmpControllerPosition.JumpTo(memberPos.x, memberPos.y);
+
+	this.SetObstructionMitigationFlag();
+};
+UnitAI.prototype.SetObstructionMitigationFlag = function()
+{
+	this.obstructionMitigationAttempted = true;
+
+	// Clear existing timer if any
+	if (this.obstructionMitigationTimer !== undefined)
+		Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer)
+			.CancelTimer(this.obstructionMitigationTimer);
+
+	// Store the new timer ID
+	this.obstructionMitigationTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer)
+		.SetTimeout(this.entity, IID_UnitAI, "ResetObstructionMitigationFlag", 5000, {});
+};
+
+UnitAI.prototype.ResetObstructionMitigationFlag = function()
+{
+	delete this.obstructionMitigationAttempted;
 };
 
 UnitAI.prototype.UnitFsm = new FSM(UnitAI.prototype.UnitFsmSpec);
