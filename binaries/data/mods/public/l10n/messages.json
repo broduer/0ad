@@ -480,15 +480,6 @@
                         "AttackName": {
                             "customContext": "Name of an attack, usually the weapon."
                         },
-                        "StatusName": {
-                            "customContext": "status effect"
-                        },
-                        "ApplierTooltip": {
-                            "customContext": "status effect"
-                        },
-                        "ReceiverTooltip": {
-                            "customContext": "status effect"
-                        },
                         "GenericName": {},
                         "SpecificName": {},
                         "History": {},
@@ -522,15 +513,6 @@
                     "keywords": {
                         "AttackName": {
                             "customContext": "Name of an attack, usually the weapon."
-                        },
-                        "StatusName": {
-                            "customContext": "status effect"
-                        },
-                        "ApplierTooltip": {
-                            "customContext": "status effect"
-                        },
-                        "ReceiverTooltip": {
-                            "customContext": "status effect"
                         },
                         "GenericName": {},
                         "SpecificName": {},
