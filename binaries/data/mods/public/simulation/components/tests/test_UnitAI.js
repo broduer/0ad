@@ -902,3 +902,361 @@ function TestAttemptObstructionMitigation()
 }
 
 TestAttemptObstructionMitigation();
+function TestFindAndSetNextTargetBehavior()
+{
+	ResetState();
+
+	const attacker = 10;
+	const targets = [20, 21, 22, 23, 24]; // Multiple targets for comprehensive testing
+
+	// Basic mocks needed for unitAI creation
+	AddMock(SYSTEM_ENTITY, IID_Timer, {
+		"SetInterval": () => {},
+		"SetTimeout": () => {}
+	});
+
+	AddMock(SYSTEM_ENTITY, IID_RangeManager, {
+		"CreateActiveQuery": () => 1,
+		"EnableActiveQuery": () => {},
+		"ResetActiveQuery": () => [],
+		"DisableActiveQuery": () => {},
+		"GetEntityFlagMask": () => 0
+	});
+
+	AddMock(SYSTEM_ENTITY, IID_ObstructionManager, {
+		"IsInTargetRange": () => false
+	});
+
+	// Create the unitAI component
+	const unitAI = ConstructComponent(attacker, "UnitAI", {
+		"FormationController": "false",
+		"DefaultStance": "aggressive"
+	});
+
+	AddMock(attacker, IID_Attack, {
+		"GetBestAttackAgainst": () => "Melee"
+	});
+
+	unitAI.OnCreate();
+
+	// Mock the visibility and attackability checks
+	unitAI.CanAttack = (target) =>
+	{
+		// Target 21 is always unattackable (e.g., garrisoned, dead, etc.)
+		return target !== 21;
+	};
+
+	unitAI.CheckTargetVisible = (target) =>
+	{
+		// Target 22 is always not visible
+		return target !== 22;
+	};
+
+	// First target is valid
+	(function()
+	{
+		const data = {
+			"targetArray": [20, 21, 22, 23, 24],
+			"currentTargetIndex": 0, // Currently targeting 20
+			"target": 20,
+			"allowCapture": false
+		};
+
+		const found = unitAI.FindAndSetNextTarget(data);
+		TS_ASSERT(found);
+		TS_ASSERT_EQUALS(data.target, 20);
+		TS_ASSERT_EQUALS(data.currentTargetIndex, 0);
+	})();
+
+	// End of array behavior
+	(function()
+	{
+		const data = {
+			"targetArray": [18, 19, 20, 21, 22],
+			"currentTargetIndex": 2, // Currently targeting 22
+			"allowCapture": false
+		};
+
+		// 21 and 22 are invalid, should go backward and find 20
+		const found = unitAI.FindAndSetNextTarget(data);
+		TS_ASSERT(found);
+		TS_ASSERT_EQUALS(data.target, 20); // Should be assigned targetArray[initialTarget - 1]
+	})();
+
+	// No valid targets found
+	(function()
+	{
+		const data = {
+			"targetArray": [21, 22], // Both are invalid (21 unattackable, 22 not visible)
+			"currentTargetIndex": 0,
+			"target": 21,
+			"allowCapture": false
+		};
+
+		const found = unitAI.FindAndSetNextTarget(data);
+		TS_ASSERT(!found);
+		TS_ASSERT_EQUALS(data.target, 21); // Should remain unchanged
+		TS_ASSERT_EQUALS(data.currentTargetIndex, 0);
+	})();
+
+	// Empty target array
+	(function()
+	{
+		const data = {
+			"targetArray": [],
+			"currentTargetIndex": 0,
+			"target": 20,
+			"allowCapture": false
+		};
+
+		const found = unitAI.FindAndSetNextTarget(data);
+		TS_ASSERT(!found);
+		TS_ASSERT_EQUALS(data.target, 20); // Should remain unchanged
+		TS_ASSERT_EQUALS(data.currentTargetIndex, void 0); // Should nullify currentTargetIndex
+	})();
+
+	// Current target is last in array
+	(function()
+	{
+		const data = {
+			"targetArray": [20, 21, 22, 23, 24],
+			"currentTargetIndex": 4, // Currently targeting 24 (last element)
+			"allowCapture": false
+		};
+
+		const found = unitAI.FindAndSetNextTarget(data);
+		TS_ASSERT(found);
+		TS_ASSERT_EQUALS(data.target, 24); // Should remain unchanged
+		TS_ASSERT_EQUALS(data.currentTargetIndex, 4);
+	})();
+
+	// Single invalid target
+	(function()
+	{
+		const data = {
+			"targetArray": [21], // Only one target, which is invalid
+			"currentTargetIndex": 0,
+			"allowCapture": false
+		};
+
+		const found = unitAI.FindAndSetNextTarget(data);
+		TS_ASSERT(!found);
+	})();
+
+	// Verify if we don't do more calls then necessary
+	(function()
+	{
+		const searchOrder = [];
+
+		unitAI.CanAttack = (target) =>
+		{
+			searchOrder.push(target);
+			return target == 20;
+		};
+
+		unitAI.CheckTargetVisible = (target) => true; // All visible
+
+		const data = {
+			"targetArray": [20, 21, 22, 23],
+			"currentTargetIndex": 1, // Currently targeting 21
+			"allowCapture": false
+		};
+
+		const found = unitAI.FindAndSetNextTarget(data);
+		TS_ASSERT(found);
+		TS_ASSERT_EQUALS(searchOrder.length, 4); // Should find at 20 (4 calls)
+
+	})();
+}
+
+TestFindAndSetNextTargetBehavior();
+
+function TestAttackGroupBehavior()
+{
+	ResetState();
+
+	const attacker1 = 100;
+	const attacker2 = 101;
+	const targets = [200, 201, 202, 203, 204];
+
+	// Basic mocks needed for unitAI creation
+	AddMock(SYSTEM_ENTITY, IID_Timer, {
+		"SetInterval": () => {},
+		"SetTimeout": () => {}
+	});
+
+	AddMock(SYSTEM_ENTITY, IID_RangeManager, {
+		"CreateActiveQuery": () => 1,
+		"EnableActiveQuery": () => {},
+		"ResetActiveQuery": () => [],
+		"DisableActiveQuery": () => {},
+		"GetEntityFlagMask": () => 0
+	});
+
+	AddMock(SYSTEM_ENTITY, IID_ObstructionManager, {
+		"IsInTargetRange": () => false
+	});
+
+	// Create two unitAI components
+	const unitAI1 = ConstructComponent(attacker1, "UnitAI", {
+		"FormationController": "false",
+		"DefaultStance": "aggressive"
+	});
+
+	const unitAI2 = ConstructComponent(attacker2, "UnitAI", {
+		"FormationController": "false",
+		"DefaultStance": "aggressive"
+	});
+
+	AddMock(attacker1, IID_Attack, {
+		"GetBestAttackAgainst": () => "Melee"
+	});
+
+	AddMock(attacker2, IID_Attack, {
+		"GetBestAttackAgainst": () => "Melee"
+	});
+
+	unitAI1.OnCreate();
+	unitAI2.OnCreate();
+
+	// Basic AttackGroup distribution
+	(function()
+	{
+		let orderAdded1 = null;
+		let orderAdded2 = null;
+
+		// Mock AddOrder to capture what orders are created
+		unitAI1.AddOrder = (type, data, queued, pushFront) =>
+		{
+			orderAdded1 = { type, data, queued, pushFront };
+		};
+
+		unitAI2.AddOrder = (type, data, queued, pushFront) =>
+		{
+			orderAdded2 = { type, data, queued, pushFront };
+		};
+
+		// Call AttackGroup for both units
+		unitAI1.AttackGroup(targets, 0, 2, false, false, false);
+		unitAI2.AttackGroup(targets, 1, 2, false, false, false);
+
+		// Verify unit1's order
+		TS_ASSERT(orderAdded1);
+		TS_ASSERT_EQUALS(orderAdded1.type, "Attack");
+		TS_ASSERT_EQUALS(orderAdded1.data.targetArray.length, 5);
+		TS_ASSERT_EQUALS(orderAdded1.data.target, INVALID_ENTITY);
+		// Unit 0 should start at position 1 ==> Math.round((0 + 0.5) * 2.5) = Math.round(1.25) = 1
+		TS_ASSERT_EQUALS(orderAdded1.data.currentTargetIndex, 1);
+
+		// Verify unit2's order
+		TS_ASSERT(orderAdded2);
+		TS_ASSERT_EQUALS(orderAdded2.type, "Attack");
+		TS_ASSERT_EQUALS(orderAdded2.data.targetArray.length, 5);
+		TS_ASSERT_EQUALS(orderAdded2.data.target, INVALID_ENTITY);
+		// Unit 1 should start at position 4 ==> Math.round((1 + 0.5) * 2.5) = Math.round(3.75) = 4
+		TS_ASSERT_EQUALS(orderAdded2.data.currentTargetIndex, 4);
+	})();
+
+	// More units than targets
+	(function()
+	{
+		let orderAdded1 = null;
+		let orderAdded2 = null;
+		let orderAdded3 = null;
+
+		const unitAI3 = ConstructComponent(102, "UnitAI", {
+			"FormationController": "false",
+			"DefaultStance": "aggressive"
+		});
+		AddMock(102, IID_Attack, { "GetBestAttackAgainst": () => "Melee" });
+		unitAI3.OnCreate();
+
+		unitAI1.AddOrder = (type, data, queued, pushFront) =>
+		{
+			orderAdded1 = { type, data, queued, pushFront };
+		};
+		unitAI2.AddOrder = (type, data, queued, pushFront) =>
+		{
+			orderAdded2 = { type, data, queued, pushFront };
+		};
+		unitAI3.AddOrder = (type, data, queued, pushFront) =>
+		{
+			orderAdded3 = { type, data, queued, pushFront };
+		};
+
+		const smallTargets = [300, 301];
+
+		unitAI1.AttackGroup(smallTargets, 0, 3, true, true, false);
+		unitAI2.AttackGroup(smallTargets, 1, 3, true, true, false);
+		unitAI3.AttackGroup(smallTargets, 2, 3, true, true, false);
+
+		// Verify distribution when more units than targets
+		TS_ASSERT(orderAdded1);
+		TS_ASSERT_EQUALS(orderAdded1.data.currentTargetIndex, 0); // 0 * 2 / 3 = 0
+		TS_ASSERT_EQUALS(orderAdded1.data.allowCapture, true);
+		TS_ASSERT_EQUALS(orderAdded1.queued, true);
+
+		TS_ASSERT(orderAdded2);
+		TS_ASSERT_EQUALS(orderAdded2.data.currentTargetIndex, 1); // 1 * 2 / 3 = 0.66, round = 1
+		TS_ASSERT(orderAdded2.data.currentTargetIndex < smallTargets.length);
+
+		TS_ASSERT(orderAdded3);
+		TS_ASSERT_EQUALS(orderAdded3.data.currentTargetIndex, 1); // 2 * 2 / 3 = 1.33, round = 1
+		TS_ASSERT(orderAdded3.data.currentTargetIndex < smallTargets.length);
+	})();
+
+	// Edge case - single target
+	(function()
+	{
+		let orderAdded = null;
+		unitAI1.AddOrder = (type, data, queued, pushFront) =>
+		{
+			orderAdded = { type, data, queued, pushFront };
+		};
+
+		const singleTarget = [400];
+
+		unitAI1.AttackGroup(singleTarget, 0, 1, false, false, true);
+
+		TS_ASSERT(orderAdded);
+		TS_ASSERT_EQUALS(orderAdded.data.targetArray.length, 1);
+		TS_ASSERT_EQUALS(orderAdded.data.currentTargetIndex, 0);
+		TS_ASSERT_EQUALS(orderAdded.pushFront, true);
+	})();
+
+	// Empty targets array should do nothing
+	(function()
+	{
+		let callCount = 0;
+		unitAI1.AddOrder = () => { callCount++; };
+
+		unitAI1.AttackGroup([], 0, 1);
+		TS_ASSERT_EQUALS(callCount, 0);
+
+		unitAI1.AttackGroup(null, 0, 1);
+		TS_ASSERT_EQUALS(callCount, 0);
+
+		unitAI1.AttackGroup(undefined, 0, 1);
+		TS_ASSERT_EQUALS(callCount, 0);
+	})();
+
+	// Verify RememberTargetPosition is called
+	(function()
+	{
+		let rememberedOrder = null;
+		unitAI1.RememberTargetPosition = (order) =>
+		{
+			rememberedOrder = order;
+		};
+
+		unitAI1.AddOrder = () => {};
+
+		const testTargets = [500, 501];
+		unitAI1.AttackGroup(testTargets, 0, 1);
+
+		TS_ASSERT(rememberedOrder);
+		TS_ASSERT_EQUALS(rememberedOrder.targetArray.length, 2);
+	})();
+}
+
+TestAttackGroupBehavior();
