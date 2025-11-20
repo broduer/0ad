@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<terrain>
+	<textures>
+		<texture name="baseTex" file="types/dry_shrublands/shrubs_02_sparse.png"/>
+		<texture name="normTex" file="types/dry_shrublands/shrubs_02_sparse_norm.png"/>
+		<texture name="specTex" file="types/dry_shrublands/shrubs_02_sparse_spec.png"/>
+	</textures>
+	<props size="45.0" angle="0.0"/>
+	<material>terrain_normstrong_spec.xml</material>
+</terrain>
