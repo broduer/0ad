@@ -4,7 +4,7 @@
 	"description": "Hire servants to help quarry stone. Increases stone gathering rates.",
 	"requirements": {
 		"all": [
-			{ "tech": "phase_city" }
+			{ "tech": "phase_city" }, { "civ": "cart"}
 		]
 	},
 	"icon": "mining_stone_03.png",
