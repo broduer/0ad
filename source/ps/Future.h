@@ -18,7 +18,10 @@
 #ifndef INCLUDED_FUTURE
 #define INCLUDED_FUTURE
 
+#include "ps/execution/StopToken.h"
+
 #include <atomic>
+#include <concepts>
 #include <condition_variable>
 #include <exception>
 #include <memory>
@@ -26,28 +29,6 @@
 #include <type_traits>
 #include <utility>
 #include <variant>
-
-template<typename Callback>
-class PackagedTask;
-
-class StopToken
-{
-public:
-	explicit StopToken(const std::atomic<bool>& request) noexcept :
-		m_Request{request}
-	{}
-
-	bool IsStopRequested() const noexcept
-	{
-		return m_Request.load();
-	}
-private:
-	const std::atomic<bool>& m_Request;
-};
-
-template<typename Callback>
-using CallbackResult = typename std::conditional_t<std::is_invocable_v<Callback, StopToken>,
-	std::invoke_result<Callback, StopToken>, std::invoke_result<Callback>>::type;
 
 namespace FutureSharedStateDetail
 {
@@ -170,74 +151,21 @@ private:
 
 	std::variant<std::exception_ptr, NonVoid<ResultType>> m_Outcome;
 };
-
-/**
- * The shared state between futures and packaged state.
- */
-template<typename Callback>
-struct SharedState
-{
-	SharedState(Callback&& callbackFunc) :
-		callback{std::forward<Callback>(callbackFunc)}
-	{}
-
-	Callback callback;
-	Receiver<CallbackResult<Callback>> receiver;
-};
-
 } // namespace FutureSharedStateDetail
 
-/**
- * Corresponds somewhat to std::packaged_task.
- * Like packaged_task, this holds a function acting as a promise.
- * This type is mostly just the shared state and the call operator,
- * handling the promise & continuation logic.
- */
-template<typename Callback>
-class PackagedTask
+template<typename State, typename Task, typename... PushArgs>
+concept SharedState = std::constructible_from<State, Task> &&
+	requires(State state, PushArgs&&... pushArgs)
 {
-public:
-	PackagedTask() = delete;
-	PackagedTask(FutureSharedStateDetail::SharedState<Callback>& ss) :
-		m_SharedState{ss}
-	{}
-
-	void operator()()
-	{
-		if (m_SharedState.receiver.GetStopToken().IsStopRequested())
-		{
-			m_SharedState.receiver.SetStoped();
-			return;
-		}
-
-		try
-		{
-			using ResultType = CallbackResult<Callback>;
-			if constexpr (std::is_void_v<ResultType>)
-			{
-				Invoke();
-				m_SharedState.receiver.SetValue();
-			}
-			else
-				m_SharedState.receiver.SetValue(Invoke());
-		}
-		catch(...)
-		{
-			m_SharedState.receiver.SetError(std::current_exception());
-		}
-	}
-
-private:
-	CallbackResult<Callback> Invoke()
-	{
-		if constexpr (std::is_invocable_v<Callback, StopToken>)
-			return m_SharedState.callback(m_SharedState.receiver.GetStopToken());
-		else
-			return m_SharedState.callback();
-	}
-
-	FutureSharedStateDetail::SharedState<Callback>& m_SharedState;
+	State::Push(state, std::forward<PushArgs>(pushArgs)...);
+	{ &state.GetReceiver() } ->
+		std::same_as<FutureSharedStateDetail::Receiver<typename Task::ResultType>*>;
 };
+
+template<typename T, typename... PushArgs>
+concept ExecutionTask =
+	(std::move_constructible<typename T::ResultType> || std::same_as<typename T::ResultType, void>) &&
+	SharedState<typename T::template SharedState<FutureSharedStateDetail::Receiver>, T, PushArgs...>;
 
 /**
  * Corresponds to std::future.
@@ -268,21 +196,20 @@ public:
 	}
 
 	/**
-	 * Make the future wait for the result of @a callback.
+	 * Make the future wait for the result of @a task.
 	 */
-	template<typename Callback, typename... Args>
-	Future(auto& taskManager, Callback&& callback, Args&&... args)
+	template<typename Scheduler, typename... Args, ExecutionTask<Scheduler&, Args...> Task>
+	Future(Scheduler& taskManager, Task&& task, Args&&... args)
 	{
-		static_assert(std::is_same_v<CallbackResult<Callback>, ResultType>,
+		using TaskResultType = typename Task::ResultType;
+		using TaskSharedState = typename Task::template SharedState<FutureSharedStateDetail::Receiver>;
+		static_assert(std::is_same_v<TaskResultType, ResultType>,
 		"The return type of the wrapped function is not the same as the type the Future expects.");
-		static_assert(std::is_invocable_v<Callback, StopToken> || !std::is_invocable_v<Callback, StopToken&>,
-			"Consider taking the `StopToken` by value");
 
-		auto temp = std::make_shared<FutureSharedStateDetail::SharedState<Callback>>(
-			std::forward<Callback>(callback));
+		auto temp = std::make_shared<TaskSharedState>(std::forward<Task>(task));
 
-		taskManager.PushTask(PackagedTask<Callback>(*temp), std::forward<Args>(args)...);
-		const auto receiverPtr = &temp->receiver;
+		TaskSharedState::Push(*temp, taskManager, std::forward<Args>(args)...);
+		const auto receiverPtr = &temp->GetReceiver();
 		m_Receiver = {std::move(temp), receiverPtr};
 	}
 
@@ -340,7 +267,7 @@ protected:
 	std::shared_ptr<FutureSharedStateDetail::Receiver<ResultType>> m_Receiver;
 };
 
-template<typename Callback, typename... Args>
-Future(auto& taskManager, Callback&& callback, Args&&... args) -> Future<CallbackResult<Callback>>;
+template<typename Scheduler, typename... Args, ExecutionTask<Scheduler&, Args...> Task>
+Future(Scheduler& taskManager, Task&& callback, Args&&... args) -> Future<typename Task::ResultType>;
 
 #endif // INCLUDED_FUTURE

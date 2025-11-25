@@ -35,6 +35,7 @@
 #include "ps/Profiler2GPU.h"
 #include "ps/Pyrogenesis.h"
 #include "ps/TaskManager.h"
+#include "ps/execution/Single.h"
 #include "third_party/mongoose/mongoose.h"
 
 #include <algorithm>
@@ -108,11 +109,14 @@ static void* MgCallback(mg_event event, struct mg_connection *conn, const struct
 		std::string uri = request_info->uri;
 
 		if (uri == "/download")
-			Future{g_TaskManager, std::bind_front(&CProfiler2::SaveToFile, profiler)}.Get();
+		{
+			Future{g_TaskManager, PS::Single{std::bind_front(&CProfiler2::SaveToFile,
+				profiler)}}.Get();
+		}
 		else if (uri == "/overview")
 		{
-			Future{g_TaskManager,
-				std::bind_front(&CProfiler2::ConstructJSONOverview, profiler, std::ref(stream))}.Get();
+			Future{g_TaskManager, PS::Single{std::bind_front(&CProfiler2::ConstructJSONOverview,
+				profiler, std::ref(stream))}}.Get();
 		}
 		else if (uri == "/query")
 		{
@@ -132,9 +136,9 @@ static void* MgCallback(mg_event event, struct mg_connection *conn, const struct
 			}
 			std::string thread(buf);
 
-			const char* err = Future{g_TaskManager,
+			const char* err = Future{g_TaskManager, PS::Single{
 				std::bind_front(&CProfiler2::ConstructJSONResponse, profiler, std::ref(stream),
-					std::ref(thread))}.Get();
+					std::ref(thread))}}.Get();
 
 			if (err)
 			{

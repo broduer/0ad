@@ -34,6 +34,7 @@
 #include "ps/Future.h"
 #include "ps/Profile.h"
 #include "ps/TaskManager.h"
+#include "ps/execution/Single.h"
 #include "renderer/Scene.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/ICmpFogging.h"
@@ -1228,10 +1229,10 @@ public:
 		std::vector<Future<void>> futures;
 		futures.reserve(numFutures);
 		for (size_t i = 0; i < numFutures; i++)
-			futures.push_back({g_TaskManager,
+			futures.push_back({g_TaskManager, PS::Single{
 				[&ProcessQueriesAsync, &subdivisionResultsBuffer = m_SubdivisionResultBuffers[i]]() {
 					ProcessQueriesAsync(subdivisionResultsBuffer);
-				}
+				}}
 			});
 
 		// Start working in the main thread as well.

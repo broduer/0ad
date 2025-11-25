@@ -39,6 +39,7 @@
 #include "ps/Profiler2.h"
 #include "ps/TaskManager.h"
 #include "ps/XML/Xeromyces.h"
+#include "ps/execution/Single.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/ICmpObstruction.h"
 #include "simulation2/components/ICmpObstructionManager.h"
@@ -861,13 +862,13 @@ void CCmpPathfinder::StartProcessingMoves(bool useMax)
 		ENSURE(!m_Futures[i].Valid());
 		// Pass the i+1th vertex pathfinder to keep the first for the main thread,
 		// each thread get its own instance to avoid conflicts in cached data.
-		m_Futures[i] = {g_TaskManager,
+		m_Futures[i] = {g_TaskManager, PS::Single{
 			[&pathfinder=*this, &vertexPfr=m_VertexPathfinders[i + 1]]()
 			{
 				PROFILE2("Async pathfinding");
 				pathfinder.m_ShortPathRequests.Compute(pathfinder, vertexPfr);
 				pathfinder.m_LongPathRequests.Compute(pathfinder, *pathfinder.m_LongPathfinder);
-			}};
+			}}};
 	}
 }
 

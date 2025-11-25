@@ -20,6 +20,7 @@
 #include "lib/types.h"
 #include "ps/Future.h"
 #include "ps/TaskManager.h"
+#include "ps/execution/Single.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -37,7 +38,7 @@ public:
 
 		std::atomic<int> tasks_run = 0;
 		auto increment_run = [&tasks_run]() { tasks_run++; };
-		Future future{g_TaskManager, increment_run};
+		Future future{g_TaskManager, PS::Single{increment_run}};
 		future.Wait();
 		TS_ASSERT_EQUALS(tasks_run.load(), 1);
 
@@ -45,7 +46,7 @@ public:
 		std::condition_variable cv;
 		std::mutex mutex;
 		std::atomic<bool> go = false;
-		future = {g_TaskManager, [&]{
+		future = {g_TaskManager, PS::Single{[&]{
 			std::unique_lock<std::mutex> lock(mutex);
 			cv.wait(lock, [&go]() -> bool { return go; });
 			lock.unlock();
@@ -54,7 +55,7 @@ public:
 			go = false;
 			lock.unlock();
 			cv.notify_all();
-		}};
+		}}};
 		TS_ASSERT_EQUALS(tasks_run.load(), 1);
 		std::unique_lock<std::mutex> lock(mutex);
 		go = true;
@@ -72,15 +73,15 @@ public:
 		std::atomic<int> tasks_run = 0;
 		// Push general tasks
 		auto increment_run = [&tasks_run]() { tasks_run++; };
-		Future future = {g_TaskManager, increment_run};
-		Future futureLow = {g_TaskManager, increment_run, Threading::TaskPriority::LOW};
+		Future future = {g_TaskManager, PS::Single{increment_run}};
+		Future futureLow = {g_TaskManager, PS::Single{increment_run}, Threading::TaskPriority::LOW};
 		future.Wait();
 		futureLow.Wait();
 		TS_ASSERT_EQUALS(tasks_run.load(), 2);
 		// Also check with no waiting expected.
-		Future{g_TaskManager, increment_run}.Wait();
+		Future{g_TaskManager, PS::Single{increment_run}}.Wait();
 		TS_ASSERT_EQUALS(tasks_run.load(), 3);
-		Future{g_TaskManager, increment_run, Threading::TaskPriority::LOW}.Wait();
+		Future{g_TaskManager, PS::Single{increment_run}, Threading::TaskPriority::LOW}.Wait();
 		TS_ASSERT_EQUALS(tasks_run.load(), 4);
 	}
 
@@ -91,20 +92,20 @@ public:
 		futures.resize(ITERATIONS);
 		std::vector<u32> values(ITERATIONS);
 
-		Future f1{g_TaskManager, [&futures]{
+		Future f1{g_TaskManager, PS::Single{[&futures]{
 			for (u32 i = 0; i < ITERATIONS; i+=3)
-				futures[i] = {g_TaskManager, []{ return 5; }};
-		}};
+				futures[i] = {g_TaskManager, PS::Single{[]{ return 5; }}};
+		}}};
 
-		Future f2{g_TaskManager, [&futures]{
+		Future f2{g_TaskManager, PS::Single{[&futures]{
 			for (u32 i = 1; i < ITERATIONS; i+=3)
-				futures[i] = {g_TaskManager, []{ return 5; }, Threading::TaskPriority::LOW};
-		}};
+				futures[i] = {g_TaskManager, PS::Single{[]{ return 5; }}, Threading::TaskPriority::LOW};
+		}}};
 
-		Future f3{g_TaskManager, [&futures]{
+		Future f3{g_TaskManager, PS::Single{[&futures]{
 			for (u32 i = 2; i < ITERATIONS; i+=3)
-				futures[i] = {g_TaskManager, []{ return 5; }};
-		}};
+				futures[i] = {g_TaskManager, PS::Single{[]{ return 5; }}};
+		}}};
 
 		f1.Wait();
 		f2.Wait();

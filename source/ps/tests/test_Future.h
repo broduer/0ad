@@ -18,6 +18,7 @@
 #include "lib/self_test.h"
 
 #include "ps/Future.h"
+#include "ps/execution/Single.h"
 
 #include <cstring>
 #include <exception>
@@ -43,7 +44,7 @@ public:
 	{
 		bool executed{false};
 		TestTaskManager ttm;
-		Future noret{ttm, [&]{ executed = true; }};
+		Future noret{ttm, PS::Single{[&]{ executed = true; }}};
 		TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
 		std::exchange(ttm.tasks, {})[0]();
 		TS_ASSERT(executed);
@@ -53,7 +54,7 @@ public:
 	{
 		TestTaskManager ttm;
 		{
-			Future future{ttm, []{ return 1; }};
+			Future future{ttm, PS::Single{[]{ return 1; }}};
 			TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
 			std::exchange(ttm.tasks, {})[0]();
 			TS_ASSERT_EQUALS(future.Get(), 1);
@@ -76,7 +77,7 @@ public:
 		};
 		TS_ASSERT_EQUALS(destroyed, 0);
 		{
-			Future future{ttm, []{ return NonDef{1}; }};
+			Future future{ttm, PS::Single{[]{ return NonDef{1}; }}};
 			TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
 			std::exchange(ttm.tasks, {})[0]();
 			TS_ASSERT_EQUALS(future.Get().value, 1);
@@ -109,7 +110,7 @@ public:
 		c = new (&functionStorage) std::function<int()>{};
 
 		*c = []() { return 7; };
-		*f = {ttm, std::move(*c)};
+		*f = {ttm, PS::Single{std::move(*c)}};
 
 		future = std::move(*f);
 		function = std::move(*c);
@@ -141,7 +142,7 @@ public:
 
 		TestTaskManager ttm;
 
-		Future future{ttm, [t = MoveOnlyType{}]{ return t.fn(); }};
+		Future future{ttm, PS::Single{[t = MoveOnlyType{}]{ return t.fn(); }}};
 		TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
 		std::exchange(ttm.tasks, {})[0]();
 
@@ -156,10 +157,10 @@ public:
 	void test_exception()
 	{
 		TestTaskManager ttm;
-		Future<int> future{ttm, []() -> int
+		Future<int> future{ttm, PS::Single{[]() -> int
 		{
 			throw TestException{};
-		}};
+		}}};
 
 		TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
 		std::exchange(ttm.tasks, {})[0]();
@@ -170,10 +171,10 @@ public:
 	void test_voidException()
 	{
 		TestTaskManager ttm;
-		Future<void> future{ttm, []
+		Future<void> future{ttm, PS::Single{[]
 		{
 			throw TestException{};
-		}};
+		}}};
 
 		TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
 		std::exchange(ttm.tasks, {})[0]();
@@ -198,10 +199,10 @@ public:
 
 		TestTaskManager ttm;
 
-		Future<ThrowsOnMove> future{ttm, []
+		Future<ThrowsOnMove> future{ttm, PS::Single{[]
 		{
 			return ThrowsOnMove{};
-		}};
+		}}};
 
 		TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
 		std::exchange(ttm.tasks, {})[0]();
@@ -226,7 +227,7 @@ public:
 				}
 			};
 
-			Future<bool> future{ttm, DifferentValues{}};
+			Future<bool> future{ttm, PS::Single{DifferentValues{}}};
 			TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
 			std::exchange(ttm.tasks, {})[0]();
 			TS_ASSERT_EQUALS(future.Get(), true);
@@ -243,7 +244,7 @@ public:
 				}
 			};
 
-			Future<bool> future{ttm, DifferentTypes{}};
+			Future<bool> future{ttm, PS::Single{DifferentTypes{}}};
 			TS_ASSERT_EQUALS(ttm.tasks.size(), 1);
 			std::exchange(ttm.tasks, {})[0]();
 		}

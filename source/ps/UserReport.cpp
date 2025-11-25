@@ -39,6 +39,7 @@
 #include "ps/TaskManager.h"
 #include "ps/Future.h"
 #include "ps/Threading.h"
+#include "ps/execution/Single.h"
 
 #include <algorithm>
 #include <cstring>
@@ -246,7 +247,7 @@ private:
 		CleanupFuture();
 
 		// Start or replace the future
-		m_Future = {g_TaskManager, std::bind_front(&CUserReporterWorker::RunTask, this)};
+		m_Future = {g_TaskManager, PS::Single{std::bind_front(&CUserReporterWorker::RunTask, this)}};
 	}
 
 	void RunTask()
