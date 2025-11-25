@@ -996,7 +996,6 @@ UnitAI.prototype.UnitFsmSpec = {
 				// Start the timer on the next turn to catch up with potential stragglers.
 				this.StartTimer(100, 2000);
 				this.isIdle = true;
-				this.CallMemberFunction("ResetIdle");
 				return false;
 			},
 
@@ -3512,18 +3511,6 @@ UnitAI.prototype.IsHealer = function()
 UnitAI.prototype.IsIdle = function()
 {
 	return this.isIdle;
-};
-
-/**
- * Used by formation controllers to toggle the idleness of their members.
- */
-UnitAI.prototype.ResetIdle = function()
-{
-	const shouldBeIdle = this.GetCurrentState().endsWith(".IDLE");
-	if (this.isIdle == shouldBeIdle)
-		return;
-	this.isIdle = shouldBeIdle;
-	Engine.PostMessage(this.entity, MT_UnitIdleChanged, { "idle": this.isIdle });
 };
 
 UnitAI.prototype.SetGarrisoned = function()
