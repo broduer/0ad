@@ -105,7 +105,7 @@ public:
 	std::unique_ptr<LongPathfinder> m_LongPathfinder;
 
 	// One per live asynchronous path computing task.
-	std::vector<Future<void>> m_Futures;
+	Future<void> m_Future;
 
 	template<typename T>
 	class PathRequests {

@@ -39,7 +39,7 @@
 #include "ps/Profiler2.h"
 #include "ps/TaskManager.h"
 #include "ps/XML/Xeromyces.h"
-#include "ps/execution/Single.h"
+#include "ps/execution/Batch.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/ICmpObstruction.h"
 #include "simulation2/components/ICmpObstructionManager.h"
@@ -89,15 +89,11 @@ void CCmpPathfinder::Init(const CParamNode&)
 
 	m_AtlasOverlay = NULL;
 
-	size_t workerThreads = g_TaskManager.GetNumberOfWorkers();
 	// Store one vertex pathfinder for each thread (including the main thread).
-	while (m_VertexPathfinders.size() < workerThreads + 1)
+	while (m_VertexPathfinders.size() < g_TaskManager.GetNumberOfWorkers() + 1)
 		m_VertexPathfinders.emplace_back(m_GridSize, m_TerrainOnlyGrid);
 	m_LongPathfinder = std::make_unique<LongPathfinder>();
 	m_PathfinderHier = std::make_unique<HierarchicalPathfinder>();
-
-	// Set up one future for each worker thread.
-	m_Futures.resize(workerThreads);
 
 	// Register Relax NG validator
 	g_Xeromyces.AddValidator(g_VFS, "pathfinder", "simulation/data/pathfinder.rng");
@@ -135,7 +131,7 @@ void CCmpPathfinder::Deinit()
 {
 	SetDebugOverlay(false); // cleans up memory
 
-	m_Futures.clear();
+	m_Future.CancelOrWait();
 
 	SAFE_DELETE(m_AtlasOverlay);
 
@@ -828,9 +824,10 @@ void CCmpPathfinder::SendRequestedPaths()
 		m_LongPathRequests.Compute(*this, *m_LongPathfinder);
 	}
 	// We're done, get the exceptions from the futures.
-	for (Future<void>& future : m_Futures)
-		if (future.Valid())
-			future.Get();
+	if (m_Future.Valid())
+	{
+		m_Future.Get();
+	}
 
 	{
 		PROFILE2("PostMessages");
@@ -855,21 +852,19 @@ void CCmpPathfinder::StartProcessingMoves(bool useMax)
 	m_ShortPathRequests.PrepareForComputation(useMax ? m_MaxSameTurnMoves : 0);
 	m_LongPathRequests.PrepareForComputation(useMax ? m_MaxSameTurnMoves : 0);
 
-	// There's some overhead to waking threads, so don't do it unless we need to.
-	const size_t m = std::min(m_Futures.size(), m_ShortPathRequests.m_Requests.size() + m_LongPathRequests.m_Requests.size());
-	for (size_t i = 0; i < m; ++i)
-	{
-		ENSURE(!m_Futures[i].Valid());
-		// Pass the i+1th vertex pathfinder to keep the first for the main thread,
-		// each thread get its own instance to avoid conflicts in cached data.
-		m_Futures[i] = {g_TaskManager, PS::Single{
-			[&pathfinder=*this, &vertexPfr=m_VertexPathfinders[i + 1]]()
-			{
-				PROFILE2("Async pathfinding");
-				pathfinder.m_ShortPathRequests.Compute(pathfinder, vertexPfr);
-				pathfinder.m_LongPathRequests.Compute(pathfinder, *pathfinder.m_LongPathfinder);
-			}}};
-	}
+	ENSURE(!m_Future.Valid());
+	// There's some overhead to waking threads. So only wake as many as required.
+	const std::size_t maxTasks{std::min(m_VertexPathfinders.size() - 1,
+		m_ShortPathRequests.m_Requests.size() + m_LongPathRequests.m_Requests.size())};
+	// The first VertexPathfinder is reserved for the main thread. So drop it.
+	m_Future = Future<void>(g_TaskManager, PS::Batch{
+		std::span{m_VertexPathfinders}.subspan(1, maxTasks),
+		[&pathfinder = *this](VertexPathfinder& vertexPfr)
+		{
+			PROFILE2("Async pathfinding");
+			pathfinder.m_ShortPathRequests.Compute(pathfinder, vertexPfr);
+			pathfinder.m_LongPathRequests.Compute(pathfinder, *pathfinder.m_LongPathfinder);
+		}});
 }
 
 

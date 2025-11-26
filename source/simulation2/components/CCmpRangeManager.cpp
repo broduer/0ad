@@ -34,7 +34,7 @@
 #include "ps/Future.h"
 #include "ps/Profile.h"
 #include "ps/TaskManager.h"
-#include "ps/execution/Single.h"
+#include "ps/execution/Batch.h"
 #include "renderer/Scene.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/ICmpFogging.h"
@@ -69,6 +69,7 @@
 #include <iterator>
 #include <limits>
 #include <map>
+#include <ranges>
 #include <set>
 #include <string>
 #include <type_traits>
@@ -1225,21 +1226,18 @@ public:
 				}
 			};
 
-		size_t numFutures = std::min(g_TaskManager.GetNumberOfWorkers(), m_Queries.size());
-		std::vector<Future<void>> futures;
-		futures.reserve(numFutures);
-		for (size_t i = 0; i < numFutures; i++)
-			futures.push_back({g_TaskManager, PS::Single{
-				[&ProcessQueriesAsync, &subdivisionResultsBuffer = m_SubdivisionResultBuffers[i]]() {
-					ProcessQueriesAsync(subdivisionResultsBuffer);
-				}}
-			});
+		std::size_t numTasks = std::min(g_TaskManager.GetNumberOfWorkers(), m_Queries.size());
+		Future<void> future = {g_TaskManager, PS::Batch{
+			std::span{m_SubdivisionResultBuffers}.first(numTasks),
+			[&ProcessQueriesAsync](std::vector<entity_id_t>& buffer)
+			{
+				ProcessQueriesAsync(buffer);
+			}}};
 
 		// Start working in the main thread as well.
-		ProcessQueriesAsync(m_SubdivisionResultBuffers[numFutures]);
+		ProcessQueriesAsync(m_SubdivisionResultBuffers[numTasks]);
 
-		for (Future<void>& future : futures)
-			future.Get();
+		future.Get();
 
 		CComponentManager& cmpMgr = GetSimContext().GetComponentManager();
 		for (const auto& msg : messages)
