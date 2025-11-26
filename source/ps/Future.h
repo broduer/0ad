@@ -71,6 +71,29 @@ public:
 	Receiver(const Receiver&) = delete;
 	Receiver(Receiver&&) = delete;
 
+	void SetValue() noexcept requires std::same_as<ResultType, void>
+	{
+		m_Outcome.template emplace<FutureSharedStateDetail::VoidSubstitution>();
+		SyncronizeOutcome();
+	}
+
+	void SetValue(NonVoid<ResultType>&& result) requires (!std::same_as<ResultType, void>)
+	{
+		m_Outcome.template emplace<ResultType>(std::forward<ResultType>(result));
+		SyncronizeOutcome();
+	}
+
+	void SetError(std::exception_ptr ptr) noexcept
+	{
+		m_Outcome.template emplace<std::exception_ptr>(std::move(ptr));
+		SyncronizeOutcome();
+	}
+
+	void SetStoped() noexcept
+	{
+		SyncronizeOutcome();
+	}
+
 	bool IsDone() const noexcept
 	{
 		return m_Done.load();
@@ -96,6 +119,11 @@ public:
 		m_StopRequest.store(true);
 	}
 
+	StopToken GetStopToken() noexcept
+	{
+		return StopToken{m_StopRequest};
+	}
+
 	/**
 	 * Move the result away from the shared state, mark the future invalid.
 	 */
@@ -116,6 +144,21 @@ public:
 			return;
 		else
 			return ret;
+	}
+
+private:
+	void SyncronizeOutcome() noexcept
+	{
+		// Because we might have threads waiting on us, we need to make sure that they either:
+		// - don't wait on our condition variable
+		// - receive the notification when we're done.
+		// This requires locking the mutex (@see Wait).
+		{
+			const std::lock_guard lock(m_Mutex);
+			m_Done.store(true);
+		}
+
+		m_ConditionVariable.notify_all();
 	}
 
 	// This is only set by the executing thread and read by the receiving thread. It is never reset.
@@ -161,43 +204,34 @@ public:
 
 	void operator()()
 	{
-		if (!m_SharedState.receiver.m_StopRequest.load())
+		if (m_SharedState.receiver.GetStopToken().IsStopRequested())
 		{
-			auto& outcome = m_SharedState.receiver.m_Outcome;
-			try
-			{
-				using ResultType = CallbackResult<Callback>;
-				if constexpr (std::is_void_v<ResultType>)
-				{
-					Invoke();
-					outcome.template emplace<FutureSharedStateDetail::VoidSubstitution>();
-				}
-				else
-					outcome.template emplace<ResultType>(Invoke());
-			}
-			catch(...)
-			{
-				outcome.template emplace<std::exception_ptr>(std::current_exception());
-			}
+			m_SharedState.receiver.SetStoped();
+			return;
 		}
 
-		// Because we might have threads waiting on us, we need to make sure that they either:
-		// - don't wait on our condition variable
-		// - receive the notification when we're done.
-		// This requires locking the mutex (@see Wait).
+		try
 		{
-			std::lock_guard<std::mutex> lock(m_SharedState.receiver.m_Mutex);
-			m_SharedState.receiver.m_Done.store(true);
+			using ResultType = CallbackResult<Callback>;
+			if constexpr (std::is_void_v<ResultType>)
+			{
+				Invoke();
+				m_SharedState.receiver.SetValue();
+			}
+			else
+				m_SharedState.receiver.SetValue(Invoke());
 		}
-
-		m_SharedState.receiver.m_ConditionVariable.notify_all();
+		catch(...)
+		{
+			m_SharedState.receiver.SetError(std::current_exception());
+		}
 	}
 
 private:
 	CallbackResult<Callback> Invoke()
 	{
 		if constexpr (std::is_invocable_v<Callback, StopToken>)
-			return m_SharedState.callback(StopToken{m_SharedState.receiver.m_StopRequest});
+			return m_SharedState.callback(m_SharedState.receiver.GetStopToken());
 		else
 			return m_SharedState.callback();
 	}
