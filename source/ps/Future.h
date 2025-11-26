@@ -155,15 +155,15 @@ class PackagedTask
 {
 public:
 	PackagedTask() = delete;
-	PackagedTask(std::shared_ptr<FutureSharedStateDetail::SharedState<Callback>> ss) :
-		m_SharedState(std::move(ss))
+	PackagedTask(FutureSharedStateDetail::SharedState<Callback>& ss) :
+		m_SharedState{ss}
 	{}
 
 	void operator()()
 	{
-		if (!m_SharedState->receiver.m_StopRequest.load())
+		if (!m_SharedState.receiver.m_StopRequest.load())
 		{
-			auto& outcome = m_SharedState->receiver.m_Outcome;
+			auto& outcome = m_SharedState.receiver.m_Outcome;
 			try
 			{
 				using ResultType = CallbackResult<Callback>;
@@ -186,26 +186,23 @@ public:
 		// - receive the notification when we're done.
 		// This requires locking the mutex (@see Wait).
 		{
-			std::lock_guard<std::mutex> lock(m_SharedState->receiver.m_Mutex);
-			m_SharedState->receiver.m_Done.store(true);
+			std::lock_guard<std::mutex> lock(m_SharedState.receiver.m_Mutex);
+			m_SharedState.receiver.m_Done.store(true);
 		}
 
-		m_SharedState->receiver.m_ConditionVariable.notify_all();
-
-		// We no longer need the shared state, drop it immediately.
-		m_SharedState.reset();
+		m_SharedState.receiver.m_ConditionVariable.notify_all();
 	}
 
 private:
 	CallbackResult<Callback> Invoke()
 	{
 		if constexpr (std::is_invocable_v<Callback, StopToken>)
-			return m_SharedState->callback(StopToken{m_SharedState->receiver.m_StopRequest});
+			return m_SharedState.callback(StopToken{m_SharedState.receiver.m_StopRequest});
 		else
-			return m_SharedState->callback();
+			return m_SharedState.callback();
 	}
 
-	std::shared_ptr<FutureSharedStateDetail::SharedState<Callback>> m_SharedState;
+	FutureSharedStateDetail::SharedState<Callback>& m_SharedState;
 };
 
 /**
@@ -249,9 +246,10 @@ public:
 
 		auto temp = std::make_shared<FutureSharedStateDetail::SharedState<Callback>>(
 			std::forward<Callback>(callback));
-		m_Receiver = {temp, &temp->receiver};
 
-		taskManager.PushTask(PackagedTask<Callback>(std::move(temp)), std::forward<Args>(args)...);
+		taskManager.PushTask(PackagedTask<Callback>(*temp), std::forward<Args>(args)...);
+		const auto receiverPtr = &temp->receiver;
+		m_Receiver = {std::move(temp), receiverPtr};
 	}
 
 	~Future()
