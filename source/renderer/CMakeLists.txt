@@ -1,0 +1,64 @@
+target_sources(graphics
+	PRIVATE
+		AlphaMapCalculator.cpp
+		AlphaMapCalculator.h
+		BlendShapes.h
+		CPUSkinnedModelRenderer.cpp
+		CPUSkinnedModelRenderer.h
+		DebugRenderer.cpp
+		DebugRenderer.h
+		DecalRData.cpp
+		DecalRData.h
+		GPUSkinnedModelRenderer.cpp
+		GPUSkinnedModelRenderer.h
+		InstancingModelRenderer.cpp
+		InstancingModelRenderer.h
+		MikktspaceWrap.cpp
+		MikktspaceWrap.h
+		ModelRenderer.cpp
+		ModelRenderer.h
+		ModelVertexRenderer.h
+		OverlayRenderer.cpp
+		OverlayRenderer.h
+		ParticleRenderer.cpp
+		ParticleRenderer.h
+		PatchRData.cpp
+		PatchRData.h
+		PostprocManager.cpp
+		PostprocManager.h
+		RenderModifiers.cpp
+		RenderModifiers.h
+		Renderer.cpp
+		Renderer.h
+		RenderingOptions.cpp
+		RenderingOptions.h
+		Scene.cpp
+		Scene.h
+		SceneRenderer.cpp
+		SceneRenderer.h
+		ShadowMap.cpp
+		ShadowMap.h
+		SilhouetteRenderer.cpp
+		SilhouetteRenderer.h
+		SkyManager.cpp
+		SkyManager.h
+		TerrainOverlay.cpp
+		TerrainOverlay.h
+		TerrainRenderer.cpp
+		TerrainRenderer.h
+		TexturedLineRData.cpp
+		TexturedLineRData.h
+		TimeManager.cpp
+		TimeManager.h
+		VertexArray.cpp
+		VertexArray.h
+		VertexBuffer.cpp
+		VertexBuffer.h
+		VertexBufferManager.cpp
+		VertexBufferManager.h
+		WaterManager.cpp
+		WaterManager.h
+)
+
+add_subdirectory(backend/)
+add_subdirectory(scripting/)

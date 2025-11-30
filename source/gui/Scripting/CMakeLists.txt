@@ -1,0 +1,15 @@
+target_sources(gui
+	PRIVATE
+		GuiScriptConversions.cpp
+		JSInterface_CGUISize.cpp
+		JSInterface_CGUISize.h
+		JSInterface_GUIManager.cpp
+		JSInterface_GUIManager.h
+		JSInterface_GUIProxy.cpp
+		JSInterface_GUIProxy.h
+		JSInterface_GUIProxy_impl.h
+		JSInterface_GUISize.cpp
+		JSInterface_GUISize.h
+		ScriptFunctions.cpp
+		ScriptFunctions.h
+)

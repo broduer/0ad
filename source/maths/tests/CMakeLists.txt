@@ -1,0 +1,12 @@
+target_sources(engine
+	PRIVATE
+		test_Bound.h
+		test_BoundingSphere.h
+		test_Brush.h
+		test_Fixed.h
+		test_FixedVector2D.h
+		test_FixedVector3D.h
+		test_MD5.h
+		test_Matrix3d.h
+		test_Sqrt.h
+)

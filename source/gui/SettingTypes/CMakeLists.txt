@@ -1,0 +1,17 @@
+target_sources(gui
+	PRIVATE
+		CGUIColor.cpp
+		CGUIColor.h
+		CGUIHotkey.cpp
+		CGUIHotkey.h
+		CGUIList.h
+		CGUISeries.h
+		CGUISize.cpp
+		CGUISize.h
+		CGUIString.cpp
+		CGUIString.h
+		EAlign.h
+		EScrollOrientation.h
+		MouseEventMask.cpp
+		MouseEventMask.h
+)

@@ -1,0 +1,12 @@
+target_sources(engine
+	PRIVATE
+		CBufferItem.cpp
+		CBufferItem.h
+		CSoundBase.cpp
+		CSoundBase.h
+		CSoundItem.cpp
+		CSoundItem.h
+		CStreamItem.cpp
+		CStreamItem.h
+		ISoundItem.h
+)

@@ -1,0 +1,101 @@
+target_sources(engine
+	PRIVATE
+		ArchiveBuilder.cpp
+		ArchiveBuilder.h
+		CConsole.cpp
+		CConsole.h
+		CLogger.cpp
+		CLogger.h
+		CStr.cpp
+		CStr.h
+		CStrForward.h
+		CStrIntern.cpp
+		CStrIntern.h
+		CStrInternStatic.h
+		CacheLoader.cpp
+		CacheLoader.h
+		Compress.cpp
+		Compress.h
+		ConfigDB.cpp
+		ConfigDB.h
+		DllLoader.cpp
+		DllLoader.h
+		Errors.cpp
+		Errors.h
+		FileIo.cpp
+		FileIo.h
+		Filesystem.cpp
+		Filesystem.h
+		Future.h
+		GUID.cpp
+		GUID.h
+		Game.cpp
+		Game.h
+		Globals.cpp
+		Globals.h
+		Hashing.cpp
+		Hashing.h
+		Hotkey.cpp
+		Hotkey.h
+		Input.cpp
+		Input.h
+		Joystick.cpp
+		Joystick.h
+		KeyName.cpp
+		KeyName.h
+		Loader.cpp
+		Loader.h
+		Mod.cpp
+		Mod.h
+		ModInstaller.cpp
+		ModInstaller.h
+		ModIo.cpp
+		ModIo.h
+		Profile.cpp
+		Profile.h
+		ProfileViewer.cpp
+		ProfileViewer.h
+		Profiler2.cpp
+		Profiler2.h
+		Profiler2GPU.cpp
+		Profiler2GPU.h
+		Pyrogenesis.cpp
+		Pyrogenesis.h
+		Replay.cpp
+		Replay.h
+		SavedGame.cpp
+		SavedGame.h
+		Singleton.h
+		TaskManager.cpp
+		TaskManager.h
+		TemplateLoader.cpp
+		TemplateLoader.h
+		ThreadUtil.h
+		Threading.cpp
+		Threading.h
+		TouchInput.cpp
+		TouchInput.h
+		UniDoubler.h
+		UserReport.cpp
+		UserReport.h
+		Util.cpp
+		Util.h
+		VideoMode.cpp
+		VideoMode.h
+		VisualReplay.cpp
+		VisualReplay.h
+		World.cpp
+		World.h
+		algorithm.h
+)
+
+add_subdirectory(GameSetup/)
+add_subdirectory(XMB/)
+add_subdirectory(XML/)
+add_subdirectory(containers/)
+add_subdirectory(scripting/)
+if(NOT without-tests)
+	add_subdirectory(tests/)
+endif()
+add_subdirectory(memory/)
+add_subdirectory(strings/)

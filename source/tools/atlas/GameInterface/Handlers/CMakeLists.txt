@@ -1,0 +1,17 @@
+target_sources(atlas
+	PRIVATE
+		BrushHandlers.cpp
+		CameraCtrlHandlers.cpp
+		CinemaHandler.cpp
+		CommandHandlers.cpp
+		ElevationHandlers.cpp
+		EnvironmentHandlers.cpp
+		GraphicsSetupHandlers.cpp
+		MapHandlers.cpp
+		MessageHandler.cpp
+		MessageHandler.h
+		MiscHandlers.cpp
+		ObjectHandlers.cpp
+		PlayerHandlers.cpp
+		TerrainHandlers.cpp
+)

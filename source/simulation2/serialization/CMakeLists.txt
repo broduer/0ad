@@ -1,0 +1,21 @@
+target_sources(simulation2
+	PRIVATE
+		BinarySerializer.cpp
+		BinarySerializer.h
+		DebugSerializer.cpp
+		DebugSerializer.h
+		HashSerializer.cpp
+		HashSerializer.h
+		IDeserializer.cpp
+		IDeserializer.h
+		ISerializer.cpp
+		ISerializer.h
+		SerializeTemplates.h
+		SerializedPathfinder.h
+		SerializedScriptTypes.h
+		SerializedTypes.h
+		StdDeserializer.cpp
+		StdDeserializer.h
+		StdSerializer.cpp
+		StdSerializer.h
+)

@@ -1,0 +1,27 @@
+target_sources(engine
+	PRIVATE
+		JSInterface_ConfigDB.cpp
+		JSInterface_ConfigDB.h
+		JSInterface_Console.cpp
+		JSInterface_Console.h
+		JSInterface_Debug.cpp
+		JSInterface_Debug.h
+		JSInterface_Game.cpp
+		JSInterface_Game.h
+		JSInterface_Hotkey.cpp
+		JSInterface_Hotkey.h
+		JSInterface_Main.cpp
+		JSInterface_Main.h
+		JSInterface_Mod.cpp
+		JSInterface_Mod.h
+		JSInterface_ModIo.cpp
+		JSInterface_ModIo.h
+		JSInterface_SavedGame.cpp
+		JSInterface_SavedGame.h
+		JSInterface_UserReport.cpp
+		JSInterface_UserReport.h
+		JSInterface_VFS.cpp
+		JSInterface_VFS.h
+		JSInterface_VisualReplay.cpp
+		JSInterface_VisualReplay.h
+)

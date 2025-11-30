@@ -1,0 +1,9 @@
+target_sources(engine
+	PRIVATE
+		OggData.cpp
+		OggData.h
+		SoundData.cpp
+		SoundData.h
+		ogg.cpp
+		ogg.h
+)

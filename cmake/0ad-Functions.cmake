@@ -45,3 +45,24 @@ function(add_pch)
 	)
 	target_compile_definitions(${args_TARGET} PRIVATE CONFIG_ENABLE_PCH=1)
 endfunction(add_pch)
+
+# Disable rtti for a specific target. (They are enabled by default)
+# Performance of dynamic_cast is very poor. The exception to this principle is Atlas UI, which is not a static library.
+function(disable_rtti _target)
+	if(NOT TARGET ${_target})
+		message(FATAL_ERROR "The given target \"${_target}\" does not exist!")
+	endif()
+	target_compile_options(${_target}
+		PRIVATE
+			$<$<CXX_COMPILER_ID:MSVC>:/GR->
+			$<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-fno-rtti>
+	)
+endfunction()
+
+# Adds a target with the given name to debug generator Expressions. This target can be "build" and
+# its output is the resulting generator expression.
+function(test_generator_expression TARGET EXPRESSION)
+	add_custom_target(${TARGET}
+		COMMAND ${CMAKE_COMMAND} -E echo "${EXPRESSION}"
+	)
+endfunction(test_generator_expression)

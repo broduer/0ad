@@ -1,0 +1,44 @@
+target_sources(engine
+	PRIVATE
+		BoundingBoxAligned.cpp
+		BoundingBoxAligned.h
+		BoundingBoxOriented.cpp
+		BoundingBoxOriented.h
+		BoundingSphere.cpp
+		BoundingSphere.h
+		Brush.cpp
+		Brush.h
+		Ease.h
+		Fixed.cpp
+		Fixed.h
+		FixedVector2D.h
+		FixedVector3D.h
+		Frustum.cpp
+		Frustum.h
+		MD5.cpp
+		MD5.h
+		MathUtil.h
+		Matrix3D.cpp
+		Matrix3D.h
+		NUSpline.cpp
+		NUSpline.h
+		Plane.cpp
+		Plane.h
+		Quaternion.cpp
+		Quaternion.h
+		Rect.cpp
+		Rect.h
+		Size2D.cpp
+		Size2D.h
+		Sqrt.cpp
+		Sqrt.h
+		Vector2D.cpp
+		Vector2D.h
+		Vector3D.cpp
+		Vector3D.h
+		Vector4D.h
+)
+
+if(NOT without-tests)
+	add_subdirectory(tests/)
+endif()

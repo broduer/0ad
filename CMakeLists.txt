@@ -12,6 +12,7 @@ option(minimal-flags "Only set compiler/linker flags that are really needed. Has
 option(sanitize-address "Enable ASAN if available")
 option(sanitize-thread "Enable TSAN if available")
 option(sanitize-undefined-behaviour "Enable UBSAN if available")
+option(with-system-cpp-httplib "Search standard paths for cpp-httplib, instead of using bundled copy")
 option(with-system-cxxtest "Search standard paths for cxxtest, instead of using bundled copy")
 option(with-lto "Enable Link Time Optimization (LTO)")
 option(with-system-mozjs "Search standard paths for libmozjs115, instead of using bundled copy")
@@ -57,6 +58,11 @@ set(ARCH "x86" CACHE STRING "CPU Architecture. Possible values are arm, aarch64,
 set(MACOS_ARCH "x86_64" CACHE STRING "Mac OS specific Architecture. Possible values are arm64 and x86_64")
 option(link_execinfo "")
 option(mozjs_is_debug_build "")
+
+# Change CMakes default OUTPUT directories, as paths are loaded relative from root/binaries/system (Setting them per output is too tedious)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/binaries/system)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/binaries/system)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/binaries/system)
 
 # Detect CPU architecture (simplistic). The user can target an architecture by setting '-DARCH=arch', but the game still selects some know value.
 if(android)
@@ -138,6 +144,10 @@ if(with-system-mozjs)
 	endif()
 endif()
 
+if(NOT without-tests)
+	enable_testing()
+endif()
+
 # Include the BuildFlags target only once after all setup is finished
 include(0ad-BuildFlags)
 
@@ -146,7 +156,16 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	include(SetupWindowsLibs)
 elseif(UNIX)
 	include(SetupUnixLibs)
+	if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
+		include(SetupMacOSLibs)
+	endif()
 endif()
+
+# Add Pyrogenesis main project
+add_subdirectory(${CMAKE_SOURCE_DIR}/source)
+
+# Add Collada project
+add_subdirectory(${CMAKE_SOURCE_DIR}/source/collada)
 
 # Add subprojects
 if(NOT without-atlas)

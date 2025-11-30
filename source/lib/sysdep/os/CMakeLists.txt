@@ -1,0 +1,79 @@
+target_sources(lowlevel
+	PRIVATE
+		# Non Windows aka Unix
+		$<$<NOT:$<PLATFORM_ID:Windows>>:${CMAKE_CURRENT_SOURCE_DIR}/unix/udbg.cpp>
+		$<$<NOT:$<PLATFORM_ID:Windows>>:${CMAKE_CURRENT_SOURCE_DIR}/unix/udbg.h>
+		$<$<NOT:$<PLATFORM_ID:Windows>>:${CMAKE_CURRENT_SOURCE_DIR}/unix/ufilesystem.cpp>
+		$<$<NOT:$<PLATFORM_ID:Windows>>:${CMAKE_CURRENT_SOURCE_DIR}/unix/unix.cpp>
+		$<$<NOT:$<PLATFORM_ID:Windows>>:${CMAKE_CURRENT_SOURCE_DIR}/unix/unix.h>
+		$<$<NOT:$<PLATFORM_ID:Windows>>:${CMAKE_CURRENT_SOURCE_DIR}/unix/uvm.cpp>
+		# Linux
+		$<$<PLATFORM_ID:Linux>:${CMAKE_CURRENT_SOURCE_DIR}/linux/dir_watch_inotify.cpp>
+		$<$<PLATFORM_ID:Linux>:${CMAKE_CURRENT_SOURCE_DIR}/linux/lcpu.cpp>
+		$<$<PLATFORM_ID:Linux>:${CMAKE_CURRENT_SOURCE_DIR}/linux/ldbg.cpp>
+		$<$<PLATFORM_ID:Linux>:${CMAKE_CURRENT_SOURCE_DIR}/linux/linux.cpp>
+		# Windows
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/comctl6.manifest>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/pyrogenesis.rc>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wcpu.cpp>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wdbg.cpp>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wdbg.h>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wdbg_sym.cpp>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wdbg_sym.h>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wdir_watch.cpp>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/win.h>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wiocp.cpp>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wiocp.h>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wseh.cpp>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wseh.h>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wsysdep.cpp>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wutil.cpp>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wutil.h>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wversion.cpp>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wversion.h>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wvm.cpp>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wposix/crt_posix.h>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wposix/no_crt_posix.h>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wposix/waio.cpp>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wposix/waio.h>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wposix/wdlfcn.cpp>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wposix/wdlfcn.h>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wposix/wfilesystem.cpp>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wposix/wfilesystem.h>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wposix/wmman.cpp>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wposix/wmman.h>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wposix/wposix.cpp>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wposix/wposix.h>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wposix/wposix_internal.h>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wposix/wposix_types.h>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wposix/wpthread.cpp>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wposix/wpthread.h>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wposix/wutsname.cpp>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/wposix/wutsname.h>
+		# MacOS
+		$<$<PLATFORM_ID:Darwin>:${CMAKE_CURRENT_SOURCE_DIR}/osx/dir_watch.cpp>
+		$<$<PLATFORM_ID:Darwin>:${CMAKE_CURRENT_SOURCE_DIR}/osx/ocpu.cpp>
+		$<$<PLATFORM_ID:Darwin>:${CMAKE_CURRENT_SOURCE_DIR}/osx/odbg.cpp>
+		$<$<PLATFORM_ID:Darwin>:${CMAKE_CURRENT_SOURCE_DIR}/osx/osx_atlas.cpp>
+		$<$<PLATFORM_ID:Darwin>:${CMAKE_CURRENT_SOURCE_DIR}/osx/osx.cpp>
+		$<$<PLATFORM_ID:Darwin>:${CMAKE_CURRENT_SOURCE_DIR}/osx/osx_atlas.h>
+		$<$<PLATFORM_ID:Darwin>:${CMAKE_CURRENT_SOURCE_DIR}/osx/osx_atlas.mm>
+		$<$<PLATFORM_ID:Darwin>:${CMAKE_CURRENT_SOURCE_DIR}/osx/osx_bundle.h>
+		$<$<PLATFORM_ID:Darwin>:${CMAKE_CURRENT_SOURCE_DIR}/osx/osx_bundle.mm>
+		$<$<PLATFORM_ID:Darwin>:${CMAKE_CURRENT_SOURCE_DIR}/osx/osx_paths.h>
+		$<$<PLATFORM_ID:Darwin>:${CMAKE_CURRENT_SOURCE_DIR}/osx/osx_paths.mm>
+		$<$<PLATFORM_ID:Darwin>:${CMAKE_CURRENT_SOURCE_DIR}/osx/osx_sys_version.h>
+		$<$<PLATFORM_ID:Darwin>:${CMAKE_CURRENT_SOURCE_DIR}/osx/osx_sys_version.mm>
+		# BSD
+		$<$<PLATFORM_ID:FreeBSD>:${CMAKE_CURRENT_SOURCE_DIR}/bsd/bcpu.cpp>
+		$<$<PLATFORM_ID:FreeBSD>:${CMAKE_CURRENT_SOURCE_DIR}/bsd/bdbg.cpp>
+		$<$<PLATFORM_ID:FreeBSD>:${CMAKE_CURRENT_SOURCE_DIR}/bsd/bsd.cpp>
+		$<$<PLATFORM_ID:FreeBSD>:${CMAKE_CURRENT_SOURCE_DIR}/bsd/dir_watch.cpp>
+)
+
+target_sources(${PROJECT_NAME}
+	PRIVATE
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/error_dialog.h>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/error_dialog.rc>
+		$<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/win/icon.rc>
+)

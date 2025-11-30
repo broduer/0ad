@@ -1,0 +1,9 @@
+target_sources(simulation2
+	PRIVATE
+		EngineScriptConversions.cpp
+		JSInterface_Simulation.cpp
+		JSInterface_Simulation.h
+		MessageTypeConversions.cpp
+		ScriptComponent.cpp
+		ScriptComponent.h
+)

@@ -1,0 +1,15 @@
+target_sources(lowlevel
+	PRIVATE
+		$<$<STREQUAL:${ARCH},amd64>:${CMAKE_CURRENT_SOURCE_DIR}/amd64/amd64.cpp>
+		$<$<STREQUAL:${ARCH},amd64>:${CMAKE_CURRENT_SOURCE_DIR}/amd64/amd64.h>
+		$<$<OR:$<STREQUAL:${ARCH},amd64>,$<STREQUAL:${ARCH},x86>>:${CMAKE_CURRENT_SOURCE_DIR}/x86_x64/x86_x64.cpp>
+		$<$<OR:$<STREQUAL:${ARCH},amd64>,$<STREQUAL:${ARCH},x86>>:${CMAKE_CURRENT_SOURCE_DIR}/x86_x64/x86_x64.h>
+		$<$<STREQUAL:${ARCH},x86>:${CMAKE_CURRENT_SOURCE_DIR}/ia32/ia32.h>
+		$<$<STREQUAL:${ARCH},arm>:${CMAKE_CURRENT_SOURCE_DIR}/arm/arm.cpp>
+		$<$<STREQUAL:${ARCH},aarch64>:${CMAKE_CURRENT_SOURCE_DIR}/aarch64/aarch64.cpp>
+		$<$<STREQUAL:${ARCH},e2k>:${CMAKE_CURRENT_SOURCE_DIR}/e2k/e2k.cpp>
+		$<$<STREQUAL:${ARCH},loong64>:${CMAKE_CURRENT_SOURCE_DIR}/loong64/loong64.cpp>
+		$<$<STREQUAL:${ARCH},loong64>:${CMAKE_CURRENT_SOURCE_DIR}/loong64/loong64.cpp>
+		$<$<STREQUAL:${ARCH},ppc64>:${CMAKE_CURRENT_SOURCE_DIR}/ppc64/loong64.cpp>
+		$<$<STREQUAL:${ARCH},riscv64>:${CMAKE_CURRENT_SOURCE_DIR}/riscv64/riscv64.cpp>
+)

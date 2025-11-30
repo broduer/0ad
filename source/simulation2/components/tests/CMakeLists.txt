@@ -1,0 +1,12 @@
+target_sources(simulation2
+	PRIVATE
+		test_CinemaManager.h
+		test_CommandQueue.h
+		test_HierPathfinder.h
+		test_ObstructionManager.h
+		test_Pathfinder.h
+		test_Position.h
+		test_RangeManager.h
+		test_TerritoryManager.h
+		test_scripts.h
+)

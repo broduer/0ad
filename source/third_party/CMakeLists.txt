@@ -1,0 +1,6 @@
+add_subdirectory(encryption/)
+add_subdirectory(glad/)
+add_subdirectory(mikktspace/)
+add_subdirectory(ogre3d_preprocessor/)
+add_subdirectory(tinygettext/)
+add_subdirectory(vma/)

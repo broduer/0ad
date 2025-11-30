@@ -1,0 +1,31 @@
+target_sources(simulation2
+	PRIVATE
+		CmpPtr.cpp
+		CmpPtr.h
+		Component.h
+		ComponentManager.cpp
+		ComponentManager.h
+		ComponentManagerSerialization.cpp
+		ComponentTest.h
+		Components.h
+		DebugOptions.h
+		DynamicSubscription.cpp
+		DynamicSubscription.h
+		Entity.h
+		EntityMap.h
+		IComponent.cpp
+		IComponent.h
+		Interface.h
+		InterfaceScripted.h
+		LocalTurnManager.cpp
+		LocalTurnManager.h
+		Message.h
+		ParamNode.cpp
+		ParamNode.h
+		ReplayTurnManager.cpp
+		ReplayTurnManager.h
+		SimContext.cpp
+		SimContext.h
+		TurnManager.cpp
+		TurnManager.h
+)

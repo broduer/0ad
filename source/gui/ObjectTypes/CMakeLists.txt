@@ -1,0 +1,36 @@
+target_sources(gui
+	PRIVATE
+		CButton.cpp
+		CButton.h
+		CChart.cpp
+		CChart.h
+		CCheckBox.cpp
+		CCheckBox.h
+		CDropDown.cpp
+		CDropDown.h
+		CGUIDummyObject.h
+		CHotkeyPicker.cpp
+		CHotkeyPicker.h
+		CImage.cpp
+		CImage.h
+		CInput.cpp
+		CInput.h
+		CList.cpp
+		CList.h
+		CMiniMap.cpp
+		CMiniMap.h
+		COList.cpp
+		COList.h
+		CProgressBar.cpp
+		CProgressBar.h
+		CRadioButton.cpp
+		CRadioButton.h
+		CScrollPanel.cpp
+		CScrollPanel.h
+		CSlider.cpp
+		CSlider.h
+		CText.cpp
+		CText.h
+		CTooltip.cpp
+		CTooltip.h
+)

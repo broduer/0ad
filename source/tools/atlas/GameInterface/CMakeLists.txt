@@ -1,0 +1,30 @@
+target_sources(atlas
+	PRIVATE
+		ActorViewer.cpp
+		ActorViewer.h
+		Brushes.cpp
+		Brushes.h
+		CommandProc.cpp
+		CommandProc.h
+		DeltaArray.h
+		GameLoop.cpp
+		GameLoop.h
+		InputProcessor.cpp
+		InputProcessor.h
+		MessagePasser.h
+		MessagePasserImpl.cpp
+		MessagePasserImpl.h
+		Messages.h
+		MessagesSetup.h
+		Misc.cpp
+		Register.cpp
+		Shareable.h
+		SharedMemory.h
+		SharedTypes.h
+		SimState.cpp
+		SimState.h
+		View.cpp
+		View.h
+)
+
+add_subdirectory(Handlers/)

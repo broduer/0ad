@@ -1,0 +1,24 @@
+target_sources(graphics
+	PRIVATE
+		Backend.h
+		Barrier.h
+		CompareOp.cpp
+		CompareOp.h
+		Format.h
+		IBuffer.h
+		IDevice.h
+		IDeviceCommandContext.h
+		IDeviceObject.h
+		IFramebuffer.h
+		IShaderProgram.h
+		ISwapChain.h
+		ITexture.h
+		PipelineState.cpp
+		PipelineState.h
+		Sampler.cpp
+		Sampler.h
+)
+
+add_subdirectory(dummy/)
+add_subdirectory(gl/)
+add_subdirectory(vulkan/)

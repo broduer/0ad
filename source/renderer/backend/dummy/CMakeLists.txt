@@ -1,0 +1,20 @@
+target_sources(graphics
+	PRIVATE
+		Buffer.cpp
+		Buffer.h
+		Device.cpp
+		Device.h
+		DeviceCommandContext.cpp
+		DeviceCommandContext.h
+		DeviceForward.h
+		Framebuffer.cpp
+		Framebuffer.h
+		PipelineState.cpp
+		PipelineState.h
+		ShaderProgram.cpp
+		ShaderProgram.h
+		SwapChain.cpp
+		SwapChain.h
+		Texture.cpp
+		Texture.h
+)

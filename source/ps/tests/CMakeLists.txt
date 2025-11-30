@@ -1,0 +1,17 @@
+target_sources(engine
+	PRIVATE
+		stub_impl_hack.h
+		test_CLogger.h
+		test_CStr.h
+		test_ConfigDB.h
+		test_Future.h
+		test_Hashing.h
+		test_Hotkeys.h
+		test_Input.h
+		test_Loader.h
+		test_Mod.h
+		test_ModIo.h
+		test_TaskManager.h
+		test_fmt.h
+		test_test.h
+)

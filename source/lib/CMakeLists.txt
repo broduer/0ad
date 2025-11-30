@@ -1,0 +1,58 @@
+target_sources(lowlevel
+	PRIVATE
+		alignment.h
+		app_hooks.cpp
+		app_hooks.h
+		bits.h
+		build_version.cpp
+		build_version.h
+		byte_order.cpp
+		byte_order.h
+		code_annotation.h
+		code_generation.h
+		config.h
+		config2.h
+		debug.cpp
+		debug.h
+		debug_stl.cpp
+		debug_stl.h
+		fnv_hash.cpp
+		fnv_hash.h
+		frequency_filter.cpp
+		frequency_filter.h
+		hash.h
+		lib.cpp
+		lib.h
+		module_init.cpp
+		module_init.h
+		os_path.h
+		path.cpp
+		path.h
+		precompiled.h
+		rand.cpp
+		rand.h
+		regex.cpp
+		regex.h
+		secure_crt.cpp
+		secure_crt.h
+		self_test.h
+		status.cpp
+		status.h
+		timer.cpp
+		timer.h
+		utf8.cpp
+		utf8.h
+		wsecure_crt.cpp
+)
+
+add_subdirectory(adts/)
+add_subdirectory(allocators/)
+add_subdirectory(external_libraries/)
+add_subdirectory(file/)
+add_subdirectory(pch/)
+add_subdirectory(posix/)
+add_subdirectory(sysdep/)
+if(NOT without-tests)
+	add_subdirectory(tests/)
+endif()
+add_subdirectory(tex/)

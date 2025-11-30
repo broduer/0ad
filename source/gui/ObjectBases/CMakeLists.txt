@@ -1,0 +1,13 @@
+target_sources(gui
+	PRIVATE
+		IGUIButtonBehavior.cpp
+		IGUIButtonBehavior.h
+		IGUIObject.cpp
+		IGUIObject.h
+		IGUIPanel.cpp
+		IGUIPanel.h
+		IGUIScrollBarOwner.cpp
+		IGUIScrollBarOwner.h
+		IGUITextOwner.cpp
+		IGUITextOwner.h
+)

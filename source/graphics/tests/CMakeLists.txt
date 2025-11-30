@@ -1,0 +1,13 @@
+target_sources(graphics
+	PRIVATE
+		test_Camera.h
+		test_Color.h
+		test_LOSTexture.h
+		test_MapGenerator.h
+		test_MeshManager.h
+		test_Model.h
+		test_ShaderManager.h
+		test_Terrain.h
+		test_TextureConverter.h
+		test_TextureManager.h
+)

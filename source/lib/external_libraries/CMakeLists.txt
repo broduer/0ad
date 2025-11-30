@@ -1,0 +1,17 @@
+target_sources(lowlevel
+	PRIVATE
+		curl.h
+		dbghelp.cpp
+		dbghelp.h
+		dbghelp_funcs.h
+		enet.h
+		gloox.h
+		libsdl.cpp
+		libsdl.h
+		opengles2_wrapper.h
+		png.h
+		powrprof.h
+		vorbis.h
+		wxwidgets.h
+		zlib.h
+)

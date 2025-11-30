@@ -1,0 +1,31 @@
+target_sources(simulation2
+	PRIVATE
+		CinemaPath.cpp
+		CinemaPath.h
+		Geometry.cpp
+		Geometry.h
+		Grid.h
+		HierarchicalPathfinder.cpp
+		HierarchicalPathfinder.h
+		LongPathfinder.cpp
+		LongPathfinder.h
+		Los.h
+		MapEdgeTiles.h
+		PathGoal.cpp
+		PathGoal.h
+		Pathfinding.cpp
+		Pathfinding.h
+		Player.h
+		Position.h
+		PriorityQueue.h
+		Rasterize.cpp
+		Rasterize.h
+		Render.cpp
+		Render.h
+		Selection.cpp
+		Selection.h
+		SimulationCommand.h
+		Spatial.h
+		VertexPathfinder.cpp
+		VertexPathfinder.h
+)
