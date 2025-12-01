@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -23,6 +23,7 @@
 #include "tools/atlas/AtlasUI/ActorEditor/ActorEditorListCtrl.h"
 #include "tools/atlas/AtlasUI/CustomControls/Windows/AtlasWindow.h"
 #include "tools/atlas/AtlasUI/General/Datafile.h"
+#include "tools/atlas/AtlasUI/Misc/Graphics/ActorEditor.xpm"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <cstring>
@@ -57,7 +58,7 @@ END_EVENT_TABLE()
 ActorEditor::ActorEditor(wxWindow* parent)
 	: AtlasWindow(parent, _("Actor Editor"), wxSize(1024, 450))
 {
-	SetIcon(wxIcon(_T("ICON_ActorEditor")));
+	SetIcon(wxICON(ICON_ActorEditor));
 
 	wxMenu* menu = new wxMenu;
 	menu->Append(ID_CreateEntity, _("Create &entity..."));
