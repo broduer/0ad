@@ -330,3 +330,20 @@ Math.euclidDistance3D = function(x1, y1, z1, x2, y2, z2)
 {
 	return Math.sqrt(Math.euclidDistance3DSquared(x1, y1, z1, x2, y2, z2));
 };
+
+/**
+ * Clamps a value between a minimum and maximum range.
+ *
+ * @param {number} value - The value to clamp
+ * @param {number} min - Minimum allowed value
+ * @param {number} max - Maximum allowed value
+ * @returns {number} The clamped value (min <= result <= max)
+ */
+Math.clamp = function(value, min, max)
+{
+	if (value < min)
+		return min;
+	if (value > max)
+		return max;
+	return value;
+};
