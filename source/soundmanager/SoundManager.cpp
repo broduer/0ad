@@ -118,8 +118,7 @@ public:
 private:
 	static void RunThread(CSoundManagerWorker* data)
 	{
-		debug_SetThreadName("CSoundManagerWorker");
-		g_Profiler2.RegisterCurrentThread("soundmanager");
+		g_Profiler2.TryRegisterCurrentThread("soundmanager");
 
 		data->Run();
 	}

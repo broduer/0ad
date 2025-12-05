@@ -247,13 +247,6 @@ void WorkerThread::Wake()
 
 void WorkerThread::RunUntilDeath()
 {
-	// The profiler does better if the names are unique.
-	static std::atomic<int> n = 0;
-	std::string name = "Task Mgr #" + std::to_string(n++);
-	debug_SetThreadName(name.c_str());
-	g_Profiler2.RegisterCurrentThread(name);
-
-
 	std::function<void()> task;
 	bool hasTask = false;
 	std::unique_lock<std::mutex> lock(m_Mutex, std::defer_lock);

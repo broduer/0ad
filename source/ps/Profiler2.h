@@ -281,10 +281,11 @@ public:
 
 	/**
 	 * Call in any thread to enable the profiler in that thread.
-	 * @p name should be unique, and is used by the visualiser to identify
+	 * When the thread is already registered nothing happens.
+	 * @p name should be unique or empty, and is used by the visualiser to identify
 	 * this thread.
 	 */
-	void RegisterCurrentThread(const std::string& name);
+	void TryRegisterCurrentThread(const std::string& name);
 
 	/**
 	 * Non-main threads should call this occasionally,
@@ -380,7 +381,7 @@ private:
 
 	ThreadStorage& GetThreadStorage()
 	{
-		ENSURE(m_CurrentStorage);
+		TryRegisterCurrentThread({});
 		return *m_CurrentStorage;
 	}
 

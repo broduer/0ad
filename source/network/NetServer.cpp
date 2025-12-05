@@ -404,15 +404,13 @@ bool CNetServerWorker::Multicast(const CNetMessage* message,
 
 void CNetServerWorker::RunThread(CNetServerWorker* data)
 {
-	debug_SetThreadName("NetServer");
-
 	data->Run();
 }
 
 void CNetServerWorker::Run()
 {
 	// The script context uses the profiler and therefore the thread must be registered before the context is created
-	g_Profiler2.RegisterCurrentThread("Net server");
+	g_Profiler2.TryRegisterCurrentThread("Net server");
 
 	// We create a new ScriptContext for this network thread, with a single ScriptInterface.
 	std::shared_ptr<ScriptContext> netServerContext = ScriptContext::CreateContext();

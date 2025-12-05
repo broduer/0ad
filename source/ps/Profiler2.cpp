@@ -176,7 +176,7 @@ void CProfiler2::Initialise()
 	ENSURE(!m_Initialised);
 	m_Initialised = true;
 
-	RegisterCurrentThread("main");
+	TryRegisterCurrentThread("main");
 }
 
 void CProfiler2::InitialiseGPU()
@@ -292,15 +292,23 @@ void CProfiler2::RecordGPURegionLeave(Renderer::Backend::IDeviceCommandContext* 
 		m_GPU->RegionLeave(deviceCommandContext, id);
 }
 
-void CProfiler2::RegisterCurrentThread(const std::string& name)
+void CProfiler2::TryRegisterCurrentThread(const std::string& name)
 {
 	ENSURE(m_Initialised);
 
-	// Must not register a thread more than once.
-	ENSURE(m_CurrentStorage == nullptr);
+	if (m_CurrentStorage != nullptr)
+		return;
 
-	m_CurrentStorage = new ThreadStorage(*this, name);
-	AddThreadStorage(m_CurrentStorage);
+	const bool infereThreadName{name.empty()};
+
+	{
+		std::lock_guard<std::mutex> lock(m_Mutex);
+		const std::string threadName{infereThreadName ?
+			fmt::format("Task Mgr #{}", m_Threads.size()) : name};
+		debug_SetThreadName(name.c_str());
+		m_CurrentStorage = new ThreadStorage(*this, threadName);
+		m_Threads.push_back(std::unique_ptr<ThreadStorage>(m_CurrentStorage));
+	}
 
 	RecordSyncMarker();
 	RecordEvent("thread start");
