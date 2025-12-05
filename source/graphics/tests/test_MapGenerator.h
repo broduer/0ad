@@ -25,7 +25,6 @@
 #include "lib/path.h"
 #include "ps/CLogger.h"
 #include "ps/Filesystem.h"
-#include "ps/Future.h"
 #include "ps/XML/Xeromyces.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/StructuredClone.h"
@@ -73,8 +72,8 @@ public:
 			ScriptTestSetup(scriptInterface);
 
 			std::atomic<int> progress{1};
-			std::atomic<bool> stopRequest{false};
-			const Script::StructuredClone result{RunMapGenerationScript(StopToken{stopRequest},
+			unifex::inplace_stop_source stopSource;
+			const Script::StructuredClone result{RunMapGenerationScript(stopSource.get_token(),
 				progress, scriptInterface, path, "{\"Seed\": 0}",
 				JSPROP_ENUMERATE | JSPROP_PERMANENT)};
 

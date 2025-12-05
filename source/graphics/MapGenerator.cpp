@@ -34,7 +34,6 @@
 #include "ps/CStr.h"
 #include "ps/FileIo.h"
 #include "ps/Filesystem.h"
-#include "ps/Future.h"
 #include "ps/TemplateLoader.h"
 #include "ps/scripting/JSInterface_VFS.h"
 #include "scriptinterface/FunctionWrapper.h"
@@ -60,6 +59,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <unifex/inplace_stop_token.hpp>
 #include <vector>
 
 struct JSContext;
@@ -78,8 +78,8 @@ class CMapGenerationCallbacks
 public:
 	// Only the constructor and the destructor are called by C++.
 
-	CMapGenerationCallbacks(const StopToken stopToken, ScriptInterface& scriptInterface,
-		const u16 flags) :
+	CMapGenerationCallbacks(const unifex::inplace_stop_token& stopToken,
+		ScriptInterface& scriptInterface, const u16 flags) :
 		m_StopToken{stopToken},
 		m_ScriptInterface{scriptInterface}
 	{
@@ -134,7 +134,7 @@ public:
 		m_ScriptInterface.SetCallbackData(nullptr);
 	}
 
-	StopToken m_StopToken;
+	const unifex::inplace_stop_token& m_StopToken;
 
 private:
 
@@ -348,12 +348,13 @@ private:
 bool MapGenerationInterruptCallback(JSContext* cx)
 {
 	return !ScriptInterface::ObjectFromCBData<CMapGenerationCallbacks>(
-		ScriptInterface::CmptPrivate::GetScriptInterface(cx))->m_StopToken.IsStopRequested();
+		ScriptInterface::CmptPrivate::GetScriptInterface(cx))->m_StopToken.stop_requested();
 }
 } // anonymous namespace
 
-Script::StructuredClone RunMapGenerationScript(const StopToken stopToken, std::atomic<int>& progress,
-	ScriptInterface& scriptInterface, const VfsPath& script, const std::string& settings, const u16 flags)
+Script::StructuredClone RunMapGenerationScript(const unifex::inplace_stop_token& stopToken,
+	std::atomic<int>& progress, ScriptInterface& scriptInterface, const VfsPath& script,
+	const std::string& settings, const u16 flags)
 {
 	ScriptRequest rq(scriptInterface);
 

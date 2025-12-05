@@ -22,7 +22,7 @@ rem **Copy dependencies' binaries to binaries/system/**
 
 rem static libs: boost fmt
 rem wxwidgets isn't provided and needs to be built manually
-set DIR_LIST=enet fcollada freetype gloox iconv icu libcurl libpng libsodium libxml2 microsoft miniupnpc nvtt openal sdl2 spidermonkey vorbis zlib
+set DIR_LIST=enet fcollada freetype gloox iconv icu libcurl libpng libsodium libunifex libxml2 microsoft miniupnpc nvtt openal sdl2 spidermonkey vorbis zlib
 for %%d in (%DIR_LIST%) do (
     copy /y %LIBS_PATH%\%%d\bin\* ..\binaries\system\ || exit /b 1
 )

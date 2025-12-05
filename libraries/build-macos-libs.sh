@@ -1246,6 +1246,10 @@ export ARCH CXXFLAGS CFLAGS LDFLAGS CMAKE_FLAGS JOBS
 
 # --------------------------------------------------------------
 # shellcheck disable=SC2086
+./../source/libunifex/build.sh $build_sh_options || die "libunifex build failed"
+
+# --------------------------------------------------------------
+# shellcheck disable=SC2086
 ./../source/nvtt/build.sh $build_sh_options || die "NVTT build failed"
 
 # --------------------------------------------------------------

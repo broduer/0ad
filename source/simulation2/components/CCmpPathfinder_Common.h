@@ -31,7 +31,6 @@
 #include "graphics/SColor.h"
 #include "lib/types.h"
 #include "maths/Fixed.h"
-#include "ps/Future.h"
 #include "renderer/TerrainOverlay.h"
 #include "simulation2/components/ICmpObstruction.h"
 #include "simulation2/components/ICmpPathfinder.h"
@@ -49,6 +48,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <unifex/async_scope.hpp>
 #include <vector>
 
 class AtlasOverlay;
@@ -104,8 +104,9 @@ public:
 	std::unique_ptr<HierarchicalPathfinder> m_PathfinderHier;
 	std::unique_ptr<LongPathfinder> m_LongPathfinder;
 
+	unifex::async_scope m_Scope;
 	// One per live asynchronous path computing task.
-	std::vector<Future<void>> m_Futures;
+	std::vector<std::optional<unifex::future<>>> m_Futures;
 
 	template<typename T>
 	class PathRequests {

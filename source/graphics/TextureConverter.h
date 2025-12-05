@@ -27,10 +27,11 @@
 #include <vector>
 
 #if CONFIG2_NVTT
-#include "ps/Future.h"
 
+#include <atomic>
 #include <memory>
 #include <queue>
+#include <unifex/async_scope.hpp>
 #endif
 
 class MD5;
@@ -213,7 +214,9 @@ private:
 #if CONFIG2_NVTT
 	struct ConversionResult;
 
-	std::queue<Future<std::unique_ptr<ConversionResult>>> m_ResultQueue;
+	std::queue<std::unique_ptr<ConversionResult>> m_ResultQueue;
+	std::atomic<std::int8_t> m_ActiveConversions{0};
+	unifex::async_scope m_Scope;
 #endif
 };
 

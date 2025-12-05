@@ -34,7 +34,6 @@
 #include "maths/MathUtil.h"
 #include "ps/CLogger.h"
 #include "ps/Filesystem.h"
-#include "ps/Future.h"
 #include "ps/Profile.h"
 #include "ps/Profiler2.h"
 #include "ps/TaskManager.h"
@@ -69,6 +68,7 @@
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <unifex/sync_wait.hpp>
 #include <utility>
 #include <vector>
 
@@ -88,7 +88,7 @@ void CCmpPathfinder::Init(const CParamNode&)
 
 	m_AtlasOverlay = NULL;
 
-	size_t workerThreads = g_TaskManager.GetNumberOfWorkers();
+	const unsigned int workerThreads{g_TaskManager.GetNumberOfWorkers()};
 	// Store one vertex pathfinder for each thread (including the main thread).
 	while (m_VertexPathfinders.size() < workerThreads + 1)
 		m_VertexPathfinders.emplace_back(m_GridSize, m_TerrainOnlyGrid);
@@ -135,6 +135,7 @@ void CCmpPathfinder::Deinit()
 	SetDebugOverlay(false); // cleans up memory
 
 	m_Futures.clear();
+	unifex::sync_wait(m_Scope.cleanup());
 
 	SAFE_DELETE(m_AtlasOverlay);
 
@@ -827,9 +828,9 @@ void CCmpPathfinder::SendRequestedPaths()
 		m_LongPathRequests.Compute(*this, *m_LongPathfinder);
 	}
 	// We're done, get the exceptions from the futures.
-	for (Future<void>& future : m_Futures)
-		if (future.Valid())
-			future.Get();
+	for (auto& future : m_Futures)
+		if (future.has_value())
+			unifex::sync_wait(std::exchange(future, {}).value());
 
 	{
 		PROFILE2("PostMessages");
@@ -858,16 +859,16 @@ void CCmpPathfinder::StartProcessingMoves(bool useMax)
 	const size_t m = std::min(m_Futures.size(), m_ShortPathRequests.m_Requests.size() + m_LongPathRequests.m_Requests.size());
 	for (size_t i = 0; i < m; ++i)
 	{
-		ENSURE(!m_Futures[i].Valid());
+		ENSURE(!m_Futures[i].has_value());
 		// Pass the i+1th vertex pathfinder to keep the first for the main thread,
 		// each thread get its own instance to avoid conflicts in cached data.
-		m_Futures[i] = {g_TaskManager,
-			[&pathfinder=*this, &vertexPfr=m_VertexPathfinders[i + 1]]()
+		m_Futures[i] = m_Scope.spawn(unifex::schedule(g_TaskManager.get_scheduler())
+			| unifex::then([&pathfinder=*this, &vertexPfr=m_VertexPathfinders[i + 1]]()
 			{
 				PROFILE2("Async pathfinding");
 				pathfinder.m_ShortPathRequests.Compute(pathfinder, vertexPfr);
 				pathfinder.m_LongPathRequests.Compute(pathfinder, *pathfinder.m_LongPathfinder);
-			}};
+			}));
 	}
 }
 

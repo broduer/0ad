@@ -26,9 +26,9 @@
 #include <js/PropertyDescriptor.h>
 #include <string>
 #include <string_view>
+#include <unifex/inplace_stop_token.hpp>
 
 class ScriptInterface;
-class StopToken;
 
 constexpr std::wstring_view RANDOM_MAP_PREFIX{L"maps/random/"};
 
@@ -47,8 +47,9 @@ constexpr std::wstring_view RANDOM_MAP_PREFIX{L"maps/random/"};
  *	data, according to this format:
  *	https://gitea.wildfiregames.com/0ad/0ad/wiki/Random_Map_Generator_Internals#Dataformat
  */
-Script::StructuredClone RunMapGenerationScript(const StopToken stopToken, std::atomic<int>& progress,
-	ScriptInterface& scriptInterface, const VfsPath& script, const std::string& settings,
+Script::StructuredClone RunMapGenerationScript(const unifex::inplace_stop_token& stopToken,
+	std::atomic<int>& progress, ScriptInterface& scriptInterface, const VfsPath& script,
+	const std::string& settings,
 	const u16 flags = JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT);
 
 #endif	//INCLUDED_MAPGENERATOR

@@ -50,6 +50,7 @@ newoption { category = "Pyrogenesis", trigger = "sanitize-undefined-behaviour", 
 newoption { category = "Pyrogenesis", trigger = "strip-binaries", description = "Strip created binaries" }
 newoption { category = "Pyrogenesis", trigger = "with-system-cxxtest", description = "Search standard paths for cxxtest, instead of using bundled copy" }
 newoption { category = "Pyrogenesis", trigger = "with-lto", description = "Enable Link Time Optimization (LTO)" }
+newoption { category = "Pyrogenesis", trigger = "with-system-libunifex", description = "Search standard paths for libunifex, instead of using bundled copy" }
 newoption { category = "Pyrogenesis", trigger = "with-system-mozjs", description = "Search standard paths for libmozjs128, instead of using bundled copy" }
 newoption { category = "Pyrogenesis", trigger = "with-system-nvtt", description = "Search standard paths for nvidia-texture-tools library, instead of using bundled copy" }
 newoption { category = "Pyrogenesis", trigger = "with-valgrind", description = "Enable Valgrind support (non-Windows only)" }
@@ -821,6 +822,7 @@ function setup_all_libs ()
 		"libxml2",
 		"iconv",
 		"cxxtest",
+		"libunifex",
 	}
 	setup_static_lib_project("simulation2", source_dirs, extern_libs, {})
 
@@ -871,6 +873,7 @@ function setup_all_libs ()
 		"libpng",
 		"fmt",
 		"freetype",
+		"libunifex",
 	}
 
 
@@ -911,6 +914,7 @@ function setup_all_libs ()
 		"icu",
 		"libxml2",
 		"iconv",
+		"libunifex",	-- for map generation
 	}
 	if not _OPTIONS["without-nvtt"] then
 		table.insert(extern_libs, "nvtt")
@@ -1117,6 +1121,7 @@ used_extern_libs = {
 	"libsodium",
 	"fmt",
 	"freetype",
+	"libunifex",
 
 	"valgrind",
 

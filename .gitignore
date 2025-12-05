@@ -16,6 +16,7 @@ libraries/win64
 
 libraries/source/cxxtest-4.4/*
 libraries/source/fcollada/*
+libraries/source/libunifex/*
 libraries/source/nvtt/*
 libraries/source/premake-core/*
 libraries/source/spidermonkey/*

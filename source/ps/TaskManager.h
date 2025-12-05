@@ -18,53 +18,31 @@
 #ifndef INCLUDED_THREADING_TASKMANAGER
 #define INCLUDED_THREADING_TASKMANAGER
 
+#include "maths/MathUtil.h"
 #include "ps/Singleton.h"
 
-#include <cstddef>
-#include <functional>
-#include <memory>
-#include <type_traits>
-#include <utility>
+#include <thread>
+#include <unifex/static_thread_pool.hpp>
 
 namespace Threading
 {
-enum class TaskPriority
-{
-	NORMAL,
-	LOW
-};
-
-/**
- * The task manager creates all worker threads on initialisation,
- * and manages the task queues.
- * See implementation for additional comments.
- */
 class TaskManager : public Singleton<TaskManager>
 {
-	friend class WorkerThread;
 public:
-	TaskManager();
-	~TaskManager();
-	TaskManager(const TaskManager&) = delete;
-	TaskManager(TaskManager&&) = delete;
-	TaskManager& operator=(const TaskManager&) = delete;
-	TaskManager& operator=(TaskManager&&) = delete;
+	unsigned int GetNumberOfWorkers()
+	{
+		return m_NumThreads;
+	}
 
-	/**
-	 * @return the number of threaded workers.
-	 */
-	size_t GetNumberOfWorkers() const;
-
-	/**
-	 * Push a task to be executed.
-	 */
-	void PushTask(std::function<void()> func, TaskPriority priority = TaskPriority::NORMAL);
+	auto get_scheduler()
+	{
+		return m_Pool.get_scheduler();
+	}
 
 private:
-	TaskManager(size_t numberOfWorkers);
 
-	class Impl;
-	const std::unique_ptr<Impl> m;
+	unsigned int m_NumThreads{Clamp<unsigned int>(std::thread::hardware_concurrency(), 4, 33) - 1};
+	unifex::static_thread_pool m_Pool{m_NumThreads};
 };
 } // namespace Threading
 

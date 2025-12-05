@@ -31,7 +31,6 @@
 #include "maths/MathUtil.h"
 #include "maths/Sqrt.h"
 #include "ps/CLogger.h"
-#include "ps/Future.h"
 #include "ps/Profile.h"
 #include "ps/TaskManager.h"
 #include "renderer/Scene.h"
@@ -71,6 +70,8 @@
 #include <set>
 #include <string>
 #include <type_traits>
+#include <unifex/async_scope.hpp>
+#include <unifex/sync_wait.hpp>
 #include <utility>
 #include <vector>
 
@@ -1224,21 +1225,29 @@ public:
 				}
 			};
 
-		size_t numFutures = std::min(g_TaskManager.GetNumberOfWorkers(), m_Queries.size());
-		std::vector<Future<void>> futures;
+		unifex::async_scope scope;
+		std::size_t numFutures{
+			std::min<std::size_t>(g_TaskManager.GetNumberOfWorkers(), m_Queries.size())};
+		std::vector<unifex::future<>> futures;
 		futures.reserve(numFutures);
+		unifex::scope_guard _([&]() noexcept
+		{
+			unifex::sync_wait(scope.cleanup());
+		});
+
 		for (size_t i = 0; i < numFutures; i++)
-			futures.push_back({g_TaskManager,
-				[&ProcessQueriesAsync, &subdivisionResultsBuffer = m_SubdivisionResultBuffers[i]]() {
-					ProcessQueriesAsync(subdivisionResultsBuffer);
-				}
-			});
+		{
+			futures.push_back(scope.spawn(unifex::schedule(g_TaskManager.get_scheduler())
+				| unifex::then([&, i] {
+					ProcessQueriesAsync(m_SubdivisionResultBuffers[i]);
+				})));
+		}
 
 		// Start working in the main thread as well.
 		ProcessQueriesAsync(m_SubdivisionResultBuffers[numFutures]);
 
-		for (Future<void>& future : futures)
-			future.Get();
+		for (auto& future : futures)
+			unifex::sync_wait(std::move(future));
 
 		CComponentManager& cmpMgr = GetSimContext().GetComponentManager();
 		for (const auto& msg : messages)

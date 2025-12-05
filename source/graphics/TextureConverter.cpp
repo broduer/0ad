@@ -32,7 +32,6 @@
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "ps/Errors.h"
-#include "ps/Future.h"
 #include "ps/Profiler2.h"
 #include "ps/TaskManager.h"
 #include "ps/Util.h"
@@ -41,6 +40,7 @@
 #include "ps/XML/Xeromyces.h"
 
 #include <cstring>
+#include <unifex/sync_wait.hpp>
 #include <utility>
 
 #if CONFIG2_NVTT
@@ -323,7 +323,10 @@ CTextureConverter::CTextureConverter(PIVFS vfs, bool highQuality) :
 #endif // CONFIG2_NVTT
 }
 
-CTextureConverter::~CTextureConverter() = default;
+CTextureConverter::~CTextureConverter()
+{
+	unifex::sync_wait(m_Scope.cleanup());
+};
 
 bool CTextureConverter::ConvertTexture(const CTexturePtr& texture, const VfsPath& src, const VfsPath& dest, const Settings& settings)
 {
@@ -471,7 +474,10 @@ bool CTextureConverter::ConvertTexture(const CTexturePtr& texture, const VfsPath
 		delete[] rgba;
 	}
 
-	m_ResultQueue.push({g_TaskManager, [request = std::move(request)]
+	auto& elem = m_ResultQueue.emplace(nullptr);
+	++m_ActiveConversions;
+	m_Scope.detached_spawn(unifex::schedule(g_TaskManager.get_scheduler())
+		| unifex::then([&activeConversions = m_ActiveConversions, &elem, request = std::move(request)]
 		{
 			PROFILE2("compress");
 			// Set up the result object
@@ -486,8 +492,9 @@ bool CTextureConverter::ConvertTexture(const CTexturePtr& texture, const VfsPath
 			result->ret = compressor.process(request->inputOptions, request->compressionOptions,
 				request->outputOptions);
 
-			return result;
-		}, Threading::TaskPriority::LOW});
+			elem = std::move(result);
+			--activeConversions;
+		}));
 
 	return true;
 
@@ -500,13 +507,13 @@ bool CTextureConverter::ConvertTexture(const CTexturePtr& texture, const VfsPath
 bool CTextureConverter::Poll(CTexturePtr& texture, VfsPath& dest, bool& ok)
 {
 #if CONFIG2_NVTT
-	if (m_ResultQueue.empty() || !m_ResultQueue.front().IsDone())
+	if (std::cmp_equal(m_ResultQueue.size(), m_ActiveConversions.load()))
 	{
 		// no work to do
 		return false;
 	}
 
-	std::unique_ptr<ConversionResult> result = m_ResultQueue.front().Get();
+	std::unique_ptr<ConversionResult> result = std::move(m_ResultQueue.front());
 	m_ResultQueue.pop();
 
 	if (!result->ret)

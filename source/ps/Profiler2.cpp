@@ -31,7 +31,6 @@
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "ps/ConfigDB.h"
-#include "ps/Future.h"
 #include "ps/Profiler2GPU.h"
 #include "ps/Pyrogenesis.h"
 #include "ps/TaskManager.h"
@@ -44,6 +43,8 @@
 #include <functional>
 #include <iomanip>
 #include <map>
+#include <unifex/sync_wait.hpp>
+#include <unifex/then.hpp>
 #include <set>
 #include <sstream>
 #include <tuple>
@@ -108,11 +109,15 @@ static void* MgCallback(mg_event event, struct mg_connection *conn, const struct
 		std::string uri = request_info->uri;
 
 		if (uri == "/download")
-			Future{g_TaskManager, std::bind_front(&CProfiler2::SaveToFile, profiler)}.Get();
+		{
+			unifex::sync_wait(unifex::schedule(g_TaskManager.get_scheduler())
+				| unifex::then(std::bind_front(&CProfiler2::SaveToFile, profiler)));
+		}
 		else if (uri == "/overview")
 		{
-			Future{g_TaskManager,
-				std::bind_front(&CProfiler2::ConstructJSONOverview, profiler, std::ref(stream))}.Get();
+			unifex::sync_wait(unifex::schedule(g_TaskManager.get_scheduler())
+				| unifex::then(std::bind_front(&CProfiler2::ConstructJSONOverview, profiler,
+					std::ref(stream))));
 		}
 		else if (uri == "/query")
 		{
@@ -132,9 +137,9 @@ static void* MgCallback(mg_event event, struct mg_connection *conn, const struct
 			}
 			std::string thread(buf);
 
-			const char* err = Future{g_TaskManager,
-				std::bind_front(&CProfiler2::ConstructJSONResponse, profiler, std::ref(stream),
-					std::ref(thread))}.Get();
+			const char* err = unifex::sync_wait(unifex::schedule(g_TaskManager.get_scheduler())
+				| unifex::then(std::bind_front(&CProfiler2::ConstructJSONResponse, profiler,
+					std::ref(stream), std::ref(thread)))).value();
 
 			if (err)
 			{

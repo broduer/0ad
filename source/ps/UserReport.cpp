@@ -37,7 +37,6 @@
 #include "ps/Profiler2.h"
 #include "ps/Pyrogenesis.h"
 #include "ps/TaskManager.h"
-#include "ps/Future.h"
 #include "ps/Threading.h"
 
 #include <algorithm>
@@ -47,6 +46,8 @@
 #include <fstream>
 #include <memory>
 #include <mutex>
+#include <unifex/async_scope.hpp>
+#include <unifex/sync_wait.hpp>
 #include <string>
 #include <thread>
 #include <utility>
@@ -185,7 +186,7 @@ public:
 			std::lock_guard<std::mutex> lock(m_WorkerMutex);
 			m_Shutdown = true;
 		}
-		CleanupFuture();
+		unifex::sync_wait(m_Scope.cleanup());
 		return true;
 	}
 
@@ -226,15 +227,10 @@ public:
 	}
 
 private:
-	void CleanupFuture()
-	{
-		if (m_Future.Valid())
-			m_Future.Get();
-	}
 
 	void TryStartTask()
 	{
-		if (m_Future.Valid() && !m_Future.IsDone())
+		if (m_TaskRunning.load())
 			return;
 		if (!m_Enabled)
 			return;
@@ -243,10 +239,10 @@ private:
 		if (timer_Time() < m_PauseUntilTime)
 			return;
 
-		CleanupFuture();
+		m_TaskRunning.store(true);
 
-		// Start or replace the future
-		m_Future = {g_TaskManager, std::bind_front(&CUserReporterWorker::RunTask, this)};
+		m_Scope.detached_spawn(unifex::schedule(g_TaskManager.get_scheduler())
+			| unifex::then(std::bind_front(&CUserReporterWorker::RunTask, this)));
 	}
 
 	void RunTask()
@@ -456,7 +452,8 @@ private:
 private:
 	// Concurrency members:
 	std::mutex m_WorkerMutex;
-	Future<void> m_Future;
+	unifex::async_scope m_Scope;
+	std::atomic<bool> m_TaskRunning{false};
 	bool m_ProxyInitialised;
 
 	// Shared by main thread and worker thread:

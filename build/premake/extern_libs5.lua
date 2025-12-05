@@ -68,6 +68,10 @@ if os.istarget("macosx") then
 	pkgconfig.set_static_link_libs(true)
 end
 
+if not  _OPTIONS["with-system-libzip"] then
+	pkgconfig.add_pkg_config_path(libraries_source_dir .. "libunifex/lib/pkgconfig/")
+end
+
 local function add_delayload(name, suffix, def)
 
 	if def["no_delayload"] then
@@ -483,6 +487,25 @@ extern_lib_defs = {
 				})
 			else
 				pkgconfig.add_links("libsodium")
+			end
+		end,
+	},
+	libunifex = {
+		compile_settings = function()
+			if os.istarget("windows") then
+				add_default_include_paths("unifex")
+			else
+				pkgconfig.add_includes("unifex")
+			end
+		end,
+		link_settings = function()
+			if os.istarget("windows") then
+				add_default_lib_paths("unifex")
+				add_default_links({
+					win_names  = { "unifex" },
+				})
+			else
+				pkgconfig.add_links("unifex")
 			end
 		end,
 	},

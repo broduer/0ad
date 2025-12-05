@@ -44,7 +44,6 @@
 #include "maths/NUSpline.h"
 #include "ps/CLogger.h"
 #include "ps/Filesystem.h"
-#include "ps/Future.h"
 #include "ps/Loader.h"
 #include "ps/Profiler2.h"
 #include "ps/TaskManager.h"
@@ -82,6 +81,9 @@
 #include <js/PropertyAndElement.h>
 #include <string>
 #include <string_view>
+#include <unifex/async_scope.hpp>
+#include <unifex/let_error.hpp>
+#include <unifex/sync_wait.hpp>
 #include <utility>
 
 extern bool IsQuitRequested();
@@ -1372,7 +1374,14 @@ int CMapReader::LoadRMSettings()
 struct CMapReader::GeneratorState
 {
 	std::atomic<int> progress{1};
-	Future<Script::StructuredClone> task;
+	std::atomic<bool> done{false};
+	unifex::async_scope scope;
+	std::variant<std::exception_ptr, Script::StructuredClone> outcome;
+
+	~GeneratorState()
+	{
+		unifex::sync_wait(scope.cleanup());
+	}
 };
 
 int CMapReader::StartMapGeneration(const CStrW& scriptFile)
@@ -1382,26 +1391,40 @@ int CMapReader::StartMapGeneration(const CStrW& scriptFile)
 	m_GeneratorState = std::make_unique<GeneratorState>();
 
 	// The settings are stringified to pass them to the task.
-	m_GeneratorState->task = {g_TaskManager,
-		[&progress = m_GeneratorState->progress, scriptFile,
-			settings = Script::StringifyJSON(rq, &m_ScriptSettings)](const StopToken stopToken)
+	m_GeneratorState->scope.detached_spawn(
+		unifex::let_value_with_stop_token([&](const unifex::inplace_stop_token stopToken)
 		{
-			PROFILE2("Map Generation");
+			return unifex::schedule(g_TaskManager.get_scheduler())
+			| unifex::then([&generatorState = m_GeneratorState, scriptFile,
+				settings = Script::StringifyJSON(rq, &m_ScriptSettings), &stopToken]
+			{
+				PROFILE2("Map Generation");
 
-			const VfsPath scriptPath{scriptFile.empty() ? L"" :
-				static_cast<std::wstring>(RANDOM_MAP_PREFIX) + scriptFile};
+				const VfsPath scriptPath{scriptFile.empty() ? L"" :
+					static_cast<std::wstring>(RANDOM_MAP_PREFIX) + scriptFile};
 
-			const std::shared_ptr<ScriptContext> mapgenContext{ScriptContext::CreateContext(
-				MAP_GENERATION_CONTEXT_SIZE)};
+				const std::shared_ptr<ScriptContext> mapgenContext{ScriptContext::CreateContext(
+					MAP_GENERATION_CONTEXT_SIZE)};
 
-			ScriptInterface mapgenInterface{"Engine", "MapGenerator", mapgenContext,
-				[](const VfsPath& path){
-					// Only allow to load modules inside the maps folder.
-					return path.string().find(RANDOM_MAP_PREFIX) == 0;
-				}};
+				ScriptInterface mapgenInterface{"Engine", "MapGenerator", mapgenContext,
+					[](const VfsPath& path){
+						// Only allow to load modules inside the maps folder.
+						return path.string().find(RANDOM_MAP_PREFIX) == 0;
+					}};
 
-			return RunMapGenerationScript(stopToken, progress, mapgenInterface, scriptPath, settings);
-		}};
+				generatorState->outcome = RunMapGenerationScript(stopToken,
+					generatorState->progress, mapgenInterface, scriptPath, settings);
+				generatorState->done = true;
+			});
+		})
+		| unifex::let_error([this](std::exception_ptr e)
+		{
+			m_GeneratorState->outcome = e;
+			m_GeneratorState->done = true;
+			return unifex::just();
+		}));
+
+		;
 
 	return 0;
 }
@@ -1422,10 +1445,14 @@ int CMapReader::PollMapGeneration()
 		return -1;
 	}
 
-	if (!m_GeneratorState->task.IsDone())
+	if (!m_GeneratorState->done.load())
 		return m_GeneratorState->progress.load();
 
-	const Script::StructuredClone results{m_GeneratorState->task.Get()};
+	const auto exception = std::get_if<std::exception_ptr>(&m_GeneratorState->outcome);
+	if (exception)
+		std::rethrow_exception(*exception);
+
+	const Script::StructuredClone results{std::get<Script::StructuredClone>(m_GeneratorState->outcome)};
 	if (!results)
 		ThrowMapGenerationError();
 

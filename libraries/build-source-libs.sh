@@ -33,6 +33,7 @@ options:
 	--force-rebuild         - rebuild all
 	--without-nvtt          - don't build nvtt
 	--with-system-cxxtest   - don't build cxxtest
+	--with-system-libunifex - don't build libunifex
 	--with-system-nvtt      - don't build nvtt
 	--with-system-mozjs     - don't build spidermonkey
 	--with-system-premake   - don't build premake
@@ -43,6 +44,7 @@ EOF
 
 without_nvtt=false
 with_system_cxxtest=false
+with_system_libunifex=false
 with_system_nvtt=false
 with_system_mozjs=false
 with_system_premake=false
@@ -60,6 +62,7 @@ while [ "$#" -gt 0 ]; do
 		--force-rebuild) build_sh_options="$build_sh_options --force-rebuild" ;;
 		--without-nvtt) without_nvtt=true ;;
 		--with-system-cxxtest) with_system_cxxtest=true ;;
+		--with-system-libunifex) with_system_libunifex=true ;;
 		--with-system-nvtt) with_system_nvtt=true ;;
 		--with-system-mozjs) with_system_mozjs=true ;;
 		--with-system-premake) with_system_premake=true ;;
@@ -93,6 +96,11 @@ echo "Building third-party dependencies..."
 if [ "$with_system_cxxtest" = "false" ]; then
 	# shellcheck disable=SC2086
 	./source/cxxtest-4.4/build.sh $build_sh_options || die "cxxtest build failed"
+fi
+if [ "$with_system_libunifex" = "false" ]; then
+	# shellcheck disable=SC2086
+	./source/libunifex/build.sh $build_sh_options || die "libunifex build failed"
+	cp source/libunifex/lib/*so* ../binaries/system/
 fi
 # shellcheck disable=SC2086
 ./source/fcollada/build.sh $build_sh_options || die "FCollada build failed"
