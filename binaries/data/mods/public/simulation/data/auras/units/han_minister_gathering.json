@@ -1,12 +1,12 @@
 {
 	"type": "range",
-	"radius": 20,
+	"radius": 30,
 	"affects": ["Worker"],
 	"modifications": [
-		{ "value": "ResourceGatherer/BaseSpeed", "multiply": 1.10 }
+		{ "value": "ResourceGatherer/BaseSpeed", "multiply": 1.05 }
 	],
 	"auraName": "Minister over the Masses",
-	"auraDescription": "Gatherers +10% gathering rate.",
+	"auraDescription": "Gatherers +5% gathering rate.",
 	"overlayIcon": "art/textures/ui/session/auras/buildgather_bonus.png",
 	"stackable": false
 }

@@ -1,12 +1,12 @@
 {
 	"type": "range",
-	"radius": 20,
+	"radius": 30,
 	"affects": ["Worker"],
 	"modifications": [
-		{ "value": "Builder/Rate", "multiply": 1.10 }
+		{ "value": "Builder/Rate", "multiply": 1.05 }
 	],
 	"auraName": "Building Programs",
-	"auraDescription": "Builders construct buildings +10% faster.",
+	"auraDescription": "Builders construct buildings +5% faster.",
 	"overlayIcon": "art/textures/ui/session/auras/build_bonus.png",
 	"stackable": false
 }
