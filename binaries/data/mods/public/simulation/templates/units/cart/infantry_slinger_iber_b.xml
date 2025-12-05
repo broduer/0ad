@@ -2,11 +2,15 @@
 <Entity parent="merc_inf|template_unit_infantry_ranged_slinger">
   <Attack>
     <Ranged>
-	  <Damage>
+      <Damage>
         <Pierce op="mul">1.15</Pierce>
+        <Crush op="mul">1.15</Crush>
       </Damage>
       <MaxRange>50</MaxRange>
       <RepeatTime>1750</RepeatTime>
+      <Projectile>
+        <Spread op="mul">0.85</Spread>
+      </Projectile>
     </Ranged>
   </Attack>
   <Builder>
