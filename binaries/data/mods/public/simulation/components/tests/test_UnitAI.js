@@ -549,3 +549,324 @@ function TestWalkAndFightTargets()
 }
 
 TestWalkAndFightTargets();
+
+function TestAttemptObstructionMitigation()
+{
+	ResetState();
+
+	const controllerID = 100;
+	const member1ID = 201;
+	const member2ID = 202;
+	const member3ID = 203;
+	const playerID = 1;
+	const playerEntity = 5;
+
+	// Helper function to create timer mocks
+	function createTimerMock()
+	{
+		let timerId = null;
+		let canceledTimer = null;
+
+		return {
+			"SetTimeout": function(entity, iid, functionName, time, data) {
+				timerId = 123;
+				return timerId;
+			},
+			"CancelTimer": function(id) {
+				canceledTimer = id;
+			},
+			"SetInterval": function() { return null; }
+		};
+	}
+
+	AddMock(SYSTEM_ENTITY, IID_Timer, createTimerMock(true));
+
+	AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
+		"GetPlayerByID": id => playerEntity,
+		"GetNumPlayers": () => 2
+	});
+
+	AddMock(SYSTEM_ENTITY, IID_Pathfinder, {
+		"GetClearance": () => 1,
+		"GetPassabilityClass": () => 16
+	});
+
+	AddMock(playerEntity, IID_Player, {
+		"GetPlayerID": () => playerID
+	});
+
+	// Create controller UnitAI
+	const controllerAI = ConstructComponent(controllerID, "UnitAI", {
+		"FormationController": "true",
+		"DefaultStance": "aggressive"
+	});
+
+	// Mock controller position
+	let controllerX = 0;
+	let controllerZ = 0;
+	AddMock(controllerID, IID_Position, {
+		"IsInWorld": () => true,
+		"GetPosition": () => new Vector3D(controllerX, 0, controllerZ),
+		"GetPosition2D": () => new Vector2D(controllerX, controllerZ),
+		"GetRotation": () => ({ "y": 0 }),
+		"GetTurretParent": () => INVALID_ENTITY,
+		"TurnTo": () => {},
+		"JumpTo": function(x, z) {
+			controllerX = x;
+			controllerZ = z;
+		},
+		"MoveOutOfWorld": () => {}
+	});
+
+	AddMock(controllerID, IID_Ownership, {
+		"GetOwner": () => playerID,
+	});
+
+	AddMock(controllerID, IID_UnitMotion, {
+		"GetWalkSpeed": () => 1,
+		"GetAcceleration": () => 1,
+		"StopMoving": () => {},
+		"MoveToTargetRange": () => true,
+		"MoveToPointRange": () => true,
+		"SetSpeedMultiplier": () => {},
+		"SetAcceleration": () => {},
+		"SetPassabilityClassName": () => {},
+		"SetFacePointAfterMove": () => {},
+		"GetFacePointAfterMove": () => true,
+		"GetPassabilityClassName": () => "default",
+		"SetMemberOfFormation": () => {},
+		"FaceTowardsPoint": () => {}
+	});
+
+	controllerAI.OnCreate();
+
+	// Helper function to reset controller position
+	function resetControllerPosition(x = 0, z = 0)
+	{
+		controllerX = x;
+		controllerZ = z;
+	}
+
+	// Helper function to test obstruction mitigation
+	function testObstructionMitigation(formationMock, orderData, expectedX, expectedZ, shouldJump)
+	{
+		resetControllerPosition();
+
+		if (formationMock)
+		{
+			AddMock(controllerID, IID_Formation, formationMock);
+		}
+
+		controllerAI.order = { "data": orderData };
+
+		// Clear any previous flags
+		delete controllerAI.obstructionMitigationAttempted;
+		delete controllerAI.obstructionMitigationTimer;
+
+		controllerAI.AttemptObstructionMitigation();
+
+		TS_ASSERT_EQUALS(controllerX, expectedX);
+		TS_ASSERT_EQUALS(controllerZ, expectedZ);
+
+		if (shouldJump)
+		{
+			TS_ASSERT(controllerAI.obstructionMitigationAttempted);
+			TS_ASSERT_EQUALS(controllerAI.obstructionMitigationTimer, 123);
+		}
+	}
+
+	// Should not execute if already attempted
+	(function() {
+		controllerAI.obstructionMitigationAttempted = true;
+		const originalX = controllerX;
+		const originalZ = controllerZ;
+
+		controllerAI.order = { "data": { "x": 100, "z": 100 } };
+		controllerAI.AttemptObstructionMitigation();
+
+		TS_ASSERT_EQUALS(controllerX, originalX);
+		TS_ASSERT_EQUALS(controllerZ, originalZ);
+
+		delete controllerAI.obstructionMitigationAttempted;
+	})();
+
+	// Should not execute without formation component
+	(function() {
+		const originalX = controllerX;
+		const originalZ = controllerZ;
+
+		controllerAI.order = { "data": { "x": 100, "z": 100 } };
+		controllerAI.AttemptObstructionMitigation();
+
+		TS_ASSERT_EQUALS(controllerX, originalX);
+		TS_ASSERT_EQUALS(controllerZ, originalZ);
+	})();
+
+	// Should not execute without valid destination
+	(function() {
+		const formationMock = { "GetClosestMemberToPosition": () => member1ID };
+
+		// Test with missing destination
+		testObstructionMitigation(formationMock, {}, 0, 0, false);
+
+		// Test with undefined x
+		testObstructionMitigation(formationMock, { "z": 100 }, 0, 0, false);
+
+		// Test with undefined z
+		testObstructionMitigation(formationMock, { "x": 100 }, 0, 0, false);
+	})();
+
+	// Should not execute if no closest member found
+	(function() {
+		const formationMock = { "GetClosestMemberToPosition": () => INVALID_ENTITY };
+		testObstructionMitigation(formationMock, { "x": 100, "z": 100 }, 0, 0, false);
+	})();
+
+	// Should not execute if member or controller missing position component
+	(function() {
+		const formationMock = { "GetClosestMemberToPosition": () => member1ID };
+		testObstructionMitigation(formationMock, { "x": 100, "z": 100 }, 0, 0, false);
+	})();
+
+	// Should jump when member is more than 2 meters closer to destination
+	(function() {
+		AddMock(member1ID, IID_Position, {
+			"GetPosition2D": () => new Vector2D(90, 90)
+		});
+
+		const formationMock = {
+			"GetClosestMemberToPosition": () => member1ID
+		};
+
+		testObstructionMitigation(formationMock, { "x": 100, "z": 100 }, 90, 90, true);
+	})();
+
+	// Should NOT jump when member is NOT more than 2 meters closer
+	(function() {
+		AddMock(member1ID, IID_Position, {
+			"GetPosition2D": () => new Vector2D(95, 96)
+		});
+
+		const formationMock = {
+			"GetClosestMemberToPosition": () => member1ID
+		};
+
+		controllerX = 95;
+		controllerZ = 95;
+
+		controllerAI.order = { "data": { "x": 100, "z": 100 } };
+		delete controllerAI.obstructionMitigationAttempted;
+
+		controllerAI.AttemptObstructionMitigation();
+
+		TS_ASSERT_EQUALS(controllerX, 95);
+		TS_ASSERT_EQUALS(controllerZ, 95);
+		TS_ASSERT(controllerAI.obstructionMitigationAttempted);
+	})();
+
+	// Should NOT jump when member is actually farther away
+	(function() {
+		AddMock(member1ID, IID_Position, {
+			"GetPosition2D": () => new Vector2D(0, 0)
+		});
+
+		const formationMock = {
+			"GetClosestMemberToPosition": () => member1ID
+		};
+
+		controllerX = 95;
+		controllerZ = 95;
+
+		controllerAI.order = { "data": { "x": 100, "z": 100 } };
+		delete controllerAI.obstructionMitigationAttempted;
+
+		controllerAI.AttemptObstructionMitigation();
+
+		TS_ASSERT_EQUALS(controllerX, 95);
+		TS_ASSERT_EQUALS(controllerZ, 95);
+		TS_ASSERT(controllerAI.obstructionMitigationAttempted);
+	})();
+
+	// Should jump when member is exactly 2.1 meters closer (edge case)
+	(function() {
+		AddMock(member1ID, IID_Position, {
+			"GetPosition2D": () => new Vector2D(2, 1)
+		});
+
+		const formationMock = {
+			"GetClosestMemberToPosition": () => member1ID
+		};
+
+		testObstructionMitigation(formationMock, { "x": 100, "z": 100 }, 2, 1, true);
+	})();
+
+	// Test SetObstructionMitigationFlag and ResetObstructionMitigationFlag
+	(function() {
+		// Use SetTimeout version for this test
+		AddMock(SYSTEM_ENTITY, IID_Timer, createTimerMock(true));
+
+		controllerAI.SetObstructionMitigationFlag();
+
+		TS_ASSERT(controllerAI.obstructionMitigationAttempted);
+		TS_ASSERT_EQUALS(controllerAI.obstructionMitigationTimer, 123);
+
+		controllerAI.ResetObstructionMitigationFlag();
+
+		TS_ASSERT(!controllerAI.obstructionMitigationAttempted);
+	})();
+
+	// Multiple members, should pick closest one
+	(function() {
+		const members = [member1ID, member2ID, member3ID];
+
+		AddMock(member1ID, IID_Position, {
+			"GetPosition2D": () => ({ "x": 80, "y": 80 }),
+			"IsInWorld": () => true
+		});
+
+		AddMock(member2ID, IID_Position, {
+			"GetPosition2D": () => ({ "x": 90, "y": 90 }),
+			"IsInWorld": () => true
+		});
+
+		AddMock(member3ID, IID_Position, {
+			"GetPosition2D": () => ({ "x": 50, "y": 50 }),
+			"IsInWorld": () => true
+		});
+
+		const formationMock = {
+			"GetClosestMemberToPosition": function(targetPosition, filter) {
+				const memberPositions = {
+					[member1ID]: { "x": 80, "y": 80 },
+					[member2ID]: { "x": 90, "y": 90 },
+					[member3ID]: { "x": 50, "y": 50 }
+				};
+
+				let closestMember = INVALID_ENTITY;
+				let closestDistance = Infinity;
+
+				for (const member of members)
+				{
+					if (filter && !filter(member))
+						continue;
+
+					const memberPos = memberPositions[member];
+					if (!memberPos)
+						continue;
+
+					const dist = (targetPosition.x - memberPos.x) ** 2 + (targetPosition.y - memberPos.y) ** 2;
+					if (dist < closestDistance)
+					{
+						closestMember = member;
+						closestDistance = dist;
+					}
+				}
+				return closestMember;
+			}
+		};
+
+		testObstructionMitigation(formationMock, { "x": 100, "z": 100 }, 90, 90, true);
+	})();
+}
+
+TestAttemptObstructionMitigation();
