@@ -1,6 +1,24 @@
-Engine.LoadComponentScript("interfaces/Timer.js");
+Engine.LoadHelperScript("Player.js");
+Engine.LoadHelperScript("Position.js");
+Engine.LoadHelperScript("Sound.js");
+Engine.LoadComponentScript("interfaces/Auras.js");
+Engine.LoadComponentScript("interfaces/Builder.js");
+Engine.LoadComponentScript("interfaces/BuildingAI.js");
+Engine.LoadComponentScript("interfaces/Capturable.js");
+Engine.LoadComponentScript("interfaces/Diplomacy.js");
+Engine.LoadComponentScript("interfaces/Garrisonable.js");
+Engine.LoadComponentScript("interfaces/Resistance.js");
 Engine.LoadComponentScript("interfaces/Formation.js");
+Engine.LoadComponentScript("interfaces/Heal.js");
+Engine.LoadComponentScript("interfaces/Health.js");
+Engine.LoadComponentScript("interfaces/Pack.js");
+Engine.LoadComponentScript("interfaces/ResourceSupply.js");
+Engine.LoadComponentScript("interfaces/ResourceGatherer.js");
+Engine.LoadComponentScript("interfaces/Timer.js");
+Engine.LoadComponentScript("interfaces/Turretable.js");
+Engine.LoadComponentScript("interfaces/UnitAI.js");
 Engine.LoadComponentScript("Formation.js");
+Engine.LoadComponentScript("UnitAI.js");
 
 const entity_id = 5;
 
@@ -149,3 +167,129 @@ function TestGetClosestMemberFunctions()
 }
 
 TestGetClosestMemberFunctions();
+
+
+function TestIsRearrangementAllowed()
+{
+	ResetState();
+
+	const playerID = 1;
+	const playerEntity = 5;
+
+	AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
+		"GetPlayerByID": id => playerEntity,
+		"GetNumPlayers": () => 2
+	});
+
+	AddMock(playerEntity, IID_Player, {
+		"GetPlayerID": () => playerID
+	});
+
+	AddMock(SYSTEM_ENTITY, IID_Timer, {
+		"SetInterval": () => {},
+		"SetTimeout": () => {}
+	});
+
+	// Helper to mock a unit's state
+	function mockUnitState(entityID, state)
+	{
+		AddMock(entityID, IID_UnitAI, {
+			"GetCurrentState": () => state
+		});
+	}
+
+	// Controller in COMBAT.ATTACKING should block rearrangement
+	(function() {
+		const controllerID = cmpFormation.entity;
+
+		cmpFormation.members = [201, 202];
+
+		// Mock controller in combat state
+		mockUnitState(controllerID, "COMBAT.ATTACKING");
+		// Mock members (state doesn't matter since controller blocks)
+		mockUnitState(201, "IDLE");
+		mockUnitState(202, "IDLE");
+
+		// Controller in combat should block
+		TS_ASSERT(!cmpFormation.IsRearrangementAllowed());
+	})();
+
+	// Different critical states sum should count toward threshold
+	(function() {
+		const controllerID = cmpFormation.entity;
+
+		// Mock controller in walking state
+		mockUnitState(controllerID, "WALKING");
+
+		// Create exactly 100 members, all starting as idle
+		const members = [];
+		for (let i = 0; i < 100; i++)
+		{
+			const memberID = 5000 + i;
+			// All start idle
+			mockUnitState(memberID, "IDLE");
+			members.push(memberID);
+		}
+
+		// Critical states to test
+		const criticalStates = [
+			"COMBAT.ATTACKING",
+			"COMBAT.CHASING",
+			"COMBAT.APPROACHING",
+			"HEAL.HEALING",
+			"GATHER.RETURNING",
+			"REPAIR.REPAIRING"
+		];
+
+		// Helper to set first N members as critical (using different states)
+		function setCriticalMembers(count)
+		{
+			for (let i = 0; i < members.length; i++)
+			{
+				const memberID = members[i];
+				if (i < count)
+				{
+					// Use different critical states cyclically
+					const state = criticalStates[i % criticalStates.length];
+					mockUnitState(memberID, state);
+				}
+				else
+				{
+					mockUnitState(memberID, "IDLE");
+				}
+			}
+		}
+
+		cmpFormation.members = members;
+
+		// 0 critical members = 0% → should allow
+		setCriticalMembers(0);
+		TS_ASSERT(cmpFormation.IsRearrangementAllowed());
+
+		// 1 critical member = 1% → should allow
+		setCriticalMembers(1);
+		TS_ASSERT(cmpFormation.IsRearrangementAllowed());
+
+		// 4 critical members = 4% → should allow (< 5%)
+		setCriticalMembers(4);
+		TS_ASSERT(cmpFormation.IsRearrangementAllowed());
+
+		// 5 critical members = 5% → should allow (= 5%, not > 5%)
+		setCriticalMembers(5);
+		TS_ASSERT(cmpFormation.IsRearrangementAllowed());
+
+		// 6 critical members = 6% → should block (> 5%)
+		setCriticalMembers(6);
+		TS_ASSERT(!cmpFormation.IsRearrangementAllowed());
+
+		// 50 critical members = 50% → should block
+		setCriticalMembers(50);
+		TS_ASSERT(!cmpFormation.IsRearrangementAllowed());
+
+		// All 100 critical members = 100% → should block
+		setCriticalMembers(100);
+		TS_ASSERT(!cmpFormation.IsRearrangementAllowed());
+	})();
+}
+
+TestIsRearrangementAllowed();
