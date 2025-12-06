@@ -90,7 +90,9 @@ Formation.prototype.variablesToSerialize = [
 	"maxRowsUsed",
 	"maxColumnsUsed",
 	"finishedEntities",
+	"idleEntities",
 	"columnar",
+	"rearrange",
 	"formationMembersWithAura",
 	"width",
 	"depth",
@@ -101,8 +103,10 @@ Formation.prototype.variablesToSerialize = [
 
 Formation.prototype.Init = function(deserialized = false)
 {
+	this.shape = this.template.FormationShape;
 	this.maxTurningAngle = +this.template.MaxTurningAngle;
 	this.sortingClasses = this.template.SortingClasses.split(/\s+/g);
+	this.sortingOrder = this.template.SortingOrder;
 	this.shiftRows = this.template.ShiftRows == "true";
 	this.separationMultiplier = {
 		"width": +this.template.UnitSeparationWidthMultiplier,
@@ -144,8 +148,11 @@ Formation.prototype.Init = function(deserialized = false)
 	this.maxColumnsUsed = [];
 	// Entities that have finished the original task.
 	this.finishedEntities = new Set();
+	this.idleEntities = new Set();
 	// Whether we're travelling in column (vs box) formation.
 	this.columnar = false;
+	// Whether we should rearrange all formation members.
+	this.rearrange = true;
 	// Members with a formation aura.
 	this.formationMembersWithAura = [];
 	this.width = 0;
@@ -280,7 +287,7 @@ Formation.prototype.GetPrimaryMember = function()
  */
 Formation.prototype.GetFormationAnimationVariant = function(entity)
 {
-	if (!this.animationvariants || !this.animationvariants.length || this.columnar || !this.memberPositions[entity])
+	if (!this.animationvariants || !this.animationvariants.length || !this.memberPositions[entity])
 		return undefined;
 	const row = this.memberPositions[entity].row;
 	const column = this.memberPositions[entity].column;
@@ -528,14 +535,6 @@ Formation.prototype.ArrangeFormation = function(moveCenter, force, variant)
 		this.SetupPositionAndHandleRotation(avgpos.x, avgpos.y, newRotation, true);
 	}
 
-	// Switch between column and box if necessary.
-	const columnar = cmpFormationUnitAI.ComputeWalkingDistance() > g_ColumnDistanceThreshold;
-	if (columnar != this.columnar)
-	{
-		this.columnar = columnar;
-		this.offsets = undefined;
-	}
-
 	this.lastOrderVariant = variant;
 
 	let offsetsChanged = false;
@@ -660,11 +659,7 @@ Formation.prototype.ComputeFormationOffsets = function(active, positions)
 	separation.width *= this.separationMultiplier.width;
 	separation.depth *= this.separationMultiplier.depth;
 
-	let sortingClasses;
-	if (this.columnar)
-		sortingClasses = ["Cavalry", "Infantry"];
-	else
-		sortingClasses = this.sortingClasses.slice();
+	const sortingClasses = this.sortingClasses.slice();
 	sortingClasses.push("Unknown");
 
 	// The entities will be assigned to positions in the formation in
@@ -692,35 +687,18 @@ Formation.prototype.ComputeFormationOffsets = function(active, positions)
 	}
 
 	const count = active.length;
-
-	let shape = this.template.FormationShape;
-	let shiftRows = this.shiftRows;
-	let centerGap = this.centerGap;
-	let sortingOrder = this.template.SortingOrder;
 	let offsets = [];
 
-	// Choose a sensible size/shape for the various formations, depending on number of units.
-	let cols;
+	let depth = Math.sqrt(count / this.widthDepthRatio);
+	if (this.maxRows && depth > this.maxRows)
+		depth = this.maxRows;
 
-	if (this.columnar)
-	{
-		shape = "square";
-		cols = Math.min(count, 3);
-		shiftRows = false;
-		centerGap = 0;
-		sortingOrder = null;
-	}
-	else
-	{
-		let depth = Math.sqrt(count / this.widthDepthRatio);
-		if (this.maxRows && depth > this.maxRows)
-			depth = this.maxRows;
-		cols = Math.ceil(count / Math.ceil(depth) + (this.shiftRows ? 0.5 : 0));
-		if (cols < this.minColumns)
-			cols = Math.min(count, this.minColumns);
-		if (this.maxColumns && cols > this.maxColumns && this.maxRows != depth)
-			cols = this.maxColumns;
-	}
+	// Choose a sensible size/shape for the various formations, depending on number of units.
+	let cols = Math.ceil(count / Math.ceil(depth) + (this.shiftRows ? 0.5 : 0));
+	if (cols < this.minColumns)
+		cols = Math.min(count, this.minColumns);
+	if (this.maxColumns && cols > this.maxColumns && this.maxRows != depth)
+		cols = this.maxColumns;
 
 	// Define special formations here.
 	if (this.template.FormationShape == "special" && Engine.QueryInterface(this.entity, IID_Identity).GetGenericName() == "Scatter")
@@ -739,7 +717,7 @@ Formation.prototype.ComputeFormationOffsets = function(active, positions)
 	// For non-special formations, calculate the positions based on the number of entities.
 	this.maxColumnsUsed = [];
 	this.maxRowsUsed = 0;
-	if (shape != "special")
+	if (this.shape != "special")
 	{
 		offsets = [];
 		let r = 0;
@@ -753,20 +731,20 @@ Formation.prototype.ComputeFormationOffsets = function(active, positions)
 			let side = 1;
 			let n;
 			// Determine the number of entities in this row of the formation.
-			if (shape == "square")
+			if (this.shape == "square")
 			{
 				n = cols;
-				if (shiftRows)
+				if (this.shiftRows)
 					n -= r % 2;
 			}
-			else if (shape == "triangle")
+			else if (this.shape == "triangle")
 			{
-				if (shiftRows)
+				if (this.shiftRows)
 					n = r + 1;
 				else
 					n = r * 2 + 1;
 			}
-			if (!shiftRows && n > left)
+			if (!this.shiftRows && n > left)
 				n = left;
 			for (let c = 0; c < n && left > 0; ++c)
 			{
@@ -777,12 +755,12 @@ Formation.prototype.ComputeFormationOffsets = function(active, positions)
 					x = side * (Math.floor(c / 2) + 0.5) * separation.width;
 				else
 					x = side * Math.ceil(c / 2) * separation.width;
-				if (centerGap)
+				if (this.centerGap)
 				{
 					// Don't use the center position with a center gap.
 					if (x == 0)
 						continue;
-					x += side * centerGap / 2;
+					x += side * this.centerGap / 2;
 				}
 				const column = Math.ceil(n / 2) + Math.ceil(c / 2) * side;
 				const r1 = randFloat(-1, 1) * this.sloppiness;
@@ -808,9 +786,9 @@ Formation.prototype.ComputeFormationOffsets = function(active, positions)
 	// Sort the available places in certain ways.
 	// The places first in the list will contain the heaviest units as defined by the order
 	// of the types list.
-	if (sortingOrder == "fillFromTheSides")
+	if (this.sortingOrder == "fillFromTheSides")
 		offsets.sort(function(o1, o2) { return Math.abs(o1.x) < Math.abs(o2.x);});
-	else if (sortingOrder == "fillToTheCenter")
+	else if (this.sortingOrder == "fillToTheCenter")
 		offsets.sort(function(o1, o2) {
 			return Math.max(Math.abs(o1.x), Math.abs(o1.y)) < Math.max(Math.abs(o2.x), Math.abs(o2.y));
 		});
@@ -986,16 +964,7 @@ Formation.prototype.UpdateTwinFormationsForMerge = function()
 		// Merge the members from the other formation into this one
 		const otherMembers = cmpOtherFormation.members;
 		cmpOtherFormation.RemoveMembers(otherMembers);
-
-		// We add members from the other formation to this one.
-		// The other formation will get disbanded for having no members
-		this.AddMembers(otherMembers, true);
-
-		// Remove the merged formation from twin formations list
-		this.twinFormations.splice(i, 1);
-
-		// Update Formation and members position
-		this.UpdateFormation(true, true);
+		this.AddMembers(otherMembers);
 	}
 };
 
