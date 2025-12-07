@@ -56,8 +56,6 @@ public:
 	virtual void PlayAsMusic(const VfsPath& itemPath, bool looping) = 0;
 	virtual void PlayAsAmbient(const VfsPath& itemPath, bool looping) = 0;
 	virtual void PlayAsGroup(const VfsPath& groupPath, const CVector3D& sourcePos, entity_id_t source, bool ownedSound) = 0;
-
-	virtual bool InDistress() = 0;
 };
 
 extern ISoundManager*  g_SoundManager;

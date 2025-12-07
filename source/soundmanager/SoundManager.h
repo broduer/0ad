@@ -67,7 +67,6 @@ protected:
 	ISoundItem* m_CurrentTune;
 	ISoundItem* m_CurrentEnvirons;
 	CSoundManagerWorker* m_Worker;
-	std::mutex m_DistressMutex;
 	PlayList* m_PlayListItems;
 	SoundGroupMap m_SoundGroups;
 
@@ -88,8 +87,6 @@ protected:
 	bool m_LoopingPlaylist;
 
 	long m_PlaylistGap;
-	long m_DistressErrCount;
-	long m_DistressTime;
 
 	CStr8 m_SoundCardNames;
 	CStr8 m_OpenALVersion;
@@ -142,10 +139,6 @@ public:
 	void PlayAsGroup(const VfsPath& groupPath, const CVector3D& sourcePos, entity_id_t source, bool ownedSound);
 
 	void PlayGroupItem(ISoundItem* anItem, ALfloat groupGain);
-
-	bool InDistress();
-	void SetDistressThroughShortage();
-	void SetDistressThroughError();
 
 	void Pause(bool pauseIt);
 	void PauseMusic(bool pauseIt);

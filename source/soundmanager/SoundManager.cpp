@@ -32,6 +32,8 @@
 #include "ps/ConfigDB.h"
 #include "ps/Filesystem.h"
 #include "ps/Profiler2.h"
+#include "ps/TaskManager.h"
+#include "ps/Future.h"
 #include "ps/Threading.h"
 #include "ps/XMB/XMBStorage.h"
 #include "ps/XML/Xeromyces.h"
@@ -43,8 +45,8 @@
 #include <SDL_timer.h>
 #include <algorithm>
 #include <cstring>
-#include <thread>
 #include <utility>
+#include <functional>
 
 ISoundManager* g_SoundManager = NULL;
 
@@ -62,8 +64,6 @@ public:
 		m_Items = new ItemsList;
 		m_DeadItems = new ItemsList;
 		m_Shutdown = false;
-
-		m_WorkerThread = std::thread(Threading::HandleExceptions<RunThread>::Wrapper, this);
 	}
 
 	~CSoundManagerWorker()
@@ -89,7 +89,7 @@ public:
 
 		}
 
-		m_WorkerThread.join();
+		CleanupFuture();
 
 		return true;
 	}
@@ -98,6 +98,11 @@ public:
 	{
 		std::lock_guard<std::mutex> lock(m_WorkerMutex);
 		m_Items->push_back(anItem);
+	}
+
+	void Update()
+	{
+		TryStartTask();
 	}
 
 	void CleanupItems()
@@ -116,71 +121,73 @@ public:
 	}
 
 private:
-	static void RunThread(CSoundManagerWorker* data)
+	void CleanupFuture()
 	{
-		debug_SetThreadName("CSoundManagerWorker");
-		g_Profiler2.RegisterCurrentThread("soundmanager");
-
-		data->Run();
+		if (m_Future.Valid())
+			m_Future.Get();
 	}
 
-	void Run()
+	void TryStartTask()
 	{
-		while (true)
+		if (m_Future.Valid() && !m_Future.IsDone())
+			return;
+		if (m_Shutdown)
+			return;
+
+		// Start or replace the future
+		m_Future = {g_TaskManager, std::bind_front(&CSoundManagerWorker::RunTask, this)};
+	}
+
+	void ProcessList()
+	{
+		std::lock_guard<std::mutex> workerLock(m_WorkerMutex);
+
+		if (m_Items->empty())
+			return;
+
+		PROFILE2("CSoundManagerWorker::ProcessList");
+
+		ItemsList::iterator lstr = m_Items->begin();
+		ItemsList* nextItemList = new ItemsList;
+
+		while (lstr != m_Items->end())
 		{
-			// Handle shutdown requests as soon as possible
-			if (GetShutdown())
-				return;
-
-			int pauseTime = 500;
-			if (g_SoundManager->InDistress())
-				pauseTime = 50;
-
+			AL_CHECK;
+			if ((*lstr)->IdleTask())
 			{
-				std::lock_guard<std::mutex> workerLock(m_WorkerMutex);
-
-				ItemsList::iterator lstr = m_Items->begin();
-				ItemsList* nextItemList = new ItemsList;
-
-				while (lstr != m_Items->end())
-				{
-					AL_CHECK;
-					if ((*lstr)->IdleTask())
-					{
-						if ((pauseTime == 500) && (*lstr)->IsFading())
-							pauseTime = 100;
-
-						nextItemList->push_back(*lstr);
-					}
-					else
-					{
-						std::lock_guard<std::mutex> deadItemsLock(m_DeadItemsMutex);
-						m_DeadItems->push_back(*lstr);
-					}
-					++lstr;
-
-					AL_CHECK;
-				}
-
-				delete m_Items;
-				m_Items = nextItemList;
-
-				AL_CHECK;
+				nextItemList->push_back(*lstr);
 			}
-			SDL_Delay(pauseTime);
+			else
+			{
+				std::lock_guard<std::mutex> deadItemsLock(m_DeadItemsMutex);
+				m_DeadItems->push_back(*lstr);
+			}
+			++lstr;
+
+			AL_CHECK;
 		}
+
+		delete m_Items;
+		m_Items = nextItemList;
+
+		AL_CHECK;
 	}
 
-	bool GetShutdown()
+	void RunTask()
+	{
+		ProcessList();
+	}
+
+	bool ShouldRun()
 	{
 		std::lock_guard<std::mutex> lock(m_WorkerMutex);
-		return m_Shutdown;
+		return !m_Shutdown;
 	}
 
 private:
-	// Thread-related members:
-	std::thread m_WorkerThread;
+	// Concurrency members:
 	std::mutex m_WorkerMutex;
+	Future<void> m_Future;
 	std::mutex m_DeadItemsMutex;
 
 	// Shared by main thread and worker thread:
@@ -248,7 +255,7 @@ Status CSoundManager::ReloadChangedFiles(const VfsPath&)
 CSoundManager::CSoundManager(ALCdevice* device)
 	: m_Context(nullptr), m_Device(device), m_ALSourceBuffer(nullptr),
 	m_CurrentTune(nullptr), m_CurrentEnvirons(nullptr),
-	m_Worker(nullptr), m_DistressMutex(), m_PlayListItems(nullptr), m_SoundGroups(),
+	m_Worker(nullptr), m_PlayListItems(nullptr), m_SoundGroups(),
 	m_Gain{g_ConfigDB.Get("sound.mastergain", 0.5f)},
 	m_MusicGain{g_ConfigDB.Get("sound.musicgain", 0.5f)},
 	m_AmbientGain{g_ConfigDB.Get("sound.ambientgain", 0.5f)},
@@ -257,7 +264,7 @@ CSoundManager::CSoundManager(ALCdevice* device)
 	m_Enabled(false), m_SoundEnabled(true), m_MusicEnabled(true),
 	m_MusicPaused(false), m_AmbientPaused(false), m_ActionPaused(false),
 	m_RunningPlaylist(false), m_PlayingPlaylist(false), m_LoopingPlaylist(false),
-	m_PlaylistGap(0), m_DistressErrCount(0), m_DistressTime(0)
+	m_PlaylistGap(0)
 {
 	AlcInit();
 
@@ -377,42 +384,6 @@ Status CSoundManager::AlcInit()
 	return ret;
 }
 
-bool CSoundManager::InDistress()
-{
-	std::lock_guard<std::mutex> lock(m_DistressMutex);
-
-	if (m_DistressTime == 0)
-		return false;
-	else if ((timer_Time() - m_DistressTime) > 10)
-	{
-		m_DistressTime = 0;
-// Coming out of distress mode
-		m_DistressErrCount = 0;
-		return false;
-	}
-
-	return true;
-}
-
-void CSoundManager::SetDistressThroughShortage()
-{
-	std::lock_guard<std::mutex> lock(m_DistressMutex);
-
-// Going into distress for normal reasons
-
-	m_DistressTime = timer_Time();
-}
-
-void CSoundManager::SetDistressThroughError()
-{
-	std::lock_guard<std::mutex> lock(m_DistressMutex);
-
-// Going into distress due to unknown error
-
-	m_DistressTime = timer_Time();
-	m_DistressErrCount++;
-}
-
 
 
 ALuint CSoundManager::GetALSource(ISoundItem* anItem)
@@ -425,7 +396,6 @@ ALuint CSoundManager::GetALSource(ISoundItem* anItem)
 			return m_ALSourceBuffer[x].ALSource;
 		}
 	}
-	SetDistressThroughShortage();
 	return 0;
 }
 
@@ -598,7 +568,10 @@ void CSoundManager::IdleTask()
 			m_CurrentEnvirons->EnsurePlay();
 
 		if (m_Worker)
+		{
+			m_Worker->Update();
 			m_Worker->CleanupItems();
+		}
 	}
 }
 

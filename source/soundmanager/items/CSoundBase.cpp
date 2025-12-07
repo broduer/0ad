@@ -289,7 +289,9 @@ void CSoundBase::Play()
 		if (err != AL_NO_ERROR)
 		{
 			if (err == AL_INVALID)
-				((CSoundManager*)g_SoundManager)->SetDistressThroughError();
+			{
+				// Resource shortage - source is invalid
+			}
 			else
 				((CSoundManager*)g_SoundManager)->al_ReportError(err, __func__, __LINE__);
 		}
