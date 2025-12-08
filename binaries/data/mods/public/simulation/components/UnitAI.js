@@ -201,10 +201,6 @@ UnitAI.prototype.UnitFsmSpec = {
 		// as switching states)
 	},
 
-	"ReenterIdle": function(msg) {
-		// Ignore, intended for IDLE state only.
-	},
-
 	"ConstructionFinished": function(msg) {
 		// ignore uninteresting construction messages
 	},
@@ -1567,40 +1563,28 @@ UnitAI.prototype.UnitFsmSpec = {
 				return ACCEPT_ORDER;
 			},
 
-			"ReenterIdle": function() {
-				// Reset us to the idle state for the GUI.
-				if (this.IsFormationMember())
-				{
-					const cmpFormationAI = Engine.QueryInterface(this.formationController, IID_UnitAI);
-					if (!cmpFormationAI || !cmpFormationAI.IsIdle())
-						return;
-				}
-
-				this.isIdle = true;
-				Engine.PostMessage(this.entity, MT_UnitIdleChanged, { "idle": this.isIdle });
-
-				// TODO: figure out if we can move more things from Timer here/call timer directly
-				// without triggering infinite loops.
-			},
-
 			"enter": function() {
+				// Mark unit as idle internally, but delay idle behaviors and notifications
+				// to prevent spurious state changes and infinite loops.
+				this.isIdle = true;
+				this.isIdleConfirmed = false;
+
 				// Switch back to idle animation to guarantee we won't
 				// get stuck with an incorrect animation
 				this.SelectAnimation("idle");
 
-				// Idle is the default state. If units try, from the IDLE.enter sub-state, to
-				// begin another order, and that order fails (calling FinishOrder), they might
-				// end up in an infinite loop. To avoid this, all methods that could put the unit in
-				// a new state are done on the next turn.
-				// This wastes a turn but avoids infinite loops.
-				// Further, the GUI and AI want to know when a unit is idle,
-				// but sending this info in Idle.enter will send spurious messages.
-				// Pick 100 to execute on the next turn in SP and MP.
+				// Delay idle behaviors and state notification by one turn to:
+				// 1. Prevent infinite loops when orders fail immediately after entering idle
+				// 2. Avoid spurious idle notifications for units that leave idle state quickly
+				// 3. Ensure GUI/AI only see stabilized idle states
+				// Pick 100 to execute on the next turn in both SP and MP.
 				this.StartTimer(100);
 				return false;
 			},
 
 			"leave": function() {
+				this.isIdle = false;
+
 				const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
 				if (this.losRangeQuery)
 					cmpRangeManager.DisableActiveQuery(this.losRangeQuery);
@@ -1611,11 +1595,9 @@ UnitAI.prototype.UnitFsmSpec = {
 
 				this.StopTimer();
 
-				if (this.isIdle)
-				{
-					this.isIdle = false;
-					Engine.PostMessage(this.entity, MT_UnitIdleChanged, { "idle": this.isIdle });
-				}
+				if (this.isIdleConfirmed)
+					Engine.PostMessage(this.entity, MT_UnitIdleChanged, { "idle": false });
+				delete this.isIdleConfirmed;
 			},
 
 			"Attacked": function(msg) {
@@ -1666,8 +1648,10 @@ UnitAI.prototype.UnitFsmSpec = {
 				if (this.FindSightedEnemies())
 					return;
 
-				if (!this.isIdle)
+				if (!this.isIdleConfirmed)
 				{
+					this.isIdleConfirmed = true;
+					Engine.PostMessage(this.entity, MT_UnitIdleChanged, { "idle": true });
 					// Move back to the held position if we drifted away.
 					// (only if not a formation member).
 					if (!this.IsFormationMember() &&
@@ -1675,18 +1659,7 @@ UnitAI.prototype.UnitFsmSpec = {
 					     !this.CheckPointRangeExplicit(this.heldPosition.x, this.heldPosition.z, 0, 10) &&
 					     this.WalkToHeldPosition())
 						return;
-
-					if (this.IsFormationMember())
-					{
-						const cmpFormationAI = Engine.QueryInterface(this.formationController, IID_UnitAI);
-						if (!cmpFormationAI || !cmpFormationAI.IsIdle())
-							return;
-					}
-
-					this.isIdle = true;
-					Engine.PostMessage(this.entity, MT_UnitIdleChanged, { "idle": this.isIdle });
 				}
-
 				// Go linger first to prevent all roaming entities
 				// to move all at the same time on map init.
 				if (this.template.RoamDistance)
@@ -3917,8 +3890,6 @@ UnitAI.prototype.FinishOrder = function()
  */
 UnitAI.prototype.PushOrder = function(type, data)
 {
-	const wasIdle = this.isIdle && !this.order;
-
 	var order = { "type": type, "data": data };
 	this.orderQueue.push(order);
 
@@ -3929,13 +3900,6 @@ UnitAI.prototype.PushOrder = function(type, data)
 			"type": "Order."+this.order.type,
 			"data": this.order.data
 		});
-		// Check if the order appears to have been rejected
-		if (wasIdle && !this.order)
-		{
-			this.UnitFsm.ProcessMessage(this, {
-				"type": "ReenterIdle",
-			});
-		}
 	}
 
 	Engine.PostMessage(this.entity, MT_UnitAIOrderDataChanged, { "to": this.GetOrderData() });
