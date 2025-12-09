@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,15 +18,15 @@
 // This pipeline builds the game on Linux (with minimum supported versions of GCC and clang) and runs tests.
 
 def tc_getCC(String tc) {
-    def map = ['gcc12': 'gcc-12', 'clang14': 'clang-14']
+    def map = ['gcc14': 'gcc-14', 'clang19': 'clang-19']
     return map[tc]
 }
 def tc_getCXX(String tc) {
-    def map = ['gcc12': 'g++-12', 'clang14': 'clang++-14']
+    def map = ['gcc14': 'g++-14', 'clang19': 'clang++-19']
     return map[tc]
 }
 def tc_getLDFLAGS(String tc) {
-    def map = ['gcc12': '', 'clang14': '-fuse-ld=lld-14']
+    def map = ['gcc14': '', 'clang19': '-fuse-ld=lld-19']
     return map[tc]
 }
 
@@ -63,7 +63,7 @@ pipeline {
                 axes {
                     axis {
                         name 'JENKINS_COMPILER'
-                        values 'gcc12', 'clang14'
+                        values 'gcc14', 'clang19'
                     }
                     axis {
                         name 'BUILD_TYPE'
@@ -100,7 +100,7 @@ pipeline {
                                 label 'LinuxAgent'
                                 customWorkspace "workspace/${JENKINS_COMPILER}-pch-${BUILD_TYPE}"
                                 dir 'build/jenkins/dockerfiles'
-                                filename 'debian-12.Dockerfile'
+                                filename 'debian-13.Dockerfile'
                                 // Prevent Jenkins from running commands with the UID of the host's jenkins user
                                 // https://stackoverflow.com/a/42822143
                                 args '-u root'

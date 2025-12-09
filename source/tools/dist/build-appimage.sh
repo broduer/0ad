@@ -90,6 +90,7 @@ doins binaries/data/mods/public "${APPDIR}/usr/data/mods"
 doins build/resources/0ad.appdata.xml "${APPDIR}/usr/share/metainfo"
 doins build/resources/0ad.png "${APPDIR}/usr/share/pixmaps"
 
+# export NO_STRIP=1
 linuxdeploy \
 	--appdir "${APPDIR}" \
 	--executable "${APPDIR}/usr/bin/pyrogenesis" \

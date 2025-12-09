@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -161,7 +161,7 @@ pipeline {
                     steps {
                         checkout scm
                         sh 'git clean -dxf'
-                        sh 'docker build -t debian-12 -f build/jenkins/dockerfiles/debian-12.Dockerfile .'
+                        sh 'docker build -t debian-13 -f build/jenkins/dockerfiles/debian-13.Dockerfile .'
                     }
                 }
 
@@ -171,7 +171,7 @@ pipeline {
                             label 'LinuxAgent'
                             customWorkspace 'workspace/appimage'
                             dir 'build/jenkins/dockerfiles'
-                            filename 'debian-12-appimage.Dockerfile'
+                            filename 'debian-13-appimage.Dockerfile'
                             // Prevent Jenkins from running commands with the UID of the host's jenkins user
                             // https://stackoverflow.com/a/42822143
                             args '-u root'

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@ pipeline {
                     label 'LinuxAgent'
                     customWorkspace 'workspace/featuretest'
                     dir 'build/jenkins/dockerfiles'
-                    filename 'debian-12.Dockerfile'
+                    filename 'debian-13.Dockerfile'
                     // Prevent Jenkins from running commands with the UID of the host's jenkins user
                     // https://stackoverflow.com/a/42822143
                     args '-u root'
@@ -37,13 +37,13 @@ pipeline {
                 sh '''
                     echo Linux GCC Features > featuretestresults.txt
                     echo >> featuretestresults.txt
-                    g++-12 --std=c++20 source/tools/featuretest/featuretest.cpp -o featuretest-linux-gcc
+                    g++-14 --std=c++20 source/tools/featuretest/featuretest.cpp -o featuretest-linux-gcc
                     ./featuretest-linux-gcc >> featuretestresults.txt
                     echo >> featuretestresults.txt
 
                     echo Linux Clang Features >> featuretestresults.txt
                     echo >> featuretestresults.txt
-                    clang++-14 --std=c++20 source/tools/featuretest/featuretest.cpp -o featuretest-linux-clang
+                    clang++-19 --std=c++20 source/tools/featuretest/featuretest.cpp -o featuretest-linux-clang
                     ./featuretest-linux-clang >> featuretestresults.txt
                     echo >> featuretestresults.txt
                 '''

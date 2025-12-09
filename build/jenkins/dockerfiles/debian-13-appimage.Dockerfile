@@ -1,4 +1,4 @@
-FROM debian-12
+FROM debian-13
 
 # minisign only needed for signing in pipeline
 RUN apt-get -qqy update \
