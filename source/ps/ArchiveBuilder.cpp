@@ -176,7 +176,7 @@ void CArchiveBuilder::Build(const OsPath& archive, bool compress)
 		}
 	}
 
-	debug_printf("Finished packaging \"%s\".", archive.string8().c_str());
+	debug_printf("Finished packaging \"%s\".\n", archive.string8().c_str());
 }
 
 Status CArchiveBuilder::CollectFileCB(const VfsPath& pathname, const CFileInfo&, const uintptr_t cbData)
