@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -198,12 +198,13 @@ void ParticleRenderer::RenderParticles(
 		deviceCommandContext->EndPass();
 }
 
-void ParticleRenderer::RenderBounds(int cullGroup)
+void ParticleRenderer::RenderBounds(Renderer::Backend::IDeviceCommandContext& deviceCommandContext, int cullGroup)
 {
 	for (const CParticleEmitter* emitter : m->emitters[cullGroup])
 	{
 		const CBoundingBoxAligned bounds =
 			emitter->m_Type->CalculateBounds(emitter->GetPosition(), emitter->GetParticleBounds());
-		g_Renderer.GetDebugRenderer().DrawBoundingBox(bounds, CColor(0.0f, 1.0f, 0.0f, 1.0f), true);
+
+		g_Renderer.GetDebugRenderer().DrawBoundingBox(deviceCommandContext, bounds, CColor(0.0f, 1.0f, 0.0f, 1.0f), true);
 	}
 }

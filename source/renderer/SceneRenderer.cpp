@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -781,7 +781,7 @@ void CSceneRenderer::RenderParticles(
 	{
 		m->particleRenderer.RenderParticles(
 			deviceCommandContext, cullGroup, true);
-		m->particleRenderer.RenderBounds(cullGroup);
+		m->particleRenderer.RenderBounds(*deviceCommandContext, cullGroup);
 	}
 }
 
@@ -921,10 +921,10 @@ void CSceneRenderer::RenderSubmissions(
 
 	// render debug lines
 	if (g_RenderingOptions.GetDisplayFrustum())
-		DisplayFrustum();
+		DisplayFrustum(*deviceCommandContext);
 
 	if (g_RenderingOptions.GetDisplayShadowsFrustum())
-		m->shadow.RenderDebugBounds();
+		m->shadow.RenderDebugBounds(*deviceCommandContext);
 
 	m->silhouetteRenderer.RenderDebugBounds(deviceCommandContext);
 }
@@ -946,10 +946,10 @@ void CSceneRenderer::EndFrame()
 		m->Model.TranspUnskinned->EndFrame();
 }
 
-void CSceneRenderer::DisplayFrustum()
+void CSceneRenderer::DisplayFrustum(Renderer::Backend::IDeviceCommandContext& deviceCommandContext)
 {
-	g_Renderer.GetDebugRenderer().DrawCameraFrustum(m_CullCamera, CColor(1.0f, 1.0f, 1.0f, 0.25f), 2);
-	g_Renderer.GetDebugRenderer().DrawCameraFrustum(m_CullCamera, CColor(1.0f, 1.0f, 1.0f, 1.0f), 2, true);
+	g_Renderer.GetDebugRenderer().DrawCameraFrustum(deviceCommandContext, m_CullCamera, CColor(1.0f, 1.0f, 1.0f, 0.25f), 2);
+	g_Renderer.GetDebugRenderer().DrawCameraFrustum(deviceCommandContext, m_CullCamera, CColor(1.0f, 1.0f, 1.0f, 1.0f), 2, true);
 }
 
 // Text overlay rendering

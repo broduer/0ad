@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -720,7 +720,7 @@ void ShadowMap::SetDepthTextureBits(int bits)
 	}
 }
 
-void ShadowMap::RenderDebugBounds()
+void ShadowMap::RenderDebugBounds(Renderer::Backend::IDeviceCommandContext& deviceCommandContext)
 {
 	// Render various shadow bounds:
 	//  Yellow = bounds of objects in view frustum that receive shadows
@@ -730,13 +730,16 @@ void ShadowMap::RenderDebugBounds()
 	const CMatrix3D transform = g_Renderer.GetSceneRenderer().GetViewCamera().GetViewProjection() * m->InvLightTransform;
 
 	g_Renderer.GetDebugRenderer().DrawBoundingBox(
+		deviceCommandContext,
 		m->ShadowReceiverBound, CColor(1.0f, 1.0f, 0.0f, 1.0f), transform, true);
 
 	for (int cascade = 0; cascade < GetCascadeCount(); ++cascade)
 	{
 		g_Renderer.GetDebugRenderer().DrawBoundingBox(
+			deviceCommandContext,
 			m->Cascades[cascade].ShadowRenderBound, CColor(0.0f, 0.0f, 1.0f, 0.10f), transform);
 		g_Renderer.GetDebugRenderer().DrawBoundingBox(
+			deviceCommandContext,
 			m->Cascades[cascade].ShadowRenderBound, CColor(0.0f, 0.0f, 1.0f, 0.5f), transform, true);
 
 		const CFrustum frustum = GetShadowCasterCullFrustum(cascade);
@@ -747,8 +750,8 @@ void ShadowMap::RenderDebugBounds()
 		CBrush frustumBrush;
 		brush.Intersect(frustum, frustumBrush);
 
-		g_Renderer.GetDebugRenderer().DrawBrush(frustumBrush, CColor(1.0f, 0.0f, 0.0f, 0.1f));
-		g_Renderer.GetDebugRenderer().DrawBrush(frustumBrush, CColor(1.0f, 0.0f, 0.0f, 0.1f), true);
+		g_Renderer.GetDebugRenderer().DrawBrush(deviceCommandContext, frustumBrush, CColor(1.0f, 0.0f, 0.0f, 0.1f));
+		g_Renderer.GetDebugRenderer().DrawBrush(deviceCommandContext, frustumBrush, CColor(1.0f, 0.0f, 0.0f, 0.1f), true);
 	}
 }
 

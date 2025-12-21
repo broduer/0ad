@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -34,7 +34,7 @@ public:
 	/**
 	 * Renders paths and their nodes (if enabled).
 	 */
-	void Render() const;
+	void Render(Renderer::Backend::IDeviceCommandContext& deviceCommandContext) const;
 
 	bool IsPlaying() const;
 	bool IsEnabled() const;
@@ -49,9 +49,9 @@ public:
 	void SetPathsDrawing(const bool drawPath);
 
 private:
-	void DrawPaths() const;
-	void DrawSpline(const RNSpline& spline, const CColor& splineColor, int smoothness) const;
-	void DrawNodes(const RNSpline& spline, const CColor& nodesColor) const;
+	void DrawPaths(Renderer::Backend::IDeviceCommandContext& deviceCommandContext) const;
+	void DrawSpline(Renderer::Backend::IDeviceCommandContext& deviceCommandContext, const RNSpline& spline, const CColor& splineColor, int smoothness) const;
+	void DrawNodes(Renderer::Backend::IDeviceCommandContext& deviceCommandContext, const RNSpline& spline, const CColor& nodesColor) const;
 
 	bool m_DrawPaths;
 };

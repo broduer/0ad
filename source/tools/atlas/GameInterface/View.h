@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -42,7 +42,7 @@ public:
 	virtual ~AtlasView();
 	virtual void Update(float /*realFrameLength*/) { };
 	virtual void Render() { };
-	virtual void DrawCinemaPathTool() { };
+	virtual void DrawCinemaPathTool(Renderer::Backend::IDeviceCommandContext&) { };
 	virtual void DrawOverlays(CCanvas2D& /*canvas*/) { };
 	virtual CCamera& GetCamera() = 0;
 	virtual CSimulation2* GetSimulation2() { return NULL; }
@@ -90,7 +90,7 @@ public:
 	virtual ~AtlasViewGame();
 	virtual void Update(float realFrameLength);
 	virtual void Render();
-	virtual void DrawCinemaPathTool();
+	virtual void DrawCinemaPathTool(Renderer::Backend::IDeviceCommandContext& deviceCommandContext);
 	virtual void DrawOverlays(CCanvas2D& canvas);
 	virtual CCamera& GetCamera();
 	virtual CSimulation2* GetSimulation2();

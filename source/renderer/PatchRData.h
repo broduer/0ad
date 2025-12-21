@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -59,7 +59,7 @@ public:
 	static Renderer::Backend::IVertexInputLayout* GetWaterShoreVertexInputLayout();
 
 	void Update(CSimulation2* simulation);
-	void RenderOutline();
+	void RenderOutline(Renderer::Backend::IDeviceCommandContext& deviceCommandContext);
 	void RenderPriorities(CTextRenderer& textRenderer);
 
 	void RenderWaterSurface(

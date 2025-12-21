@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -509,7 +509,7 @@ void OverlayRenderer::RenderOverlaysBeforeWater(
 		if (line->m_Coords.empty())
 			continue;
 
-		g_Renderer.GetDebugRenderer().DrawLine(line->m_Coords, line->m_Color, static_cast<float>(line->m_Thickness));
+		g_Renderer.GetDebugRenderer().DrawLine(*deviceCommandContext, line->m_Coords, line->m_Color, static_cast<float>(line->m_Thickness));
 	}
 }
 

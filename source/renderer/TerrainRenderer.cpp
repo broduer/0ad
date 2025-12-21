@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -407,7 +407,7 @@ void TerrainRenderer::RenderOutlines(
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render terrain outlines");
 
 	for (size_t i = 0; i < visiblePatches.size(); ++i)
-		visiblePatches[i]->RenderOutline();
+		visiblePatches[i]->RenderOutline(*deviceCommandContext);
 }
 
 

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -54,13 +54,13 @@ void CCinemaManager::Update(const float deltaRealTime) const
 		cmpCinemaManager->PlayQueue(deltaRealTime, g_Game->GetView()->GetCamera());
 }
 
-void CCinemaManager::Render() const
+void CCinemaManager::Render(Renderer::Backend::IDeviceCommandContext& deviceCommandContext) const
 {
 	if (!IsEnabled() && m_DrawPaths)
-		DrawPaths();
+		DrawPaths(deviceCommandContext);
 }
 
-void CCinemaManager::DrawPaths() const
+void CCinemaManager::DrawPaths(Renderer::Backend::IDeviceCommandContext& deviceCommandContext) const
 {
 	CmpPtr<ICmpCinemaManager> cmpCinemaManager(g_Game->GetSimulation2()->GetSimContext().GetSystemEntity());
 	if (!cmpCinemaManager)
@@ -68,18 +68,18 @@ void CCinemaManager::DrawPaths() const
 
 	for (const std::pair<const CStrW, CCinemaPath>& p : cmpCinemaManager->GetPaths())
 	{
-		DrawSpline(p.second, CColor(0.2f, 0.2f, 1.f, 0.9f), 128);
-		DrawNodes(p.second, CColor(0.1f, 1.f, 0.f, 1.f));
+		DrawSpline(deviceCommandContext, p.second, CColor(0.2f, 0.2f, 1.f, 0.9f), 128);
+		DrawNodes(deviceCommandContext, p.second, CColor(0.1f, 1.f, 0.f, 1.f));
 
 		if (p.second.GetTargetSpline().GetAllNodes().empty())
 			continue;
 
-		DrawSpline(p.second.GetTargetSpline(), CColor(1.f, 0.3f, 0.4f, 0.9f), 128);
-		DrawNodes(p.second.GetTargetSpline(), CColor(1.f, 0.1f, 0.f, 1.f));
+		DrawSpline(deviceCommandContext, p.second.GetTargetSpline(), CColor(1.f, 0.3f, 0.4f, 0.9f), 128);
+		DrawNodes(deviceCommandContext, p.second.GetTargetSpline(), CColor(1.f, 0.1f, 0.f, 1.f));
 	}
 }
 
-void CCinemaManager::DrawSpline(const RNSpline& spline, const CColor& splineColor, int smoothness) const
+void CCinemaManager::DrawSpline(Renderer::Backend::IDeviceCommandContext& deviceCommandContext, const RNSpline& spline, const CColor& splineColor, int smoothness) const
 {
 	if (spline.GetAllNodes().size() < 2)
 		return;
@@ -94,7 +94,8 @@ void CCinemaManager::DrawSpline(const RNSpline& spline, const CColor& splineColo
 		const float time = start * i / spline.MaxDistance.ToFloat();
 		line.emplace_back(spline.GetPosition(time));
 	}
-	g_Renderer.GetDebugRenderer().DrawLine(line, splineColor, 0.2f, false);
+
+	g_Renderer.GetDebugRenderer().DrawLine(deviceCommandContext, line, splineColor, 0.2f, false);
 
 	// Height indicator
 	if (g_Game && g_Game->GetWorld())
@@ -104,16 +105,17 @@ void CCinemaManager::DrawSpline(const RNSpline& spline, const CColor& splineColo
 			const float time = start * i / spline.MaxDistance.ToFloat();
 			const CVector3D tmp = spline.GetPosition(time);
 			const float groundY = g_Game->GetWorld()->GetTerrain().GetExactGroundLevel(tmp.X, tmp.Z);
-			g_Renderer.GetDebugRenderer().DrawLine(tmp, CVector3D(tmp.X, groundY, tmp.Z), splineColor, 0.1f, false);
+			g_Renderer.GetDebugRenderer().DrawLine(deviceCommandContext, tmp, CVector3D(tmp.X, groundY, tmp.Z), splineColor, 0.1f, false);
 		}
 	}
 }
 
-void CCinemaManager::DrawNodes(const RNSpline& spline, const CColor& nodeColor) const
+void CCinemaManager::DrawNodes(Renderer::Backend::IDeviceCommandContext& deviceCommandContext, const RNSpline& spline, const CColor& nodeColor) const
 {
 	for (const SplineData& node : spline.GetAllNodes())
 	{
 		g_Renderer.GetDebugRenderer().DrawCircle(
+			deviceCommandContext,
 			CVector3D(node.Position.X.ToFloat(), node.Position.Y.ToFloat(), node.Position.Z.ToFloat()),
 			0.5f, nodeColor);
 	}

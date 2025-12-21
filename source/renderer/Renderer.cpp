@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -573,7 +573,7 @@ void CRenderer::RenderFrameImpl(const bool renderGUI, const bool renderLogger)
 
 		g_Game->GetView()->RenderOverlays(m->deviceCommandContext.get());
 
-		g_Game->GetView()->GetCinema()->Render();
+		g_Game->GetView()->GetCinema()->Render(*m->deviceCommandContext);
 	}
 	else
 	{
@@ -603,7 +603,7 @@ void CRenderer::RenderFrameImpl(const bool renderGUI, const bool renderLogger)
 	// If we're in Atlas game view, render special tools
 	if (g_AtlasGameLoop && g_AtlasGameLoop->view)
 	{
-		g_AtlasGameLoop->view->DrawCinemaPathTool();
+		g_AtlasGameLoop->view->DrawCinemaPathTool(*m->deviceCommandContext);
 	}
 
 	RenderFrame2D(renderGUI, renderLogger);

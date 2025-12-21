@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -464,13 +464,13 @@ void SilhouetteRenderer::RenderSubmitCasters(SceneCollector& collector)
 		collector.SubmitNonRecursive(m_VisibleModelCasters[i]);
 }
 
-void SilhouetteRenderer::RenderDebugBounds(Renderer::Backend::IDeviceCommandContext*)
+void SilhouetteRenderer::RenderDebugBounds(Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
 	if (m_DebugBounds.empty())
 		return;
 
 	for (size_t i = 0; i < m_DebugBounds.size(); ++i)
-		g_Renderer.GetDebugRenderer().DrawBoundingBox(m_DebugBounds[i].bounds, m_DebugBounds[i].color, true);
+		g_Renderer.GetDebugRenderer().DrawBoundingBox(*deviceCommandContext, m_DebugBounds[i].bounds, m_DebugBounds[i].color, true);
 }
 
 void SilhouetteRenderer::RenderDebugOverlays(

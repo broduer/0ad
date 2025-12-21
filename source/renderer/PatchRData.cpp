@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -1299,7 +1299,7 @@ void CPatchRData::RenderStreams(
 	}
 }
 
-void CPatchRData::RenderOutline()
+void CPatchRData::RenderOutline(Renderer::Backend::IDeviceCommandContext& deviceCommandContext)
 {
 	CTerrain* terrain = m_Patch->m_Parent;
 	ssize_t gx = m_Patch->m_X * PATCH_SIZE;
@@ -1328,7 +1328,7 @@ void CPatchRData::RenderOutline()
 		line.push_back(pos);
 	}
 
-	g_Renderer.GetDebugRenderer().DrawLine(line, CColor(0.0f, 0.0f, 1.0f, 1.0f), 0.1f);
+	g_Renderer.GetDebugRenderer().DrawLine(deviceCommandContext, line, CColor(0.0f, 0.0f, 1.0f, 1.0f), 0.1f);
 }
 
 void CPatchRData::RenderSides(

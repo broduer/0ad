@@ -244,7 +244,7 @@ void AtlasViewGame::Render()
 	g_VideoMode.GetBackendDevice()->Present();
 }
 
-void AtlasViewGame::DrawCinemaPathTool()
+void AtlasViewGame::DrawCinemaPathTool(Renderer::Backend::IDeviceCommandContext& deviceCommandContext)
 {
 	if (!m_DrawMoveTool)
 		return;
@@ -256,12 +256,15 @@ void AtlasViewGame::DrawCinemaPathTool()
 	const float lineWidth = scale / 1e3f;
 
 	g_Renderer.GetDebugRenderer().DrawLine(
+		deviceCommandContext,
 		focus, focus + CVector3D(axisLength, 0, 0),
 		CColor(1.0f, 0.0f, 0.0f, 1.0f), lineWidth, false);
 	g_Renderer.GetDebugRenderer().DrawLine(
+		deviceCommandContext,
 		focus, focus + CVector3D(0, axisLength, 0),
 		CColor(0.0f, 1.0f, 0.0f, 1.0f), lineWidth, false);
 	g_Renderer.GetDebugRenderer().DrawLine(
+		deviceCommandContext,
 		focus, focus + CVector3D(0, 0, axisLength),
 		CColor(0.0f, 0.0f, 1.0f, 1.0f), lineWidth, false);
 }
