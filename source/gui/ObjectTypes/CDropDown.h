@@ -74,7 +74,7 @@ public:
 	 */
 	virtual void Draw(CCanvas2D& canvas);
 
-	virtual void CreateJSObject() override;
+	virtual void CreateJSObject();
 
 	// This is one of the few classes we actually need to redefine this function
 	//  this is because the size of the control changes whether it is open
