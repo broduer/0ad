@@ -197,8 +197,15 @@ function GetMultipleEntityStates(ents)
 	return entityStates;
 }
 
+/**
+ * Get the current state of a given entity. The data is pulled from the simulation.
+ * The state is null, if the ID is undefined, invalid or no entity with the ID exists (anymore).
+ */
 function GetEntityState(entId)
 {
+	if (!entId || entId == INVALID_ENTITY)
+		return null;
+
 	if (!g_EntityStates[entId])
 	{
 		const entityState = Engine.GuiInterfaceCall("GetEntityState", entId);
