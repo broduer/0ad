@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -60,6 +60,10 @@
 #include <gloox/mucroom.h> // IWYU pragma: export
 #include <gloox/mucroomhandler.h> // IWYU pragma: export
 #include <gloox/presence.h> // IWYU pragma: export
+#include <gloox/pubsubevent.h> // IWYU pragma: export
+#include <gloox/pubsubitem.h> // IWYU pragma: export
+#include <gloox/pubsubmanager.h> // IWYU pragma: export
+#include <gloox/pubsubresulthandler.h> // IWYU pragma: export
 #include <gloox/registration.h> // IWYU pragma: export
 #include <gloox/registrationhandler.h> // IWYU pragma: export
 #include <gloox/stanzaextension.h> // IWYU pragma: export

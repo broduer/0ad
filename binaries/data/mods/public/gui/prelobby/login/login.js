@@ -43,7 +43,7 @@ function continueButton()
 	Engine.ConnectXmppClient();
 }
 /**
- * The data from Engine.SendGetBoardList() is used for the leaderboard, but also for autocompletion in the profile player search field.
+ * The data from Engine.SendGetLeaderboard() is also used for autocompletion in the Player Profile Lookup search field.
  */
 function onLogin(message)
 {
@@ -52,5 +52,5 @@ function onLogin(message)
 	Engine.SwitchGuiPage("page_lobby.xml", {
 		"dialog": false
 	});
-	Engine.SendGetBoardList();
+	Engine.SendGetLeaderboard();
 }

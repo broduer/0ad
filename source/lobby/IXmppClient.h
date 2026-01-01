@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -35,7 +35,7 @@ public:
 	virtual void disconnect() = 0;
 	virtual bool isConnected() = 0;
 	virtual void recv() = 0;
-	virtual void SendIqGetBoardList() = 0;
+	virtual void RequestLeaderboard() = 0;
 	virtual void SendIqGetProfile(const std::string& player) = 0;
 	virtual void SendIqGameReport(const ScriptRequest& rq, JS::HandleValue data) = 0;
 	virtual void SendIqRegisterGame(const ScriptRequest& rq, JS::HandleValue data) = 0;

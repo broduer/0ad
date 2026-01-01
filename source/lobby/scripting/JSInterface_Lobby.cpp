@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -202,7 +202,7 @@ void RegisterScriptFunctions(const ScriptRequest& rq)
 	REGISTER_XMPP(connect, "ConnectXmppClient");
 	REGISTER_XMPP(disconnect, "DisconnectXmppClient");
 	REGISTER_XMPP(isConnected, "IsXmppClientConnected");
-	REGISTER_XMPP(SendIqGetBoardList, "SendGetBoardList");
+	REGISTER_XMPP(RequestLeaderboard, "SendGetLeaderboard");
 	REGISTER_XMPP(SendIqGetProfile, "SendGetProfile");
 	REGISTER_XMPP(SendIqGameReport, "SendGameReport");
 	ScriptFunction::Register<&SendRegisterGame>(rq, "SendRegisterGame");

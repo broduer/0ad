@@ -36,7 +36,7 @@
 class JSTracer;
 class ScriptInterface;
 
-class XmppClient : public IXmppClient, public gloox::ConnectionListener, public gloox::MUCRoomHandler, public gloox::IqHandler, public gloox::RegistrationHandler, public gloox::MessageHandler, public gloox::Jingle::SessionHandler, public gloox::LogHandler
+class XmppClient : public IXmppClient, public gloox::ConnectionListener, public gloox::MUCRoomHandler, public gloox::IqHandler, public gloox::RegistrationHandler, public gloox::MessageHandler, public gloox::Jingle::SessionHandler, public gloox::LogHandler, public gloox::PubSub::ResultHandler
 {
 	NONCOPYABLE(XmppClient);
 
@@ -46,6 +46,7 @@ private:
 	gloox::MUCRoom* m_mucRoom;
 	gloox::Registration* m_registration;
 	gloox::Jingle::SessionManager* m_sessionManager;
+	gloox::PubSub::Manager* m_PubSubManager;
 
 	// Account infos
 	std::string m_username;
@@ -83,7 +84,6 @@ public:
 	void disconnect() override;
 	bool isConnected() override;
 	void recv() override;
-	void SendIqGetBoardList() override;
 	void SendIqGetProfile(const std::string& player) override;
 	void SendIqGameReport(const ScriptRequest& rq, JS::HandleValue data) override;
 	void SendIqRegisterGame(const ScriptRequest& rq, JS::HandleValue data) override;
@@ -167,6 +167,34 @@ protected:
 	void handleIncomingSession(gloox::Jingle::Session* /*session*/) override {}
 private:
 	void handleSessionInitiation(gloox::Jingle::Session* session, const gloox::Jingle::Session::Jingle* jingle);
+
+	/* PubSub */
+public:
+	void RequestLeaderboard() override;
+private:
+	void RequestPubSubSubscriptions();
+	void handlePubSubEvent(const gloox::PubSub::Event& event);
+public:
+	void handleItem(const gloox::JID& /*service*/, const std::string& /*node*/, const gloox::Tag* /*entry*/) override {}
+	void handleItems(const std::string& id, const gloox::JID& service, const std::string& node, const gloox::PubSub::ItemList& itemList, const gloox::Error* error = 0) override;
+	void handleItemPublication(const std::string& /*id*/, const gloox::JID& /*service*/, const std::string& /*node*/, const gloox::PubSub::ItemList& /*itemList*/, const gloox::Error* /*error*/ = 0) override {};
+	void handleItemDeletion(const std::string& /*id*/, const gloox::JID& /*service*/, const std::string& /*node*/, const gloox::PubSub::ItemList& /*itemList*/, const gloox::Error* /*error*/ = 0) override {}
+	void handleSubscriptionResult(const std::string& id, const gloox::JID& service, const std::string& node, const std::string& sid, const gloox::JID& jid, const gloox::PubSub::SubscriptionType subType, const gloox::Error* error = 0) override;
+	void handleUnsubscriptionResult(const std::string& id, const gloox::JID& service, const gloox::Error* error = 0 ) override;
+	void handleSubscriptionOptions(const std::string& /*id*/, const gloox::JID& /*service*/, const gloox::JID& /*jid*/, const std::string& /*node*/, const gloox::DataForm* /*options*/, const std::string& /*sid*/ = gloox::EmptyString, const gloox::Error* /*error*/ = 0) override {}
+	void handleSubscriptionOptionsResult(const std::string& /*id*/, const gloox::JID& /*service*/, const gloox::JID& /*jid*/, const std::string& /*node*/, const std::string& /*sid*/ = gloox::EmptyString, const gloox::Error* /*error*/ = 0) override {}
+	void handleSubscribers(const std::string& /*id*/, const gloox::JID& /*service*/, const std::string& /*node*/, const gloox::PubSub::SubscriptionList& /*list*/, const gloox::Error* /*error*/ = 0) override {}
+	void handleSubscribersResult(const std::string& /*id*/, const gloox::JID& /*service*/, const std::string& /*node*/, const gloox::PubSub::SubscriberList* /*list*/, const gloox::Error* /*error*/ = 0) override {}
+	void handleAffiliates(const std::string& /*id*/, const gloox::JID& /*service*/, const std::string& /*node*/, const gloox::PubSub::AffiliateList* /*list*/, const gloox::Error* /*error*/ = 0) override {}
+	void handleAffiliatesResult(const std::string& /*id*/, const gloox::JID& /*service*/, const std::string& /*node*/, const gloox::PubSub::AffiliateList* /*list*/, const gloox::Error* /*error*/ = 0) override {}
+	void handleNodeConfig(const std::string& /*id*/, const gloox::JID& /*service*/, const std::string& /*node*/, const gloox::DataForm* /*config*/, const gloox::Error* /*error*/ = 0) override {}
+	void handleNodeConfigResult(const std::string& /*id*/, const gloox::JID& /*service*/, const std::string& /*node*/, const gloox::Error* /*error*/ = 0) override {}
+	void handleNodeCreation(const std::string& /*id*/, const gloox::JID& /*service*/, const std::string& /*node*/, const gloox::Error* /*error*/ = 0) override {}
+	void handleNodeDeletion(const std::string& /*id*/, const gloox::JID& /*service*/, const std::string& /*node*/, const gloox::Error* /*error*/ = 0) override {}
+	void handleNodePurge(const std::string& /*id*/, const gloox::JID& /*service*/, const std::string& /*node*/, const gloox::Error* /*error*/ = 0) override {}
+	void handleSubscriptions(const std::string& id, const gloox::JID& service, const gloox::PubSub::SubscriptionMap& subMap, const gloox::Error* error = 0) override;
+	void handleAffiliations(const std::string& /*id*/, const gloox::JID& /*service*/, const gloox::PubSub::AffiliationMap& /*affMap*/, const gloox::Error* /*error*/ = 0) override {}
+	void handleDefaultNodeConfig(const std::string& /*id*/, const gloox::JID& /*service*/, const gloox::DataForm* /*config*/, const gloox::Error* /*error*/ = 0) override {}
 
 public:
 	JS::Value GuiPollNewMessages(const ScriptInterface& guiInterface) override;

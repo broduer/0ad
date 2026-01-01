@@ -30,7 +30,7 @@ class LeaderboardPage
 	{
 		this.leaderboardPage.hidden = false;
 		Engine.SetGlobalHotkey("cancel", "Press", this.onPressClose.bind(this));
-		Engine.SendGetBoardList();
+		Engine.SendGetLeaderboard();
 
 		const playerName = this.leaderboardList.selectedPlayer();
 		for (const handler of this.openPageHandlers)
@@ -39,7 +39,7 @@ class LeaderboardPage
 
 	onPressUpdate()
 	{
-		Engine.SendGetBoardList();
+		Engine.SendGetLeaderboard();
 	}
 
 	onPressClose()

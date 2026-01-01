@@ -98,6 +98,7 @@ XmppClient::XmppClient(const ScriptInterface* scriptInterface, const std::string
 	  m_echelonId{g_ConfigDB.Get("lobby.echelon", std::string{}) + "@" + m_server + "/CC"},
 	  m_initialLoadComplete(false),
 	  m_sessionManager(nullptr),
+	  m_PubSubManager(nullptr),
 	  m_certStatus(gloox::CertStatus::CertOk),
 	  m_PlayerMapUpdate(false),
 	  m_connectionDataJid(),
@@ -128,7 +129,7 @@ XmppClient::XmppClient(const ScriptInterface* scriptInterface, const std::string
 	m_client->setSASLMechanisms(mechs);
 
 	m_client->registerConnectionListener(this);
-	m_client->setPresence(gloox::Presence::Available, -1);
+	m_client->setPresence(gloox::Presence::Available, 0);
 	m_client->disco()->setVersion("Pyrogenesis", PS_SERIALIZATION_VERSION);
 	m_client->disco()->setIdentity("client", "bot");
 	m_client->setCompression(false);
@@ -147,6 +148,8 @@ XmppClient::XmppClient(const ScriptInterface* scriptInterface, const std::string
 
 	m_client->registerStanzaExtension(new ConnectionData());
 	m_client->registerIqHandler(this, EXTCONNECTIONDATA);
+
+	m_client->registerStanzaExtension(new gloox::PubSub::Event());
 
 	m_client->registerMessageHandler(this);
 
@@ -168,6 +171,8 @@ XmppClient::XmppClient(const ScriptInterface* scriptInterface, const std::string
 	// Register plugins to allow gloox parse them in incoming sessions
 	m_sessionManager->registerPlugin(new gloox::Jingle::Content());
 	m_sessionManager->registerPlugin(new gloox::Jingle::ICEUDP());
+
+	m_PubSubManager = new gloox::PubSub::Manager(m_client);
 }
 
 /**
@@ -181,6 +186,7 @@ XmppClient::~XmppClient()
 	delete m_registration;
 	delete m_mucRoom;
 	delete m_sessionManager;
+	delete m_PubSubManager;
 
 	// Workaround for memory leak in gloox 1.0/1.0.1
 	m_client->removePresenceExtension(gloox::ExtCaps);
@@ -254,6 +260,9 @@ void XmppClient::onConnect()
 
 	if (m_regOpt)
 		m_registration->fetchRegistrationFields();
+
+	// Updates subscriptions
+	RequestPubSubSubscriptions();
 }
 
 /**
@@ -322,22 +331,6 @@ void XmppClient::handleMUCError(gloox::MUCRoom*, gloox::StanzaError err)
 /*****************************************************
  * Requests to server                                *
  *****************************************************/
-
-/**
- * Request the leaderboard data from the server.
- */
-void XmppClient::SendIqGetBoardList()
-{
-	gloox::JID echelonJid(m_echelonId);
-
-	// Send IQ
-	BoardListQuery* b = new BoardListQuery();
-	b->m_Command = "getleaderboard";
-	gloox::IQ iq(gloox::IQ::Get, echelonJid, m_client->getID());
-	iq.addExtension(b);
-	DbgXMPP("SendIqGetBoardList [" << tag_xml(iq) << "]");
-	m_client->send(iq);
-}
 
 /**
  * Request the profile data from the server.
@@ -819,6 +812,13 @@ void XmppClient::handleMUCMessage(gloox::MUCRoom*, const gloox::Message& msg, bo
  */
 void XmppClient::handleMessage(const gloox::Message& msg, gloox::MessageSession*)
 {
+	const gloox::PubSub::Event* event = msg.findExtension<gloox::PubSub::Event>(gloox::ExtPubSubEvent);
+	if (event)
+	{
+		handlePubSubEvent(*event);
+		return;
+	}
+
 	DbgXMPP("type " << msg.subtype() << ", subject " << msg.subject()
 	  << ", message " << msg.body() << ", thread id " << msg.thread());
 
@@ -840,8 +840,6 @@ bool XmppClient::handleIq(const gloox::IQ& iq)
 
 	if (iq.subtype() == gloox::IQ::Result)
 	{
-		const GameListQuery* gq = iq.findExtension<GameListQuery>(EXTGAMELISTQUERY);
-		const BoardListQuery* bq = iq.findExtension<BoardListQuery>(EXTBOARDLISTQUERY);
 		const ProfileQuery* pq = iq.findExtension<ProfileQuery>(EXTPROFILEQUERY);
 		const ConnectionData* cd = iq.findExtension<ConnectionData>(EXTCONNECTIONDATA);
 		if (cd)
@@ -867,56 +865,6 @@ bool XmppClient::handleIq(const gloox::IQ& iq)
 
 			g_NetClient->SetupServerData(cd->m_Ip, stoi(cd->m_Port));
 			g_NetClient->TryToConnectWithSTUN(iq.from().full(), !cd->m_IsLocalIP.empty());
-		}
-		if (gq)
-		{
-			if (iq.from().full() != m_xpartamuppId)
-			{
-				LOGWARNING("XmppClient: Received game list response from unexpected sender: %s", iq.from().full());
-				return true;
-			}
-
-			for (const gloox::Tag* const& t : m_GameList)
-				delete t;
-			m_GameList.clear();
-
-			for (const gloox::Tag* const& t : gq->m_GameList)
-				m_GameList.emplace_back(t->clone());
-
-			CreateGUIMessage("game", "gamelist", std::time(nullptr));
-		}
-		if (bq)
-		{
-			if (iq.from().full() != m_echelonId)
-			{
-				LOGWARNING("XmppClient: Received board list response from unexpected sender: %s", iq.from().full());
-				return true;
-			}
-
-			if (bq->m_Command == "boardlist")
-			{
-				for (const gloox::Tag* const& t : m_BoardList)
-					delete t;
-				m_BoardList.clear();
-
-				for (const gloox::Tag* const& t : bq->m_StanzaBoardList)
-					m_BoardList.emplace_back(t->clone());
-
-				CreateGUIMessage("game", "leaderboard", std::time(nullptr));
-			}
-			else if (bq->m_Command == "ratinglist")
-			{
-				for (const gloox::Tag* const& t : bq->m_StanzaBoardList)
-				{
-					const PlayerMap::iterator it = m_PlayerMap.find(t->findAttribute("name"));
-					if (it != m_PlayerMap.end())
-					{
-						it->second.m_Rating = t->findAttribute("rating");
-						m_PlayerMapUpdate = true;
-					}
-				}
-				CreateGUIMessage("game", "ratinglist", std::time(nullptr));
-			}
 		}
 		if (pq)
 		{
@@ -1572,4 +1520,189 @@ void XmppClient::handleSessionInitiation(gloox::Jingle::Session*,
 	}
 
 	g_NetServer->SendHolePunchingMessage(candidate.ip, candidate.port);
+}
+
+
+// ----------------------------------------------------------------------------
+//
+//                                   PubSub
+//
+// ----------------------------------------------------------------------------
+
+//
+// QUERIES
+//
+
+/**
+ * Request the leaderboard data from the server.
+ */
+void XmppClient::RequestLeaderboard()
+{
+	m_PubSubManager->requestItems(
+		gloox::JID("pubsub." + m_server),	// service
+		"0ad#" + m_room + "#boardlist#v1",	// node
+		gloox::EmptyString,					// subid (optional)
+		50,									// max items
+		this);								// result handler
+}
+
+
+/**
+ * Request the PubSub Subscriptions
+ */
+void XmppClient::RequestPubSubSubscriptions()
+{
+	std::string reqId = m_PubSubManager->getSubscriptions(
+			gloox::JID("pubsub." + m_server),	// service
+			this);								// result handler
+}
+
+//
+// HANDLERS
+//
+
+/**
+ * Handles respose to Manager::requestItems.
+ */
+void XmppClient::handleItems(const std::string& /*id*/, const gloox::JID& /*service*/,
+	const std::string& node, const gloox::PubSub::ItemList& itemList, const
+	gloox::Error* error)
+{
+	if (error)
+	{
+		LOGERROR("XMPP PubSub - handleItems error - node: '%s', message: '%s'", node, error->text().c_str());
+		return;
+	}
+
+	if (node == "0ad#" + m_room + "#boardlist#v1")
+	{
+		for (gloox::PubSub::Item* item : itemList)
+		{
+			for (const gloox::Tag* const& tag : m_BoardList)
+				delete tag;
+			m_BoardList.clear();
+
+			const BoardListQuery blq{item->payload()};
+
+            for (const gloox::Tag* const& tag : blq.m_StanzaBoardList)
+                m_BoardList.emplace_back(tag->clone());
+		}
+		CreateGUIMessage("game", "leaderboard", std::time(nullptr));
+	}
+}
+
+/**
+ * Handles respose to Manager::subscribe.
+ */
+void XmppClient::handleSubscriptionResult(const std::string& /*id*/,
+		const gloox::JID& /*service*/, const std::string& node,
+		const std::string& /*sid*/, const gloox::JID& /*jid*/,
+		const gloox::PubSub::SubscriptionType /*subType*/,
+		const gloox::Error* error)
+{
+	if (error)
+	{
+		LOGERROR("XMPP PubSub - subscribe error - node: '%s', message: '%s'", node, error->text().c_str());
+		return;
+	}
+}
+
+/**
+ * Handles respose to Manager::unsubscribe.
+ */
+void XmppClient::handleUnsubscriptionResult(const std::string& /*id*/,
+		const gloox::JID& service, const gloox::Error* error)
+{
+	if (error)
+	{
+		LOGERROR("XMPP PubSub - unsubscribe error - service: '%s', message: '%s'", service.full().c_str(), error->text().c_str());
+		return;
+	}
+}
+
+/**
+ * Handles respose to Manager::getSubscriptions.
+ *
+ * Clears all subscriptions but the ones needed as they might be left from
+ * other rooms. Then subscribe to the needed nodes using bareJID.
+ */
+void XmppClient::handleSubscriptions(const std::string& /*id*/, const gloox::JID& service, const gloox::PubSub::SubscriptionMap& subMap, const gloox::Error* error)
+{
+	if (error)
+	{
+		LOGERROR("XMPP PubSub - get subscriptions error - service: '%s', message: '%s'", service.full().c_str(), error->text().c_str());
+		return;
+	}
+
+	std::map<std::string, bool> wantSubscriptions{
+		{ "0ad#" + m_room + "#gamelist#v1", false },
+		{ "0ad#" + m_room + "#ratinglist#v1", false }
+	};
+
+	for (auto const& [node, subList] : subMap)
+	{
+		for (auto const& subInfo : subList)
+		{
+			if (wantSubscriptions.contains(node) && subInfo.jid == m_client->jid().bareJID())
+				wantSubscriptions.at(node) = true;
+			else
+				m_PubSubManager->unsubscribe(gloox::JID("pubsub." + m_server), node, subInfo.subid, this, subInfo.jid);
+		}
+	}
+	for (auto const& [node, isSubscribed] : wantSubscriptions)
+	{
+		if (!isSubscribed)
+			m_PubSubManager->subscribe(gloox::JID("pubsub." + m_server), node, this, m_client->jid().bareJID());
+	}
+}
+
+/*
+ * Handles a PubSub::Event message recieved via handleMessage.
+ */
+void XmppClient::handlePubSubEvent(const gloox::PubSub::Event& event)
+{
+	if (event.type() != gloox::PubSub::EventItems)
+		return;
+
+	if (event.node() == "0ad#" + m_room + "#gamelist#v1")
+	{
+		for (gloox::PubSub::Event::ItemOperation* itemOp : event.items())
+		{
+			if (itemOp->retract)
+				return;
+
+			for (const gloox::Tag* const& tag : m_GameList)
+				delete tag;
+			m_GameList.clear();
+
+			const gloox::PubSub::Item item{itemOp->payload};
+			const GameListQuery glq{item.payload()};
+
+			for (const gloox::Tag* const& tag : glq.m_GameList)
+				m_GameList.emplace_back(tag->clone());
+		}
+		CreateGUIMessage("game", "gamelist", std::time(nullptr));
+	}
+	else if (event.node() == "0ad#" + m_room + "#ratinglist#v1")
+	{
+		for (gloox::PubSub::Event::ItemOperation* itemOp : event.items())
+		{
+			if (itemOp->retract)
+				return;
+
+			const gloox::PubSub::Item item{itemOp->payload};
+			const BoardListQuery blq{item.payload()};
+
+			for (const gloox::Tag* const& tag : blq.m_StanzaBoardList)
+			{
+				const PlayerMap::iterator it = m_PlayerMap.find(tag->findAttribute("name"));
+				if (it != m_PlayerMap.end())
+				{
+					it->second.m_Rating = tag->findAttribute("rating");
+					m_PlayerMapUpdate = true;
+				}
+			}
+		}
+		CreateGUIMessage("game", "ratinglist", std::time(nullptr));
+	}
 }
