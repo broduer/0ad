@@ -41,7 +41,7 @@ public:
 	 * Updates CCinemManager and current path
 	 * @param deltaRealTime Elapsed real time since the last frame.
 	 */
-	void Update(const float deltaRealTime) const;
+	void Update(const float deltaRealTime);
 
 	bool GetPathsDrawing() const;
 	void SetPathsDrawing(const bool drawPath);
@@ -52,6 +52,7 @@ private:
 	void DrawNodes(Renderer::Backend::IDeviceCommandContext& deviceCommandContext, const RNSpline& spline, const CColor& nodesColor) const;
 
 	bool m_DrawPaths = false;
+	bool m_SmoothLosOverridden = false;
 };
 
 #endif

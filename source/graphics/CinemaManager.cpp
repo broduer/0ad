@@ -30,6 +30,7 @@
 #include "ps/World.h"
 #include "renderer/DebugRenderer.h"
 #include "renderer/Renderer.h"
+#include "renderer/RenderingOptions.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpCinemaManager.h"
 #include "simulation2/helpers/CinemaPath.h"
@@ -39,20 +40,25 @@
 #include <utility>
 #include <vector>
 
-<<<<<<< Updated upstream
-CCinemaManager::CCinemaManager() {}
-
-void CCinemaManager::Update(const float deltaRealTime) const
-=======
 void CCinemaManager::Update(const float deltaRealTime)
->>>>>>> Stashed changes
 {
 	CmpPtr<ICmpCinemaManager> cmpCinemaManager(g_Game->GetSimulation2()->GetSimContext().GetSystemEntity());
 	if (!cmpCinemaManager)
 		return;
 
 	if (IsPlaying())
+	{
+		if (g_RenderingOptions.GetSmoothLOS())
+		{
+			g_RenderingOptions.SetSmoothLOS(false);
+			m_SmoothLosOverridden = true;
+		}
 		cmpCinemaManager->UpdateActivePath(deltaRealTime, g_Game->GetView()->GetCamera());
+		return;
+	}
+
+	if (std::exchange(m_SmoothLosOverridden, false))
+		g_RenderingOptions.SetSmoothLOS(true);
 }
 
 void CCinemaManager::Render(Renderer::Backend::IDeviceCommandContext& deviceCommandContext) const
