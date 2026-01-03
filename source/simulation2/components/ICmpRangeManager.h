@@ -343,14 +343,23 @@ public:
 
 	/**
 	 * Set whether the whole map should be made visible to the given player.
-	 * If player is -1, the map will be made visible to all players.
 	 */
 	virtual void SetLosRevealWholeMap(player_id_t player, bool enabled) = 0;
+
+	/**
+	 * Set whether the whole map should be made visible to all players.
+	 */
+	virtual void SetLosRevealWholeMapForAll(bool enabled) = 0;
 
 	/**
 	 * Returns whether the whole map has been made visible to the given player.
 	 */
 	virtual bool GetLosRevealWholeMap(player_id_t player) const = 0;
+
+	/**
+	 * Returns whether the whole map has been made visible to all players.
+	 */
+	virtual bool GetLosRevealWholeMapForAll() const = 0;
 
 	/**
 	 * Set the LOS to be restricted to a circular map.

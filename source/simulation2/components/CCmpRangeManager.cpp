@@ -431,7 +431,8 @@ public:
 
 	using LosRegion = std::pair<u16, u16>;
 
-	std::array<bool, MAX_LOS_PLAYER_ID+2> m_LosRevealWholeMap;
+	std::array<bool, MAX_LOS_PLAYER_ID+1> m_LosRevealWholeMap;
+	bool m_LosRevealWholeMapForAll;
 	bool m_LosCircular;
 	i32 m_LosVerticesPerSide;
 
@@ -2003,13 +2004,14 @@ public:
 
 	void SetLosRevealWholeMap(player_id_t player, bool enabled) override
 	{
-		if (player == -1)
-			m_LosRevealWholeMap[MAX_LOS_PLAYER_ID+1] = enabled;
-		else
-		{
-			ENSURE(player >= 0 && player <= MAX_LOS_PLAYER_ID);
-			m_LosRevealWholeMap[player] = enabled;
-		}
+		m_LosRevealWholeMap.at(player) = enabled;
+
+		// On next update, update the visibility of every entity in the world
+		m_GlobalVisibilityUpdate = true;
+	}
+
+	void SetLosRevealWholeMapForAll(bool enabled) override {
+		m_LosRevealWholeMapForAll = enabled;
 
 		// On next update, update the visibility of every entity in the world
 		m_GlobalVisibilityUpdate = true;
@@ -2017,15 +2019,19 @@ public:
 
 	bool GetLosRevealWholeMap(player_id_t player) const override
 	{
-		// Special player value can force reveal-all for every player
-		if (m_LosRevealWholeMap[MAX_LOS_PLAYER_ID+1] || player == -1)
+		// Always reveal the whole map to observers.
+		if (m_LosRevealWholeMapForAll || player == -1)
 			return true;
+
 		ENSURE(player >= 0 && player <= MAX_LOS_PLAYER_ID+1);
-		// Otherwise check the player-specific flag
 		if (m_LosRevealWholeMap[player])
 			return true;
 
 		return false;
+	}
+
+	bool GetLosRevealWholeMapForAll() const override {
+		return m_LosRevealWholeMapForAll;
 	}
 
 	void SetLosCircular(bool enabled) override

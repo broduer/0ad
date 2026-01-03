@@ -115,7 +115,7 @@ namespace
 		// as visual actors cache their visibility state on first render.
 		CmpPtr<ICmpRangeManager> cmpRangeManager(*g_Game->GetSimulation2(), SYSTEM_ENTITY);
 		if (cmpRangeManager)
-			cmpRangeManager->SetLosRevealWholeMap(-1, true);
+			cmpRangeManager->SetLosRevealWholeMapForAll(true);
 
 		PSRETURN ret = g_Game->ReallyStartGame();
 		ENSURE(ret == PSRETURN_OK);

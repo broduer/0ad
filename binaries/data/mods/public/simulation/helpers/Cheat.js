@@ -22,7 +22,7 @@ function Cheat(input)
 		cmpPlayer.AddResource(input.text, input.parameter);
 		return;
 	case "revealmap":
-		Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager).SetLosRevealWholeMap(-1, true);
+		Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager).SetLosRevealWholeMapForAll(true);
 		return;
 	case "maxpopulation":
 		cmpPlayer.SetPopulationBonuses(cmpPopulationManager.GetPopulationCap() + 500);

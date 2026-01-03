@@ -334,7 +334,7 @@ ActorViewer::ActorViewer()
 	// Remove FOW since we're in Atlas
 	CmpPtr<ICmpRangeManager> cmpRangeManager(m.Simulation2, SYSTEM_ENTITY);
 	if (cmpRangeManager)
-		cmpRangeManager->SetLosRevealWholeMap(-1, true);
+		cmpRangeManager->SetLosRevealWholeMapForAll(true);
 
 	m.Simulation2.InitGame();
 }
