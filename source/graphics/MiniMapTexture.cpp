@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -354,6 +354,11 @@ CMiniMapTexture::~CMiniMapTexture()
 	DestroyTextures();
 }
 
+void CMiniMapTexture::RequestRendering()
+{
+	m_RenderingRequested = true;
+}
+
 void CMiniMapTexture::Update(const float /*deltaRealTime*/)
 {
 	if (m_WaterHeight != g_Renderer.GetSceneRenderer().GetWaterManager().m_WaterHeight)
@@ -367,6 +372,9 @@ void CMiniMapTexture::Render(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	CLOSTexture& losTexture, CTerritoryTexture& territoryTexture)
 {
+	if (!std::exchange(m_RenderingRequested, false))
+		return;
+
 	const CTerrain& terrain = g_Game->GetWorld()->GetTerrain();
 	if (!m_TerrainTexture)
 		CreateTextures(deviceCommandContext, terrain);

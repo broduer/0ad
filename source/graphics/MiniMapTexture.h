@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -50,6 +50,8 @@ public:
 	CMiniMapTexture(Renderer::Backend::IDevice* device, CSimulation2& simulation);
 	~CMiniMapTexture();
 
+	void RequestRendering();
+
 	/**
 	 * Marks the texture as dirty if it's old enough to redraw it on Render.
 	 */
@@ -100,6 +102,8 @@ private:
 		const float entityRadius);
 
 	CSimulation2& m_Simulation;
+
+	bool m_RenderingRequested = false;
 
 	bool m_TerrainTextureDirty = true;
 	bool m_FinalTextureDirty = true;
