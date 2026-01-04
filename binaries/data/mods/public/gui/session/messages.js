@@ -444,7 +444,6 @@ function handleNetStatusMessage(message)
 	if (message.status == "disconnected")
 	{
 		g_Disconnected = true;
-		updateCinemaPath();
 		closeOpenDialogs();
 	}
 

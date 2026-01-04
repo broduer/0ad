@@ -12,6 +12,7 @@ var g_Ambient;
 var g_AutoFormation;
 var g_Chat;
 var g_Cheats;
+var g_CinemaOverlay;
 var g_DeveloperOverlay;
 var g_DiplomacyColors;
 var g_DiplomacyDialog;
@@ -296,6 +297,7 @@ function init(initData, hotloadData)
 	g_Ambient = new Ambient();
 	g_AutoFormation = new AutoFormation();
 	g_Chat = new Chat(g_PlayerViewControl, g_Cheats);
+	g_CinemaOverlay = new CinemaOverlay();
 	g_DeveloperOverlay = new DeveloperOverlay(g_PlayerViewControl, g_Selection);
 	g_DiplomacyDialog = new DiplomacyDialog(g_PlayerViewControl, g_DiplomacyColors);
 	g_GameSpeedControl = new GameSpeedControl(g_PlayerViewControl);
@@ -631,6 +633,10 @@ function onTick()
 	handleNetMessages();
 
 	updateCursorAndTooltip();
+	updateTimers();
+
+	if (g_CinemaOverlay.isInCutsceneMode())
+		return;
 
 	if (g_Selection.dirty)
 	{
@@ -650,12 +656,7 @@ function onTick()
 	else if (g_ShowAllStatusBars && now % g_StatusBarUpdate <= tickLength)
 		recalculateStatusBarDisplay();
 
-	updateTimers();
 	Engine.GuiInterfaceCall("ClearRenamedEntities");
-
-	const isPlayingCinemaPath = GetSimState().cinemaPlaying && !g_Disconnected;
-	if (isPlayingCinemaPath)
-		updateCinemaOverlay();
 }
 
 function onSimulationUpdate()
@@ -686,7 +687,6 @@ function onSimulationUpdate()
 		handler();
 
 	// TODO: Move to handlers
-	updateCinemaPath();
 	handleNotifications();
 	updateGUIObjects();
 }
@@ -694,40 +694,8 @@ function onSimulationUpdate()
 function toggleGUI()
 {
 	g_ShowGUI = !g_ShowGUI;
-	updateCinemaPath();
-}
-
-// TODO: The whole cinema UI should be handled by its own class.
-var g_CutsceneModeEnabled = false;
-function updateCinemaPath()
-{
-	const isPlayingCinemaPath = GetSimState().cinemaPlaying && !g_Disconnected;
-
-	Engine.GetGUIObjectByName("session").hidden = !g_ShowGUI || isPlayingCinemaPath;
-	Engine.GetGUIObjectByName("cinemaOverlay").hidden = !isPlayingCinemaPath;
-	if (isPlayingCinemaPath && !g_CutsceneModeEnabled)
-	{
-		Engine.Renderer_SetCutsceneModeEnabled(true);
-		g_CutsceneModeEnabled = true;
-	}
-	else if (!isPlayingCinemaPath && g_CutsceneModeEnabled)
-	{
-		Engine.Renderer_SetCutsceneModeEnabled(false);
-		g_CutsceneModeEnabled = false;
-	}
-}
-
-function updateCinemaOverlay()
-{
-	const cinemaOverlay = Engine.GetGUIObjectByName("cinemaOverlay");
-	const width = cinemaOverlay.getComputedSize().right;
-	const height = cinemaOverlay.getComputedSize().bottom;
-	let barHeight = (height - width / 2.39) / 2;
-	if (barHeight < 0)
-		barHeight = 0;
-
-	Engine.GetGUIObjectByName("cinemaBarTop").size.bottom = barHeight;
-	Engine.GetGUIObjectByName("cinemaBarBottom").size.top = -barHeight;
+	Engine.GetGUIObjectByName("primaryOverlays").hidden = !g_ShowGUI;
+	Engine.GetGUIObjectByName("supplementaryOverlays").hidden = !g_ShowGUI;
 }
 
 // TODO: Use event subscription onSimulationUpdate, onEntitySelectionChange, onPlayerViewChange, ... instead

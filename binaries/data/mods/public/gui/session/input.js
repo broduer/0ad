@@ -527,7 +527,7 @@ function getPreferredEntities(ents)
 
 function handleInputBeforeGui(ev, hoveredObject)
 {
-	if (GetSimState().cinemaPlaying)
+	if (g_CinemaOverlay.isInCutsceneMode())
 		return false;
 
 	// Capture cursor position so we can use it for displaying cursors,
@@ -843,7 +843,7 @@ function handleInputBeforeGui(ev, hoveredObject)
 }
 function handleInputAfterGui(ev)
 {
-	if (GetSimState().cinemaPlaying)
+	if (g_CinemaOverlay.isInCutsceneMode())
 		return false;
 	if (ev.hotkey === undefined)
 		ev.hotkey = null;
