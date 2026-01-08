@@ -60,6 +60,17 @@ function ChangeEntityTemplate(oldEnt, newTemplate)
 		cmpNewPosition.SetHeightOffset(cmpPosition.GetHeightOffset());
 	}
 
+	const cmpUnitMotion = Engine.QueryInterface(oldEnt, IID_UnitMotion);
+	const cmpNewUnitMotion = Engine.QueryInterface(newEnt, IID_UnitMotion);
+	if (cmpUnitMotion && cmpNewUnitMotion)
+	{
+		const currentSpeed = cmpUnitMotion.GetCurrentSpeed();
+		cmpNewUnitMotion.SetCurrentSpeed(currentSpeed);
+
+		const acceleration = cmpUnitMotion.GetAcceleration();
+		cmpNewUnitMotion.SetAcceleration(acceleration);
+	}
+
 	// Prevent spawning subunits on occupied positions.
 	const cmpTurretHolder = Engine.QueryInterface(oldEnt, IID_TurretHolder);
 	const cmpNewTurretHolder = Engine.QueryInterface(newEnt, IID_TurretHolder);

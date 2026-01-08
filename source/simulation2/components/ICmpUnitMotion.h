@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -103,6 +103,11 @@ public:
 	 * Get the speed at the end of the current turn.
 	 */
 	virtual fixed GetCurrentSpeed() const = 0;
+
+	/**
+	 * Set the speed.
+	 */
+	virtual void SetCurrentSpeed(const fixed& speed) = 0;
 
 	/**
 	 * @returns true if the unit has a destination.

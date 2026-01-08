@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -32,6 +32,7 @@ DEFINE_INTERFACE_METHOD("PossiblyAtDestination", ICmpUnitMotion, PossiblyAtDesti
 DEFINE_INTERFACE_METHOD("FaceTowardsPoint", ICmpUnitMotion, FaceTowardsPoint)
 DEFINE_INTERFACE_METHOD("StopMoving", ICmpUnitMotion, StopMoving)
 DEFINE_INTERFACE_METHOD("GetCurrentSpeed", ICmpUnitMotion, GetCurrentSpeed)
+DEFINE_INTERFACE_METHOD("SetCurrentSpeed", ICmpUnitMotion, SetCurrentSpeed)
 DEFINE_INTERFACE_METHOD("IsMoveRequested", ICmpUnitMotion, IsMoveRequested)
 DEFINE_INTERFACE_METHOD("GetSpeed", ICmpUnitMotion, GetSpeed)
 DEFINE_INTERFACE_METHOD("GetWalkSpeed", ICmpUnitMotion, GetWalkSpeed)
@@ -96,6 +97,11 @@ public:
 	fixed GetCurrentSpeed() const override
 	{
 		return m_Script.Call<fixed>("GetCurrentSpeed");
+	}
+
+	void SetCurrentSpeed(const fixed& speed) override
+	{
+		m_Script.CallVoid("SetCurrentSpeed", speed);
 	}
 
 	bool IsMoveRequested() const override

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -539,6 +539,16 @@ public:
 	fixed GetCurrentSpeed() const override
 	{
 		return m_CurrentSpeed;
+	}
+
+	void SetCurrentSpeed(const fixed& speed) override
+	{
+		m_CurrentSpeed = speed;
+
+		if (speed == fixed::Zero())
+			m_LastTurnSpeed = fixed::Zero();
+		else
+			m_LastTurnSpeed = speed;
 	}
 
 	void SetFacePointAfterMove(bool facePointAfterMove) override
