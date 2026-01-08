@@ -24,6 +24,27 @@ function ChangeEntityTemplate(oldEnt, newTemplate)
 	if (cmpVisual && cmpNewVisual)
 		cmpNewVisual.SetActorSeed(cmpVisual.GetActorSeed());
 
+	const cmpOldTurretable = Engine.QueryInterface(oldEnt, IID_Turretable);
+
+	// If the old entity is turreted, we need to handle it before copying position
+	if (cmpOldTurretable && cmpOldTurretable.IsTurreted())
+	{
+		const cmpNewTurretable = Engine.QueryInterface(newEnt, IID_Turretable);
+
+		// Check if new entity doesn't have Turretable component
+		if (!cmpNewTurretable)
+			cmpOldTurretable.LeaveTurret(true);
+		else
+		{
+			// Check if it's allowed to occupy the turret point
+			const cmpTurretHolderOfOldEnt = Engine.QueryInterface(cmpOldTurretable.HolderID(), IID_TurretHolder);
+
+			if (cmpTurretHolderOfNewEnt &&
+				!cmpTurretHolderOfOldEnt.AllowedToOccupyTurretPoint(newEnt, cmpOldTurretable.GetTurretPointName(), true))
+				cmpOldTurretable.LeaveTurret(true);
+		}
+	}
+
 	var cmpPosition = Engine.QueryInterface(oldEnt, IID_Position);
 	var cmpNewPosition = Engine.QueryInterface(newEnt, IID_Position);
 	if (cmpPosition && cmpNewPosition)

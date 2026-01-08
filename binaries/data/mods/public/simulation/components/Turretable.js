@@ -19,6 +19,14 @@ Turretable.prototype.GetRange = function(type, target)
 };
 
 /**
+ * @return {number} - The turret point name of the entity this entity is turreted on.
+ */
+Turretable.prototype.GetTurretPointName = function()
+{
+	return this.turretPointName || "";
+};
+
+/**
  * @return {number} - The entity ID of the entity this entity is turreted on.
  */
 Turretable.prototype.HolderID = function()
@@ -73,6 +81,7 @@ Turretable.prototype.OccupyTurret = function(target, turretPointName = "", eject
 
 	this.holder = target;
 	this.ejectable = ejectable;
+	this.turretPointName = turretPointName;
 
 	const cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
 	if (cmpUnitAI)

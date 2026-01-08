@@ -105,6 +105,28 @@ TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(infID, cmpTurretHold
 TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(infID, cmpTurretHolder.turretPoints[1]), false);
 TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(infID, cmpTurretHolder.turretPoints[2]), false);
 
+// Test forReplacement parameter - empty turret points should allow both
+TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(siegeEngineID, cmpTurretHolder.turretPoints[0], false), true);
+TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(siegeEngineID, cmpTurretHolder.turretPoints[0], true), true);
+
+// Now occupy some turret points to test replacement logic
+TS_ASSERT(cmpTurretHolder.OccupyTurretPoint(archerID, cmpTurretHolder.turretPoints[0]));
+TS_ASSERT(cmpTurretHolder.OccupyTurretPoint(cavID, cmpTurretHolder.turretPoints[2]));
+
+// Test that occupied turrets block normal occupation but allow replacement
+TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(siegeEngineID, cmpTurretHolder.turretPoints[0], false), false);
+TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(siegeEngineID, cmpTurretHolder.turretPoints[0], true), true);
+TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(infID, cmpTurretHolder.turretPoints[2], false), false);
+TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(infID, cmpTurretHolder.turretPoints[2], true), false); // Still false due to class restriction
+
+// Test that class restrictions still apply even for replacement
+TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(infID, cmpTurretHolder.turretPoints[1], false), false);
+TS_ASSERT_EQUALS(cmpTurretHolder.AllowedToOccupyTurretPoint(infID, cmpTurretHolder.turretPoints[1], true), false); // Still false due to class restriction
+
+// Clean up for subsequent tests
+TS_ASSERT(cmpTurretHolder.LeaveTurretPoint(archerID));
+TS_ASSERT(cmpTurretHolder.LeaveTurretPoint(cavID));
+
 // Test that one cannot leave a turret that is not occupied.
 TS_ASSERT(!cmpTurretHolder.LeaveTurretPoint(archerID));
 

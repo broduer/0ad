@@ -74,12 +74,14 @@ class TurretHolder
 	/**
 	 * @param {number} entity - The entity to check for.
 	 * @param {Object} turretPoint - The turret point to use.
+	 * @param {boolean} [forReplacement=false] - Whether this check is for replacement
+	 *        (if true, occupied turret points are allowed).
 	 *
 	 * @return {boolean} - Whether the entity is allowed to occupy the specified turret point.
 	 */
-	AllowedToOccupyTurretPoint(entity, turretPoint)
+	AllowedToOccupyTurretPoint(entity, turretPoint, forReplacement = false)
 	{
-		if (!turretPoint || turretPoint.entity)
+		if (!turretPoint || turretPoint.entity && !forReplacement)
 			return false;
 
 		if (!IsOwnedByMutualAllyOfEntity(entity, this.entity))

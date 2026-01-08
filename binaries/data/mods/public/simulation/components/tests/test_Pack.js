@@ -17,6 +17,8 @@ Engine.LoadComponentScript("interfaces/StatusEffectsReceiver.js");
 Engine.LoadComponentScript("interfaces/TerritoryDecay.js");
 Engine.LoadComponentScript("interfaces/Timer.js");
 Engine.LoadComponentScript("interfaces/UnitAI.js");
+Engine.LoadComponentScript("interfaces/Turretable.js");
+Engine.LoadComponentScript("interfaces/TurretHolder.js");
 Engine.LoadComponentScript("Pack.js");
 Engine.RegisterGlobal("MT_EntityRenamed", "entityRenamed");
 
@@ -45,10 +47,23 @@ AddMock(SYSTEM_ENTITY, IID_Timer, {
 	"SetInterval": (entity, iid, funcname, time, repeattime, data) => { timerActivated = true; return 7; }
 });
 
+AddMock(ent, IID_Turretable, {
+	"IsTurreted": () => false,
+	"HolderID": () => 0,
+	"LeaveTurret": () => true
+});
+
+AddMock(newEnt, IID_Turretable, {
+	"IsTurreted": () => false,
+	"HolderID": () => 0,
+	"CanOccupy": (target) => true,
+	"LeaveTurret": () => true
+});
+
 Engine.AddEntity = function(template)
 {
 	TS_ASSERT_EQUALS(template, "finalTemplate");
-	return true;
+	return newEnt;
 };
 
 // Test Packing

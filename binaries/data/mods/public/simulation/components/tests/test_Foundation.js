@@ -19,6 +19,8 @@ Engine.LoadComponentScript("interfaces/TerritoryDecay.js");
 Engine.LoadComponentScript("interfaces/Trigger.js");
 Engine.LoadComponentScript("interfaces/Timer.js");
 Engine.LoadComponentScript("interfaces/UnitAI.js");
+Engine.LoadComponentScript("interfaces/Turretable.js");
+Engine.LoadComponentScript("interfaces/TurretHolder.js");
 Engine.LoadComponentScript("AutoBuildable.js");
 Engine.LoadComponentScript("Foundation.js");
 Engine.LoadComponentScript("Timer.js");
@@ -101,6 +103,12 @@ function testFoundation(...mocks)
 		"MoveOutOfWorld": () => {}
 	});
 
+	AddMock(foundationEnt, IID_Turretable, {
+		"IsTurreted": () => false,
+		"HolderID": () => 0,
+		"LeaveTurret": () => true
+	});
+
 	AddMock(previewEnt, IID_Ownership, {
 		"SetOwner": owner => { TS_ASSERT_EQUALS(owner, player); },
 	});
@@ -138,6 +146,13 @@ function testFoundation(...mocks)
 			TS_ASSERT_EQUALS(rz, rot.z);
 		},
 		"SetHeightOffset": () => {}
+	});
+
+	AddMock(newEnt, IID_Turretable, {
+		"IsTurreted": () => false,
+		"HolderID": () => 0,
+		"CanOccupy": (target) => true,
+		"LeaveTurret": () => true
 	});
 
 	for (const mock of mocks)
@@ -261,6 +276,12 @@ AddMock(foundationEnt2, IID_Health, {
 		currentFoundationHP = Math.min(currentFoundationHP + hp, 100);
 		cmpAutoBuildingFoundation.OnHealthChanged();
 	},
+});
+
+AddMock(foundationEnt2, IID_Turretable, {
+	"IsTurreted": () => false,
+	"HolderID": () => 0,
+	"LeaveTurret": () => true
 });
 
 const cmpBuildableAuto = ConstructComponent(foundationEnt2, "AutoBuildable", {
