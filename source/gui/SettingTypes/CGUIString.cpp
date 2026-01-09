@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -148,6 +148,9 @@ void CGUIString::GenerateTextCall(const CGUI& pGUI, SFeedback& Feedback, CStrInt
 				// These are also needed later
 				TextCall.m_Size = size;
 				SpriteCall.m_Area = size;
+
+				// Temporary workaround for a fundamental misalignment issue.
+				SpriteCall.m_Area += CSize2D{0.f, -3.f};
 
 				// Handle additional attributes
 				for (const TextChunk::Tag::TagAttribute& tagAttrib : tag.m_TagAttributes)
