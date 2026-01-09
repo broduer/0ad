@@ -23,6 +23,7 @@
 #include "lib/code_annotation.h"
 #include "lib/external_libraries/gloox.h"
 #include "lib/types.h"
+#include "lobby/XmppExternalServiceDiscovery.h"
 
 #include <ctime>
 #include <deque>
@@ -46,6 +47,9 @@ private:
 	gloox::MUCRoom* m_mucRoom;
 	gloox::Registration* m_registration;
 	gloox::Jingle::SessionManager* m_sessionManager;
+	PS::Xmpp::ExternalServiceDiscovery::Manager* m_ExternalServiceManager;
+
+	PS::Xmpp::ExternalServiceDiscovery::Manager* GetExternalServiceManager() override;
 
 	// Account infos
 	std::string m_username;

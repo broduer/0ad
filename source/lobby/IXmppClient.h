@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,6 +19,7 @@
 #define IXMPPCLIENT_H
 
 #include "lib/types.h"
+#include "lobby/XmppExternalServiceDiscovery.h"
 
 #include <js/Value.h>
 
@@ -30,6 +31,8 @@ class IXmppClient
 public:
 	static IXmppClient* create(const ScriptInterface* scriptInterface, const std::string& sUsername, const std::string& sPassword, const std::string& sRoom, const std::string& sNick, const int historyRequestSize = 0, bool regOpt = false);
 	virtual ~IXmppClient() {}
+
+	virtual PS::Xmpp::ExternalServiceDiscovery::Manager* GetExternalServiceManager() = 0;
 
 	virtual void connect() = 0;
 	virtual void disconnect() = 0;

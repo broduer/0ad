@@ -168,6 +168,8 @@ XmppClient::XmppClient(const ScriptInterface* scriptInterface, const std::string
 	// Register plugins to allow gloox parse them in incoming sessions
 	m_sessionManager->registerPlugin(new gloox::Jingle::Content());
 	m_sessionManager->registerPlugin(new gloox::Jingle::ICEUDP());
+
+	m_ExternalServiceManager = new PS::Xmpp::ExternalServiceDiscovery::Manager(m_client);
 }
 
 /**
@@ -181,6 +183,7 @@ XmppClient::~XmppClient()
 	delete m_registration;
 	delete m_mucRoom;
 	delete m_sessionManager;
+	delete m_ExternalServiceManager;
 
 	// Workaround for memory leak in gloox 1.0/1.0.1
 	m_client->removePresenceExtension(gloox::ExtCaps);
@@ -205,6 +208,12 @@ void XmppClient::TraceMember(JSTracer* trc)
 
 	for (JS::Heap<JS::Value>& guiMessage : m_HistoricGuiMessages)
 		JS::TraceEdge(trc, &guiMessage, "m_HistoricGuiMessages");
+}
+
+// Component access
+PS::Xmpp::ExternalServiceDiscovery::Manager* XmppClient::GetExternalServiceManager()
+{
+	return m_ExternalServiceManager;
 }
 
 /// Network

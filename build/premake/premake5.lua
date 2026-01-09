@@ -716,6 +716,7 @@ function setup_all_libs ()
 		"fmt",
 		"libxml2",
 		"iconv",
+		"gloox",
 	}
 	if not _OPTIONS["without-miniupnpc"] then
 		table.insert(extern_libs, "miniupnpc")
@@ -911,6 +912,7 @@ function setup_all_libs ()
 		"icu",
 		"libxml2",
 		"iconv",
+		"gloox",
 	}
 	if not _OPTIONS["without-nvtt"] then
 		table.insert(extern_libs, "nvtt")
