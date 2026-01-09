@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * Copyright (C) 2013-2016 SuperTuxKart-Team.
  * This file is part of 0 A.D.
  *
@@ -23,6 +23,8 @@
 #include "lib/byte_order.h"
 #include "lib/code_annotation.h"
 #include "lib/external_libraries/enet.h"
+#include "lobby/IXmppClient.h"
+#include "lobby/XmppExternalServiceDiscovery.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "ps/ConfigDB.h"
@@ -34,6 +36,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 #include <thread>
 #include <type_traits>
 #include <vector>
@@ -151,8 +154,24 @@ void SendStunRequest(ENetHost& transactionHost, ENetAddress addr)
  */
 bool CreateStunRequest(ENetHost& transactionHost)
 {
-	const std::string server_name{g_ConfigDB.Get("lobby.stun.server", std::string{})};
-	const int port{g_ConfigDB.Get("lobby.stun.port", 0)};
+	std::string server_name{g_ConfigDB.Get("lobby.stun1.server", std::string{})};
+	int port{g_ConfigDB.Get("lobby.stun1.port", 0)};
+
+	if (server_name.empty())
+	{
+		const std::optional<PS::Xmpp::ExternalServiceDiscovery::Manager::Service> service =
+			g_XmppClient->GetExternalServiceManager()->GetStunServer();
+		if (service.has_value())
+		{
+			server_name = service.value().m_Host;
+			port = service.value().m_Port;
+		}
+		else
+		{
+			LOGERROR("StunClient: No STUN service optained nor configured");
+			return false;
+		}
+	}
 
 	LOGMESSAGE("StunClient: Using STUN server %s:%d\n", server_name.c_str(), port);
 
