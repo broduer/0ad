@@ -57,6 +57,118 @@ cmpFormation.maxTurningAngle = Math.PI;
 TS_ASSERT(testingAngles.every(x => cmpFormation.DoesAngleDifferenceAllowTurning(0, x)));
 TS_ASSERT(testingAngles.every(x => cmpFormation.DoesAngleDifferenceAllowTurning(0, -x)));
 
+function TestGenerateAllMatchingClassCombinations()
+{
+	// Test helper function to simulate the matching in ComputeFormationOffsets
+	function findMatchedClassCombination(entityClasses, formation)
+	{
+		// Simulate the matching logic from GetMemberClassCombinations
+		const matchedClassCombination = [...formation.allMatchingClassCombinations].find(classCombination =>
+			MatchesClassList(entityClasses, classCombination)
+		) || formation.UNSORTED_CLASS_COMBINATION;
+
+		return matchedClassCombination;
+	}
+
+	// Single level tests
+	cmpFormation.allMatchingClassCombinations = cmpFormation.GenerateAllMatchingClassCombinations("Hero Cavalry Melee Ranged");
+
+	TS_ASSERT_EQUALS("Melee", findMatchedClassCombination(["Melee", "Soldier"], cmpFormation));
+	TS_ASSERT_EQUALS("Ranged", findMatchedClassCombination(["Ranged", "Archer"], cmpFormation));
+	TS_ASSERT_EQUALS("Melee", findMatchedClassCombination(["Melee", "Ranged", "Soldier"], cmpFormation));
+	TS_ASSERT_EQUALS(cmpFormation.UNSORTED_CLASS_COMBINATION, findMatchedClassCombination(["Archer", "Worker"], cmpFormation));
+
+	// Multi-level tests (using '|' separator)
+	cmpFormation.allMatchingClassCombinations = cmpFormation.GenerateAllMatchingClassCombinations("Melee Ranged | Hero Champion | Cavalry Infantry");
+
+	TS_ASSERT_EQUALS("Melee+Hero+Cavalry", findMatchedClassCombination(["Melee", "Hero", "Cavalry", "Soldier"], cmpFormation));
+	// With empty placeholder, entities missing middle level can now match partial combination
+	TS_ASSERT_EQUALS("Melee+Cavalry", findMatchedClassCombination(["Melee", "Cavalry"], cmpFormation)); // Missing middle level
+	TS_ASSERT_EQUALS("Ranged+Champion+Infantry", findMatchedClassCombination(["Ranged", "Champion", "Infantry"], cmpFormation));
+	// With empty placeholder, entities missing first level can still match partial combination
+	TS_ASSERT_EQUALS("Hero+Cavalry", findMatchedClassCombination(["Archer", "Hero", "Cavalry"], cmpFormation)); // No first level match
+
+	// Test GenerateAllMatchingClassCombinations directly
+	const classCombination1 = cmpFormation.GenerateAllMatchingClassCombinations("A | B | C");
+	TS_ASSERT_EQUALS(9, classCombination1.size);
+	TS_ASSERT(classCombination1.has("A+B+C"));
+	TS_ASSERT(classCombination1.has("A+B"));
+	TS_ASSERT(classCombination1.has("A+C"));
+	TS_ASSERT(classCombination1.has("A"));
+	TS_ASSERT(classCombination1.has("B+C"));
+	TS_ASSERT(classCombination1.has("B"));
+	TS_ASSERT(classCombination1.has("C"));
+	TS_ASSERT(classCombination1.has(""));
+	TS_ASSERT(classCombination1.has(cmpFormation.UNSORTED_CLASS_COMBINATION));
+
+	// Test with multiple options per level
+	const classCombination2 = cmpFormation.GenerateAllMatchingClassCombinations("A B | C D");
+	TS_ASSERT_EQUALS(10, classCombination2.size);
+	TS_ASSERT(classCombination2.has("A+C"));
+	TS_ASSERT(classCombination2.has("A+D"));
+	TS_ASSERT(classCombination2.has("A"));
+	TS_ASSERT(classCombination2.has("B+C"));
+	TS_ASSERT(classCombination2.has("B+D"));
+	TS_ASSERT(classCombination2.has("B"));
+	TS_ASSERT(classCombination2.has("C"));
+	TS_ASSERT(classCombination2.has("D"));
+	TS_ASSERT(classCombination2.has(""));
+	TS_ASSERT(classCombination2.has(cmpFormation.UNSORTED_CLASS_COMBINATION));
+
+	// Test with pre-made "+" combinations in template
+	const classCombination3 = cmpFormation.GenerateAllMatchingClassCombinations("A+B C | D E");
+	TS_ASSERT_EQUALS(10, classCombination3.size);
+	TS_ASSERT(classCombination3.has("A+B+D"));
+	TS_ASSERT(classCombination3.has("A+B+E"));
+	TS_ASSERT(classCombination3.has("A+B"));
+	TS_ASSERT(classCombination3.has("C+D"));
+	TS_ASSERT(classCombination3.has("C+E"));
+	TS_ASSERT(classCombination3.has("C"));
+	TS_ASSERT(classCombination3.has("D"));
+	TS_ASSERT(classCombination3.has("E"));
+	TS_ASSERT(classCombination3.has(""));
+	TS_ASSERT(classCombination3.has(cmpFormation.UNSORTED_CLASS_COMBINATION));
+
+	cmpFormation.allMatchingClassCombinations = classCombination3;
+
+	// Test matching with pre-made combinations
+	TS_ASSERT_EQUALS("A+B+D", findMatchedClassCombination(["A", "B", "D"], cmpFormation));
+	TS_ASSERT_EQUALS("C+E", findMatchedClassCombination(["C", "E"], cmpFormation));
+	TS_ASSERT_EQUALS("D", findMatchedClassCombination(["A", "D"], cmpFormation)); // Missing B, matches "D" only
+
+	// Test Unsorted class filtering - "Unsorted" should not appear in template classes
+	const classCombination4 = cmpFormation.GenerateAllMatchingClassCombinations("Melee Ranged " + cmpFormation.UNSORTED_CLASS_COMBINATION);
+	TS_ASSERT_EQUALS(4, classCombination4.size);
+	TS_ASSERT(classCombination4.has("Melee"));
+	TS_ASSERT(classCombination4.has("Ranged"));
+	TS_ASSERT(classCombination4.has(""));
+	TS_ASSERT(classCombination4.has(cmpFormation.UNSORTED_CLASS_COMBINATION));
+
+	// Test empty/edge cases
+	TS_ASSERT_EQUALS(1, cmpFormation.GenerateAllMatchingClassCombinations("").size); // Only Unsorted
+	// Single level: [Hero, ""] = 2 combinations plus Unsorted = 3 total
+	TS_ASSERT_EQUALS(3, cmpFormation.GenerateAllMatchingClassCombinations("Hero").size);
+	TS_ASSERT(cmpFormation.GenerateAllMatchingClassCombinations("Hero").has("Hero"));
+	TS_ASSERT(cmpFormation.GenerateAllMatchingClassCombinations("Hero").has(""));
+	TS_ASSERT(cmpFormation.GenerateAllMatchingClassCombinations("Hero").has(cmpFormation.UNSORTED_CLASS_COMBINATION));
+
+	// Test whitespace resilience
+	const classCombination5 = cmpFormation.GenerateAllMatchingClassCombinations(" A B|C   D ");
+	TS_ASSERT_EQUALS(10, classCombination5.size);
+	TS_ASSERT(classCombination5.has("A+C"));
+	TS_ASSERT(classCombination5.has("A+D"));
+	TS_ASSERT(classCombination5.has("A"));
+	TS_ASSERT(classCombination5.has("B+C"));
+	TS_ASSERT(classCombination5.has("B+D"));
+	TS_ASSERT(classCombination5.has("B"));
+	TS_ASSERT(classCombination5.has("C"));
+	TS_ASSERT(classCombination5.has("D"));
+	TS_ASSERT(classCombination5.has(""));
+	TS_ASSERT(classCombination5.has(cmpFormation.UNSORTED_CLASS_COMBINATION));
+}
+
+TestGenerateAllMatchingClassCombinations();
+
 // Test GetClosestMemberToPosition and GetClosestMemberToEntity functions
 function TestGetClosestMemberFunctions()
 {
