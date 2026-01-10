@@ -10,5 +10,5 @@
 		{ "value": "Cost/BuildTime", "multiply": 0.7}
 	],
 	"auraName": "Syrian Tetrapolis",
-	"auraDescription": "Civil Centers and Colonies −20% resource cost and −30% construction time."
+	"auraDescription": "Civic Centers and Colonies −20% resource cost and −30% construction time."
 }
