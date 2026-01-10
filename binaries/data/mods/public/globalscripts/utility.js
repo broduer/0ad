@@ -142,3 +142,20 @@ function listFiles(path, extension, recurse)
 	return Engine.ListDirectoryFiles(path, "*" + extension, recurse).map(filename => filename.slice(path.length, -extension.length));
 }
 
+/**
+ * Computes the Cartesian Product of multiple arrays
+ *
+ * Generates all possible ordered combinations by taking one element from each input array.
+ * This is equivalent to nested loops over all input arrays, producing every possible combination.
+ *
+ * @example
+ * cartesianProduct([[1, 2], ['a', 'b']])
+ * -> [[1,'a'],[1,'b'],[2,'a'],[2,'b']]
+ */
+function cartesianProduct(arrays)
+{
+	return arrays.reduce((acc, curr) =>
+		acc.flatMap(a => curr.map(c => [...a, c])),
+	[[]]
+	);
+}

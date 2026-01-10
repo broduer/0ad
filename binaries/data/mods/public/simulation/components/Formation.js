@@ -33,7 +33,7 @@ Formation.prototype.Schema =
 	"<element name='ShiftRows' a:help='Set the value to true to shift subsequent rows.'>" +
 		"<text/>" +
 	"</element>" +
-	"<element name='SortingClasses' a:help='Classes will be added to the formation in this order. Where the classes will be added first depends on the formation.'>" +
+	"<element name='SortingClasses' a:help='Determine units` position in formation based on class hierarchy. Use | to separate priority levels. Within a level, + creates AND combinations. Example: &#x201C;Heavy+Melee Melee Heavy Light | Cavalry Infantry&#x201D; positions &#x201C;Heavy Melee Cavalry&#x201D; units first, then &#x201C;Heavy Melee Infantry&#x201D;, then any &#x201C;Melee&#x201D; unit etc.'>" +
 		"<text/>" +
 	"</element>" +
 	"<optional>" +
@@ -105,7 +105,10 @@ Formation.prototype.Init = function(deserialized = false)
 {
 	this.shape = this.template.FormationShape;
 	this.maxTurningAngle = +this.template.MaxTurningAngle;
-	this.sortingClasses = this.template.SortingClasses.split(/\s+/g);
+
+	this.memberClassCombinationCache = new Map();
+	this.allMatchingClassCombinations = this.GenerateAllMatchingClassCombinations(this.template.SortingClasses);
+
 	this.sortingOrder = this.template.SortingOrder;
 	this.shiftRows = this.template.ShiftRows == "true";
 	this.separationMultiplier = {
@@ -369,6 +372,8 @@ Formation.prototype.SetMembers = function(ents)
 			cmpAuras.ApplyFormationAura(ents);
 		}
 	}
+	// Note: We don't add the members to this.memberClassCombinationCache right away,
+	// it is filled lazily in ComputeFormationOffsets.
 
 	this.offsets = undefined;
 	// Locate this formation controller in the middle of its members.
@@ -404,6 +409,10 @@ Formation.prototype.RemoveMembers = function(ents, renamed = false)
 		const cmpUnitAI = Engine.QueryInterface(ent, IID_UnitAI);
 		cmpUnitAI.UpdateWorkOrders();
 		cmpUnitAI.UnsetFormationController();
+
+		// Clear cached member class
+		if (this.memberClassCombinationCache)
+			this.memberClassCombinationCache.delete(ent);
 	}
 
 	for (const ent of this.formationMembersWithAura)
@@ -468,6 +477,7 @@ Formation.prototype.AddMembers = function(ents)
 			this.formationMembersWithAura.push(ent);
 			cmpAuras.ApplyFormationAura(this.members);
 		}
+		// Note: We don't add the new members to this.memberClassCombinationCache right away, it is filled lazily.
 	}
 
 	this.ComputeMotionParameters();
@@ -653,37 +663,87 @@ Formation.prototype.GetAvgFootprint = function(active)
 	return r;
 };
 
+/**
+ * Convert SortingClasses template into usable class combinations for member sorting.
+ *
+ * @param {string} sortingClassesText - The SortingClasses template value
+ * @example "Level1 | Level2 | Level3" where earlier levels have higher priority.
+ * Within each level, space-separated classes are separate possibilities.
+ * Classes from different levels are combined with '+' for AND logic.
+ *
+ * Example: "Melee Ranged | Cavalry Infantry | Citizen Champion Hero" creates:
+ * 1. "Melee+Cavalry+Citizen"    (Level1 AND Level2 AND Level3)
+ * 2. "Melee+Cavalry+Champion"
+ * 3. "Melee+Cavalry+Hero"
+ * etc ...
+ *
+ * A member matches "Melee+Cavalry+Citizen" only if it has ALL THREE classes.
+ * The "+" delimiter indicates AND logic between levels.
+ *
+ * Note: The "+" sign can also be used within a level to create pre-made combinations,
+ * e.g., "Heavy+Infantry Light+Infantry" at a single level to set specific class combination entries.
+ *
+ * Each level implicitly includes an placeholder.
+ * This allows matching entities that don't have a class at that specific level.
+ *
+ * Example, with levels: "Melee | Infantry | Champion":
+ * - Generated combinations include:
+ * 1. "Melee+Infantry+Champion" (complete match)
+ * 2. "Melee+Infantry"           (missing level 3)
+ * 3. "Melee+Champion"           (missing level 2)
+ * etc ...
+ *
+ * @returns {Set<string>} All possible class combinations, plus "Unsorted" as final fallback
+ */
+Formation.prototype.GenerateAllMatchingClassCombinations = function(sortingClassesText)
+{
+	if (!sortingClassesText)
+		return new Set([this.UNSORTED_CLASS_COMBINATION]);
+
+	const levels = sortingClassesText.split(/\s*\|\s*/)
+		.map(level => level.split(/\s+/).filter(cls => cls.length && cls !== this.UNSORTED_CLASS_COMBINATION))
+		.filter(level => level.length);
+
+	// Adding the placeholder ("") ensures partial matches are caught rather than dropped to unsorted
+	const levelsWithPlaceholder = levels.map(level => level.concat(""));
+
+	// Generate combinations with '+' separator
+	const combinations = cartesianProduct(levelsWithPlaceholder).map(classes => classes.filter(cl => cl).join('+'));
+	return new Set(combinations.concat(this.UNSORTED_CLASS_COMBINATION));
+};
+
+Formation.prototype.GetMemberClassCombinations = function(ent)
+{
+	const cached = this.memberClassCombinationCache.get(ent);
+	if (cached !== undefined)
+		return cached;
+
+	const classes = Engine.QueryInterface(ent, IID_Identity).GetClassesList();
+
+	const matchedClassCombination = Array.from(this.allMatchingClassCombinations).find(classCombination =>
+		MatchesClassList(classCombination)
+	) || this.UNSORTED_CLASS_COMBINATION;
+
+	this.memberClassCombinationCache.set(ent, matchedClassCombination);
+	return matchedClassCombination;
+};
+
 Formation.prototype.ComputeFormationOffsets = function(active, positions)
 {
 	const separation = this.GetAvgFootprint(active);
 	separation.width *= this.separationMultiplier.width;
 	separation.depth *= this.separationMultiplier.depth;
 
-	const sortingClasses = this.sortingClasses.slice();
-	sortingClasses.push("Unknown");
-
-	// The entities will be assigned to positions in the formation in
-	// the same order as the types list is ordered.
-	const types = {};
-	for (let i = 0; i < sortingClasses.length; ++i)
-		types[sortingClasses[i]] = [];
+	// Group entities by their classCombination
+	const classCombinations = {};
+	for (const classCombination of this.allMatchingClassCombinations)
+		classCombinations[classCombination] = [];
 
 	for (const i in active)
 	{
-		const cmpIdentity = Engine.QueryInterface(active[i], IID_Identity);
-		const classes = cmpIdentity.GetClassesList();
-		let done = false;
-		for (let c = 0; c < sortingClasses.length; ++c)
-		{
-			if (classes.indexOf(sortingClasses[c]) > -1)
-			{
-				types[sortingClasses[c]].push({ "ent": active[i], "pos": positions[i] });
-				done = true;
-				break;
-			}
-		}
-		if (!done)
-			types.Unknown.push({ "ent": active[i], "pos": positions[i] });
+		const ent = active[i];
+		const matchedClassCombinations = this.GetMemberClassCombinations(ent);
+		classCombinations[matchedClassCombinations].push({ "ent": ent, "pos": positions[i] });
 	}
 
 	const count = active.length;
@@ -785,7 +845,7 @@ Formation.prototype.ComputeFormationOffsets = function(active, positions)
 
 	// Sort the available places in certain ways.
 	// The places first in the list will contain the heaviest units as defined by the order
-	// of the types list.
+	// of the classCombinations list.
 	if (this.sortingOrder == "fillFromTheSides")
 		offsets.sort(function(o1, o2) { return Math.abs(o1.x) < Math.abs(o2.x);});
 	else if (this.sortingOrder == "fillToTheCenter")
@@ -799,9 +859,9 @@ Formation.prototype.ComputeFormationOffsets = function(active, positions)
 	// Use realistic place assignment,
 	// every soldier searches the closest available place in the formation.
 	const newOffsets = [];
-	for (const i of sortingClasses.reverse())
+	for (const i of [...this.allMatchingClassCombinations].reverse())
 	{
-		const t = types[i];
+		const t = classCombinations[i];
 		if (!t.length)
 			continue;
 		const usedOffsets = offsets.splice(-t.length);
@@ -1126,5 +1186,11 @@ Formation.prototype.OnEntityRenamed = function(msg)
 	this.Disband();
 	Engine.QueryInterface(msg.newentity, IID_Formation).SetMembers(members);
 };
+
+/**
+ * Final fallback class combination for entities that don't match any combination.
+ * Unsorted members are generally placed at the back/last of the formation.
+ */
+Formation.prototype.UNSORTED_CLASS_COMBINATION = "Unsorted";
 
 Engine.RegisterComponentType(IID_Formation, "Formation", Formation);
