@@ -1,8 +1,7 @@
 /**
  * Override style so we can get a bigger primary name.
  */
-// Temporarily overwritten in order to hide a baseline issue in the font engine.
-g_TooltipTextFormats.namePrimaryBig.font = /* "sans-bold-20" */ "sans-bold-16";
+g_TooltipTextFormats.namePrimaryBig.font = "sans-bold-20";
 g_TooltipTextFormats.namePrimarySmall.font = "sans-bold-16";
 g_TooltipTextFormats.nameSecondary.font = "sans-bold-16";
 

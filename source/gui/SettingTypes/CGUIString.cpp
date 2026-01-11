@@ -149,9 +149,6 @@ void CGUIString::GenerateTextCall(const CGUI& pGUI, SFeedback& Feedback, CStrInt
 				TextCall.m_Size = size;
 				SpriteCall.m_Area = size;
 
-				// Temporary workaround for a fundamental misalignment issue.
-				SpriteCall.m_Area += CSize2D{0.f, -3.f};
-
 				// Handle additional attributes
 				for (const TextChunk::Tag::TagAttribute& tagAttrib : tag.m_TagAttributes)
 				{
