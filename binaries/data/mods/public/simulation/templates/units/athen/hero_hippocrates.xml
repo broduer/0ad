@@ -10,7 +10,7 @@
   <Identity>
     <Civ>athen</Civ>
     <GenericName>Hippocrates</GenericName>
-    <SpecificName>Hippocrates</SpecificName>
+    <SpecificName>Hippokratēs</SpecificName>
     <Icon>units/athen/hero_hippocrates.png</Icon>
     <Requirements>
       <Techs datatype="tokens">-phase_city phase_town</Techs>
