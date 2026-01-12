@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -431,7 +431,7 @@ public:
 
 	using LosRegion = std::pair<u16, u16>;
 
-	std::array<bool, MAX_LOS_PLAYER_ID+2> m_LosRevealAll;
+	std::array<bool, MAX_LOS_PLAYER_ID+2> m_LosRevealWholeMap;
 	bool m_LosCircular;
 	i32 m_LosVerticesPerSide;
 
@@ -493,7 +493,7 @@ public:
 
 		// The whole map should be visible to Gaia by default, else e.g. animals
 		// will get confused when trying to run from enemies
-		m_LosRevealAll[0] = true;
+		m_LosRevealWholeMap[0] = true;
 
 		m_GlobalVisibilityUpdate = true;
 
@@ -517,7 +517,7 @@ public:
 		Serializer(serialize, "queries", m_Queries, GetSimContext());
 		Serializer(serialize, "entity data", m_EntityData);
 
-		Serializer(serialize, "los reveal all", m_LosRevealAll);
+		Serializer(serialize, "los reveal all", m_LosRevealWholeMap);
 		serialize.Bool("los circular", m_LosCircular);
 		serialize.NumberI32_Unbounded("los verts per side", m_LosVerticesPerSide);
 
@@ -1722,7 +1722,7 @@ public:
 
 	CLosQuerier GetLosQuerier(player_id_t player) const override
 	{
-		if (GetLosRevealAll(player))
+		if (GetLosRevealWholeMap(player))
 			return CLosQuerier(0xFFFFFFFFu, m_LosStateRevealed, m_LosVerticesPerSide);
 		else
 			return CLosQuerier(GetSharedLosMask(player), m_LosState, m_LosVerticesPerSide);
@@ -1754,7 +1754,7 @@ public:
 		int j = (pos.Y / LOS_TILE_SIZE).ToInt_RoundToNearest();
 
 		// Reveal flag makes all positioned entities visible and all mirages useless
-		if (GetLosRevealAll(player))
+		if (GetLosRevealWholeMap(player))
 		{
 			if (LosIsOffWorld(i, j) || cmpMirage)
 				return LosVisibility::HIDDEN;
@@ -1881,7 +1881,7 @@ public:
 		int j = (z / LOS_TILE_SIZE).ToInt_RoundToNearest();
 
 		// Reveal flag makes all positioned entities visible and all mirages useless
-		if (GetLosRevealAll(player))
+		if (GetLosRevealWholeMap(player))
 		{
 			if (LosIsOffWorld(i, j))
 				return LosVisibility::HIDDEN;
@@ -2001,28 +2001,28 @@ public:
 			UpdateVisibility(ent, player);
 	}
 
-	void SetLosRevealAll(player_id_t player, bool enabled) override
+	void SetLosRevealWholeMap(player_id_t player, bool enabled) override
 	{
 		if (player == -1)
-			m_LosRevealAll[MAX_LOS_PLAYER_ID+1] = enabled;
+			m_LosRevealWholeMap[MAX_LOS_PLAYER_ID+1] = enabled;
 		else
 		{
 			ENSURE(player >= 0 && player <= MAX_LOS_PLAYER_ID);
-			m_LosRevealAll[player] = enabled;
+			m_LosRevealWholeMap[player] = enabled;
 		}
 
 		// On next update, update the visibility of every entity in the world
 		m_GlobalVisibilityUpdate = true;
 	}
 
-	bool GetLosRevealAll(player_id_t player) const override
+	bool GetLosRevealWholeMap(player_id_t player) const override
 	{
 		// Special player value can force reveal-all for every player
-		if (m_LosRevealAll[MAX_LOS_PLAYER_ID+1] || player == -1)
+		if (m_LosRevealWholeMap[MAX_LOS_PLAYER_ID+1] || player == -1)
 			return true;
 		ENSURE(player >= 0 && player <= MAX_LOS_PLAYER_ID+1);
 		// Otherwise check the player-specific flag
-		if (m_LosRevealAll[player])
+		if (m_LosRevealWholeMap[player])
 			return true;
 
 		return false;

@@ -1968,7 +1968,7 @@ GuiInterface.prototype.GetBatchTime = function(player, data)
 
 GuiInterface.prototype.IsMapRevealed = function(player)
 {
-	return Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager).GetLosRevealAll(player);
+	return Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager).GetLosRevealWholeMap(player);
 };
 
 GuiInterface.prototype.SetPathfinderDebugOverlay = function(player, enabled)

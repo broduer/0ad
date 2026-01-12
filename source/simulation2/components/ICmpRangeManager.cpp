@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -62,8 +62,8 @@ DEFINE_INTERFACE_METHOD("GetGaiaAndNonGaiaEntities", ICmpRangeManager, GetGaiaAn
 DEFINE_INTERFACE_METHOD("SetDebugOverlay", ICmpRangeManager, SetDebugOverlay)
 DEFINE_INTERFACE_METHOD("ExploreMap", ICmpRangeManager, ExploreMap)
 DEFINE_INTERFACE_METHOD("ExploreTerritories", ICmpRangeManager, ExploreTerritories)
-DEFINE_INTERFACE_METHOD("SetLosRevealAll", ICmpRangeManager, SetLosRevealAll)
-DEFINE_INTERFACE_METHOD("GetLosRevealAll", ICmpRangeManager, GetLosRevealAll)
+DEFINE_INTERFACE_METHOD("SetLosRevealWholeMap", ICmpRangeManager, SetLosRevealWholeMap)
+DEFINE_INTERFACE_METHOD("GetLosRevealWholeMap", ICmpRangeManager, GetLosRevealWholeMap)
 DEFINE_INTERFACE_METHOD("GetEffectiveParabolicRange", ICmpRangeManager, GetEffectiveParabolicRange)
 DEFINE_INTERFACE_METHOD("GetElevationAdaptedRange", ICmpRangeManager, GetElevationAdaptedRange)
 DEFINE_INTERFACE_METHOD("ActivateScriptedVisibility", ICmpRangeManager, ActivateScriptedVisibility)

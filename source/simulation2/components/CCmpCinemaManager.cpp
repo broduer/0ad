@@ -252,9 +252,9 @@ public:
 		if (cmpRangeManager)
 		{
 			if (enabled)
-				m_MapRevealed = cmpRangeManager->GetLosRevealAll(-1);
+				m_MapRevealed = cmpRangeManager->GetLosRevealWholeMap(-1);
 			// TODO: improve m_MapRevealed state and without fade in
-			cmpRangeManager->SetLosRevealAll(-1, enabled);
+			cmpRangeManager->SetLosRevealWholeMap(-1, enabled);
 		}
 		if (cmpTerritoryManager)
 			cmpTerritoryManager->SetVisibility(!enabled);

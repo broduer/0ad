@@ -101,7 +101,7 @@ var g_Commands = {
 		// Reveal the map for all players, not just the current player,
 		// primarily to make it obvious to everyone that the player is cheating
 		var cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
-		cmpRangeManager.SetLosRevealAll(-1, cmd.enable);
+		cmpRangeManager.SetLosRevealWholeMap(-1, cmd.enable);
 	},
 
 	"walk": function(player, cmd, data)

@@ -928,7 +928,7 @@ public:
 		// (TODO: maybe cleverer AIs should be able to optionally retain FoW/SoD)
 		CmpPtr<ICmpRangeManager> cmpRangeManager(GetSystemEntity());
 		if (cmpRangeManager)
-			cmpRangeManager->SetLosRevealAll(player, true);
+			cmpRangeManager->SetLosRevealWholeMap(player, true);
 	}
 
 	void SetRNGSeed(u32 seed) override

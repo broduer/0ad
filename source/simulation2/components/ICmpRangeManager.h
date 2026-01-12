@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -292,14 +292,14 @@ public:
 	/**
 	 * Returns the visibility status of the given entity, with respect to the given player.
 	 * Returns LosVisibility::HIDDEN if the entity doesn't exist or is not in the world.
-	 * This respects the GetLosRevealAll flag.
+	 * This respects the GetLosRevealWholeMap flag.
 	 */
 	virtual LosVisibility GetLosVisibility(CEntityHandle ent, player_id_t player) const = 0;
 	virtual LosVisibility GetLosVisibility(entity_id_t ent, player_id_t player) const = 0;
 
 	/**
 	 * Returns the visibility status of the given position, with respect to the given player.
-	 * This respects the GetLosRevealAll flag.
+	 * This respects the GetLosRevealWholeMap flag.
 	 */
 	virtual LosVisibility GetLosVisibilityPosition(entity_pos_t x, entity_pos_t z, player_id_t player) const = 0;
 
@@ -345,12 +345,12 @@ public:
 	 * Set whether the whole map should be made visible to the given player.
 	 * If player is -1, the map will be made visible to all players.
 	 */
-	virtual void SetLosRevealAll(player_id_t player, bool enabled) = 0;
+	virtual void SetLosRevealWholeMap(player_id_t player, bool enabled) = 0;
 
 	/**
 	 * Returns whether the whole map has been made visible to the given player.
 	 */
-	virtual bool GetLosRevealAll(player_id_t player) const = 0;
+	virtual bool GetLosRevealWholeMap(player_id_t player) const = 0;
 
 	/**
 	 * Set the LOS to be restricted to a circular map.

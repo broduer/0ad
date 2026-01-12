@@ -19,7 +19,7 @@ function LoadMapSettings(settings)
 	{
 		const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
 		if (cmpRangeManager)
-			cmpRangeManager.SetLosRevealAll(-1, true);
+			cmpRangeManager.SetLosRevealWholeMap(-1, true);
 	}
 
 	if (settings.DisableTreasures)

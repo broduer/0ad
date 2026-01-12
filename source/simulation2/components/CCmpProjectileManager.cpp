@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -123,7 +123,7 @@ public:
 	void RemoveProjectile(uint32_t) override;
 
 	void RenderModel(CModelAbstract& model, const CVector3D& position, SceneCollector& collector, const CFrustum& frustum, bool culling,
-		const CLosQuerier& los, bool losRevealAll) const;
+		const CLosQuerier& los, bool losRevealWholeMap) const;
 
 private:
 	struct Projectile
@@ -365,12 +365,12 @@ void CCmpProjectileManager::RemoveProjectile(uint32_t id)
 }
 
 void CCmpProjectileManager::RenderModel(CModelAbstract& model, const CVector3D& position, SceneCollector& collector,
-	const CFrustum& frustum, bool culling, const CLosQuerier& los, bool losRevealAll) const
+	const CFrustum& frustum, bool culling, const CLosQuerier& los, bool losRevealWholeMap) const
 {
 	// Don't display objects outside the visible area
 	ssize_t posi = (ssize_t)(0.5f + position.X / LOS_TILE_SIZE);
 	ssize_t posj = (ssize_t)(0.5f + position.Z / LOS_TILE_SIZE);
-	if (!losRevealAll && !los.IsVisible(posi, posj))
+	if (!losRevealWholeMap && !los.IsVisible(posi, posj))
 		return;
 
 	model.ValidatePosition();
@@ -388,16 +388,16 @@ void CCmpProjectileManager::RenderSubmit(SceneCollector& collector, const CFrust
 	CmpPtr<ICmpRangeManager> cmpRangeManager(GetSystemEntity());
 	int player = GetSimContext().GetCurrentDisplayedPlayer();
 	CLosQuerier los(cmpRangeManager->GetLosQuerier(player));
-	bool losRevealAll = cmpRangeManager->GetLosRevealAll(player);
+	bool losRevealWholeMap = cmpRangeManager->GetLosRevealWholeMap(player);
 
 	for (const Projectile& projectile : m_Projectiles)
 	{
-		RenderModel(projectile.unit->GetModel(), projectile.pos, collector, frustum, culling, los, losRevealAll);
+		RenderModel(projectile.unit->GetModel(), projectile.pos, collector, frustum, culling, los, losRevealWholeMap);
 	}
 
 	for (const ProjectileImpactAnimation& projectileImpactAnimation : m_ProjectileImpactAnimations)
 	{
 		RenderModel(projectileImpactAnimation.unit->GetModel(), projectileImpactAnimation.pos,
-			collector, frustum, culling, los, losRevealAll);
+			collector, frustum, culling, los, losRevealWholeMap);
 	}
 }

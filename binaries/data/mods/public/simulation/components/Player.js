@@ -488,7 +488,7 @@ Player.prototype.SetState = function(newState, message)
 	const won = this.HasWon();
 	const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
 	if (won)
-		cmpRangeManager.SetLosRevealAll(this.playerID, true);
+		cmpRangeManager.SetLosRevealWholeMap(this.playerID, true);
 	else
 	{
 		// Reassign all player's entities to Gaia.

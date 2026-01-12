@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -43,7 +43,7 @@ enum class LosState : u8
  * Object providing efficient abstracted access to the LOS state.
  * This depends on some implementation details of CCmpRangeManager.
  *
- * This *ignores* the GetLosRevealAll flag - callers should check that explicitly.
+ * This *ignores* the GetLosRevealWholeMap flag - callers should check that explicitly.
  */
 class CLosQuerier
 {
