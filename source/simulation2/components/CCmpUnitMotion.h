@@ -456,6 +456,11 @@ public:
 		return m_MoveRequest.m_Type != MoveRequest::NONE;
 	}
 
+	bool IsMovingAsFormation() const override
+	{
+		return IsFormationMember() && m_MoveRequest.m_Type == MoveRequest::OFFSET;
+	}
+
 	fixed GetSpeedMultiplier() const override
 	{
 		return m_SpeedMultiplier;
@@ -588,6 +593,14 @@ public:
 		m_FormationController = controller;
 	}
 
+	std::optional<CFixedVector2D> GetFormationOffset() const override
+	{
+		if (m_MoveRequest.m_Type != MoveRequest::OFFSET)
+			return std::nullopt;
+
+		return m_MoveRequest.m_Position;
+	}
+
 	bool IsTargetRangeReachable(entity_id_t target, entity_pos_t minRange, entity_pos_t maxRange) override;
 
 	void FaceTowardsPoint(entity_pos_t x, entity_pos_t z) override;
@@ -625,11 +638,6 @@ private:
 	bool IsFormationMember() const
 	{
 		return m_FormationController != INVALID_ENTITY;
-	}
-
-	bool IsMovingAsFormation() const
-	{
-		return IsFormationMember() && m_MoveRequest.m_Type == MoveRequest::OFFSET;
 	}
 
 	bool IsFormationControllerMoving() const

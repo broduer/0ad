@@ -389,7 +389,9 @@ Formation.prototype.RemoveMembers = function(ents, renamed = false)
 	if (!ents.length)
 		return;
 
-	this.offsets = undefined;
+	if (!renamed)
+		this.offsets = undefined;
+
 	this.members = this.members.filter(ent => !ents.includes(ent));
 
 	for (const ent of ents)
@@ -441,9 +443,10 @@ Formation.prototype.RemoveMembers = function(ents, renamed = false)
  *
  * @see ArrangeFormation - To update formation layout after adding members
  */
-Formation.prototype.AddMembers = function(ents)
+Formation.prototype.AddMembers = function(ents, renamed = false)
 {
-	this.offsets = undefined;
+	if (!renamed)
+		this.offsets = undefined;
 
 	for (const ent of this.formationMembersWithAura)
 	{
@@ -1048,11 +1051,24 @@ Formation.prototype.OnGlobalEntityRenamed = function(msg)
 
 	// First remove the old member to be able to reuse its position.
 	this.RemoveMembers([msg.entity], true);
-	this.AddMembers([msg.newentity]);
+	this.AddMembers([msg.newentity], true);
 	this.memberPositions[msg.newentity] = this.memberPositions[msg.entity];
+	delete this.memberPositions[msg.entity];
 
-	// Update Formation
-	// to make sure added (renamed) members will move with the controller if applicable.
+	if (this.resetOffsetsScheduled === undefined)
+	{
+		this.resetOffsetsScheduled = true;
+
+		// Schedule offset reset for the next tick so that it reorders if necessary.
+		const cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
+		cmpTimer.SetTimeout(this.entity, IID_Formation, "ResetOffsetsAndUpdate", 0, null);
+	}
+};
+
+Formation.prototype.ResetOffsetsAndUpdate = function()
+{
+	this.resetOffsetsScheduled = undefined;
+	this.offsets = undefined;
 	this.UpdateFormation(false, false);
 };
 

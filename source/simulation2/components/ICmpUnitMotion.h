@@ -110,9 +110,21 @@ public:
 	virtual void SetCurrentSpeed(const fixed& speed) = 0;
 
 	/**
+	* Get the current formation offset if this unit is moving as a formation member.
+	* @returns std::nullopt if the unit is not in formation movement mode,
+	*          otherwise returns the formation offset.
+	*/
+	virtual std::optional<CFixedVector2D> GetFormationOffset() const = 0;
+
+	/**
 	 * @returns true if the unit has a destination.
 	 */
 	virtual bool IsMoveRequested() const = 0;
+
+	/**
+	 * @returns true if the unit is moving orderly in it's Formation.
+	 */
+	virtual bool IsMovingAsFormation() const = 0;
 
 	/**
 	 * Get the unit template walk speed after modifications.

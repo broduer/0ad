@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -48,6 +48,7 @@
 #include <js/experimental/TypedData.h>
 #include <string>
 #include <vector>
+#include <optional>
 
 #define FAIL(msg) STMT(LOGERROR(msg); return false)
 #define FAIL_VOID(msg) STMT(ScriptException::Raise(rq, msg); return)
@@ -208,6 +209,30 @@ template<> void Script::ToJSVal<CFixedVector2D>(const ScriptRequest& rq,  JS::Mu
 		FAIL_VOID("Failed to construct Vector2D object");
 
 	ret.setObject(*objVec);
+}
+
+template<> bool Script::FromJSVal<std::optional<CFixedVector2D>>(const ScriptRequest& rq, JS::HandleValue v, std::optional<CFixedVector2D>& out)
+{
+    if (v.isNullOrUndefined())
+    {
+        out = std::nullopt;
+        return true;
+    }
+
+    CFixedVector2D vec;
+    if (!FromJSVal(rq, v, vec))
+        return false;
+
+    out = vec;
+    return true;
+}
+
+template<> void Script::ToJSVal<std::optional<CFixedVector2D>>(const ScriptRequest& rq, JS::MutableHandleValue ret, const std::optional<CFixedVector2D>& val)
+{
+    if (!val.has_value())
+        ret.setNull();
+    else
+        ToJSVal(rq, ret, val.value());
 }
 
 template<> void Script::ToJSVal<Grid<u8> >(const ScriptRequest& rq,  JS::MutableHandleValue ret, const Grid<u8>& val)

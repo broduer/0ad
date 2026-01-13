@@ -32,8 +32,10 @@ DEFINE_INTERFACE_METHOD("PossiblyAtDestination", ICmpUnitMotion, PossiblyAtDesti
 DEFINE_INTERFACE_METHOD("FaceTowardsPoint", ICmpUnitMotion, FaceTowardsPoint)
 DEFINE_INTERFACE_METHOD("StopMoving", ICmpUnitMotion, StopMoving)
 DEFINE_INTERFACE_METHOD("GetCurrentSpeed", ICmpUnitMotion, GetCurrentSpeed)
+DEFINE_INTERFACE_METHOD("GetFormationOffset", ICmpUnitMotion, GetFormationOffset)
 DEFINE_INTERFACE_METHOD("SetCurrentSpeed", ICmpUnitMotion, SetCurrentSpeed)
 DEFINE_INTERFACE_METHOD("IsMoveRequested", ICmpUnitMotion, IsMoveRequested)
+DEFINE_INTERFACE_METHOD("IsMovingAsFormation", ICmpUnitMotion, IsMovingAsFormation)
 DEFINE_INTERFACE_METHOD("GetSpeed", ICmpUnitMotion, GetSpeed)
 DEFINE_INTERFACE_METHOD("GetWalkSpeed", ICmpUnitMotion, GetWalkSpeed)
 DEFINE_INTERFACE_METHOD("GetRunMultiplier", ICmpUnitMotion, GetRunMultiplier)
@@ -104,9 +106,19 @@ public:
 		m_Script.CallVoid("SetCurrentSpeed", speed);
 	}
 
+	std::optional<CFixedVector2D> GetFormationOffset() const override
+	{
+		return m_Script.Call<std::optional<CFixedVector2D>>("GetFormationOffset");
+	}
+
 	bool IsMoveRequested() const override
 	{
 		return m_Script.Call<bool>("IsMoveRequested");
+	}
+
+	bool IsMovingAsFormation() const override
+	{
+		return m_Script.Call<bool>("IsMovingAsFormation");
 	}
 
 	fixed GetSpeed() const override

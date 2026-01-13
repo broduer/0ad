@@ -62,6 +62,7 @@ function ChangeEntityTemplate(oldEnt, newTemplate)
 
 	const cmpUnitMotion = Engine.QueryInterface(oldEnt, IID_UnitMotion);
 	const cmpNewUnitMotion = Engine.QueryInterface(newEnt, IID_UnitMotion);
+	const cmpOldUnitAI = Engine.QueryInterface(oldEnt, IID_UnitAI);
 	if (cmpUnitMotion && cmpNewUnitMotion)
 	{
 		const currentSpeed = cmpUnitMotion.GetCurrentSpeed();
@@ -69,6 +70,13 @@ function ChangeEntityTemplate(oldEnt, newTemplate)
 
 		const acceleration = cmpUnitMotion.GetAcceleration();
 		cmpNewUnitMotion.SetAcceleration(acceleration);
+		if (cmpOldUnitAI)
+		{
+			const formationControllerID = cmpOldUnitAI.GetFormationController();
+			const formationMemberOffsetPosition = cmpUnitMotion.GetFormationOffset();
+			if (formationControllerID && formationMemberOffsetPosition && cmpUnitMotion.IsMovingAsFormation())
+				cmpNewUnitMotion.MoveToFormationOffset(formationControllerID, formationMemberOffsetPosition.x, formationMemberOffsetPosition.y);
+		}
 	}
 
 	// Prevent spawning subunits on occupied positions.
@@ -172,16 +180,15 @@ function ChangeEntityTemplate(oldEnt, newTemplate)
 	Engine.PostMessage(oldEnt, MT_EntityRenamed, { "entity": oldEnt, "newentity": newEnt });
 
 	// UnitAI generally needs other components to be properly initialised.
-	const cmpUnitAI = Engine.QueryInterface(oldEnt, IID_UnitAI);
 	const cmpNewUnitAI = Engine.QueryInterface(newEnt, IID_UnitAI);
-	if (cmpUnitAI && cmpNewUnitAI)
+	if (cmpOldUnitAI && cmpNewUnitAI)
 	{
-		const pos = cmpUnitAI.GetHeldPosition();
+		const pos = cmpOldUnitAI.GetHeldPosition();
 		if (pos)
 			cmpNewUnitAI.SetHeldPosition(pos.x, pos.z);
-		cmpNewUnitAI.SwitchToStance(cmpUnitAI.GetStanceName());
-		cmpNewUnitAI.AddOrders(cmpUnitAI.GetOrders());
-		const guarded = cmpUnitAI.IsGuardOf();
+		cmpNewUnitAI.SwitchToStance(cmpOldUnitAI.GetStanceName());
+		cmpNewUnitAI.AddOrders(cmpOldUnitAI.GetOrders());
+		const guarded = cmpOldUnitAI.IsGuardOf();
 		if (guarded)
 		{
 			const cmpGuarded = Engine.QueryInterface(guarded, IID_Guard);
