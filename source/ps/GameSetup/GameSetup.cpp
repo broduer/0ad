@@ -659,7 +659,7 @@ void InitGraphics(const CmdLineArgs& args, int flags, const std::vector<CStr>& i
 	g_GUI = new CGUIManager{scriptContext, scriptInterface};
 
 
-	if (RenderPathEnum::FromString(g_ConfigDB.Get("renderpath", "default"s)) == FIXED)
+	if (RenderPathEnum::FromString(g_ConfigDB.Get("renderpath", "default"s)) == RenderPath::FIXED)
 	{
 		// It doesn't make sense to continue working here, because we're not
 		// able to display anything.

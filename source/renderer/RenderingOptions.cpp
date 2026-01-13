@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -63,14 +63,14 @@ private:
 RenderPath RenderPathEnum::FromString(const CStr8& name)
 {
 	if (name == "default")
-		return DEFAULT;
+		return RenderPath::DEFAULT;
 	if (name == "fixed")
-		return FIXED;
+		return RenderPath::FIXED;
 	if (name == "shader")
-		return SHADER;
+		return RenderPath::SHADER;
 
 	LOGWARNING("Unknown render path %s", name.c_str());
-	return DEFAULT;
+	return RenderPath::DEFAULT;
 }
 
 CStr8 RenderPathEnum::ToString(RenderPath path)
