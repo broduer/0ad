@@ -410,10 +410,10 @@ void CSceneRenderer::RenderTransparentModels(
 		contextBlend.Add(str_MODE_WIREFRAME, str_1);
 	}
 
-	if (transparentMode == TRANSPARENT || transparentMode == TRANSPARENT_OPAQUE)
+	if (transparentMode == ETransparentMode::TRANSPARENT || transparentMode == ETransparentMode::TRANSPARENT_OPAQUE)
 		m->CallTranspModelRenderers(deviceCommandContext, contextOpaque, cullGroup, flags);
 
-	if (transparentMode == TRANSPARENT || transparentMode == TRANSPARENT_BLEND)
+	if (transparentMode == ETransparentMode::TRANSPARENT || transparentMode == ETransparentMode::TRANSPARENT_BLEND)
 		m->CallTranspModelRenderers(deviceCommandContext, contextBlend, cullGroup, flags);
 
 	if (m_ModelRenderMode == EDGED_FACES)
@@ -610,7 +610,7 @@ void CSceneRenderer::RenderReflections(
 	// Render terrain and models
 	RenderPatches(deviceCommandContext, reflectionsContext, CULL_REFLECTIONS);
 	RenderModels(deviceCommandContext, reflectionsContext, CULL_REFLECTIONS);
-	RenderTransparentModels(deviceCommandContext, reflectionsContext, CULL_REFLECTIONS, TRANSPARENT);
+	RenderTransparentModels(deviceCommandContext, reflectionsContext, CULL_REFLECTIONS, ETransparentMode::TRANSPARENT);
 
 	// Particles are always oriented to face the camera in the vertex shader,
 	// so they don't need the inverted cull face.
@@ -703,7 +703,7 @@ void CSceneRenderer::RenderRefractions(
 	ITerrainOverlay::RenderOverlaysBeforeWater(deviceCommandContext);
 
 	RenderModels(deviceCommandContext, context, CULL_REFRACTIONS);
-	RenderTransparentModels(deviceCommandContext, context, CULL_REFRACTIONS, TRANSPARENT_OPAQUE);
+	RenderTransparentModels(deviceCommandContext, context, CULL_REFRACTIONS, ETransparentMode::TRANSPARENT_OPAQUE);
 
 	deviceCommandContext->SetScissors(0, nullptr);
 	deviceCommandContext->EndFramebufferPass();
@@ -886,25 +886,25 @@ void CSceneRenderer::RenderSubmissions(
 		if (m->waterManager.WillRenderFancyWater())
 		{
 			// Render transparent stuff, but only the solid parts that can occlude block water.
-			RenderTransparentModels(deviceCommandContext, context, cullGroup, TRANSPARENT_OPAQUE);
+			RenderTransparentModels(deviceCommandContext, context, cullGroup, ETransparentMode::TRANSPARENT_OPAQUE);
 
 			m->terrainRenderer.RenderWater(deviceCommandContext, context, cullGroup, &m->shadow);
 
 			// Render transparent stuff again, but only the blended parts that overlap water.
-			RenderTransparentModels(deviceCommandContext, context, cullGroup, TRANSPARENT_BLEND);
+			RenderTransparentModels(deviceCommandContext, context, cullGroup, ETransparentMode::TRANSPARENT_BLEND);
 		}
 		else
 		{
 			m->terrainRenderer.RenderWater(deviceCommandContext, context, cullGroup, &m->shadow);
 
 			// Render transparent stuff, so it can overlap models/terrain.
-			RenderTransparentModels(deviceCommandContext, context, cullGroup, TRANSPARENT);
+			RenderTransparentModels(deviceCommandContext, context, cullGroup, ETransparentMode::TRANSPARENT);
 		}
 	}
 	else
 	{
 		// render transparent stuff, so it can overlap models/terrain
-		RenderTransparentModels(deviceCommandContext, context, cullGroup, TRANSPARENT);
+		RenderTransparentModels(deviceCommandContext, context, cullGroup, ETransparentMode::TRANSPARENT);
 	}
 
 	// render debug-related terrain overlays

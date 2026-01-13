@@ -42,7 +42,7 @@ namespace Renderer::Backend { class IDeviceCommandContext; }
 enum ERenderMode { WIREFRAME, SOLID, EDGED_FACES };
 
 // transparency modes
-enum ETransparentMode { TRANSPARENT, TRANSPARENT_OPAQUE, TRANSPARENT_BLEND };
+enum class ETransparentMode { TRANSPARENT, TRANSPARENT_OPAQUE, TRANSPARENT_BLEND };
 
 class CSceneRenderer : public SceneCollector
 {
