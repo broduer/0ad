@@ -1,4 +1,4 @@
-/* Copyright (C) 2011 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -26,6 +26,13 @@
 
 #ifndef INCLUDED_ENET
 #define INCLUDED_ENET
+
+// Including windows.h breaks c++ standard library. Include our version which
+// has extra fixes.
+#include "lib/sysdep/os.h"
+#if OS_WIN
+#include  "lib/sysdep/os/win/win.h"
+#endif
 
 #if OS_WIN
 

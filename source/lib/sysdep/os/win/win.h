@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -87,6 +87,8 @@
 #include <windows.h>
 
 #include <winreg.h>
+
+#undef SendMessage
 
 #if ARCH_IA32
 // the official version causes pointer truncation warnings.
