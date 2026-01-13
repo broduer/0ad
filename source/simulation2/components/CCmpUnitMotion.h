@@ -1175,25 +1175,33 @@ bool CCmpUnitMotion::PossiblyAtDestination() const
 	CmpPtr<ICmpObstructionManager> cmpObstructionManager(GetSystemEntity());
 	ENSURE(cmpObstructionManager);
 
-	if (m_MoveRequest.m_Type == MoveRequest::POINT)
-		return cmpObstructionManager->IsInPointRange(GetEntityId(), m_MoveRequest.m_Position.X, m_MoveRequest.m_Position.Y, m_MoveRequest.m_MinRange, m_MoveRequest.m_MaxRange, false);
-	if (m_MoveRequest.m_Type == MoveRequest::ENTITY)
-		return cmpObstructionManager->IsInTargetRange(GetEntityId(), m_MoveRequest.m_Entity, m_MoveRequest.m_MinRange, m_MoveRequest.m_MaxRange, false);
-	if (m_MoveRequest.m_Type == MoveRequest::OFFSET)
+	switch (m_MoveRequest.m_Type)
+	{
+	case MoveRequest::POINT:
+		return cmpObstructionManager->IsInPointRange(
+			GetEntityId(), m_MoveRequest.m_Position.X, m_MoveRequest.m_Position.Y,
+			m_MoveRequest.m_MinRange, m_MoveRequest.m_MaxRange, false);
+
+	case MoveRequest::ENTITY:
+		return cmpObstructionManager->IsInTargetRange(
+			GetEntityId(), m_MoveRequest.m_Entity,
+			m_MoveRequest.m_MinRange, m_MoveRequest.m_MaxRange, false);
+
+	case MoveRequest::OFFSET:
 	{
 		CmpPtr<ICmpUnitMotion> cmpControllerMotion(GetSimContext(), m_MoveRequest.m_Entity);
 		if (cmpControllerMotion && cmpControllerMotion->IsMoveRequested())
 			return false;
 
-		// In formation, return a match only if we are exactly at the target position.
-		// Otherwise, units can go in an infinite "walzting" loop when the Idle formation timer
-		// reforms them.
 		CFixedVector2D targetPos;
 		ComputeTargetPosition(targetPos);
 		CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
-		return (targetPos-cmpPosition->GetPosition2D()).CompareLength(fixed::Zero()) <= 0;
+		return (targetPos - cmpPosition->GetPosition2D()).CompareLength(Pathfinding::NAVCELL_SIZE) <= 0;
 	}
-	return false;
+
+	default:
+		return false;
+	}
 }
 
 bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate, WaypointPath& shortPath, WaypointPath& longPath, CFixedVector2D& pos, fixed& speed, entity_angle_t& angle, uint8_t pushingPressure) const
