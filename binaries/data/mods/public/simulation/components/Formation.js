@@ -77,9 +77,6 @@ Formation.prototype.Schema =
 		"<text a:help='example text: &#x201C;1..1,1..-1:animationVariant1;2..2,1..-1;animationVariant2&#x201D;, this will set animationVariant1 for the first row, and animation2 for the second row. The first part of the numbers (1..1 and 2..2) means the row range. Every row between (and including) those values will switch animationvariants. The second part of the numbers (1..-1) denote the columns inside those rows that will be affected. Note that in both cases, you can use -1 for the last row/column, -2 for the second to last, etc.'/>" +
 	"</element>";
 
-// Distance at which we'll switch between column/box formations.
-var g_ColumnDistanceThreshold = 128;
-
 // Distance under which the formation will not try to turn towards the target position.
 var g_RotateDistanceThreshold = 1;
 
@@ -90,9 +87,6 @@ Formation.prototype.variablesToSerialize = [
 	"maxRowsUsed",
 	"maxColumnsUsed",
 	"finishedEntities",
-	"idleEntities",
-	"columnar",
-	"rearrange",
 	"formationMembersWithAura",
 	"width",
 	"depth",
@@ -148,11 +142,6 @@ Formation.prototype.Init = function(deserialized = false)
 	this.maxColumnsUsed = [];
 	// Entities that have finished the original task.
 	this.finishedEntities = new Set();
-	this.idleEntities = new Set();
-	// Whether we're travelling in column (vs box) formation.
-	this.columnar = false;
-	// Whether we should rearrange all formation members.
-	this.rearrange = true;
 	// Members with a formation aura.
 	this.formationMembersWithAura = [];
 	this.width = 0;
@@ -961,10 +950,15 @@ Formation.prototype.UpdateTwinFormationsForMerge = function()
 		if (minDist < dist)
 			continue;
 
-		// Merge the members from the other formation into this one
 		const otherMembers = cmpOtherFormation.members;
+		// Merge the members from the other formation into this one
+		this.AddMembers(otherMembers, true);
+		// The other formation will get disbanded for having no members
 		cmpOtherFormation.RemoveMembers(otherMembers);
-		this.AddMembers(otherMembers);
+		// Remove the merged formation from twin formations list
+		this.twinFormations.splice(i, 1);
+
+		this.UpdateFormation(true, true);
 	}
 };
 
