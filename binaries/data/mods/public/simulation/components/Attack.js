@@ -451,7 +451,7 @@ Attack.prototype.GetSplashData = function(type)
 
 Attack.prototype.GetRange = function(type)
 {
-	if (!type)
+	if (!type || !this.template[type])
 		return this.GetFullAttackRange();
 
 	let max = +this.template[type].MaxRange;
