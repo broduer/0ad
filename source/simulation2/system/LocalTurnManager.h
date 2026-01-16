@@ -43,7 +43,7 @@ public:
 protected:
 	void NotifyFinishedOwnCommands(u32 turn) override;
 
-	virtual void NotifyFinishedUpdate(u32 turn, const UpdateCallback& sendEventToAll) override;
+	void NotifyFinishedUpdate(u32 turn, const UpdateCallback& sendEventToAll) override;
 };
 
 #endif // INCLUDED_LOCALTURNMANAGER

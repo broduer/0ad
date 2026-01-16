@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -169,52 +169,52 @@ protected:
 	// BaseProxyHandler interface below
 
 	// Handler for `object.x`
-	virtual bool get(JSContext* cx, JS::HandleObject proxy, JS::HandleValue receiver, JS::HandleId id, JS::MutableHandleValue vp) const override final;
+	bool get(JSContext* cx, JS::HandleObject proxy, JS::HandleValue receiver, JS::HandleId id, JS::MutableHandleValue vp) const final;
 	// Handler for `object.x = y;`
-	virtual bool set(JSContext* cx, JS::HandleObject proxy, JS::HandleId id, JS::HandleValue vp,
+	bool set(JSContext* cx, JS::HandleObject proxy, JS::HandleId id, JS::HandleValue vp,
 					 JS::HandleValue receiver, JS::ObjectOpResult& result) const final;
 	// Handler for `delete object.x;`
-	virtual bool delete_(JSContext* cx, JS::HandleObject proxy, JS::HandleId id, JS::ObjectOpResult& result) const override final;
+	bool delete_(JSContext* cx, JS::HandleObject proxy, JS::HandleId id, JS::ObjectOpResult& result) const final;
 
 	// The following methods are not provided by BaseProxyHandler.
 	// We provide defaults that do nothing (some raise JS exceptions).
 
-	virtual bool getOwnPropertyDescriptor(JSContext* cx, JS::HandleObject proxy, JS::HandleId id, JS::MutableHandle<mozilla::Maybe<JS::PropertyDescriptor>> desc) const override final;
+	bool getOwnPropertyDescriptor(JSContext* cx, JS::HandleObject proxy, JS::HandleId id, JS::MutableHandle<mozilla::Maybe<JS::PropertyDescriptor>> desc) const final;
 
 	// Throw an exception is JS code attempts defining a property.
-	virtual bool defineProperty(JSContext*, JS::HandleObject /*proxy*/, JS::HandleId,
+	bool defineProperty(JSContext*, JS::HandleObject /*proxy*/, JS::HandleId,
 		JS::Handle<JS::PropertyDescriptor>, JS::ObjectOpResult& /*result*/) const override
 	{
 		return false;
 	}
 
-	virtual bool ownPropertyKeys(JSContext* cx, JS::HandleObject proxy, JS::MutableHandleIdVector props) const override final;
+	bool ownPropertyKeys(JSContext* cx, JS::HandleObject proxy, JS::MutableHandleIdVector props) const final;
 
 	// Nothing to enumerate.
-	virtual bool enumerate(JSContext*, JS::HandleObject /*proxy*/,
+	bool enumerate(JSContext*, JS::HandleObject /*proxy*/,
 		JS::MutableHandleIdVector /*props*/) const override
 	{
 		return true;
 	}
 	// Throw an exception is JS attempts to query the prototype.
-	virtual bool getPrototypeIfOrdinary(JSContext*, JS::HandleObject /*proxy*/, bool* /*isOrdinary*/,
+	bool getPrototypeIfOrdinary(JSContext*, JS::HandleObject /*proxy*/, bool* /*isOrdinary*/,
 		JS::MutableHandleObject /*protop*/) const override
 	{
 		return false;
 	}
 	// Throw an exception - no prototype to set.
-	virtual bool setImmutablePrototype(JSContext*, JS::HandleObject /*proxy*/,
+	bool setImmutablePrototype(JSContext*, JS::HandleObject /*proxy*/,
 		bool* /*succeeded*/) const override
 	{
 		return false;
 	}
 	// We are not extensible.
-	virtual bool preventExtensions(JSContext*, JS::HandleObject /*proxy*/,
+	bool preventExtensions(JSContext*, JS::HandleObject /*proxy*/,
 		JS::ObjectOpResult& /*result*/) const override
 	{
 		return true;
 	}
-	virtual bool isExtensible(JSContext*, JS::HandleObject /*proxy*/, bool* extensible) const override
+	bool isExtensible(JSContext*, JS::HandleObject /*proxy*/, bool* extensible) const override
 	{
 		*extensible = false;
 		return true;

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -64,35 +64,35 @@ public:
 	// Test data
 	Grid<NavcellData> m_PassabilityGrid;
 
-	virtual pass_class_t GetPassabilityClass(const std::string&) const override { return 0; }
-	virtual const Grid<NavcellData>& GetPassabilityGrid() override { return m_PassabilityGrid; }
+	pass_class_t GetPassabilityClass(const std::string&) const override { return 0; }
+	const Grid<NavcellData>& GetPassabilityGrid() override { return m_PassabilityGrid; }
 
 	// Irrelevant part of the mock.
-	virtual void GetPassabilityClasses(std::map<std::string, pass_class_t>&) const override {}
-	virtual void GetPassabilityClasses(std::map<std::string, pass_class_t>&, std::map<std::string, pass_class_t>&) const override {}
-	virtual entity_pos_t GetClearance(pass_class_t) const override { return entity_pos_t::FromInt(1); }
-	virtual entity_pos_t GetMaximumClearance() const override { return entity_pos_t::FromInt(1); }
-	virtual const GridUpdateInformation& GetAIPathfinderDirtinessInformation() const override { static GridUpdateInformation gridInfo; return gridInfo; }
-	virtual void FlushAIPathfinderDirtinessInformation() override {}
-	virtual Grid<u16> ComputeShoreGrid(bool = false) override { return Grid<u16> {}; }
-	virtual u32 ComputePathAsync(entity_pos_t, entity_pos_t, const PathGoal&, pass_class_t, entity_id_t) override { return 1; }
-	virtual void ComputePathImmediate(entity_pos_t, entity_pos_t, const PathGoal&, pass_class_t, WaypointPath&) const override {}
-	virtual u32 ComputeShortPathAsync(entity_pos_t, entity_pos_t, entity_pos_t, entity_pos_t, const PathGoal&, pass_class_t, bool, entity_id_t, entity_id_t) override { return 1; }
-	virtual WaypointPath ComputeShortPathImmediate(const ShortPathRequest&) const override { return WaypointPath(); }
-	virtual void SetDebugPath(entity_pos_t, entity_pos_t, const PathGoal&, pass_class_t) override {}
-	virtual bool IsGoalReachable(entity_pos_t, entity_pos_t, const PathGoal&, pass_class_t) override { return false; }
-	virtual std::vector<CFixedVector2D> DistributeAround(std::vector<entity_id_t>, entity_pos_t, entity_pos_t) const override { return {}; }
-	virtual bool CheckMovement(const IObstructionTestFilter&, entity_pos_t, entity_pos_t, entity_pos_t, entity_pos_t, entity_pos_t, pass_class_t) const override { return false; }
-	virtual ICmpObstruction::EFoundationCheck CheckUnitPlacement(const IObstructionTestFilter&, entity_pos_t, entity_pos_t, entity_pos_t, pass_class_t, bool = false) const override { return ICmpObstruction::FOUNDATION_CHECK_SUCCESS; }
-	virtual ICmpObstruction::EFoundationCheck CheckBuildingPlacement(const IObstructionTestFilter&, entity_pos_t, entity_pos_t, entity_pos_t, entity_pos_t, entity_pos_t, entity_id_t, pass_class_t) const override { return ICmpObstruction::FOUNDATION_CHECK_SUCCESS; }
-	virtual ICmpObstruction::EFoundationCheck CheckBuildingPlacement(const IObstructionTestFilter&, entity_pos_t, entity_pos_t, entity_pos_t, entity_pos_t, entity_pos_t, entity_id_t, pass_class_t, bool) const override { return ICmpObstruction::FOUNDATION_CHECK_SUCCESS; }
-	virtual void SetDebugOverlay(bool) override {}
-	virtual void SetHierDebugOverlay(bool) override {}
-	virtual void SendRequestedPaths() override {}
-	virtual void StartProcessingMoves(bool) override {}
-	virtual void UpdateGrid() override {}
-	virtual void GetDebugData(u32&, double&, Grid<u8>&) const override {}
-	virtual void SetAtlasOverlay(bool, pass_class_t = 0) override {}
+	void GetPassabilityClasses(std::map<std::string, pass_class_t>&) const override {}
+	void GetPassabilityClasses(std::map<std::string, pass_class_t>&, std::map<std::string, pass_class_t>&) const override {}
+	entity_pos_t GetClearance(pass_class_t) const override { return entity_pos_t::FromInt(1); }
+	entity_pos_t GetMaximumClearance() const override { return entity_pos_t::FromInt(1); }
+	const GridUpdateInformation& GetAIPathfinderDirtinessInformation() const override { static GridUpdateInformation gridInfo; return gridInfo; }
+	void FlushAIPathfinderDirtinessInformation() override {}
+	Grid<u16> ComputeShoreGrid(bool = false) override { return Grid<u16> {}; }
+	u32 ComputePathAsync(entity_pos_t, entity_pos_t, const PathGoal&, pass_class_t, entity_id_t) override { return 1; }
+	void ComputePathImmediate(entity_pos_t, entity_pos_t, const PathGoal&, pass_class_t, WaypointPath&) const override {}
+	u32 ComputeShortPathAsync(entity_pos_t, entity_pos_t, entity_pos_t, entity_pos_t, const PathGoal&, pass_class_t, bool, entity_id_t, entity_id_t) override { return 1; }
+	WaypointPath ComputeShortPathImmediate(const ShortPathRequest&) const override { return WaypointPath(); }
+	void SetDebugPath(entity_pos_t, entity_pos_t, const PathGoal&, pass_class_t) override {}
+	bool IsGoalReachable(entity_pos_t, entity_pos_t, const PathGoal&, pass_class_t) override { return false; }
+	std::vector<CFixedVector2D> DistributeAround(std::vector<entity_id_t>, entity_pos_t, entity_pos_t) const override { return {}; }
+	bool CheckMovement(const IObstructionTestFilter&, entity_pos_t, entity_pos_t, entity_pos_t, entity_pos_t, entity_pos_t, pass_class_t) const override { return false; }
+	ICmpObstruction::EFoundationCheck CheckUnitPlacement(const IObstructionTestFilter&, entity_pos_t, entity_pos_t, entity_pos_t, pass_class_t, bool = false) const override { return ICmpObstruction::FOUNDATION_CHECK_SUCCESS; }
+	ICmpObstruction::EFoundationCheck CheckBuildingPlacement(const IObstructionTestFilter&, entity_pos_t, entity_pos_t, entity_pos_t, entity_pos_t, entity_pos_t, entity_id_t, pass_class_t) const override { return ICmpObstruction::FOUNDATION_CHECK_SUCCESS; }
+	ICmpObstruction::EFoundationCheck CheckBuildingPlacement(const IObstructionTestFilter&, entity_pos_t, entity_pos_t, entity_pos_t, entity_pos_t, entity_pos_t, entity_id_t, pass_class_t, bool) const override { return ICmpObstruction::FOUNDATION_CHECK_SUCCESS; }
+	void SetDebugOverlay(bool) override {}
+	void SetHierDebugOverlay(bool) override {}
+	void SendRequestedPaths() override {}
+	void StartProcessingMoves(bool) override {}
+	void UpdateGrid() override {}
+	void GetDebugData(u32&, double&, Grid<u8>&) const override {}
+	void SetAtlasOverlay(bool, pass_class_t = 0) override {}
 };
 
 class MockPlayerMgrTerrMan : public ICmpPlayerManager

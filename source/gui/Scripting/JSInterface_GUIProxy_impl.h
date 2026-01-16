@@ -87,23 +87,23 @@ class MapCache : public GUIProxyProps
 public:
 	virtual ~MapCache() {};
 
-	virtual bool has(const std::string& name) const override
+	bool has(const std::string& name) const override
 	{
 		return m_Functions.find(name) != m_Functions.end();
 	}
 
-	virtual JSObject* get(const std::string& name) const override
+	JSObject* get(const std::string& name) const override
 	{
 		return m_Functions.at(name).get();
 	}
 
-	virtual bool setFunction(const ScriptRequest& rq, const std::string& name, JSFunction* function) override
+	bool setFunction(const ScriptRequest& rq, const std::string& name, JSFunction* function) override
 	{
 		m_Functions[name].init(rq.cx, JS_GetFunctionObject(function));
 		return true;
 	}
 
-	virtual std::vector<std::string_view> getPropsNames() const override
+	std::vector<std::string_view> getPropsNames() const override
 	{
 		std::vector<std::string_view> result;
 		result.reserve(m_Functions.size());
