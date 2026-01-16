@@ -56,7 +56,7 @@
 #include <string>
 #include <vector>
 
-class MockPathfinderTerrMan : public ICmpPathfinder
+class MockPathfinderTerrManager : public ICmpPathfinder
 {
 public:
 	DEFAULT_MOCK_COMPONENT()
@@ -95,7 +95,7 @@ public:
 	void SetAtlasOverlay(bool, pass_class_t = 0) override {}
 };
 
-class MockPlayerMgrTerrMan : public ICmpPlayerManager
+class MockPlayerMgrTerrManager : public ICmpPlayerManager
 {
 public:
 	DEFAULT_MOCK_COMPONENT()
@@ -104,7 +104,7 @@ public:
 	entity_id_t GetPlayerByID(int32_t id) override { return id + 1; }
 };
 
-class MockTerrInfTerrMan : public ICmpTerritoryInfluence
+class MockTerrInfTerrManager : public ICmpTerritoryInfluence
 {
 public:
 	DEFAULT_MOCK_COMPONENT()
@@ -116,7 +116,7 @@ public:
 	u32 m_Radius = 0;
 };
 
-class MockOwnershipTerrMan : public ICmpOwnership
+class MockOwnershipTerrManager : public ICmpOwnership
 {
 public:
 	DEFAULT_MOCK_COMPONENT()
@@ -126,7 +126,7 @@ public:
 	void SetOwnerQuiet(player_id_t) override {};
 };
 
-class MockPositionTerrMan : public ICmpPosition
+class MockPositionTerrManager : public ICmpPosition
 {
 public:
 	DEFAULT_MOCK_COMPONENT()
@@ -195,19 +195,19 @@ public:
 		ComponentTestHelper test(*g_ScriptContext);
 		ICmpTerritoryManager* cmp = test.Add<ICmpTerritoryManager>(CID_TerritoryManager, "", SYSTEM_ENTITY);
 
-		MockPathfinderTerrMan pathfinder;
+		MockPathfinderTerrManager pathfinder;
 		test.AddMock(SYSTEM_ENTITY, IID_Pathfinder, pathfinder);
 
-		MockPlayerMgrTerrMan playerMan;
+		MockPlayerMgrTerrManager playerMan;
 		test.AddMock(SYSTEM_ENTITY, IID_PlayerManager, playerMan);
 
 		pathfinder.m_PassabilityGrid.resize(ICmpTerritoryManager::NAVCELLS_PER_TERRITORY_TILE * 5, ICmpTerritoryManager::NAVCELLS_PER_TERRITORY_TILE * 5);
 
-		MockTerrInfTerrMan terrInf;
+		MockTerrInfTerrManager terrInf;
 		test.AddMock(5, IID_TerritoryInfluence, terrInf);
-		MockOwnershipTerrMan ownership;
+		MockOwnershipTerrManager ownership;
 		test.AddMock(5, IID_Ownership, ownership);
-		MockPositionTerrMan position;
+		MockPositionTerrManager position;
 		test.AddMock(5, IID_Position, position);
 
 		position.m_Pos = CFixedVector3D(
