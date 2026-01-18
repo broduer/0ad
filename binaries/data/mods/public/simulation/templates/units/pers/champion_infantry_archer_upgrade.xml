@@ -44,7 +44,6 @@
     <Immortal_spearman>
       <Entity>units/pers/champion_infantry</Entity>
       <Tooltip>Switch to using a spear and shield.</Tooltip>
-      <Variant>upgrading</Variant>
       <Time>4</Time>
     </Immortal_spearman>
   </Upgrade>

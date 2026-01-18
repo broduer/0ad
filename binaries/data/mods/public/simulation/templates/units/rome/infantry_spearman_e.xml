@@ -11,7 +11,6 @@
         <food>100</food>
         <metal>50</metal>
       </Cost>
-      <Variant>upgrading</Variant>
       <Time>8</Time>
     </Centurion>
   </Upgrade>
