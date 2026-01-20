@@ -41,6 +41,9 @@ class ICmpUnitMotion : public IComponent
 {
 public:
 
+	virtual std::vector<Waypoint> GetCurrentPath() const = 0;
+	virtual CFixedVector2D GetCurrentDirection() const = 0;
+
 	/**
 	 * Attempt to walk into range of a to a given point, or as close as possible.
 	 * The range is measured from the center of the unit.

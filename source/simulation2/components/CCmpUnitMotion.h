@@ -28,6 +28,7 @@
 #include "maths/MathUtil.h"
 #include "ps/CLogger.h"
 #include "ps/Profile.h"
+#include "ps/containers/StaticCircularBuffer.h"
 #include "renderer/Scene.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/CCmpUnitMotionManager.h"
@@ -43,6 +44,7 @@
 #include "simulation2/helpers/Pathfinding.h"
 #include "simulation2/helpers/Position.h"
 #include "simulation2/helpers/Render.h"
+#include "simulation2/helpers/PathUtils.h"
 #include "simulation2/serialization/SerializeTemplates.h"
 #include "simulation2/serialization/SerializedPathfinder.h"
 #include "simulation2/serialization/SerializedTypes.h"
@@ -66,6 +68,16 @@
 
 namespace
 {
+CFixedVector2D CalculateNormalizedDirection(const CFixedVector2D& vec)
+{
+	if (vec.Dot(vec) <= fixed::Epsilon())
+		return CFixedVector2D(fixed::Zero(), fixed::FromInt(1));
+
+	CFixedVector2D result = vec;
+	result.Normalize();
+	return result;
+}
+
 /**
  * Min/Max range to restrict short path queries to. (Larger ranges are (much) slower,
  * smaller ranges might miss some legitimate routes around large obstacles.)
@@ -138,10 +150,13 @@ constexpr u8 BACKUP_HACK_DELAY = 10;
  */
 constexpr u8 VERY_OBSTRUCTED_THRESHOLD = 10;
 
+/**
+ * Colors for path debug overlay
+ */
 struct PathColorPalette
 {
-    CColor longPath;
-    CColor shortPath;
+	CColor longPath;
+	CColor shortPath;
 };
 
 constexpr PathColorPalette REGULAR_UNIT_PALETTE{{1, 1, 1, 1}, {1, 0, 0, 1}};
@@ -152,6 +167,9 @@ class CCmpUnitMotion final : public ICmpUnitMotion
 {
 	friend class CCmpUnitMotionManager;
 public:
+	std::vector<Waypoint> GetCurrentPath() const override;
+	CFixedVector2D GetCurrentDirection() const override;
+
 	static void ClassInit(CComponentManager& componentManager)
 	{
 		componentManager.SubscribeToMessageType(MT_Create);
@@ -259,6 +277,9 @@ public:
 	// The last item in each path is the point we're currently heading towards.
 	WaypointPath m_LongPath;
 	WaypointPath m_ShortPath;
+
+	// Path history for formation controller (traveled path)
+	PS::StaticCircularBuffer<Waypoint, 50> m_PathHistory;
 
 	static std::string GetSchema()
 	{
@@ -369,6 +390,8 @@ public:
 
 		Serializer(serialize, "long path", m_LongPath.m_Waypoints);
 		Serializer(serialize, "short path", m_ShortPath.m_Waypoints);
+
+		Serializer(serialize, "path history", m_PathHistory);
 	}
 
 	void Serialize(ISerializer& serialize) override
@@ -584,7 +607,9 @@ public:
 
 	void MoveToFormationOffset(entity_id_t controller, entity_pos_t x, entity_pos_t z) override
 	{
-		// Pass the controller to the move request anyways.
+		m_FacePointAfterMove = false; // Don't face point after move in formations
+
+		// Pass the controller to the move request
 		MoveTo(MoveRequest(controller, CFixedVector2D(x, z)));
 	}
 
@@ -785,9 +810,25 @@ private:
 	}
 
 	/**
+	 * Determines whether the current position should be added to the path history.
+	 * Uses angle-based filtering (3° threshold) to reduce waypoints on straight paths
+	 * while capturing significant direction changes.
+	 */
+	bool ShouldAddToPathHistory(const CFixedVector2D& currentPos) const;
+
+	/**
+	 * Updates the path history with the current position using angle-based filtering.
+	 * Only adds significant points to reduce waypoint count while maintaining path shape.
+	 */
+	void UpdatePathHistory(const CFixedVector2D& currentPos);
+
+	/**
 	 * Check if we are at destination early in the turn, this both lets units react faster
 	 * and ensure that distance comparisons are done while units are not being moved
 	 * (otherwise they won't be commutative).
+	 *
+	 * For formation controllers, this also updates the path history with angle-based filtering
+	 * to reduce waypoint count while maintaining path shape.
 	 */
 	void OnTurnStart();
 
@@ -1001,6 +1042,7 @@ void CCmpUnitMotion::PathResult(u32 ticket, const WaypointPath& path)
 	if (ticketType == Ticket::LONG_PATH)
 	{
 		m_LongPath = path;
+
 		// Long paths don't properly follow diagonals because of JPS/the grid. Since units now take time turning,
 		// they can actually slow down substantially if they have to do a one navcell diagonal movement,
 		// which is somewhat common at the beginning of a new path.
@@ -1014,9 +1056,10 @@ void CCmpUnitMotion::PathResult(u32 ticket, const WaypointPath& path)
 				ENSURE(cmpPathfinder);
 				const Waypoint& secondWpt = m_LongPath.m_Waypoints[m_LongPath.m_Waypoints.size() - 2];
 				if (cmpPathfinder->CheckMovement(GetObstructionFilter(), pos.X, pos.Y, secondWpt.x, secondWpt.z, m_Clearance, m_PassClass))
+				{
 					m_LongPath.m_Waypoints.pop_back();
+				}
 			}
-
 		}
 	}
 	else
@@ -1047,6 +1090,131 @@ void CCmpUnitMotion::PathResult(u32 ticket, const WaypointPath& path)
 	}
 }
 
+std::vector<Waypoint> CCmpUnitMotion::GetCurrentPath() const
+{
+	std::vector<Waypoint> fullPath;
+
+	// Add path history first
+	std::copy_if(m_PathHistory.begin(), m_PathHistory.end(),
+					std::back_inserter(fullPath),
+		[](const Waypoint& wp) {
+			return !std::isnan(wp.x.ToFloat()) && !std::isnan(wp.z.ToFloat());
+		});
+
+	// Add current position if we have no history or it's different
+	CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
+	if (cmpPosition && cmpPosition->IsInWorld())
+	{
+		CFixedVector2D currentPos = cmpPosition->GetPosition2D();
+		if (!std::isnan(currentPos.X.ToFloat()) && !std::isnan(currentPos.Y.ToFloat()))
+		{
+			if (fullPath.empty() ||
+				(currentPos - CFixedVector2D(fullPath.back().x, fullPath.back().z)).CompareLength(Pathfinding::NAVCELL_SIZE) > 0)
+			{
+				fullPath.push_back(Waypoint{currentPos.X, currentPos.Y});
+			}
+		}
+	}
+
+	// Helper function to copy valid waypoints in reverse order
+	auto addValidReverse = [&fullPath](const std::vector<Waypoint>& waypoints) {
+		std::for_each(waypoints.rbegin(), waypoints.rend(),
+			[&fullPath](const Waypoint& wp) {
+				if (!std::isnan(wp.x.ToFloat()) && !std::isnan(wp.z.ToFloat()))
+					fullPath.push_back(wp);
+			});
+	};
+
+	// Add SHORT and LONG path waypoints (in forward order, from reverse storage)
+	// Adding SHORT waypoints path helps members follow the controller
+	addValidReverse(m_ShortPath.m_Waypoints);
+	addValidReverse(m_LongPath.m_Waypoints);
+
+	return fullPath;
+}
+
+CFixedVector2D CCmpUnitMotion::GetCurrentDirection() const
+{
+	CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
+	if (!cmpPosition || !cmpPosition->IsInWorld())
+		return CFixedVector2D(fixed::Zero(), fixed::FromInt(1));
+
+	// Get direction from current rotation
+	entity_angle_t angle = cmpPosition->GetRotation().Y;
+	// Use sincos_approx to get sin and cos
+	fixed sin, cos;
+	sincos_approx(angle, sin, cos);
+	return CFixedVector2D(sin, cos);
+}
+
+bool CCmpUnitMotion::ShouldAddToPathHistory(const CFixedVector2D& currentPos) const
+{
+	if (m_PathHistory.size() <= 1)
+	{
+		// Always add first point, or second point
+		return true;
+	}
+
+	// Get the most recent point from the buffer
+	const Waypoint& lastWaypoint = m_PathHistory.back();
+	CFixedVector2D lastPos(lastWaypoint.x, lastWaypoint.z);
+
+	// Calculate distance moved
+	CFixedVector2D offset = currentPos - lastPos;
+	entity_pos_t distance = offset.Length();
+
+	// Minimum distance threshold to avoid adding points when barely moving
+	constexpr entity_pos_t MIN_DISTANCE = entity_pos_t::FromInt(2 * Pathfinding::NAVCELL_SIZE_INT);
+	if (distance <= MIN_DISTANCE)
+	{
+		return false;
+	}
+
+	// We have at least 2 points, check angle change
+	// Get the second-to-last point
+	const Waypoint& secondLastWaypoint = m_PathHistory[m_PathHistory.size() - 2];
+	CFixedVector2D secondLastPos(secondLastWaypoint.x, secondLastWaypoint.z);
+
+	// Calculate direction vectors
+	CFixedVector2D prevDir = CalculateNormalizedDirection(lastPos - secondLastPos);
+	CFixedVector2D currDir = CalculateNormalizedDirection(currentPos - lastPos);
+
+	// Calculate cosine of angle between vectors
+	fixed dot = prevDir.Dot(currDir);
+
+	// Add point if direction changed by more than the threshold
+	// Note: dot product decreases from 1 as angle increases
+	// Note: it was found that checking for anything else then
+	// perfect angle can cause issues
+	bool angleChanged = (dot < fixed::FromInt(1) - fixed::Epsilon());
+
+	return angleChanged;
+}
+
+void CCmpUnitMotion::UpdatePathHistory(const CFixedVector2D& currentPos)
+{
+	if (std::isnan(currentPos.X.ToFloat()) || std::isnan(currentPos.Y.ToFloat()))
+	{
+		LOGWARNING("CCmpUnitMotion::UpdatePathHistory: Current position contains NaN values for entity %d", GetEntityId());
+		return;
+	}
+	if (ShouldAddToPathHistory(currentPos))
+	{
+		// Handle invalid last point replacement
+		if (!m_PathHistory.empty())
+		{
+			const Waypoint& lastWaypoint = m_PathHistory.back();
+			CFixedVector2D lastPos(lastWaypoint.x, lastWaypoint.z);
+			if (std::isnan(lastPos.X.ToFloat()) || std::isnan(lastPos.Y.ToFloat()))
+			{
+				m_PathHistory.pop_back();
+			}
+		}
+
+		m_PathHistory.push_back(Waypoint{currentPos.X, currentPos.Y});
+	}
+}
+
 void CCmpUnitMotion::OnTurnStart()
 {
 	if (PossiblyAtDestination())
@@ -1060,8 +1228,20 @@ void CCmpUnitMotion::OnTurnStart()
 		// but that should be decided by UnitAI (handling MoveFailed), not UnitMotion.
 		m_LongPath.m_Waypoints.clear();
 		m_ShortPath.m_Waypoints.clear();
-
 		MoveFailed();
+	}
+
+	// Update path history for formation controllers with angle-based filtering
+	if (m_IsFormationController)
+	{
+		CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
+		if (cmpPosition && cmpPosition->IsInWorld())
+		{
+			CFixedVector2D currentPos = cmpPosition->GetPosition2D();
+			UpdatePathHistory(currentPos);
+			// Calling UpdatePathHistory is maybe a bit costly compared to just leaving the history path
+			// unoptimized and to just add new waypoint based on a distance treshold
+		}
 	}
 }
 
@@ -1120,10 +1300,13 @@ void CCmpUnitMotion::PostMove(CCmpUnitMotionManager::MotionState& state, fixed d
 		UpdateMovementState(state.speed, offset.Length() / dt);
 	}
 
+	if (!state.wasObstructed && state.pos != state.initialPos)
+	{
+		m_FailedMovements = 0;
+	}
+
 	if (state.wasObstructed && HandleObstructedMove(state.pos != state.initialPos))
 		return;
-	else if (!state.wasObstructed && state.pos != state.initialPos)
-		m_FailedMovements = 0;
 
 	const bool needPathUpdate{PathingUpdateNeeded(state.pos)};
 
@@ -1491,26 +1674,25 @@ bool CCmpUnitMotion::TargetHasValidPosition(const MoveRequest& moveRequest) cons
 
 bool CCmpUnitMotion::ComputeTargetPosition(CFixedVector2D& out, const MoveRequest& moveRequest) const
 {
+	PROFILE2("ComputeTargetPosition");
+
+	// POINT type
 	if (moveRequest.m_Type == MoveRequest::POINT)
 	{
 		out = moveRequest.m_Position;
 		return true;
 	}
 
+	// For ENTITY and OFFSET types, we need the target entity's position
 	CmpPtr<ICmpPosition> cmpTargetPosition(GetSimContext(), moveRequest.m_Entity);
 	if (!cmpTargetPosition || !cmpTargetPosition->IsInWorld())
 		return false;
 
-	if (moveRequest.m_Type == MoveRequest::OFFSET)
-	{
-		// There is an offset, so compute it relative to orientation
-		entity_angle_t angle = cmpTargetPosition->GetRotation().Y;
-		CFixedVector2D offset = moveRequest.GetOffset().Rotate(angle);
-		out = cmpTargetPosition->GetPosition2D() + offset;
-	}
-	else
+	// ENTITY type - simple position lookup
+	if (moveRequest.m_Type == MoveRequest::ENTITY)
 	{
 		out = cmpTargetPosition->GetPosition2D();
+
 		// Position is only updated after all units have moved & pushed.
 		// Therefore, we may need to interpolate the target position, depending on when this call takes place during the turn:
 		//  - On "Turn Start", we'll check positions directly without interpolation.
@@ -1528,7 +1710,61 @@ bool CCmpUnitMotion::ComputeTargetPosition(CFixedVector2D& out, const MoveReques
 			CFixedVector2D tempPos = out + (out - cmpTargetPosition->GetPreviousPosition2D());
 			out = tempPos;
 		}
+		return true;
 	}
+
+	// OFFSET type - for formation members
+	if (moveRequest.m_Type != MoveRequest::OFFSET)
+		return false;
+
+	CFixedVector2D controllerPos = cmpTargetPosition->GetPosition2D();
+	entity_angle_t controllerAngle = cmpTargetPosition->GetRotation().Y;
+	CFixedVector2D positionOffset = moveRequest.GetOffset();
+
+	// Try to use the controller's path to give formation a "Snaking" movement
+	CmpPtr<ICmpUnitMotion> cmpControllerMotion(GetSimContext(), moveRequest.m_Entity);
+	if (cmpControllerMotion)
+	{
+		std::vector<Waypoint> controllerPath = cmpControllerMotion->GetCurrentPath();
+
+		// Use path-based calculation if we have enough waypoints
+		if (controllerPath.size() >= 2)
+		{
+			CFixedVector2D pointOnPath;
+			CFixedVector2D pathDirection;
+
+			// Negative offset (behind controller along path) - use path history
+			if (positionOffset.Y < fixed::Zero())
+			{
+				size_t segment;
+				CFixedVector2D closestPoint;
+				entity_pos_t distanceAlong;
+
+				if (PathUtils::FindClosestPointOnPath(controllerPath, controllerPos, segment, closestPoint, distanceAlong) &&
+					PathUtils::ProjectBackwardAlongPath(controllerPath, closestPoint, -positionOffset.Y,
+														segment, distanceAlong, pointOnPath, pathDirection))
+				{
+					CFixedVector2D perpendicularDir(-pathDirection.Y, pathDirection.X);
+					out = pointOnPath + perpendicularDir.Multiply(-positionOffset.X);
+					return true;
+				}
+			}
+			// Positive or zero offset (ahead of controller along path)
+			else
+			{
+				if (PathUtils::FindPointAlongPath(controllerPath, controllerPos,
+												  positionOffset.Y, pointOnPath, pathDirection))
+				{
+					CFixedVector2D perpendicularDir(-pathDirection.Y, pathDirection.X);
+					out = pointOnPath + perpendicularDir.Multiply(-positionOffset.X);
+					return true;
+				}
+			}
+		}
+	}
+
+	// Fallback: simple rotation-based offset
+	out = controllerPos + positionOffset.Rotate(controllerAngle);
 	return true;
 }
 
@@ -1647,7 +1883,7 @@ bool CCmpUnitMotion::PathingUpdateNeeded(const CFixedVector2D& from) const
 	// TODO: it could be worth computing this based on time to collision instead of linear distance.
 	entity_pos_t minRange = std::max(m_MoveRequest.m_MinRange - distance / TARGET_UNCERTAINTY_MULTIPLIER, entity_pos_t::Zero());
 	entity_pos_t maxRange = m_MoveRequest.m_MaxRange < entity_pos_t::Zero() ? m_MoveRequest.m_MaxRange :
-	    m_MoveRequest.m_MaxRange + distance / TARGET_UNCERTAINTY_MULTIPLIER;
+		m_MoveRequest.m_MaxRange + distance / TARGET_UNCERTAINTY_MULTIPLIER;
 
 	if (cmpObstructionManager->AreShapesInRange(shape, estimatedTargetShape, minRange, maxRange, false))
 		return false;
@@ -1739,7 +1975,7 @@ bool CCmpUnitMotion::ComputeGoal(PathGoal& out, const MoveRequest& moveRequest) 
 	out.v = targetObstruction.v;
 
 	if (moveRequest.m_MinRange > fixed::Zero() || moveRequest.m_MaxRange > fixed::Zero() ||
-	     targetObstruction.hw > fixed::Zero())
+		 targetObstruction.hw > fixed::Zero())
 		out.type = PathGoal::SQUARE;
 	else
 	{
@@ -1969,14 +2205,14 @@ void CCmpUnitMotion::RenderPath(const WaypointPath& path, std::vector<SOverlayLi
 
 void CCmpUnitMotion::RenderSubmit(SceneCollector& collector)
 {
-    if (!m_DebugOverlayEnabled)
-        return;
+	if (!m_DebugOverlayEnabled)
+		return;
 
-    const auto& palette{m_IsFormationController ?
-        FORMATION_CONTROLLER_PALETTE : REGULAR_UNIT_PALETTE};
+	const auto& palette{m_IsFormationController ?
+		FORMATION_CONTROLLER_PALETTE : REGULAR_UNIT_PALETTE};
 
-    RenderPath(m_LongPath, m_DebugOverlayLongPathLines, palette.longPath);
-    RenderPath(m_ShortPath, m_DebugOverlayShortPathLines, palette.shortPath);
+	RenderPath(m_LongPath, m_DebugOverlayLongPathLines, palette.longPath);
+	RenderPath(m_ShortPath, m_DebugOverlayShortPathLines, palette.shortPath);
 
 	for (SOverlayLine& line : m_DebugOverlayLongPathLines)
 		collector.Submit(&line);

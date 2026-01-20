@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -93,6 +93,11 @@ public:
 
 		// Clone of the obstruction manager flag for efficiency
 		bool isMoving = false;
+
+		// Track reached waypoints for path history (formation controllers only)
+		bool reachedWaypointThisTurn = false;
+		Waypoint reachedWaypoint{fixed::Zero(), fixed::Zero()};
+		bool reachedWaypointFromShortPath = false;
 	};
 
 	// "Template" state, not serialized (cannot be changed mid-game).

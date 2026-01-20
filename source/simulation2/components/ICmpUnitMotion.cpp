@@ -56,6 +56,17 @@ class CCmpUnitMotionScripted : public ICmpUnitMotion
 public:
 	DEFAULT_SCRIPT_WRAPPER(UnitMotionScripted)
 
+	std::vector<Waypoint> GetCurrentPath() const override
+	{
+		// Scripted components don't typically have paths, return empty
+		return std::vector<Waypoint>();
+	}
+
+	CFixedVector2D GetCurrentDirection() const override
+	{
+		return CFixedVector2D(fixed::Zero(), fixed::FromInt(1));
+	}
+
 	bool MoveToPointRange(entity_pos_t x, entity_pos_t z, entity_pos_t minRange, entity_pos_t maxRange) override
 	{
 		return m_Script.Call<bool>("MoveToPointRange", x, z, minRange, maxRange);
