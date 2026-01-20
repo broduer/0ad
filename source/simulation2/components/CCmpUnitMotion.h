@@ -1942,6 +1942,10 @@ void CCmpUnitMotion::RenderPath(const WaypointPath& path, std::vector<SOverlayLi
 		floating = cmpPosition->CanFloat();
 
 	lines.clear();
+
+	if (!cmpPosition || !cmpPosition->IsInWorld())
+		return;
+
 	std::vector<float> waypointCoords;
 	for (size_t i = 0; i < path.m_Waypoints.size(); ++i)
 	{
