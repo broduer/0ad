@@ -9,7 +9,7 @@ cd "$(dirname "$0")"
 PV=128.13.0
 FOLDER="mozjs-${PV}"
 # If same-version changes are needed, increment this.
-LIB_VERSION="${PV}+wfg4"
+LIB_VERSION="${PV}+wfg5"
 LIB_NAME="mozjs128"
 
 build_archive()
@@ -99,6 +99,12 @@ rm -Rf "${FOLDER}"
 
 	# Do not let mach install tools in the user's home, create a disposable folder
 	export MOZBUILD_STATE_PATH="${MOZBUILD_STATE_PATH:=$(pwd)/mozbuild-state}"
+
+	if [ "${OS}" != "Darwin" ]; then
+		# Make thin archives to save disk space
+		# The AR_FLAGS customization point is provided and honored by mach
+		export AR_FLAGS="--thin"
+	fi
 
 	if [ -n "$PROFILE" ]; then
 		CONF_OPTS="$CONF_OPTS

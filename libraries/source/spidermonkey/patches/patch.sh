@@ -47,3 +47,6 @@ patch -p1 <"${PATCHES}"/SuppressDanglingPointerWarning.patch
 
 # Fix building with python 3.14
 patch -p1 <"${PATCHES}"/FixPython3_14.diff
+
+# Cherry-pick an upstream commit to allow passing custom flags to ar
+patch -p1 <"${PATCHES}"/UpstreamCustomARFlags.patch
