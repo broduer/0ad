@@ -157,10 +157,11 @@ struct PathColorPalette
 {
 	CColor longPath;
 	CColor shortPath;
+	CColor historyPath;  // Only used by formation controllers
 };
 
-constexpr PathColorPalette REGULAR_UNIT_PALETTE{{1, 1, 1, 1}, {1, 0, 0, 1}};
-constexpr PathColorPalette FORMATION_CONTROLLER_PALETTE{{0, 0, 1, 1}, {0, 1, 0, 1}};
+constexpr PathColorPalette REGULAR_UNIT_PALETTE{{1, 1, 1, 1}, {1, 0, 0, 1}, {0, 0, 0, 0}};
+constexpr PathColorPalette FORMATION_CONTROLLER_PALETTE{{0, 0, 1, 1}, {0, 1, 0, 1}, {0.5f, 0.0f, 0.5f, 1}};
 } // anonymous namespace
 
 class CCmpUnitMotion final : public ICmpUnitMotion
@@ -961,6 +962,10 @@ private:
 	 */
 	void RenderPath(const WaypointPath& path, std::vector<SOverlayLine>& lines, CColor color);
 
+	void RenderPathHistory(const PS::StaticCircularBuffer<Waypoint, 50>& history,
+						   std::vector<SOverlayLine>& lines,
+						   CColor color);
+
 	void RenderSubmit(SceneCollector& collector);
 };
 
@@ -1727,8 +1732,7 @@ bool CCmpUnitMotion::ComputeTargetPosition(CFixedVector2D& out, const MoveReques
 	{
 		std::vector<Waypoint> controllerPath = cmpControllerMotion->GetCurrentPath();
 
-		// Use path-based calculation if we have enough waypoints
-		if (controllerPath.size() >= 2)
+		if (controllerPath.size() >= 3) // After forming, the path size is 2, so it become 3 if we actually ever moved
 		{
 			CFixedVector2D pointOnPath;
 			CFixedVector2D pathDirection;
@@ -1744,8 +1748,8 @@ bool CCmpUnitMotion::ComputeTargetPosition(CFixedVector2D& out, const MoveReques
 					PathUtils::ProjectBackwardAlongPath(controllerPath, closestPoint, -positionOffset.Y,
 														segment, distanceAlong, pointOnPath, pathDirection))
 				{
-					CFixedVector2D perpendicularDir(-pathDirection.Y, pathDirection.X);
-					out = pointOnPath + perpendicularDir.Multiply(-positionOffset.X);
+					CFixedVector2D perpendicularDir(pathDirection.Y, -pathDirection.X);
+					out = pointOnPath + perpendicularDir.Multiply(positionOffset.X);
 					return true;
 				}
 			}
@@ -1755,8 +1759,8 @@ bool CCmpUnitMotion::ComputeTargetPosition(CFixedVector2D& out, const MoveReques
 				if (PathUtils::FindPointAlongPath(controllerPath, controllerPos,
 												  positionOffset.Y, pointOnPath, pathDirection))
 				{
-					CFixedVector2D perpendicularDir(-pathDirection.Y, pathDirection.X);
-					out = pointOnPath + perpendicularDir.Multiply(-positionOffset.X);
+					CFixedVector2D perpendicularDir(pathDirection.Y, -pathDirection.X);
+					out = pointOnPath + perpendicularDir.Multiply(positionOffset.X);
 					return true;
 				}
 			}
@@ -2200,7 +2204,52 @@ void CCmpUnitMotion::RenderPath(const WaypointPath& path, std::vector<SOverlayLi
 	lines.push_back(SOverlayLine());
 	lines.back().m_Color = color;
 	SimRender::ConstructLineOnGround(GetSimContext(), waypointCoords, lines.back(), floating);
+}
 
+void CCmpUnitMotion::RenderPathHistory(const PS::StaticCircularBuffer<Waypoint, 50>& history,
+									   std::vector<SOverlayLine>& lines,
+									   CColor color)
+{
+	CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
+	if (!cmpPosition || !cmpPosition->IsInWorld())
+	{
+		lines.clear();
+		return;
+	}
+
+	bool floating = cmpPosition->CanFloat();
+	lines.clear();
+
+	// Create a continuous path from history + current position
+	std::vector<float> waypointCoords;
+
+	// Add all history waypoints
+	for (size_t i = 0; i < history.size(); ++i)
+	{
+		float x = history[i].x.ToFloat();
+		float z = history[i].z.ToFloat();
+		waypointCoords.push_back(x);
+		waypointCoords.push_back(z);
+
+		// Add small marker
+		lines.emplace_back();
+		lines.back().m_Color = color;
+		SimRender::ConstructSquareOnGround(GetSimContext(), x, z, 0.5f, 0.5f, 0.0f, lines.back(), floating);
+	}
+
+	// Add current position as the last point
+	CFixedVector2D currentPos = cmpPosition->GetPosition2D();
+	waypointCoords.push_back(currentPos.X.ToFloat());
+	waypointCoords.push_back(currentPos.Y.ToFloat());
+
+	// Create path line connecting ALL points (history + current position)
+	if (waypointCoords.size() >= 4) // Need at least 2 points to draw a line
+	{
+		lines.emplace_back();
+		lines.back().m_Color = color;
+		lines.back().m_Color.a = 0.7f;
+		SimRender::ConstructLineOnGround(GetSimContext(), waypointCoords, lines.back(), floating);
+	}
 }
 
 void CCmpUnitMotion::RenderSubmit(SceneCollector& collector)
@@ -2213,6 +2262,16 @@ void CCmpUnitMotion::RenderSubmit(SceneCollector& collector)
 
 	RenderPath(m_LongPath, m_DebugOverlayLongPathLines, palette.longPath);
 	RenderPath(m_ShortPath, m_DebugOverlayShortPathLines, palette.shortPath);
+
+	// Render path history for formation controllers
+	if (m_IsFormationController && !m_PathHistory.empty())
+	{
+		static std::vector<SOverlayLine> debugOverlayPathHistoryLines;
+		RenderPathHistory(m_PathHistory, debugOverlayPathHistoryLines, palette.historyPath);
+
+		for (SOverlayLine& line : debugOverlayPathHistoryLines)
+			collector.Submit(&line);
+	}
 
 	for (SOverlayLine& line : m_DebugOverlayLongPathLines)
 		collector.Submit(&line);
