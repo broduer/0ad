@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -27,6 +27,8 @@
 #include <memory>
 #include <new>
 #include <stdexcept>
+#include <type_traits>
+#include <utility>
 
 namespace PS
 {
@@ -39,13 +41,15 @@ struct CapacityExceededException : public std::length_error
 template<size_t N>
 constexpr auto MakeSmallestCapableUnsigned()
 {
-	if constexpr (N <= std::numeric_limits<uint_fast8_t>::max())
+	using std::cmp_less_equal;
+
+	if constexpr (cmp_less_equal(N, std::numeric_limits<uint_fast8_t>::max()))
 		return static_cast<uint_fast8_t>(0);
-	else if constexpr (N <= std::numeric_limits<uint_fast16_t>::max())
+	else if constexpr (cmp_less_equal(N, std::numeric_limits<uint_fast16_t>::max()))
 		return static_cast<uint_fast16_t>(0);
-	else if constexpr (N <= std::numeric_limits<uint_fast32_t>::max())
+	else if constexpr (cmp_less_equal(N, std::numeric_limits<uint_fast32_t>::max()))
 		return static_cast<uint_fast32_t>(0);
-	else if constexpr (N <= std::numeric_limits<uint_fast64_t>::max())
+	else if constexpr (cmp_less_equal(N, std::numeric_limits<uint_fast64_t>::max()))
 		return static_cast<uint_fast64_t>(0);
 	else
 	{
@@ -57,23 +61,28 @@ constexpr auto MakeSmallestCapableUnsigned()
 template<size_t N>
 constexpr auto MakeSmallestCapableSigned()
 {
-	// TODO C++20: Use std::cmp_*
-	if constexpr (N <= static_cast<uintmax_t>(std::numeric_limits<int_fast8_t>::max()) &&
-		-static_cast<intmax_t>(N) >= std::numeric_limits<int_fast8_t>::min())
+	using std::cmp_less_equal, std::cmp_greater_equal;
+
+	// Convert N to intmax_t for safe comparison with signed types
+	constexpr intmax_t N_as_intmax = static_cast<intmax_t>(N);
+	constexpr intmax_t negative_N = -N_as_intmax;
+
+	if constexpr (cmp_less_equal(N, static_cast<uintmax_t>(std::numeric_limits<int_fast8_t>::max())) &&
+		cmp_greater_equal(negative_N, std::numeric_limits<int_fast8_t>::min()))
 		return static_cast<int_fast8_t>(0);
-	else if constexpr (N <= static_cast<uintmax_t>(std::numeric_limits<int_fast16_t>::max()) &&
-		-static_cast<intmax_t>(N) >= std::numeric_limits<int_fast16_t>::min())
+	else if constexpr (cmp_less_equal(N, static_cast<uintmax_t>(std::numeric_limits<int_fast16_t>::max())) &&
+		cmp_greater_equal(negative_N, std::numeric_limits<int_fast16_t>::min()))
 		return static_cast<int_fast16_t>(0);
-	else if constexpr (N <= static_cast<uintmax_t>(std::numeric_limits<int_fast32_t>::max()) &&
-		-static_cast<intmax_t>(N) >= std::numeric_limits<int_fast32_t>::min())
+	else if constexpr (cmp_less_equal(N, static_cast<uintmax_t>(std::numeric_limits<int_fast32_t>::max())) &&
+		cmp_greater_equal(negative_N, std::numeric_limits<int_fast32_t>::min()))
 		return static_cast<int_fast32_t>(0);
-	else if constexpr (N <= static_cast<uintmax_t>(std::numeric_limits<int_fast64_t>::max()) &&
-		-static_cast<intmax_t>(N) >= std::numeric_limits<int_fast64_t>::min())
+	else if constexpr (cmp_less_equal(N, static_cast<uintmax_t>(std::numeric_limits<int_fast64_t>::max())) &&
+		cmp_greater_equal(negative_N, std::numeric_limits<int_fast64_t>::min()))
 		return static_cast<int_fast64_t>(0);
 	else
 	{
 		static_assert(N <= static_cast<uintmax_t>(std::numeric_limits<intmax_t>::max()) &&
-			-static_cast<intmax_t>(N) >= std::numeric_limits<intmax_t>::min());
+			negative_N >= std::numeric_limits<intmax_t>::min());
 		return static_cast<intmax_t>(0);
 	}
 }
@@ -506,7 +515,9 @@ public:
 	 */
 	void resize(const size_type newSize)
 	{
-		if (newSize > N)
+		using std::cmp_less_equal;
+
+		if (!cmp_less_equal(newSize, N))
 			throw CapacityExceededException{fmt::format(
 				"Can not resize StaticVector to {} the capacity is {}", newSize, N)};
 
@@ -528,7 +539,9 @@ public:
 	 */
 	void resize(const size_type newSize, const T& value)
 	{
-		if (newSize > N)
+		using std::cmp_less_equal;
+
+		if (!cmp_less_equal(newSize, N))
 			throw CapacityExceededException{fmt::format(
 				"Can't resize the StaticVector to {} the capacity is {}", newSize, N)};
 
