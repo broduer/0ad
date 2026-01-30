@@ -58,6 +58,7 @@ syntaxError:source/tools/atlas/AtlasUI/ScenarioEditor/Sections/Object/VariationC
 syntaxError:source/tools/atlas/AtlasUI/ScenarioEditor/Tools/TransformPath.cpp
 syntaxError:source/tools/atlas/GameInterface/Messages.h
 syntaxError:source/tools/atlas/GameInterface/MessagesSetup.h
+syntaxError:source/ps/containers/StaticCircularBuffer.h
 
 unknownMacro:source/lib/external_libraries/dbghelp_funcs.h
 unknownMacro:source/lib/sysdep/os/win/wdbg_sym.cpp
