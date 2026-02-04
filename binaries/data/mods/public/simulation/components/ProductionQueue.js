@@ -84,10 +84,20 @@ ProductionQueue.prototype.Item.prototype.SetID = function(id)
 ProductionQueue.prototype.Item.prototype.Stop = function()
 {
 	if (this.entity > 0)
-		Engine.QueryInterface(this.producer, IID_Trainer)?.StopBatch(this.entity);
+	{
+		const cmpTrainer = Engine.QueryInterface(this.producer, IID_Trainer);
+		if (cmpTrainer)
+			if (cmpTrainer.HasBatch(this.entity))
+				cmpTrainer.StopBatch(this.entity);
+	}
 
 	if (this.technology > 0)
-		Engine.QueryInterface(this.producer, IID_Researcher)?.StopResearching(this.technology);
+	{
+		const cmpResearcher = Engine.QueryInterface(this.producer, IID_Researcher);
+		if (cmpResearcher)
+			if (cmpResearcher.HasItem(this.technology))
+				cmpResearcher.StopResearching(this.technology);
+	}
 };
 
 /**
