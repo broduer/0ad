@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -339,8 +339,9 @@ private:
 	static const int imageHeight = 40;
 
 public:
-	TextureNotebookPage(ScenarioEditor& scenarioEditor, wxWindow* parent, const wxString& name)
-		: wxPanel(parent, wxID_ANY), m_ScenarioEditor(scenarioEditor), m_Timer(this), m_Name(name), m_Loaded(false)
+	TextureNotebookPage(ScenarioEditor& scenarioEditor, wxWindow* parent, std::vector<std::wstring>&& textures)
+		: wxPanel(parent, wxID_ANY), m_ScenarioEditor(scenarioEditor),
+		m_Timer(this), m_Loaded(false), m_Textures(textures)
 	{
 		m_ScrolledPanel = new wxScrolledWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxVSCROLL);
 		m_ScrolledPanel->SetScrollRate(0, 10);
@@ -365,9 +366,7 @@ public:
 
 		wxBusyInfo busy (_("Loading terrain previews"));
 
-		AtlasMessage::qGetTerrainGroupTextures query((std::wstring)m_Name.wc_str());
-		query.Post();
-		m_Textures = *query.names;
+		std::sort(m_Textures.begin(), m_Textures.end());
 
 		LayoutButtons();
 		ReloadPreviews();
@@ -518,7 +517,6 @@ private:
 	ScenarioEditor& m_ScenarioEditor;
 	bool m_Loaded;
 	wxTimer m_Timer;
-	wxString m_Name;
 	wxScrolledWindow* m_ScrolledPanel;
 	wxGridSizer* m_ItemSizer;
 	wxButton* m_LastTerrainSelection; // button that was last selected, so we can undo its coloring
@@ -555,27 +553,33 @@ public:
 		wxBusyInfo busy (_("Loading terrain groups"));
 
 		DeleteAllPages();
-		m_TerrainGroups.Clear();
 
 		// Get the list of terrain groups from the engine
 		AtlasMessage::qGetTerrainGroups qry;
 		qry.Post();
-		std::vector<std::wstring> groupnames = *qry.groupNames;
-		for (std::vector<std::wstring>::iterator it = groupnames.begin(); it != groupnames.end(); ++it)
-			m_TerrainGroups.Add(it->c_str());
-
-		for (size_t i = 0; i < m_TerrainGroups.GetCount(); ++i)
+		std::vector<std::wstring> allTextures;
+		for (const std::wstring& groupName : *qry.groupNames)
 		{
-			wxString visibleName = FormatTextureName(m_TerrainGroups[i]);
-			AddPage(new TextureNotebookPage(m_ScenarioEditor, this, m_TerrainGroups[i]), visibleName);
+			AtlasMessage::qGetTerrainGroupTextures query(groupName);
+			query.Post();
+			std::vector<std::wstring> textures{*query.names};
+			allTextures.insert(allTextures.end(), textures.begin(), textures.end());
+
+			const wxString visibleName{FormatTextureName(groupName)};
+			AddPage(new TextureNotebookPage(m_ScenarioEditor, this, std::move(textures)), visibleName);
+		}
+
+		if (!allTextures.empty())
+		{
+			InsertPage(0, new TextureNotebookPage(m_ScenarioEditor, this, std::move(allTextures)), wxString(_T("All")));
 		}
 
 		// On some platforms (wxOSX) there is no initial OnPageChanged event, so it loads with a blank page
-		//	and setting selection to 0 won't trigger it either, so just force first page to display
+		//	and setting selection to 1 won't trigger it either, so just force first page to display
 		// (this is safe because the sidebar has already been displayed)
-		if (GetPageCount() > 0)
+		if (GetPageCount() > 1)
 		{
-			static_cast<TextureNotebookPage*>(GetPage(0))->OnDisplay();
+			static_cast<TextureNotebookPage*>(GetPage(1))->OnDisplay();
 		}
 	}
 
@@ -597,7 +601,6 @@ protected:
 
 private:
 	ScenarioEditor& m_ScenarioEditor;
-	wxArrayString m_TerrainGroups;
 
 	DECLARE_EVENT_TABLE();
 };
