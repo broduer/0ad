@@ -499,16 +499,23 @@ Trainer.prototype.CalculateEntitiesMap = function()
 	 * - replace the "{civ}" and "{native}" codes with the owner's civ ID and entity's civ ID
 	 * - remove disabled entities
 	 * - upgrade templates where necessary
-	 * This also updates currently queued production (it's more convenient to do it here).
+	 * This also updates currently queued production.
 	 */
 
+	const cmpProductionQueue = Engine.QueryInterface(this.entity, IID_ProductionQueue);
 	const removeAllQueuedTemplate = (token) =>
 	{
-		const queue = clone(this.queue);
+		if (!cmpProductionQueue)
+		{
+			warn("Cannot remove queued template: entity has no production queue component");
+			return;
+		}
+
 		const template = this.entitiesMap.get(token);
-		for (const [id, item] of queue)
-			if (item.templateName == template)
-				this.StopBatch(id);
+		const queue = cmpProductionQueue.GetQueue();
+		for (const item of queue)
+			if (item.unitTemplate === template)
+				cmpProductionQueue.RemoveItem(item.id);
 	};
 
 	// ToDo: Notice this doesn't account for entity limits changing due to the template change.
@@ -624,6 +631,10 @@ Trainer.prototype.QueueBatch = function(templateName, count, metadata)
 
 /**
  * @param {number} id - The ID of the batch being trained here we need to stop.
+ *
+ * @warning This method should only be called from ProductionQueue to maintain synchronization
+ *          between the queues. For external callers, use ProductionQueue.RemoveItem() instead.
+ *          Direct calls may cause desynchronization between Trainer and ProductionQueue.
  */
 Trainer.prototype.StopBatch = function(id)
 {
@@ -693,9 +704,8 @@ Trainer.prototype.OnValueModification = function(msg)
 	// This also updates the queued production if necessary.
 	this.CalculateEntitiesMap();
 
-	// Inform the GUI that it'll need to recompute the selection panel.
-	// TODO: it would be better to only send the message if something actually changing
-	// for the current training queue.
+	// Mark the selection dirty (even though it didn't change) in order to trigger the GUI to recompute some cached values, which include the list of trainable entities.
+	// TODO: It would be better to only do this if something actually changed in this.entitiesMap
 	const cmpPlayer = QueryOwnerInterface(this.entity);
 	if (cmpPlayer)
 		Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface).SetSelectionDirty(cmpPlayer.GetPlayerID());

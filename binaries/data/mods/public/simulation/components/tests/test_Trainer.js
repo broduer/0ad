@@ -10,7 +10,9 @@ Engine.LoadComponentScript("interfaces/Foundation.js");
 Engine.LoadComponentScript("interfaces/StatisticsTracker.js");
 Engine.LoadComponentScript("interfaces/Trainer.js");
 Engine.LoadComponentScript("interfaces/TrainingRestrictions.js");
+Engine.LoadComponentScript("interfaces/ProductionQueue.js");
 Engine.LoadComponentScript("interfaces/Trigger.js");
+Engine.LoadComponentScript("ProductionQueue.js");
 Engine.LoadComponentScript("EntityLimits.js");
 Engine.LoadComponentScript("Trainer.js");
 Engine.LoadComponentScript("TrainingRestrictions.js");
@@ -33,6 +35,27 @@ let cmpTrainer = ConstructComponent(entityID, "Trainer", {
 	                         "units/{native}/support_civilian" }
 });
 cmpTrainer.GetUpgradedTemplate = (template) => template;
+
+// ProductionQueue mock that just delegates to Trainer's queue
+AddMock(entityID, IID_ProductionQueue, {
+	"GetQueue": () =>
+	{
+		// Convert Trainer's internal queue to ProductionQueue format
+		const queue = [];
+		for (const [id, item] of cmpTrainer.queue)
+			queue.push({
+				"id": id,
+				"unitTemplate": item.templateName,
+				"batchID": id  // In this mock, batchID = ProductionQueue ID
+			});
+		return queue;
+	},
+	"RemoveItem": (id) =>
+	{
+		// Simply call StopBatch on the Trainer
+		cmpTrainer.StopBatch(id);
+	}
+});
 
 AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
 	"GetPlayerByID": id => playerEntityID
@@ -329,6 +352,11 @@ TS_ASSERT_EQUALS(cmpTrainer.GetBatch(id2).unitTemplate, "units/iber/c");
 
 // Test that we can affect an empty trainer.
 const emptyTrainer = ConstructComponent(entityID, "Trainer", null);
+// Need to add ProductionQueue mock for empty trainer too
+AddMock(entityID, IID_ProductionQueue, {
+	"GetQueue": () => [],
+	"RemoveItem": () => {}
+});
 emptyTrainer.OnValueModification({ "component": "Trainer", "entities": [entityID], "valueNames": ["Trainer/Entities/"] });
 TS_ASSERT_UNEVAL_EQUALS(
 	emptyTrainer.GetEntitiesList(),
