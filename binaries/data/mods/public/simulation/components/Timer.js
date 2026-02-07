@@ -140,7 +140,7 @@ Timer.prototype.OnUpdate = function(msg)
 		{
 			timerTargetComponent[timer.functionName](timer.data, this.time - timer.time);
 		}
-		catch(e)
+		catch (e)
 		{
 			error(
 				"Error in timer on entity " + timer.entity + ", " +

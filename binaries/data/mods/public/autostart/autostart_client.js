@@ -11,7 +11,7 @@ class AutoStartClient
 			const port = +(cmdLineArgs['autostart-port'] ?? 5073);
 			Engine.StartNetworkJoin(playerName, ip, port, !('autostart-disable-replay' in cmdLineArgs));
 		}
-		catch(e)
+		catch (e)
 		{
 			const message = sprintf(translate("Cannot join game: %(message)s."), { "message": e.message });
 			messageBox(400, 200, message, translate("Error"));

@@ -98,7 +98,7 @@ class InspectorManager extends Plugin
 					});
 				return dapHandler.successResponse(req, { 'result': JSON.stringify(result) || "null", 'variablesReference': 0 });
 			}
-			catch(error)
+			catch (error)
 			{
 				this.logger.error(`Error evaluating expression: ${error.message}`);
 				return dapHandler.errorResponse(req, `Error evaluating expression: ${error.message}`);

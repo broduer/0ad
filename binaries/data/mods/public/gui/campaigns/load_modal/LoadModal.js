@@ -72,7 +72,7 @@ class LoadModal extends AutoWatcher
 			{
 				out.push(new CampaignRun(name).load());
 			}
-			catch(err)
+			catch (err)
 			{
 				warn(err.toString());
 				out.push(new BrokenRun(name));

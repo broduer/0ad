@@ -57,7 +57,7 @@ async function waitOnEvent(loadSavedGame, joinFromLobby)
 			{
 				confirmSetup(loadSavedGame);
 			}
-			catch(e)
+			catch (e)
 			{
 				if (cancelSetup())
 					return;
@@ -108,7 +108,7 @@ async function init(attribs)
 				attribs.hasPassword ? Engine.GetGUIObjectByName("clientPassword").caption : "");
 			switchSetupPage("pageConnecting");
 		}
-		catch(e)
+		catch (e)
 		{
 			if (cancelSetup())
 				return;
@@ -443,7 +443,7 @@ function startHost(playername, servername, port, password, loadSavedGame)
 		Engine.StartNetworkHost(playername + (g_UserRating ? " (" + g_UserRating + ")" : ""), port,
 			password, loadSavedGame, true);
 	}
-	catch(e)
+	catch (e)
 	{
 		messageBox(
 			400, 200,
@@ -469,7 +469,7 @@ function startJoin(playername, ip, port)
 	{
 		Engine.StartNetworkJoin(playername, ip, port, true);
 	}
-	catch(e)
+	catch (e)
 	{
 		messageBox(
 			400, 200,
@@ -511,7 +511,7 @@ function startJoinFromLobby(playername, hostJID, password)
 	{
 		Engine.StartNetworkJoinLobby(playername + (g_UserRating ? " (" + g_UserRating + ")" : ""), hostJID, password);
 	}
-	catch(e)
+	catch (e)
 	{
 		messageBox(
 			400, 200,

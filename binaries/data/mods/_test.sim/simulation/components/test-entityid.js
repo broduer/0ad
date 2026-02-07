@@ -8,13 +8,13 @@ TestScript1A.prototype.GetX = function()
 		delete this.entity;
 		Engine.TS_FAIL("Missed exception");
 	}
-	catch(e) { /* noop */ }
+	catch (e) { /* noop */ }
 	try
 	{
 		this.entity = -1;
 		Engine.TS_FAIL("Missed exception");
 	}
-	catch(e) { /* noop */ }
+	catch (e) { /* noop */ }
 
 	// and return the value
 	return this.entity;

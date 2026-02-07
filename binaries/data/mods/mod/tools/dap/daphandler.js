@@ -32,7 +32,7 @@ export class DapProtocolHandler
 			this.logger.info(`Handling command: ${req.command}`);
 			return handler(req);
 		}
-		catch(error)
+		catch (error)
 		{
 			this.logger.error(`Error handling command ${req.command}:`, error);
 			this.logger.error(uneval(error.stack));

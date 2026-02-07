@@ -74,7 +74,7 @@ var AccountSettingsPage = {
 			Engine["ConfigDB_" + functionSufix]("user", "lobby.password", encryptedPassword);
 			Engine.ConfigDB_SaveChanges("user");
 		}
-		catch(e)
+		catch (e)
 		{
 			if (e instanceof SetPasswordError)
 			{

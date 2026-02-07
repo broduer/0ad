@@ -244,7 +244,7 @@ function init(initData)
 			run.setCurrent();
 		g_CampaignMenu = new CampaignMenu(run);
 	}
-	catch(err)
+	catch (err)
 	{
 		error(sprintf("Error loading campaign run %s: %s.", CampaignRun.getCurrentRunFilename(), err));
 		Engine.SwitchGuiPage("page_pregame.xml", {});

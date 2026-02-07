@@ -86,7 +86,7 @@ export const mainMenuItems = [
 			{
 				Engine.SwitchGuiPage(CampaignRun.getCurrentRun().getMenuPath());
 			}
-			catch(err)
+			catch (err)
 			{
 				error("Error opening campaign run:");
 				error(err.toString());
@@ -146,7 +146,7 @@ export const mainMenuItems = [
 					{
 						Engine.SwitchGuiPage(CampaignRun.getCurrentRun().getMenuPath());
 					}
-					catch(err)
+					catch (err)
 					{
 						error("Error opening campaign run:");
 						error(err.toString());

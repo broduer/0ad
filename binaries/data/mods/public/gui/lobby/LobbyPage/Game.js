@@ -219,7 +219,7 @@ class Game
 			{
 				this.mods = JSON.parse(newStanza.mods);
 			}
-			catch(e)
+			catch (e)
 			{
 				this.mods = [];
 			}

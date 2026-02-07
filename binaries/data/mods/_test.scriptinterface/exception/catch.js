@@ -2,7 +2,7 @@ try
 {
 	Engine.callback();
 }
-catch(e)
+catch (e)
 {
 	log(e.message);
 }

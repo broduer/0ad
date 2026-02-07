@@ -16,7 +16,7 @@ class AutoStartHost
 			// Password not implemented for autostart.
 			Engine.StartNetworkHost(playerName, port, "", false, !('autostart-disable-replay' in cmdLineArgs));
 		}
-		catch(e)
+		catch (e)
 		{
 			const message = sprintf(translate("Cannot host game: %(message)s."), { "message": e.message });
 			messageBox(400, 200, message, translate("Error"));

@@ -104,7 +104,7 @@ function stringifiedTeamListToPlayerData(stringifiedTeamList)
 	{
 		teamList = JSON.parse(unescapeText(stringifiedTeamList));
 	}
-	catch(e)
+	catch (e)
 	{
 		// Ignore invalid input from remote users
 		return [];

@@ -65,7 +65,7 @@ export class JsDebugger
 			{
 				hookInfo.callback(data);
 			}
-			catch(e)
+			catch (e)
 			{
 				this.logger.error(`Error in hook for ${hookInfo.source}-${event}: ${e.message}`);
 				this.logger.error(uneval(e.stack));

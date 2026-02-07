@@ -27,13 +27,13 @@ TestScript1_entity.prototype.GetX = function()
 		delete this.entity;
 		Engine.TS_FAIL("Missed exception");
 	}
-	catch(e) { /* OK */ }
+	catch (e) { /* OK */ }
 	try
 	{
 		this.entity = -1;
 		Engine.TS_FAIL("Missed exception");
 	}
-	catch(e) { /* OK */ }
+	catch (e) { /* OK */ }
 
 	// and return the value
 	return this.entity;

@@ -59,7 +59,7 @@ global.TS_ASSERT_EXCEPTION = function(func)
 		func();
 		Engine.TS_FAIL("Missed exception at:\n" + new Error().stack);
 	}
-	catch(e)
+	catch (e)
 	{
 		// noop
 	}
