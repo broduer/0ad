@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,6 +25,7 @@
 #include "ps/Threading.h"
 
 #include <atomic>
+#include <boost/lockfree/queue.hpp>
 #include <condition_variable>
 #include <deque>
 #include <functional>
@@ -32,6 +33,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+
 
 namespace Threading
 {
@@ -83,7 +85,6 @@ protected:
 	}
 
 	std::thread m_Thread;
-	std::atomic<bool> m_Kill = false;
 };
 
 /**
@@ -95,17 +96,8 @@ public:
 	WorkerThread(TaskManager::Impl& taskManager);
 	~WorkerThread();
 
-	/**
-	 * Wake the worker.
-	 */
-	void Wake();
-
 protected:
 	void RunUntilDeath();
-
-	std::mutex m_Mutex;
-	std::condition_variable m_ConditionVariable;
-
 	TaskManager::Impl& m_TaskManager;
 };
 
@@ -122,14 +114,11 @@ public:
 	Impl() = default;
 	~Impl()
 	{
-		{
-			std::lock_guard<std::mutex> lock(m_GlobalMutex);
+			ENSURE(m_Tasks == 0);
 			ENSURE(m_GlobalQueue.empty());
-		}
-		{
-			std::lock_guard<std::mutex> lock(m_GlobalLowPriorityMutex);
 			ENSURE(m_GlobalLowPriorityQueue.empty());
-		}
+			m_Tasks = SHUTDOWN_VALUE;
+			m_CV.notify_all();
 	}
 
 	/**
@@ -145,17 +134,17 @@ public:
 	void PushTask(std::function<void()>&& task, TaskPriority priority);
 
 protected:
-	void ClearQueue();
-
 	template<TaskPriority Priority>
 	bool PopTask(std::function<void()>& taskOut);
 
-	std::atomic<bool> m_HasWork = false;
-	std::atomic<bool> m_HasLowPriorityWork = false;
-	std::mutex m_GlobalMutex;
-	std::mutex m_GlobalLowPriorityMutex;
-	std::deque<QueueItem> m_GlobalQueue;
-	std::deque<QueueItem> m_GlobalLowPriorityQueue;
+	static constexpr int SHUTDOWN_VALUE = -1;
+	std::atomic<int> m_Tasks = 0;
+	// We can't use C++20 atomic wait/notify so we need a condition variable/mutex pair
+	std::condition_variable m_CV;
+	std::mutex m_Mutex;
+	// boost::lockfree::queue only support trivial types so we have to store naked owning pointers
+	boost::lockfree::queue<QueueItem*> m_GlobalQueue{MAX_WORKERS};
+	boost::lockfree::queue<QueueItem*> m_GlobalLowPriorityQueue{MAX_WORKERS};
 
 	// Ideally this would be a vector, since it does get iterated, but that requires movable types.
 	std::deque<WorkerThread> m_Workers;
@@ -192,33 +181,23 @@ void TaskManager::PushTask(std::function<void()> task, TaskPriority priority)
 
 void TaskManager::Impl::PushTask(std::function<void()>&& task, TaskPriority priority)
 {
-	std::mutex& mutex = priority == TaskPriority::NORMAL ? m_GlobalMutex : m_GlobalLowPriorityMutex;
-	std::deque<QueueItem>& queue = priority == TaskPriority::NORMAL ? m_GlobalQueue : m_GlobalLowPriorityQueue;
-	std::atomic<bool>& hasWork = priority == TaskPriority::NORMAL ? m_HasWork : m_HasLowPriorityWork;
-	{
-		std::lock_guard<std::mutex> lock(mutex);
-		queue.emplace_back(std::move(task));
-		hasWork = true;
-	}
-
-	for (WorkerThread& worker : m_Workers)
-		worker.Wake();
+	auto& queue = priority == TaskPriority::NORMAL ? m_GlobalQueue : m_GlobalLowPriorityQueue;
+	queue.push(new QueueItem(std::move(task)));
+	++m_Tasks;
+	m_CV.notify_one();
 }
 
 template<TaskPriority Priority>
 bool TaskManager::Impl::PopTask(std::function<void()>& taskOut)
 {
-	std::mutex& mutex = Priority == TaskPriority::NORMAL ? m_GlobalMutex : m_GlobalLowPriorityMutex;
-	std::deque<QueueItem>& queue = Priority == TaskPriority::NORMAL ? m_GlobalQueue : m_GlobalLowPriorityQueue;
-	std::atomic<bool>& hasWork = Priority == TaskPriority::NORMAL ? m_HasWork : m_HasLowPriorityWork;
+	auto& queue = Priority == TaskPriority::NORMAL ? m_GlobalQueue : m_GlobalLowPriorityQueue;
 
-	// Particularly critical section since we're locking the global queue.
-	std::lock_guard<std::mutex> globalLock(mutex);
-	if (!queue.empty())
+	QueueItem* item;
+	if (queue.pop(item))
 	{
-		taskOut = std::move(queue.front());
-		queue.pop_front();
-		hasWork = !queue.empty();
+		--m_Tasks;
+		taskOut = std::move(*item);
+		delete item;
 		return true;
 	}
 	return false;
@@ -234,15 +213,8 @@ WorkerThread::WorkerThread(TaskManager::Impl& taskManager)
 
 WorkerThread::~WorkerThread()
 {
-	m_Kill = true;
-	m_ConditionVariable.notify_one();
-	if (m_Thread.joinable())
-		m_Thread.join();
-}
-
-void WorkerThread::Wake()
-{
-	m_ConditionVariable.notify_one();
+	ENSURE(m_TaskManager.m_Tasks == TaskManager::Impl::SHUTDOWN_VALUE);
+	m_Thread.join();
 }
 
 void WorkerThread::RunUntilDeath()
@@ -253,27 +225,26 @@ void WorkerThread::RunUntilDeath()
 	debug_SetThreadName(name.c_str());
 	g_Profiler2.RegisterCurrentThread(name);
 
-
 	std::function<void()> task;
 	bool hasTask = false;
-	std::unique_lock<std::mutex> lock(m_Mutex, std::defer_lock);
-	while (!m_Kill)
+	int availableTasks = m_TaskManager.m_Tasks.load();
+	while (availableTasks != TaskManager::Impl::SHUTDOWN_VALUE)
 	{
-		lock.lock();
-		m_ConditionVariable.wait(lock, [this](){
-			return m_Kill || m_TaskManager.m_HasWork || m_TaskManager.m_HasLowPriorityWork;
-		});
-		lock.unlock();
-
-		if (m_Kill)
-			break;
-
-		// Fetch work from the global queues.
-		hasTask = m_TaskManager.PopTask<TaskPriority::NORMAL>(task);
-		if (!hasTask)
-			hasTask = m_TaskManager.PopTask<TaskPriority::LOW>(task);
-		if (hasTask)
-			task();
+		if (availableTasks > 0)
+		{
+			// Fetch work from the global queues.
+			hasTask = m_TaskManager.PopTask<TaskPriority::NORMAL>(task);
+			if (!hasTask)
+				hasTask = m_TaskManager.PopTask<TaskPriority::LOW>(task);
+			if (hasTask)
+				task();
+		}
+		else
+		{
+			std::unique_lock lock(m_TaskManager.m_Mutex);
+			m_TaskManager.m_CV.wait(lock);
+		}
+		availableTasks = m_TaskManager.m_Tasks.load();
 	}
 }
 
