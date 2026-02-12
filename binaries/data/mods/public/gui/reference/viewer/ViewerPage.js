@@ -105,8 +105,8 @@ class ViewerPage extends ReferencePage
 			}
 		}
 
-		if (this.currentTemplate.upgrades)
-			this.currentTemplate.upgradeListOfNames = this.currentTemplate.upgrades.map(upgrade =>
+		if (this.currentTemplate.upgrade)
+			this.currentTemplate.upgradeListOfNames = this.currentTemplate.upgrade.options.map(upgrade =>
 				getEntityNames(upgrade.name ? upgrade : this.TemplateParser.getEntity(upgrade.entity, this.activeCiv))
 			);
 

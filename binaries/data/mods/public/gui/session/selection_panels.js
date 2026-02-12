@@ -103,7 +103,7 @@ g_SelectionPanels.Barter = {
 	"getItems": function(unitEntStates)
 	{
 		// If more than `rowLength` resources, don't display icons.
-		if (unitEntStates.every(state => !state.isBarterMarket) || g_ResourceData.GetBarterableCodes().length > this.rowLength)
+		if (unitEntStates.every(state => !state.enablesBartering) || g_ResourceData.GetBarterableCodes().length > this.rowLength)
 			return [];
 		return g_ResourceData.GetBarterableCodes();
 	},
@@ -344,13 +344,13 @@ g_SelectionPanels.Garrison = {
 	{
 		const entState = GetEntityState(data.item.ents[0]);
 
-		const template = GetTemplateData(entState.template, entState.player);
+		const template = GetTemplateData(entState.templateName, entState.player);
 		if (!template)
 			return false;
 
 		data.button.onPress = function()
 		{
-			unloadTemplate(template.selectionGroupName || entState.template, entState.player);
+			unloadTemplate(template.selectionGroupName || entState.templateName, entState.player);
 		};
 
 		data.countDisplay.caption = data.item.ents.length > 1 ? data.item.ents.length : "";
@@ -1048,7 +1048,7 @@ g_SelectionPanels.Research = {
 			{
 				showTemplateDetails(
 					t,
-					GetTemplateData(baseData.unitEntStates.find(state => state.id == baseData.item.researchFacilityId).template, state.player).nativeCiv
+					GetTemplateData(baseData.unitEntStates.find(state => state.id == baseData.item.researchFacilityId).templateName, state.player).nativeCiv
 				);
 			});
 
@@ -1114,7 +1114,7 @@ g_SelectionPanels.Selection = {
 	"setupButton": function(data)
 	{
 		const entState = GetEntityState(data.item.ents[0]);
-		const template = GetTemplateData(entState.template, entState.player);
+		const template = GetTemplateData(entState.templateName, entState.player);
 		if (!template)
 			return false;
 
@@ -1334,10 +1334,10 @@ g_SelectionPanels.Upgrade = {
 	"getItems": function(unitEntStates)
 	{
 		// Interface becomes complicated with multiple different units and this is meant per-entity, so prevent it if the selection has multiple different units.
-		if (unitEntStates.some(state => state.template != unitEntStates[0].template))
+		if (unitEntStates.some(state => state.templateName != unitEntStates[0].templateName))
 			return false;
 
-		return unitEntStates[0].upgrade && unitEntStates[0].upgrade.upgrades;
+		return unitEntStates[0].upgrade?.options;
 	},
 	"setupButton": function(data)
 	{
@@ -1355,7 +1355,7 @@ g_SelectionPanels.Upgrade = {
 			});
 
 		const limits = getEntityLimitAndCount(data.playerState, data.item.entity);
-		const upgradingEntStates = data.unitEntStates.filter(state => state.upgrade.template == data.item.entity);
+		const upgradingEntStates = data.unitEntStates.filter(state => state.upgrade.templateName == data.item.entity);
 
 		const upgradableEntStates = data.unitEntStates.filter(state =>
 			!state.upgrade.progress &&
@@ -1422,7 +1422,7 @@ g_SelectionPanels.Upgrade = {
 			};
 
 			if (!requirementsMet || limits.canBeAddedCount == 0 &&
-				!upgradableEntStates.some(state => hasSameRestrictionCategory(data.item.entity, state.template, state.player)))
+				!upgradableEntStates.some(state => hasSameRestrictionCategory(data.item.entity, state.templateName, state.player)))
 			{
 				data.button.enabled = false;
 				modifier = "color:0 0 0 127:grayscale:";

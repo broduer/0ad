@@ -1,51 +1,15 @@
+Engine.LoadHelperScript("EntityStateRetriever.js");
 Engine.LoadHelperScript("ObstructionSnap.js");
 Engine.LoadHelperScript("Player.js");
-Engine.LoadComponentScript("interfaces/AlertRaiser.js");
-Engine.LoadComponentScript("interfaces/Auras.js");
 Engine.LoadComponentScript("interfaces/Barter.js");
-Engine.LoadComponentScript("interfaces/Builder.js");
-Engine.LoadComponentScript("interfaces/Capturable.js");
 Engine.LoadComponentScript("interfaces/CeasefireManager.js");
-Engine.LoadComponentScript("interfaces/DeathDamage.js");
 Engine.LoadComponentScript("interfaces/Diplomacy.js");
 Engine.LoadComponentScript("interfaces/EndGameManager.js");
 Engine.LoadComponentScript("interfaces/EntityLimits.js");
-Engine.LoadComponentScript("interfaces/Formation.js");
-Engine.LoadComponentScript("interfaces/Foundation.js");
-Engine.LoadComponentScript("interfaces/Garrisonable.js");
-Engine.LoadComponentScript("interfaces/GarrisonHolder.js");
-Engine.LoadComponentScript("interfaces/Gate.js");
-Engine.LoadComponentScript("interfaces/Guard.js");
-Engine.LoadComponentScript("interfaces/Heal.js");
-Engine.LoadComponentScript("interfaces/Health.js");
-Engine.LoadComponentScript("interfaces/Loot.js");
-Engine.LoadComponentScript("interfaces/Market.js");
-Engine.LoadComponentScript("interfaces/Pack.js");
-Engine.LoadComponentScript("interfaces/Population.js");
 Engine.LoadComponentScript("interfaces/PopulationCapManager.js");
-Engine.LoadComponentScript("interfaces/ProductionQueue.js");
-Engine.LoadComponentScript("interfaces/Promotion.js");
-Engine.LoadComponentScript("interfaces/Repairable.js");
-Engine.LoadComponentScript("interfaces/Researcher.js");
-Engine.LoadComponentScript("interfaces/Resistance.js");
-Engine.LoadComponentScript("interfaces/ResourceDropsite.js");
-Engine.LoadComponentScript("interfaces/ResourceGatherer.js");
-Engine.LoadComponentScript("interfaces/ResourceTrickle.js");
-Engine.LoadComponentScript("interfaces/ResourceSupply.js");
 Engine.LoadComponentScript("interfaces/TechnologyManager.js");
-Engine.LoadComponentScript("interfaces/Trader.js");
-Engine.LoadComponentScript("interfaces/Trainer.js");
-Engine.LoadComponentScript("interfaces/TurretHolder.js");
 Engine.LoadComponentScript("interfaces/Timer.js");
-Engine.LoadComponentScript("interfaces/Treasure.js");
-Engine.LoadComponentScript("interfaces/TreasureCollector.js");
-Engine.LoadComponentScript("interfaces/Turretable.js");
 Engine.LoadComponentScript("interfaces/StatisticsTracker.js");
-Engine.LoadComponentScript("interfaces/StatusEffectsReceiver.js");
-Engine.LoadComponentScript("interfaces/UnitAI.js");
-Engine.LoadComponentScript("interfaces/Upgrade.js");
-Engine.LoadComponentScript("interfaces/Upkeep.js");
-Engine.LoadComponentScript("interfaces/BuildingAI.js");
 Engine.LoadComponentScript("GuiInterface.js");
 
 Resources = {
@@ -63,7 +27,7 @@ Resources = {
 	})
 };
 
-var cmp = ConstructComponent(SYSTEM_ENTITY, "GuiInterface");
+const cmpGuiInterface = ConstructComponent(SYSTEM_ENTITY, "GuiInterface");
 
 
 AddMock(SYSTEM_ENTITY, IID_Barter, {
@@ -88,13 +52,7 @@ AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
 });
 
 AddMock(SYSTEM_ENTITY, IID_RangeManager, {
-	"GetLosVisibility": function(ent, player) { return "visible"; },
-	"GetLosCircular": function() { return false; }
-});
-
-AddMock(SYSTEM_ENTITY, IID_TemplateManager, {
-	"GetCurrentTemplateName": function(ent) { return "example"; },
-	"GetTemplate": function(name) { return ""; }
+	"GetLosCircular": function() { return false; },
 });
 
 AddMock(SYSTEM_ENTITY, IID_PopulationCapManager, {
@@ -302,7 +260,7 @@ AddMock(101, IID_StatisticsTracker, {
 // Note: property order matters when using TS_ASSERT_UNEVAL_EQUALS,
 //	because uneval preserves property order. So make sure this object
 //	matches the ordering in GuiInterface.
-TS_ASSERT_UNEVAL_EQUALS(cmp.GetSimulationState(), {
+TS_ASSERT_UNEVAL_EQUALS(cmpGuiInterface.GetSimulationState(), {
 	"players": [
 		{
 			"name": "Player 1",
@@ -413,7 +371,7 @@ TS_ASSERT_UNEVAL_EQUALS(cmp.GetSimulationState(), {
 	"populationCap": 200
 });
 
-TS_ASSERT_UNEVAL_EQUALS(cmp.GetExtendedSimulationState(), {
+TS_ASSERT_UNEVAL_EQUALS(cmpGuiInterface.GetExtendedSimulationState(), {
 	"players": [
 		{
 			"name": "Player 1",
@@ -568,73 +526,4 @@ TS_ASSERT_UNEVAL_EQUALS(cmp.GetExtendedSimulationState(), {
 	"alliedVictory": false,
 	"populationCapType": "player",
 	"populationCap": 200
-});
-
-
-AddMock(10, IID_Builder, {
-	"GetEntitiesList": function()
-	{
-		return ["test1", "test2"];
-	},
-});
-
-AddMock(10, IID_Health, {
-	"GetHitpoints": function() { return 50; },
-	"GetMaxHitpoints": function() { return 60; },
-	"IsRepairable": function() { return false; },
-	"IsUnhealable": function() { return false; }
-});
-
-AddMock(10, IID_Identity, {
-	"GetClassesList": function() { return ["class1", "class2"]; },
-	"GetRank": function() { return "foo"; },
-	"GetSelectionGroupName": function() { return "Selection Group Name"; },
-	"HasClass": function() { return true; },
-	"IsUndeletable": function() { return false; },
-	"IsControllable": function() { return true; }
-});
-
-AddMock(10, IID_Position, {
-	"GetTurretParent": function() { return INVALID_ENTITY; },
-	"GetPosition": function()
-	{
-		return { "x": 1, "y": 2, "z": 3 };
-	},
-	"IsInWorld": function()
-	{
-		return true;
-	}
-});
-
-AddMock(10, IID_ResourceTrickle, {
-	"GetInterval": () => 1250,
-	"GetRates": () => ({ "food": 2, "wood": 3, "stone": 5, "metal": 9 })
-});
-
-// Note: property order matters when using TS_ASSERT_UNEVAL_EQUALS,
-//	because uneval preserves property order. So make sure this object
-//	matches the ordering in GuiInterface.
-TS_ASSERT_UNEVAL_EQUALS(cmp.GetEntityState(-1, 10), {
-	"id": 10,
-	"player": INVALID_PLAYER,
-	"template": "example",
-	"identity": {
-		"rank": "foo",
-		"classes": ["class1", "class2"],
-		"selectionGroupName": "Selection Group Name",
-		"canDelete": true,
-		"controllable": true,
-	},
-	"position": { "x": 1, "y": 2, "z": 3 },
-	"hitpoints": 50,
-	"maxHitpoints": 60,
-	"needsRepair": false,
-	"needsHeal": true,
-	"builder": true,
-	"visibility": "visible",
-	"isBarterMarket": true,
-	"resourceTrickle": {
-		"interval": 1250,
-		"rates": { "food": 2, "wood": 3, "stone": 5, "metal": 9 }
-	}
 });

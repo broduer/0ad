@@ -50,8 +50,8 @@ class ProductionRowManager
 				this.productionRows[rowIdx].drawIcon(prod, civCode);
 			}
 
-		if (template.upgrades)
-			for (const upgrade of template.upgrades)
+		if (template.upgrade)
+			for (const upgrade of template.upgrade.options)
 			{
 				let pIdx = 0;
 				if (this.sortProductionsByPhase)

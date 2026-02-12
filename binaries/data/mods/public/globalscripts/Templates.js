@@ -204,10 +204,11 @@ class TemplateHelper
 	_context = Object.seal({
 		"template": {},
 		"player": null, // null or a player id
+		"civ": "",
 		"entity": null, // null or an entity id
 		"auraTemplates": {},
 		"resources": {},
-		"customModifiers": null,
+		"customModifiers": null, // null or an object defining modifications
 		"applyValueModifications": () => 0
 	});
 
@@ -217,11 +218,12 @@ class TemplateHelper
 	 * @param {Object} template - A valid template as returned by the template loader.
 	 * @param {Object} auraTemplates - In the form of { key: { "auraName": "", "auraDescription": "" } }.
 	 * @param {Object} resources - An instance of the Resources class.
+	 * @param {string} civ - The civ of which the template is part of. Does not have to match the template's identity's own civ.
 	 * @param {string[]} [components] - An array of components to process, if undefined all components are processed.
 	 */
-	getBasicData(template, auraTemplates, resources, components)
+	getBasicData(template, auraTemplates, resources, civ, components)
 	{
-		return this.computeDataFromModifiers(template, auraTemplates, resources, {}, components);
+		return this.computeDataFromModifiers(template, auraTemplates, resources, {}, civ, components);
 	}
 
 	/**
@@ -230,13 +232,15 @@ class TemplateHelper
 	 * @param {Object} template - A valid template as returned by the template loader.
 	 * @param {Object} auraTemplates - In the form of { key: { "auraName": "", "auraDescription": "" } }.
 	 * @param {Object} resources - An instance of the Resources class.
-	 * @param {Object} modifiers - Modifications to apply to the template, e.g. from auto-researched techs or unit upgrades
+	 * @param {Object} modifiers - Modifications to apply to the template, e.g. from auto-researched techs or civ bonuses.
+	 * @param {string} civ - The civ of which the template is part of. Does not have to match the template's identity's own civ.
 	 * @param {string[]} [components] - An array of components to process, if undefined all components are processed.
 	 */
-	computeDataFromModifiers(template, auraTemplates, resources, modifiers, components)
+	computeDataFromModifiers(template, auraTemplates, resources, modifiers, civ, components)
 	{
 		this._context.template = template;
 		this._context.player = null;
+		this._context.civ = civ;
 		this._context.entity = null;
 		this._context.auraTemplates = auraTemplates;
 		this._context.resources = resources;
@@ -254,17 +258,45 @@ class TemplateHelper
 	 * @param {Object} auraTemplates - In the form of { key: { "auraName": "", "auraDescription": "" } }.
 	 * @param {Object} resources - An instance of the Resources class.
 	 * @param {number} player - ID of the target player.
+	 * @param {string} playerCiv - Civ of the target player.
 	 * @param {string[]} [components] - An array of components to process, if undefined all components are processed.
 	 */
-	computeDataFromPlayer(template, auraTemplates, resources, player, components)
+	computeDataFromPlayer(template, auraTemplates, resources, player, playerCiv, components)
 	{
 		this._context.template = template;
 		this._context.player = player;
+		this._context.civ = playerCiv;
 		this._context.entity = null;
 		this._context.auraTemplates = auraTemplates;
 		this._context.resources = resources;
 		this._context.customModifiers = null;
 		this._context.applyValueModifications = this._applyPlayerModifications.bind(this);
+
+		return this._computeModifiedTemplateData(template, components);
+	}
+
+	/**
+	 * Pull basic information from a template and to it apply all modifiers registered (in the simulation) to a given entity or
+	 * its owning player.
+	 * Must only be called in simulation context.
+	 *
+	 * @param {Object} template - A valid template as returned by the template loader.
+	 * @param {Object} auraTemplates - In the form of { key: { "auraName": "", "auraDescription": "" } }.
+	 * @param {Object} resources - An instance of the Resources class.
+	 * @param {number} entity - ID of the target entity.
+	 * @param {string} ownerCiv - Civ of the target entity's owner.
+	 * @param {undefined|string[]} components - An array of components to process, if undefined all components are processed.
+	 */
+	computeDataFromEntity(template, auraTemplates, resources, entity, ownerCiv, components)
+	{
+		this._context.template = template;
+		this._context.player = null;
+		this._context.civ = ownerCiv;
+		this._context.entity = entity;
+		this._context.auraTemplates = auraTemplates;
+		this._context.resources = resources;
+		this._context.customModifiers = null;
+		this._context.applyValueModifications = this._applyEntityModifications.bind(this);
 
 		return this._computeModifiedTemplateData(template, components);
 	}
@@ -290,18 +322,28 @@ class TemplateHelper
 	}
 
 	/**
+	 * Apply all modifiers of the current entity and of its owner to a given value.
+	 */
+	_applyEntityModifications(currentValue, modKey)
+	{
+		return ApplyValueModificationsToEntity(modKey, currentValue, this._context.entity);
+	}
+
+	/**
 	 * Read a given value from the current template, and apply the current modifications to it.
 	 * Only call this for values that can theoretically be modified (i.e. the simulation supports it), like attack damge or max HP.
 	 * Static, unmodifiable values (like turret points or footprint size) are better read from the template directly.
 	 */
-	_getModifiedValue(valuePath, modKey, defaultValue = 0)
+	_getModifiedValue(valuePath, modKey, isNumeric = true, defaultValue = 0)
 	{
 		let currentValue = this._context.template;
 		for (const property of valuePath.split("/"))
 			currentValue = currentValue[property] || defaultValue;
 
+		return isNumeric ?
 		// Using .toFixed() to get around spidermonkey's treatment of numbers (3 * 1.1 = 3.3000000000000003 for instance).
-		return +this._context.applyValueModifications(+currentValue, modKey || valuePath).toFixed(8);
+			+this._context.applyValueModifications(+currentValue, modKey || valuePath).toFixed(8) :
+			this._context.applyValueModifications(currentValue, modKey || valuePath);
 	}
 
 	/**
@@ -348,8 +390,14 @@ class TemplateHelper
 	/**
 	 * The methods performing the core logic, pulling and processing the values of the template's individual
 	 * components.
+	 * The structure of each component's data has to be coordinated with the one in EntityStateRetriever, so that they
+	 * can be merged into one.
 	 */
 	_componentHandlers = {
+		"AlertRaiser": (alertRaiser, ret) =>
+		{
+			ret.alertRaiser = { "classes": alertRaiser.List._string };
+		},
 		"Attack": (attack, ret) =>
 		{
 			ret.attack = {};
@@ -430,13 +478,22 @@ class TemplateHelper
 						this._getModifiedValue("BuildRestrictions/Distance/MaxDistance");
 			}
 		},
+		"Builder": (builder, ret) =>
+		{
+			ret.builder = true;
+		},
 		"BuildingAI": (buildingAI, ret) =>
 		{
 			ret.buildingAI = {
 				"defaultArrowCount": Math.round(this._getModifiedValue("BuildingAI/DefaultArrowCount")),
+				"maxArrowCount": Math.round(this._getModifiedValue("BuildingAI/MaxArrowCount")),
 				"garrisonArrowMultiplier": this._getModifiedValue("BuildingAI/GarrisonArrowMultiplier"),
-				"maxArrowCount": Math.round(this._getModifiedValue("BuildingAI/MaxArrowCount"))
+				"garrisonArrowClasses": buildingAI.GarrisonArrowClasses?.split(/\s+/)
 			};
+		},
+		"Capturable": (capturable, ret) =>
+		{
+			ret.maxCapturePoints = Math.round(this._getModifiedValue("Capturable/CapturePoints"));
 		},
 		"Cost": (cost, ret) =>
 		{
@@ -482,6 +539,7 @@ class TemplateHelper
 		"GarrisonHolder": (garrisonHolder, ret) =>
 		{
 			ret.garrisonHolder = {
+				"allowedClasses": this._getModifiedValue("GarrisonHolder/List/_string", null, false, ""),
 				"buffHeal": this._getModifiedValue("GarrisonHolder/BuffHeal"),
 				"capacity": this._getModifiedValue("GarrisonHolder/Max")
 			};
@@ -491,7 +549,9 @@ class TemplateHelper
 			ret.heal = {
 				"health": this._getModifiedValue("Heal/Health"),
 				"range": this._getModifiedValue("Heal/Range"),
-				"interval": this._getModifiedValue("Heal/Interval")
+				"interval": this._getModifiedValue("Heal/Interval"),
+				"unhealableClasses": heal.UnhealableClasses._string || "",
+				"healableClasses": heal.HealableClasses._string || ""
 			};
 		},
 		"Health": (health, ret) =>
@@ -500,6 +560,7 @@ class TemplateHelper
 		},
 		"Identity": (identity, ret) =>
 		{
+			const allClasses = GetIdentityClasses(identity);
 			ret.selectionGroupName = identity.SelectionGroupName;
 			ret.name = {
 				"specific": (identity.SpecificName || identity.GenericName),
@@ -507,10 +568,14 @@ class TemplateHelper
 			};
 			ret.icon = identity.Icon;
 			ret.tooltip = identity.Tooltip;
+			ret.identityClasses = allClasses;
 			ret.visibleIdentityClasses = GetVisibleIdentityClasses(identity);
 			ret.nativeCiv = identity.Civ;
 			ret.requirements = identity.Requirements;
 			ret.rank = identity.Rank;
+			ret.undeletable = identity.Undeletable;
+			ret.enablesBartering = allClasses.includes("Barter") && !this._context.template.Foundation;
+
 		},
 		"Loot": (loot, ret) =>
 		{
@@ -519,6 +584,19 @@ class TemplateHelper
 			for (const type in loot)
 				ret.loot[type] =
 					this._getModifiedValue("Loot/" + type);
+		},
+		"Market": (market, ret) =>
+		{
+			const tradeTypes = market.TradeType.split(/\s+/);
+
+			ret.market = {
+				"land": tradeTypes.includes("land"),
+				"naval": tradeTypes.includes("naval")
+			};
+		},
+		"Mirage": (mirage, ret) =>
+		{
+			ret.mirage = true;
 		},
 		"Obstruction": (obstruction, ret) =>
 		{
@@ -565,6 +643,12 @@ class TemplateHelper
 				"bonus": this._getModifiedValue("Population/Bonus")
 			};
 		},
+		"Promotion": (promotion, ret) =>
+		{
+			ret.promotion = {
+				"req": this._getModifiedValue("Promotion/RequiredXp")
+			};
+		},
 		"Researcher": (researcher, ret) =>
 		{
 			ret.researcher = {
@@ -573,7 +657,7 @@ class TemplateHelper
 
 			for (const res of this._context.resources.GetCodes().concat(["time"]))
 				ret.researcher.techCostMultiplier[res] =
-					this._getModifiedValue("Researcher/TechCostMultiplier/" + res, null, 1);
+					this._getModifiedValue("Researcher/TechCostMultiplier/" + res, null, true, 1);
 		},
 		"Resistance": (resistance, ret) =>
 		{
@@ -621,6 +705,20 @@ class TemplateHelper
 				ret.resourceGatherRates[type] =
 					this._getModifiedValue("ResourceGatherer/Rates/" + type) * baseSpeed;
 		},
+		"ResourceSupply": (resourceSupply, ret) =>
+		{
+			const i = resourceSupply.Type.indexOf('.');
+			ret.resourceSupply = {
+				"isInfinite": !isFinite(+resourceSupply.Max),
+				"max": this._getModifiedValue("ResourceSupply/Max"),
+				"type": {
+					"generic": resourceSupply.Type.slice(0, i),
+					"specific": resourceSupply.Type.substring(i + 1)
+				},
+				"killBeforeGather": resourceSupply.KillBeforeGather === "true",
+				"maxGatherers": +resourceSupply.MaxGatherers
+			};
+		},
 		"ResourceTrickle": (resourceTrickle, ret) =>
 		{
 			ret.resourceTrickle = {
@@ -649,10 +747,20 @@ class TemplateHelper
 				ret.treasure.resources[resource] =
 					this._getModifiedValue("Treasure/Resources/" + resource);
 		},
+		"TreasureCollector": (treasureCollector, ret) =>
+		{
+			ret.treasureCollector = true;
+		},
 		"TurretHolder": (turretHolder, ret) =>
 		{
 			ret.turretHolder = {
-				"turretPoints": turretHolder.TurretPoints
+				"numTurretPoints": Object.keys(turretHolder.TurretPoints).length
+			};
+		},
+		"UnitAI": (unitAI, ret) =>
+		{
+			ret.unitAI = {
+				"formations": unitAI.Formations?._string?.split(/\s+/) || []
 			};
 		},
 		"UnitMotion": (unitMotion, ret) =>
@@ -681,7 +789,7 @@ class TemplateHelper
 		},
 		"Upgrade": (upgrade, ret) =>
 		{
-			ret.upgrades = [];
+			ret.upgrade = { "options": [] };
 
 			for (const upgradeName in upgrade)
 			{
@@ -697,8 +805,10 @@ class TemplateHelper
 					cost.time =
 						this._getModifiedValue("Upgrade/" + upgradeName + "/Time", "Upgrade/Time");
 
-				ret.upgrades.push({
-					"entity": upgr.Entity,
+				ret.upgrade.options.push({
+					"entity": upgr.Entity
+						.replace(/\{civ\}/g, this._context.civ)
+						.replace(/\{native\}/g, this._context.template.Identity.Civ),
 					"tooltip": upgr.Tooltip,
 					cost,
 					"icon": upgr.Icon,

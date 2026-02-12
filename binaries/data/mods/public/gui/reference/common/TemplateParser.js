@@ -60,7 +60,8 @@ class TemplateParser
 			return null;
 
 		const template = this.TemplateLoader.loadEntityTemplate(templateName, civCode);
-		const parsed = g_TemplateHelper.computeDataFromModifiers(template, this.TemplateLoader.auraData, g_ResourceData, this.modifiers[civCode] || {});
+		const parsed = g_TemplateHelper.computeDataFromModifiers(template, this.TemplateLoader.auraData, g_ResourceData,
+			this.modifiers[civCode] || {}, civCode);
 		parsed.name.internal = templateName;
 
 		parsed.history = template.Identity.History;
@@ -103,15 +104,15 @@ class TemplateParser
 				"amount": template.ResourceSupply.Max,
 			};
 
-		if (parsed.upgrades)
-			parsed.upgrades = this.getActualUpgradeData(parsed.upgrades, civCode);
+		if (parsed.upgrade)
+			parsed.upgrade.options = this.getActualUpgradeData(parsed.upgrade.options, civCode);
 
 		if (parsed.wallSet)
 		{
 			parsed.wallset = {};
 
-			if (!parsed.upgrades)
-				parsed.upgrades = [];
+			if (!parsed.upgrade)
+				parsed.upgrade = { "options": [] };
 
 			// Note: An assumption is made here that wall segments all have the same resistance and auras
 			let struct = this.getEntity(parsed.wallSet.templates.long, civCode);
@@ -135,8 +136,8 @@ class TemplateParser
 				for (const research of wPart.production.techs)
 					parsed.production.techs.push(research);
 
-				if (wPart.upgrades)
-					Array.prototype.push.apply(parsed.upgrades, wPart.upgrades);
+				if (wPart.upgrade)
+					Array.prototype.push.apply(parsed.upgrade.options, wPart.upgrade.options);
 
 				if (["gate", "tower"].indexOf(wSegm) != -1)
 					continue;
@@ -262,9 +263,8 @@ class TemplateParser
 		const newUpgrades = [];
 		for (const upgrade of upgradesInfo)
 		{
-			upgrade.entity = upgrade.entity.replace(/\{(civ|native)\}/g, civCode);
-
-			const data = g_TemplateHelper.computeDataFromModifiers(this.TemplateLoader.loadEntityTemplate(upgrade.entity, civCode), this.TemplateLoader.auraData, g_ResourceData, this.modifiers[civCode] || {});
+			const data = g_TemplateHelper.computeDataFromModifiers(this.TemplateLoader.loadEntityTemplate(upgrade.entity, civCode),
+				this.TemplateLoader.auraData, g_ResourceData, this.modifiers[civCode] || {}, civCode);
 			data.name.internal = upgrade.entity;
 			data.cost = upgrade.cost;
 			data.icon = upgrade.icon || data.icon;

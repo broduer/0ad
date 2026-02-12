@@ -56,7 +56,7 @@ class PanelEntityManager
 		const entityState = GetEntityState(entityID);
 
 		const orderKey = this.entityOrder.findIndex(entClass =>
-			entityState.identity.classes.indexOf(entClass) != -1);
+			entityState.identityClasses.indexOf(entClass) != -1);
 
 		// Sort depending on given order
 		const insertPos = this.handlers.reduce(

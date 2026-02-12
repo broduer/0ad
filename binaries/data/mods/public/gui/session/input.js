@@ -1157,18 +1157,18 @@ function handleInputAfterGui(ev)
 
 					if (ev.clicks == 2)
 					{
-						templateToMatch = GetEntityState(clickedEntity).identity.selectionGroupName;
+						templateToMatch = GetEntityState(clickedEntity).selectionGroupName;
 						if (templateToMatch)
 							matchRank = false;
 						else
 							// No selection group name defined, so fall back to exact match.
-							templateToMatch = GetEntityState(clickedEntity).template;
+							templateToMatch = GetEntityState(clickedEntity).templateName;
 
 					}
 					else
 						// Triple click
 						// Select units matching exact template name (same rank).
-						templateToMatch = GetEntityState(clickedEntity).template;
+						templateToMatch = GetEntityState(clickedEntity).templateName;
 
 					// TODO: Should we handle "control all units" here as well?
 					ents = Engine.PickSimilarPlayerEntities(templateToMatch, showOffscreen, matchRank, false);
@@ -1990,7 +1990,7 @@ function findIdleUnit(classes)
 		Engine.CameraMoveTo(entityState.position.x, entityState.position.z);
 
 	// Move the idle class index to the first class an idle unit was found for.
-	const indexChange = data.idleClasses.findIndex(elem => MatchesClassList(entityState.identity.classes, elem));
+	const indexChange = data.idleClasses.findIndex(elem => MatchesClassList(entityState.identityClasses, elem));
 	currIdleClassIndex = (currIdleClassIndex + indexChange) % classes.length;
 }
 

@@ -126,8 +126,8 @@ var g_ShowAllStatusBars = false;
  * Cache of simulation state and template data (apart from TechnologyData, updated on every simulation update).
  */
 var g_SimState;
-var g_EntityStates = {};
-var g_TemplateData = {};
+var g_EntityStates = new Map();
+var g_TemplateData = new Map();
 var g_TechnologyData = {};
 
 var g_ResourceData = new Resources();
@@ -189,59 +189,149 @@ function GetSimState()
 	return g_SimState;
 }
 
-function GetMultipleEntityStates(ents)
+/**
+ * Piece together the entire entity state, either from g_TemplateData or the data provided (one of which
+ * should always be possible) and then cache it in g_EntityStates.
+ * Intended for internal use only.
+ */
+function _processNewEntityState(data, entId)
 {
-	if (!ents.length)
+	if (!data?.dynamicState)
+	{
+		g_EntityStates.set(entId, null);
 		return null;
-	const entityStates = Engine.GuiInterfaceCall("GetMultipleEntityStates", ents);
-	for (const item of entityStates)
-		g_EntityStates[item.entId] = item.state && deepfreeze(item.state);
-	return entityStates;
+	}
+
+	// Certain parts (the template data) of an entity state are "predictable" and can therefore be reused between
+	// entities with the same template. What one has to account for, however, is that values of the template data
+	// can be modified. This happens on two different levels:
+	// - Firstly, player-global modifications, which apply to all entities owned by that player. This includes stuff
+	//  like bonuses from researched techs, civs bonuses, team bonuses.
+	// - Secondly, entity-local modifications, which apply to individual entities. This includes buffs or debuffs
+	// 	from status effects or auras (of other entities).
+	//
+	// To take advantage of this, the whole entity state consists of three parts that we need to combine here:
+	// 1. The template data of the entity's template, which only has the player-global modifications applied. It is
+	//  the same for all entities with the same template and owner, so it cached and reused when possible.
+	// 2. The modified template data of the entity, which can contain a subset of the template data's values,
+	//  overwriting them. It has both the player-global and entity-local modifications applied, but only contains the
+	//  values that actually differ from its template data. It is therefore the same for all entities with the same
+	//  owner, template, and modifications ID, so it cached and reused when possible.
+	// 3. the dynamic state, which differs from entity to entity and therefore isn't cached.
+
+	const state = data.dynamicState;
+
+	// This is the only two-level-deep value of the dynamic state supposed to overwrite the corresponding value in the
+	// (modified) template data, so we have to treat it explicitly here, which is quite ugly.
+	const elevationAdaptedRange = state.attack?.Ranged?.elevationAdaptedRange;
+
+	const playerCache = g_TemplateData.get(state.player);
+	let templateData = data.templateData;
+	if (templateData)
+	{
+		translateObjectKeys(templateData, ["specific", "generic", "tooltip"]);
+		playerCache.set(state.templateName, deepfreeze(templateData));
+	}
+	else
+		templateData = playerCache.get(state.templateName);
+
+	let modifiedTemplateData;
+	if (data.modificationsID)
+	{
+		const cacheKey = `${state.templateName}: ${data.modificationsID}`;
+		modifiedTemplateData = data.modifiedTemplateData;
+		if (modifiedTemplateData)
+			playerCache.set(cacheKey, deepfreeze(modifiedTemplateData));
+		else
+			modifiedTemplateData = playerCache.get(cacheKey);
+	}
+
+	for (const key in templateData)
+	{
+		const templateVal = modifiedTemplateData?.[key] || templateData[key];
+		const stateVal = state[key];
+		// Individual entries of dynamic state don't overlap with the ones in the (modified) template data, but they are
+		// organised into child objects. So we are only combining the two here, not actually overwriting anything.
+		// (elevationAdaptedRange is the only exception)
+		if (typeof stateVal == "object")
+			Object.assign(stateVal, templateVal);
+		else
+			state[key] = templateVal;
+	}
+
+	if (elevationAdaptedRange)
+		state.attack.Ranged.elevationAdaptedRange = elevationAdaptedRange;
+
+	g_EntityStates.set(entId, deepfreeze(state));
+	return state;
+}
+
+/**
+ * Pull states of multiple entities from the simulation and cache them.
+ * This is faster than doing it for each individually.
+ */
+function PreloadMultipleEntityStates(ents)
+{
+	const newEnts = ents.filter(ent => !g_EntityStates.has(ent));
+	if (!newEnts.length)
+		return;
+
+	const items = Engine.GuiInterfaceCall("GetMultipleEntityStates", newEnts);
+	for (let i = 0; i < items.length; i++)
+		_processNewEntityState(items[i], newEnts[i]);
 }
 
 /**
  * Get the current state of a given entity. The data is pulled from the simulation.
+ *
+ * An entity state is like a subtype of template data (returned by GetTemplateData), it contains
+ * all of the values present in the latter, plus some more. Substitutability is given, it can be
+ * used everywhere where a template is expected.
+ * However, even the values also in present template data could be modified entity-locally, by
+ * stuff like auras and status effects. For example, two spearman of the same player can have
+ * different attack damage with both different from the value in the spearman template data.
+ * To obtain the values that are consistent player-wide (which a new entity with that template of
+ * that player would have) call GetTemplateData(GetEntityState(entId).templateName)
+ *
  * The state is null, if the ID is undefined, invalid or no entity with the ID exists (anymore).
+ *
+ * Note about performance: Calling this the first time for an entity in a simulation turn is rather
+ * expensive, but every time after that extremely cheap, since the states are cached.
  */
 function GetEntityState(entId)
 {
 	if (!entId || entId == INVALID_ENTITY)
 		return null;
 
-	if (!g_EntityStates[entId])
-	{
-		const entityState = Engine.GuiInterfaceCall("GetEntityState", entId);
-		g_EntityStates[entId] = entityState && deepfreeze(entityState);
-	}
+	let state = g_EntityStates.get(entId);
+	// The cached state can very well be null, we only need to retrieve it from the simulation if it's undefined
+	// (i.e not yet present in the cache at all)
+	if (state === undefined)
+		state = _processNewEntityState(Engine.GuiInterfaceCall("GetEntityState", entId), entId);
 
-	return g_EntityStates[entId];
+	return state;
 }
 
 /**
- * Returns template data calling GetTemplateData defined in GuiInterface.js
- * and deepfreezing returned object.
- * @param {string} templateName - Data of this template will be returned.
- * @param {number|undefined} player - Modifications of this player will be applied to the template.
- *      If undefined, id of player calling this method will be used.
+ * Returns template data of a given template accounting for player-wide modifications such
+ * as researched techs or team bonuses.
+ * @param {string} templateName - Name of the template.
+ * @param {number} [player] - The player whose modifications to apply to the data.
+ *      If undefined, the currently viewed player is be used.
  */
 function GetTemplateData(templateName, player)
 {
-	const targetPlayer = player || g_ViewedPlayer;
-	let cache = g_TemplateData[targetPlayer];
-	if (!cache)
-	{
-		cache = {};
-		g_TemplateData[targetPlayer] = cache;
-	}
+	const targetPlayer = player || (g_ViewedPlayer >= 0 ? g_ViewedPlayer : 0);
+	const playerCache = g_TemplateData.get(targetPlayer);
 
-	let templateData = cache[templateName];
+	let templateData = playerCache.get(templateName);
 	if (!templateData)
 	{
 		templateData = Engine.GuiInterfaceCall("GetTemplateData", { "templateName": templateName, "player": targetPlayer });
 		translateObjectKeys(templateData, ["specific", "generic", "tooltip"]);
-		deepfreeze(templateData);
-		cache[templateName] = templateData;
+		playerCache.set(templateName, deepfreeze(templateData));
 	}
+
 	return templateData;
 }
 
@@ -286,6 +376,9 @@ async function init(initData, hotloadData)
 		if (initData.savedGUIData)
 			restoreSavedGameData(initData.savedGUIData);
 	}
+
+	// Necessary when hotloading in order to repopulate g_TemplateData
+	Engine.GuiInterfaceCall("ResetEntityStateRetriever");
 
 	if (g_InitAttributes.campaignData)
 		g_CampaignSession = new CampaignSession(g_InitAttributes.campaignData);
@@ -461,6 +554,10 @@ function updatePlayerData()
 			"guid": undefined, // network guid for players controlled by hosts
 			"offline": g_Players[i] && !!g_Players[i].offline
 		});
+
+		// This is done here in order to theoretically support the number of players changing.
+		if (i >= g_TemplateData.size)
+			g_TemplateData.set(i, new Map());
 	}
 
 	for (const guid in g_PlayerAssignments)
@@ -641,7 +738,7 @@ function onTick()
 	{
 		g_Selection.dirty = false;
 		// When selection changed, get the entityStates of new entities
-		GetMultipleEntityStates(g_Selection.filter(entId => !g_EntityStates[entId]));
+		PreloadMultipleEntityStates(g_Selection.toList());
 
 		for (const handler of g_EntitySelectionChangeHandlers)
 			handler();
@@ -660,15 +757,14 @@ function onTick()
 
 function onSimulationUpdate()
 {
-	g_EntityStates = {};
+	g_EntityStates.clear();
 	g_SimState = undefined;
 
 	Engine.ProfileStart("sdf");
 	const info = Engine.GuiInterfaceCall("GetAndClearTemplateChanges");
-	// Templates change depending on technologies and auras, so they have to be reloaded after such a change.
-	// g_TechnologyData data never changes, so it shouldn't be cleared.
-	if (info.playersWithModifiedTemplates)
-		for (const player of info.playersWithModifiedTemplates)
+	if (info.playersWithChangedModifications)
+		for (const player of info.playersWithChangedModifications)
+			// Player-global modifications changed (e.g. by a technology), so the template data cache needs to be cleared.
 			g_TemplateData[player] = {};
 
 	// Some changes require reloading some cached values even if the selection itself didn't change.
@@ -680,7 +776,7 @@ function onSimulationUpdate()
 	if (!GetSimState())
 		return;
 
-	GetMultipleEntityStates(g_Selection.toList());
+	PreloadMultipleEntityStates(g_Selection.toList());
 
 	for (const handler of g_SimulationUpdateHandlers)
 		handler();
@@ -729,7 +825,7 @@ function updateGroups()
 	const getCostSum = (ent) =>
 	{
 		const entState = GetEntityState(ent);
-		const cost = GetTemplateData(entState.template, entState.player).cost;
+		const cost = GetTemplateData(entState.templateName, entState.player).cost;
 		return cost ? Object.keys(cost).map(key => cost[key]).reduce((sum, cur) => sum + cur) : 0;
 	};
 
@@ -751,7 +847,7 @@ function updateGroups()
 				if (pre.ents.length == cur.ents.length)
 					return getCostSum(pre.ents[0]) > getCostSum(cur.ents[0]) ? pre : cur;
 				return pre.ents.length > cur.ents.length ? pre : cur;
-			}).ents[0]).template).icon;
+			}).ents[0]).templateName).icon;
 
 			Engine.GetGUIObjectByName("unitGroupIcon[" + i + "]").sprite =
 				icon ? ("stretched:session/portraits/" + icon) : "groupsIcon";

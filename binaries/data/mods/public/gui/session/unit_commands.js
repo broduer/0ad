@@ -136,8 +136,7 @@ function updateUnitCommands(entStates, supplementalDetailsPanel, commandsPanel)
 	const playerState = playerStates[Engine.GetPlayerID()];
 
 	if (g_IsObserver || entStates.every(entState =>
-		controlsPlayer(entState.player) &&
-		(!entState.identity || entState.identity.controllable)) ||
+		controlsPlayer(entState.player) && entState.controllable) ||
 		playerState.controlsAll)
 	{
 		for (const guiName of g_PanelsOrder)

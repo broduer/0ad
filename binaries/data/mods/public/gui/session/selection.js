@@ -82,7 +82,7 @@ EntityGroups.prototype.add = function(ents)
 		if (!entState)
 			continue;
 
-		var templateName = entState.template;
+		var templateName = entState.templateName;
 		var key = GetTemplateData(templateName, entState.player).selectionGroupName || templateName;
 
 		// Group the ents by player and template
@@ -235,7 +235,7 @@ EntitySelection.prototype.getTemplateNames = function()
 	{
 		const entState = GetEntityState(ent);
 		if (entState)
-			templateNames.push(entState.template);
+			templateNames.push(entState.templateName);
 	}
 	return templateNames;
 };

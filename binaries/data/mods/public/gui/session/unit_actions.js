@@ -386,11 +386,11 @@ var g_UnitActions =
 					return false;
 
 				const unhealableClasses = entState.heal.unhealableClasses;
-				if (MatchesClassList(targetState.identity.classes, unhealableClasses))
+				if (MatchesClassList(targetState.identityClasses, unhealableClasses))
 					return false;
 
 				const healableClasses = entState.heal.healableClasses;
-				if (!MatchesClassList(targetState.identity.classes, healableClasses))
+				if (!MatchesClassList(targetState.identityClasses, healableClasses))
 					return false;
 
 				return { "possible": true };
@@ -776,7 +776,7 @@ var g_UnitActions =
 					return false;
 
 				if (!targetState.turretHolder.turretPoints.find(point =>
-					!point.allowedClasses || MatchesClassList(entState.identity.classes, point.allowedClasses)))
+					!point.allowedClasses || MatchesClassList(entState.identityClasses, point.allowedClasses)))
 					return false;
 
 				const occupiedTurrets = targetState.turretHolder.turretPoints.filter(point => point.entity != null);
@@ -858,7 +858,7 @@ var g_UnitActions =
 				if (targetState.garrisonHolder.occupiedSlots + extraCount > targetState.garrisonHolder.capacity)
 					tooltip = coloredText(tooltip, "orange");
 
-				if (!MatchesClassList(entState.identity.classes, targetState.garrisonHolder.allowedClasses))
+				if (!MatchesClassList(entState.identityClasses, targetState.garrisonHolder.allowedClasses))
 					return false;
 
 				return {
@@ -1224,7 +1224,7 @@ var g_UnitActions =
 
 					data.command = "gather-near-position";
 					data.resourceType = resourceType;
-					data.resourceTemplate = targetState.template;
+					data.resourceTemplate = targetState.templateName;
 					if (!targetState.speed)
 					{
 						data.command = "gather";
@@ -1397,12 +1397,7 @@ var g_UnitActions =
 			"actionCheck": function(target, selection)
 			{
 				// Only show this action if all entities are marked uncontrollable.
-				const playerState = g_SimState.players[g_ViewedPlayer];
-				if (playerState && playerState.controlsAll || selection.some(ent =>
-				{
-					const entState = GetEntityState(ent);
-					return entState && entState.identity && entState.identity.controllable;
-				}))
+				if (g_SimState.players[g_ViewedPlayer]?.controlsAll || selection.some(ent => GetEntityState(ent)?.controllable))
 					return false;
 
 				return {
@@ -1585,7 +1580,7 @@ var g_EntityCommands =
 			"getInfo": function(entStates)
 			{
 				const classes = ["Soldier", "Warship", "Siege", "Healer"];
-				if (entStates.every(entState => !MatchesClassList(entState.identity.classes, classes)))
+				if (entStates.every(entState => !MatchesClassList(entState.identityClasses, classes)))
 					return false;
 				return {
 					"tooltip": colorizeHotkey("%(hotkey)s" + " ", "session.calltoarms") +
@@ -1997,7 +1992,7 @@ function allowedPlayersCheck(entStates, validPlayers)
 function hasClass(entState, className)
 {
 	// note: use the functions in globalscripts/Templates.js for more versatile matching
-	return entState.identity && entState.identity.classes.indexOf(className) != -1;
+	return entState?.identityClasses?.indexOf(className) != -1;
 }
 
 /**
@@ -2015,7 +2010,7 @@ function isUndeletable(entState)
 	if (entState.capturePoints && entState.capturePoints[entState.player] < entState.maxCapturePoints / 2)
 		return translate("You cannot destroy this entity as you own less than half the capture points");
 
-	if (!entState.identity.canDelete)
+	if (entState.undeletable)
 		return translate("This entity is undeletable");
 
 	return false;
@@ -2076,7 +2071,7 @@ function getActionInfo(action, target, selection)
 		if (!entState)
 			continue;
 
-		if (playerState && !playerState.controlsAll && !entState.identity.controllable)
+		if (playerState && !playerState.controlsAll && !entState.controllable)
 			continue;
 
 		if (g_UnitActions[action] && g_UnitActions[action].getActionInfo)

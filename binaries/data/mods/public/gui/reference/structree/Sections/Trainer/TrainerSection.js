@@ -31,7 +31,7 @@ class TrainerSection
 		for (const unitCode of units.keys())
 		{
 			const unitTemplate = this.page.TemplateParser.getEntity(unitCode, civCode);
-			if (!unitTemplate.production.units.length && !unitTemplate.production.techs.length && !unitTemplate.upgrades)
+			if (!unitTemplate.production.units.length && !unitTemplate.production.techs.length && !unitTemplate.upgrade?.options)
 				continue;
 
 			if (count > this.trainerBoxes.length)

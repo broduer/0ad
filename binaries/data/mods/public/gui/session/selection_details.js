@@ -48,7 +48,7 @@ function updateGarrisonHealthBar(entState, selection)
 // Fills out information that most entities have
 function displaySingle(entState)
 {
-	const template = GetTemplateData(entState.template);
+	const template = GetTemplateData(entState.templateName);
 
 	const primaryName = g_SpecificNamesPrimary ? template.name.specific : template.name.generic;
 	let secondaryName;
@@ -75,13 +75,13 @@ function displaySingle(entState)
 		playerName = sprintf(translate("\\[OFFLINE] %(player)s"), { "player": playerName });
 
 	// Rank
-	if (entState.identity && entState.identity.rank && entState.identity.classes)
+	if (entState.rank && entState.identityClasses)
 	{
-		const rankObj = GetTechnologyData(entState.identity.rankTechName, playerState.civ);
+		const rankTooltip = (entState.rank && GetTechnologyData("unit_" + entState.rank.toLowerCase())?.tooltip) || "";
 		Engine.GetGUIObjectByName("rankIcon").tooltip = sprintf(translate("%(rank)s Rank"), {
-			"rank": translateWithContext("Rank", entState.identity.rank)
-		}) + (rankObj ? "\n" + rankObj.tooltip : "");
-		Engine.GetGUIObjectByName("rankIcon").sprite = "stretched:session/icons/ranks/" + entState.identity.rank + ".png";
+			"rank": translateWithContext("Rank", entState.rank)
+		}) + rankTooltip;
+		Engine.GetGUIObjectByName("rankIcon").sprite = "stretched:session/icons/ranks/" + entState.rank + ".png";
 		Engine.GetGUIObjectByName("rankIcon").hidden = false;
 	}
 	else
@@ -339,7 +339,7 @@ function displaySingle(entState)
 
 		iconBorder.onPressRight = () =>
 		{
-			showTemplateDetails(entState.template, playerState.civ);
+			showTemplateDetails(entState.templateName, playerState.civ);
 		};
 	}
 

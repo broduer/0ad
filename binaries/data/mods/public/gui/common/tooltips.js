@@ -619,7 +619,7 @@ function getTurretsTooltip(template)
 		return "";
 	return sprintf(translate("%(label)s: %(turretsLimit)s"), {
 		"label": headerFont(translate("Turret Positions")),
-		"turretsLimit": Object.keys(template.turretHolder.turretPoints).length
+		"turretsLimit": template.turretHolder.numTurretPoints
 	});
 }
 

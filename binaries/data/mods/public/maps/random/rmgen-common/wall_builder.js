@@ -48,7 +48,7 @@ function loadWallsetsFromCivData()
 function loadWallset(wallsetPath, civ)
 {
 	const newWallset = { "curves": [] };
-	const wallsetData = g_TemplateHelper.getBasicData(wallsetPath, {}, g_Resources, ["WallSet"]).wallSet;
+	const wallsetData = g_TemplateHelper.getBasicData(wallsetPath, {}, g_Resources, civ, ["WallSet"]).wallSet;
 
 	for (const element in wallsetData.templates)
 		if (element == "curves")
@@ -271,7 +271,7 @@ function getWallElement(element, style)
 function readyWallElement(path, civCode)
 {
 	path = path.replace(/\{civ\}/g, civCode);
-	const template = g_TemplateHelper.getBasicData(Engine.GetTemplate(path), null, g_Resources, ["WallPiece", "Obstruction"]);
+	const template = g_TemplateHelper.getBasicData(Engine.GetTemplate(path), null, g_Resources, civCode, ["WallPiece", "Obstruction"]);
 	const length = template.wallPiece ? template.wallPiece.length : template.obstruction.shape.width;
 
 	return deepfreeze({

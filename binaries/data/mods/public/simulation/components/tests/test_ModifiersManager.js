@@ -248,3 +248,64 @@ TS_ASSERT_EQUALS(ApplyValueModificationsToEntity("Test_D", 10, 5), 16);
 	Engine.PostMessage = oldPostMessage;
 	Engine.BroadcastMessage = oldBroadcastMessage;
 })();
+
+
+(function Test_ModifiersInfo()
+{
+	const TEST_ENTITY_1 = 13;
+	const TEST_ENTITY_2 = 14;
+
+	cmpModifiersManager = ConstructComponent(SYSTEM_ENTITY, "ModifiersManager", {});
+	cmpModifiersManager.Init();
+
+	TS_ASSERT_UNEVAL_EQUALS(cmpModifiersManager.GetModifiersInfo(TEST_ENTITY_1), {
+		"modifiedComponents": new Set(),
+		"modificationsID": ""
+	});
+	TS_ASSERT_UNEVAL_EQUALS(cmpModifiersManager.GetModifiersInfo(TEST_ENTITY_2), {
+		"modifiedComponents": new Set(),
+		"modificationsID": ""
+	});
+
+	cmpModifiersManager.AddModifier("Component1/Property1", "Modifier1", [{ "affects": ["Unit"], "add": 1 }], TEST_ENTITY_1, true);
+	cmpModifiersManager.AddModifier("Component1/Property1", "Modifier1", [{ "affects": ["Unit"], "add": 1 }], TEST_ENTITY_1, true);
+	TS_ASSERT_UNEVAL_EQUALS(cmpModifiersManager.GetModifiersInfo(TEST_ENTITY_1), {
+		"modifiedComponents": new Set(["Component1"]),
+		"modificationsID": "Component1/Property1:Modifier1(2) "
+	});
+
+	cmpModifiersManager.AddModifier("Component1/Property1", "Modifier2", [{ "affects": ["Unit"], "add": 2 }], TEST_ENTITY_1);
+	cmpModifiersManager.AddModifier("Component1/Property2", "Modifier3", [{ "affects": ["Unit"], "add": 3 }], TEST_ENTITY_1);
+	cmpModifiersManager.AddModifier("Component2/Property1", "Modifier1", [{ "affects": ["Unit"], "add": 10 }], TEST_ENTITY_1);
+	TS_ASSERT_UNEVAL_EQUALS(cmpModifiersManager.GetModifiersInfo(TEST_ENTITY_1), {
+		"modifiedComponents": new Set(["Component1", "Component2"]),
+		"modificationsID": "Component1/Property1:Modifier1(2)Modifier2(1) Component1/Property2:Modifier3(1) Component2/Property1:Modifier1(1) "
+	});
+	cmpModifiersManager.RemoveModifier("Component1/Property2", "Modifier3", TEST_ENTITY_1);
+	TS_ASSERT_UNEVAL_EQUALS(cmpModifiersManager.GetModifiersInfo(TEST_ENTITY_1), {
+		"modifiedComponents": new Set(["Component1", "Component2"]),
+		"modificationsID": "Component1/Property1:Modifier1(2)Modifier2(1) Component2/Property1:Modifier1(1) "
+	});
+
+	const assertModificationsIDsEqual = equal =>
+	{
+		let expected = cmpModifiersManager.GetModifiersInfo(TEST_ENTITY_1).modificationsID ==
+			cmpModifiersManager.GetModifiersInfo(TEST_ENTITY_2).modificationsID;
+		if (!equal)
+			expected = !expected;
+
+		TS_ASSERT(expected);
+	};
+
+	// Even if modifiers were added in different orders, two entities with the same one should have the same modifications ID.
+	cmpModifiersManager.AddModifier("Component2/Property1", "Modifier1", [{ "affects": ["Unit"], "add": 10 }], TEST_ENTITY_2);
+	cmpModifiersManager.AddModifier("Component1/Property1", "Modifier1", [{ "affects": ["Unit"], "add": 1 }], TEST_ENTITY_2, true);
+	cmpModifiersManager.AddModifier("Component1/Property1", "Modifier2", [{ "affects": ["Unit"], "add": 2 }], TEST_ENTITY_2);
+	assertModificationsIDsEqual(false);
+	cmpModifiersManager.AddModifier("Component1/Property1", "Modifier1", [{ "affects": ["Unit"], "add": 1 }], TEST_ENTITY_2, true);
+	assertModificationsIDsEqual(true);
+	cmpModifiersManager.RemoveModifier("Component1/Property1", "Modifier3", TEST_ENTITY_1);
+	assertModificationsIDsEqual(true);
+	cmpModifiersManager.RemoveModifier("Component2/Property1", "Modifier1", TEST_ENTITY_1);
+	assertModificationsIDsEqual(false);
+})();

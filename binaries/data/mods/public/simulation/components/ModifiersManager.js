@@ -18,6 +18,10 @@ ModifiersManager.prototype.Init = function()
 	// TODO: it might be worth keying by classes here.
 	this.playerEntitiesCached = new Map(); // Keyed by player ID, property name, entity ID.
 
+	// Contains the modifier infos for each entity, since piecing them together from scratch it is a bit slow
+	// and they're very frequently retrieved.
+	this.cachedInfos = new Map();
+
 	this.modifiersStorage = new MultiKeyMap(); // Keyed by property name, entity.
 
 	this.modifiersStorage._OnItemModified = (prim, sec, itemID) => this.ModifiersChanged.apply(this, [prim, sec, itemID]);
@@ -87,6 +91,7 @@ ModifiersManager.prototype.InvalidatePlayerEntCache = function(valueCache, prope
 
 ModifiersManager.prototype.InvalidateCache = function(propertyName, entity, playerCache)
 {
+	this.cachedInfos.delete(entity);
 	const valueCache = this.cachedValues.get(propertyName);
 	if (!valueCache)
 		return;
@@ -121,6 +126,45 @@ ModifiersManager.prototype.Cache = function(classesList, propertyName, originalV
 		cache2 = cache.set(entity, new Map()).get(entity);
 
 	cache2.set(originalValue, newValue);
+};
+
+/**
+ * Get information about an entity's local modifications.
+ * This includes a list of modified components and a "modifications ID", which is consistent
+ * and uniquely identifies the entire set of modifiers registered specifically to the entity.
+ */
+ModifiersManager.prototype.GetModifiersInfo = function(entity)
+{
+	let info = this.cachedInfos.get(entity);
+	if (!info)
+	{
+		const modifications = this.modifiersStorage.GetAllItems(entity);
+		const components = new Set();
+		let id = "";
+		for (const value in modifications)
+		{
+			id += `${value}:`;
+
+			const idx = value.indexOf("/");
+			const component = idx > 0 ? value.slice(0, idx) : value;
+			components.add(component);
+
+			// Sort the modifiers to ignore insertion order.
+			const modifiers = modifications[value].toSorted((a, b) =>
+				a._ID > b._ID ? 1 : -1 // the IDs can't be the same
+			);
+			for (const modifier of modifiers)
+				id += `${modifier._ID}(${modifier._count})`;
+
+			id += ' ';
+		}
+		info = {
+			"modifiedComponents": components,
+			"modificationsID": id
+		};
+		this.cachedInfos.set(entity, info);
+	}
+	return info;
 };
 
 /**
