@@ -643,31 +643,8 @@ GuiInterface.prototype.GetAverageRangeForBuildings = function(player, cmd)
 
 GuiInterface.prototype.GetTemplateData = function(player, data)
 {
-	const templateName = data.templateName;
-	const owner = data.player !== undefined ? data.player : player;
-	const cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
-	const template = cmpTemplateManager.GetTemplate(templateName);
-
-	if (!template)
-		return null;
-
-	const aurasTemplate = {};
-
-	if (!template.Auras)
-		return g_TemplateHelper.computeDataFromPlayer(template, aurasTemplate, Resources, owner);
-
-	const auraNames = template.Auras._string.split(/\s+/);
-
-	for (const name of auraNames)
-	{
-		const auraTemplate = AuraTemplates.Get(name);
-		if (!auraTemplate)
-			error("Template " + templateName + " has undefined aura " + name);
-		else
-			aurasTemplate[name] = auraTemplate;
-	}
-
-	return g_TemplateHelper.computeDataFromPlayer(template, aurasTemplate, Resources, owner);
+	const template = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager)?.GetTemplate(data.templateName);
+	return template && g_TemplateHelper.computeDataFromPlayer(template, AuraTemplates.GetAll(), Resources, data.player || player);
 };
 
 GuiInterface.prototype.AreRequirementsMet = function(player, data)
