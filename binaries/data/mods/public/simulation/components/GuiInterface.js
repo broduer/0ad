@@ -36,7 +36,7 @@ GuiInterface.prototype.Init = function()
 	this.entsRallyPointsDisplayed = [];
 	this.entsWithAuraAndStatusBars = new Set();
 	this.enabledVisualRangeOverlayTypes = {};
-	this.templateModified = {};
+	this.playersWithModifiedTemplates = new Set();
 	this.selectionDirty = {};
 	this.obstructionSnap = new ObstructionSnap();
 };
@@ -713,18 +713,18 @@ GuiInterface.prototype.GetNeededResources = function(player, data)
  */
 GuiInterface.prototype.OnTemplateModification = function(msg)
 {
-	this.templateModified[msg.player] = true;
+	this.playersWithModifiedTemplates.add(msg.player);
 	this.selectionDirty[msg.player] = true;
 };
 
-GuiInterface.prototype.IsTemplateModified = function(player)
+GuiInterface.prototype.GetPlayersWithModifiedTemplates = function(player)
 {
-	return this.templateModified[player] || false;
+	return this.playersWithModifiedTemplates;
 };
 
-GuiInterface.prototype.ResetTemplateModified = function()
+GuiInterface.prototype.ResetPlayersWithModifiedTemplates = function()
 {
-	this.templateModified = {};
+	this.playersWithModifiedTemplates.clear();
 };
 
 /**
@@ -2132,8 +2132,8 @@ GuiInterface.prototype.exposedFunctions = {
 
 	"GetTraderNumber": 1,
 	"GetTradingGoods": 1,
-	"IsTemplateModified": 1,
-	"ResetTemplateModified": 1,
+	"GetPlayersWithModifiedTemplates": 1,
+	"ResetPlayersWithModifiedTemplates": 1,
 	"IsSelectionDirty": 1,
 	"ResetSelectionDirty": 1
 };

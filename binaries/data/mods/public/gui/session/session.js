@@ -226,13 +226,23 @@ function GetEntityState(entId)
  */
 function GetTemplateData(templateName, player)
 {
-	if (!(templateName in g_TemplateData))
+	const targetPlayer = player || g_ViewedPlayer;
+	let cache = g_TemplateData[targetPlayer];
+	if (!cache)
 	{
-		const template = Engine.GuiInterfaceCall("GetTemplateData", { "templateName": templateName, "player": player });
-		translateObjectKeys(template, ["specific", "generic", "tooltip"]);
-		g_TemplateData[templateName] = deepfreeze(template);
+		cache = {};
+		g_TemplateData[targetPlayer] = cache;
 	}
-	return g_TemplateData[templateName];
+
+	let templateData = cache[templateName];
+	if (!templateData)
+	{
+		templateData = Engine.GuiInterfaceCall("GetTemplateData", { "templateName": templateName, "player": targetPlayer });
+		translateObjectKeys(templateData, ["specific", "generic", "tooltip"]);
+		deepfreeze(templateData);
+		cache[templateName] = templateData;
+	}
+	return templateData;
 }
 
 function GetTechnologyData(technologyName, civ)
@@ -285,7 +295,6 @@ async function init(initData, hotloadData)
 	g_DiplomacyColors = new DiplomacyColors();
 	g_PlayerViewControl = new PlayerViewControl();
 	g_PlayerViewControl.registerViewedPlayerChangeHandler(g_DiplomacyColors.updateDisplayedPlayerColors.bind(g_DiplomacyColors));
-	g_PlayerViewControl.registerViewedPlayerChangeHandler(resetTemplates);
 	g_DiplomacyColors.registerDiplomacyColorsChangeHandler(g_PlayerViewControl.rebuild.bind(g_PlayerViewControl));
 	g_PauseControl = new PauseControl();
 	g_PlayerViewControl.registerPreViewedPlayerChangeHandler(removeStatusBarDisplay);
@@ -495,16 +504,6 @@ function initializeMusic()
 
 }
 
-function resetTemplates()
-{
-	// Update GUI and clear player-dependent cache
-	g_TemplateData = {};
-	Engine.GuiInterfaceCall("ResetTemplateModified");
-
-	// TODO: do this more selectively
-	onSimulationUpdate();
-}
-
 /**
  * Returns true if the player with that ID is in observermode.
  */
@@ -660,15 +659,16 @@ function onTick()
 
 function onSimulationUpdate()
 {
+	g_EntityStates = {};
+	g_SimState = undefined;
+
 	// Templates change depending on technologies and auras, so they have to be reloaded after such a change.
 	// g_TechnologyData data never changes, so it shouldn't be deleted.
-	g_EntityStates = {};
-	if (Engine.GuiInterfaceCall("IsTemplateModified"))
-	{
-		g_TemplateData = {};
-		Engine.GuiInterfaceCall("ResetTemplateModified");
-	}
-	g_SimState = undefined;
+	const players = Engine.GuiInterfaceCall("GetPlayersWithModifiedTemplates");
+	for (const player of players)
+		g_TemplateData[player] = {};
+	if (players.size)
+		Engine.GuiInterfaceCall("ResetPlayersWithModifiedTemplates");
 
 	// Some changes may require re-rendering the selection.
 	if (Engine.GuiInterfaceCall("IsSelectionDirty"))
