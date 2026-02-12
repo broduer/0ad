@@ -157,12 +157,12 @@ function getHistoryTooltip(template)
 
 function getHealthTooltip(template)
 {
-	if (!template.health)
+	if (!template.maxHitpoints)
 		return "";
 
 	return sprintf(translate("%(label)s %(details)s"), {
 		"label": headerFont(translate("Health:")),
-		"details": template.health
+		"details": template.maxHitpoints
 	});
 }
 

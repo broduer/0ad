@@ -140,12 +140,12 @@ cmpUpgrade.OnOwnershipChanged({ "to": playerID });
  * Now to start the test proper
  * To start with, no techs are researched...
  */
-// T1: Check the cost of the upgrade without a player value being passed (as it would be in the structree).
-let parsed_template = GetTemplateDataHelper(template, null, {}, Resources);
+// T1: Check the cost of the upgrade without accounting for any player modifications (as it would be in the structree).
+let parsed_template = g_TemplateHelper.getBasicData(template, {}, Resources, ["Upgrade"]);
 TS_ASSERT_UNEVAL_EQUALS(parsed_template.upgrades[0].cost, { "stone": 100, "wood": 50, "time": 100 });
 
-// T2: Check the value, with a player ID (as it would be in-session).
-parsed_template = GetTemplateDataHelper(template, playerID, {}, Resources);
+// T2: Check the value, this time accounting for player modifiers (as it would be in-session).
+parsed_template = g_TemplateHelper.computeDataFromPlayer(template, {}, Resources, playerID, ["Upgrade"]);
 TS_ASSERT_UNEVAL_EQUALS(parsed_template.upgrades[0].cost, { "stone": 100, "wood": 50, "time": 100 });
 
 // T3: Check that the value is correct within the Update Component.
@@ -159,11 +159,11 @@ cmpUpgrade.Upgrade("structures/" + civCode + "/defense_tower");
 isResearched = true;
 
 // T4: Check that the player-less value hasn't increased...
-parsed_template = GetTemplateDataHelper(template, null, {}, Resources);
+parsed_template = g_TemplateHelper.getBasicData(template, {}, Resources, ["Upgrade"]);
 TS_ASSERT_UNEVAL_EQUALS(parsed_template.upgrades[0].cost, { "stone": 100, "wood": 50, "time": 100 });
 
 // T5: ...but the player-backed value has.
-parsed_template = GetTemplateDataHelper(template, playerID, {}, Resources);
+parsed_template = g_TemplateHelper.computeDataFromPlayer(template, {}, Resources, playerID, ["Upgrade"]);
 TS_ASSERT_UNEVAL_EQUALS(parsed_template.upgrades[0].cost, { "stone": 160, "wood": 25, "time": 90 });
 
 // T6: The upgrade component should still be using the old resource cost (but new time cost) for the upgrade in progress...

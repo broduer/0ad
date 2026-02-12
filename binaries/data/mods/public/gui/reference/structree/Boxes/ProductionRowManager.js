@@ -37,9 +37,9 @@ class ProductionRowManager
 				case "techs":
 					pIdx = this.page.TemplateParser.phaseList.indexOf(this.page.TemplateParser.getPhaseOfTechnology(prod, civCode));
 					prod = clone(this.page.TemplateParser.getTechnology(prod, civCode));
-					for (const res in template.techCostMultiplier)
+					for (const res in template.researcher.techCostMultiplier)
 						if (prod.cost[res])
-							prod.cost[res] *= template.techCostMultiplier[res];
+							prod.cost[res] *= template.researcher.techCostMultiplier[res];
 					break;
 
 				default:

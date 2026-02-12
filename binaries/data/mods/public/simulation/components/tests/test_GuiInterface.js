@@ -139,8 +139,7 @@ AddMock(100, IID_Diplomacy, {
 
 AddMock(100, IID_Identity, {
 	"GetName": function() { return "Player 1"; },
-	"GetCiv": function() { return "gaia"; },
-	"GetRankTechName": function() { return undefined; }
+	"GetCiv": function() { return "gaia"; }
 });
 
 AddMock(100, IID_EntityLimits, {
@@ -236,8 +235,7 @@ AddMock(101, IID_Diplomacy, {
 
 AddMock(101, IID_Identity, {
 	"GetName": function() { return "Player 2"; },
-	"GetCiv": function() { return "mace"; },
-	"GetRankTechName": function() { return undefined; }
+	"GetCiv": function() { return "mace"; }
 });
 
 AddMock(101, IID_EntityLimits, {
@@ -593,8 +591,7 @@ AddMock(10, IID_Identity, {
 	"GetSelectionGroupName": function() { return "Selection Group Name"; },
 	"HasClass": function() { return true; },
 	"IsUndeletable": function() { return false; },
-	"IsControllable": function() { return true; },
-	"GetRankTechName": function() { return undefined; }
+	"IsControllable": function() { return true; }
 });
 
 AddMock(10, IID_Position, {
@@ -623,7 +620,6 @@ TS_ASSERT_UNEVAL_EQUALS(cmp.GetEntityState(-1, 10), {
 	"template": "example",
 	"identity": {
 		"rank": "foo",
-		"rankTechName": undefined,
 		"classes": ["class1", "class2"],
 		"selectionGroupName": "Selection Group Name",
 		"canDelete": true,

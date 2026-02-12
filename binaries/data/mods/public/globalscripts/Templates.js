@@ -103,460 +103,6 @@ function MatchesClassList(classes, match)
 }
 
 /**
- * Gets the value originating at the value_path as-is, with no modifiers applied.
- *
- * @param {Object} template - A valid template as returned from a template loader.
- * @param {string} value_path - Route to value within the xml template structure.
- * @param {number} default_value - A value to use if one is not specified in the template.
- * @return {number}
- */
-function GetBaseTemplateDataValue(template, value_path, default_value)
-{
-	let current_value = template;
-	for (const property of value_path.split("/"))
-		current_value = current_value[property] || default_value;
-	return +current_value;
-}
-
-/**
- * Gets the value originating at the value_path with the modifiers dictated by the mod_key applied.
- *
- * @param {Object} template - A valid template as returned from a template loader.
- * @param {string} value_path - Route to value within the xml template structure.
- * @param {string} mod_key - Tech modification key, if different from value_path.
- * @param {number} player - Optional player id.
- * @param {Object} modifiers - Value modifiers from auto-researched techs, unit upgrades,
- *                             etc. Optional as only used if no player id provided.
- * @param {number} default_value - A value to use if one is not specified in the template.
- * @return {number} Modifier altered value.
- */
-function GetModifiedTemplateDataValue(template, value_path, mod_key, player, modifiers={}, default_value)
-{
-	let current_value = GetBaseTemplateDataValue(template, value_path, default_value);
-	mod_key = mod_key || value_path;
-
-	if (player)
-		current_value = ApplyValueModificationsToTemplate(mod_key, current_value, player, template);
-	else if (modifiers && modifiers[mod_key])
-		current_value = GetTechModifiedProperty(modifiers[mod_key], GetIdentityClasses(template.Identity), current_value);
-
-	// Using .toFixed() to get around spidermonkey's treatment of numbers (3 * 1.1 = 3.3000000000000003 for instance).
-	return +current_value.toFixed(8);
-}
-
-/**
- * Get information about a template with or without technology modifications.
- *
- * NOTICE: The data returned here should have the same structure as
- * the object returned by GetEntityState and GetExtendedEntityState!
- *
- * @param {Object} template - A valid template as returned by the template loader.
- * @param {number} player - An optional player id to get the technology modifications
- *                          of properties.
- * @param {Object} auraTemplates - In the form of { key: { "auraName": "", "auraDescription": "" } }.
- * @param {Object} resources - An instance of the Resources class.
- * @param {Object} modifiers - Modifications from auto-researched techs, unit upgrades
- *                             etc. Optional as only used if there's no player
- *                             id provided.
- */
-function GetTemplateDataHelper(template, player, auraTemplates, resources, modifiers = {})
-{
-	// Return data either from template (in tech tree) or sim state (ingame).
-	// @param {string} value_path - Route to the value within the template.
-	// @param {string} mod_key - Modification key, if not the same as the value_path.
-	// @param {number} default_value - A value to use if one is not specified in the template.
-	const getEntityValue = function(value_path, mod_key, default_value = 0)
-	{
-		return GetModifiedTemplateDataValue(template, value_path, mod_key, player, modifiers, default_value);
-	};
-
-	const ret = {};
-
-	if (template.Resistance)
-	{
-		// Don't show Foundation resistance.
-		ret.resistance = {};
-		if (template.Resistance.Entity)
-		{
-			if (template.Resistance.Entity.Damage)
-			{
-				ret.resistance.Damage = {};
-				for (const damageType in template.Resistance.Entity.Damage)
-					ret.resistance.Damage[damageType] = getEntityValue("Resistance/Entity/Damage/" + damageType);
-			}
-			if (template.Resistance.Entity.Capture)
-				ret.resistance.Capture = getEntityValue("Resistance/Entity/Capture");
-			if (template.Resistance.Entity.ApplyStatus)
-			{
-				ret.resistance.ApplyStatus = {};
-				for (const statusEffect in template.Resistance.Entity.ApplyStatus)
-					ret.resistance.ApplyStatus[statusEffect] = {
-						"blockChance": getEntityValue("Resistance/Entity/ApplyStatus/" + statusEffect + "/BlockChance"),
-						"duration": getEntityValue("Resistance/Entity/ApplyStatus/" + statusEffect + "/Duration")
-					};
-			}
-		}
-	}
-
-	const getAttackEffects = (temp, path) =>
-	{
-		const effects = {};
-		if (temp.Capture)
-			effects.Capture = getEntityValue(path + "/Capture");
-
-		if (temp.Damage)
-		{
-			effects.Damage = {};
-			for (const damageType in temp.Damage)
-				effects.Damage[damageType] = getEntityValue(path + "/Damage/" + damageType);
-		}
-
-		if (temp.ApplyStatus)
-			effects.ApplyStatus = temp.ApplyStatus;
-
-		return effects;
-	};
-
-	if (template.Attack)
-	{
-		ret.attack = {};
-		for (const type in template.Attack)
-		{
-			const getAttackStat = function(stat)
-			{
-				return getEntityValue("Attack/" + type + "/" + stat);
-			};
-
-			ret.attack[type] = {
-				"attackName": {
-					"name": template.Attack[type].AttackName._string || template.Attack[type].AttackName,
-					"context": template.Attack[type].AttackName["@context"]
-				},
-				"minRange": getAttackStat("MinRange"),
-				"maxRange": getAttackStat("MaxRange"),
-				"yOrigin": getAttackStat("Origin/Y")
-			};
-
-			ret.attack[type].elevationAdaptedRange = Math.sqrt(ret.attack[type].maxRange *
-				(2 * ret.attack[type].yOrigin + ret.attack[type].maxRange));
-
-			ret.attack[type].repeatTime = getAttackStat("RepeatTime");
-			if (template.Attack[type].Projectile)
-				ret.attack[type].projectileCount = template.Attack[type].Projectile.Count ?
-					+template.Attack[type].Projectile.Count : 1;
-			if (template.Attack[type].Projectile)
-				ret.attack[type].friendlyFire = template.Attack[type].Projectile.FriendlyFire == "true";
-
-			Object.assign(ret.attack[type], getAttackEffects(template.Attack[type], "Attack/" + type));
-
-			if (template.Attack[type].Splash)
-			{
-				ret.attack[type].splash = {
-					"friendlyFire": template.Attack[type].Splash.FriendlyFire != "false",
-					"shape": template.Attack[type].Splash.Shape,
-				};
-				Object.assign(ret.attack[type].splash, getAttackEffects(template.Attack[type].Splash, "Attack/" + type + "/Splash"));
-			}
-		}
-	}
-
-	if (template.DeathDamage)
-	{
-		ret.deathDamage = {
-			"friendlyFire": template.DeathDamage.FriendlyFire != "false",
-		};
-
-		Object.assign(ret.deathDamage, getAttackEffects(template.DeathDamage, "DeathDamage"));
-	}
-
-	if (template.Auras && auraTemplates)
-	{
-		ret.auras = {};
-		for (const auraID of template.Auras._string.split(/\s+/))
-			ret.auras[auraID] = GetAuraDataHelper(auraTemplates[auraID]);
-	}
-
-	if (template.BuildingAI)
-		ret.buildingAI = {
-			"defaultArrowCount": Math.round(getEntityValue("BuildingAI/DefaultArrowCount")),
-			"garrisonArrowMultiplier": getEntityValue("BuildingAI/GarrisonArrowMultiplier"),
-			"maxArrowCount": Math.round(getEntityValue("BuildingAI/MaxArrowCount"))
-		};
-
-	if (template.BuildRestrictions)
-	{
-		// required properties
-		ret.buildRestrictions = {
-			"placementType": template.BuildRestrictions.PlacementType,
-			"territory": template.BuildRestrictions.Territory,
-			"category": template.BuildRestrictions.Category,
-		};
-
-		// optional properties
-		if (template.BuildRestrictions.Distance)
-		{
-			ret.buildRestrictions.distance = {
-				"fromClass": template.BuildRestrictions.Distance.FromClass,
-			};
-
-			if (template.BuildRestrictions.Distance.MinDistance)
-				ret.buildRestrictions.distance.min = getEntityValue("BuildRestrictions/Distance/MinDistance");
-
-			if (template.BuildRestrictions.Distance.MaxDistance)
-				ret.buildRestrictions.distance.max = getEntityValue("BuildRestrictions/Distance/MaxDistance");
-		}
-	}
-
-	if (template.TrainingRestrictions)
-	{
-		ret.trainingRestrictions = {
-			"category": template.TrainingRestrictions.Category
-		};
-		if (template.TrainingRestrictions.MatchLimit)
-			ret.trainingRestrictions.matchLimit = +template.TrainingRestrictions.MatchLimit;
-	}
-
-	if (template.Cost)
-	{
-		ret.cost = {};
-		for (const resCode in template.Cost.Resources)
-			ret.cost[resCode] = getEntityValue("Cost/Resources/" + resCode);
-
-		if (template.Cost.Population)
-			ret.cost.population = getEntityValue("Cost/Population");
-
-		if (template.Cost.BuildTime)
-			ret.cost.time = getEntityValue("Cost/BuildTime");
-	}
-
-	if (template.Footprint)
-	{
-		ret.footprint = { "height": template.Footprint.Height };
-
-		if (template.Footprint.Square)
-			ret.footprint.square = {
-				"width": +template.Footprint.Square["@width"],
-				"depth": +template.Footprint.Square["@depth"]
-			};
-		else if (template.Footprint.Circle)
-			ret.footprint.circle = { "radius": +template.Footprint.Circle["@radius"] };
-		else
-			warn("GetTemplateDataHelper(): Unrecognized Footprint type");
-	}
-
-	if (template.Garrisonable)
-		ret.garrisonable = {
-			"size": getEntityValue("Garrisonable/Size")
-		};
-
-	if (template.GarrisonHolder)
-	{
-		ret.garrisonHolder = {
-			"buffHeal": getEntityValue("GarrisonHolder/BuffHeal")
-		};
-
-		if (template.GarrisonHolder.Max)
-			ret.garrisonHolder.capacity = getEntityValue("GarrisonHolder/Max");
-	}
-
-	if (template.Heal)
-		ret.heal = {
-			"health": getEntityValue("Heal/Health"),
-			"range": getEntityValue("Heal/Range"),
-			"interval": getEntityValue("Heal/Interval")
-		};
-
-	if (template.ResourceGatherer)
-	{
-		ret.resourceGatherRates = {};
-		const baseSpeed = getEntityValue("ResourceGatherer/BaseSpeed");
-		for (const type in template.ResourceGatherer.Rates)
-			ret.resourceGatherRates[type] = getEntityValue("ResourceGatherer/Rates/"+ type) * baseSpeed;
-	}
-
-	if (template.ResourceDropsite)
-		ret.resourceDropsite = {
-			"types": template.ResourceDropsite.Types.split(" ")
-		};
-
-	if (template.ResourceTrickle)
-	{
-		ret.resourceTrickle = {
-			"interval": +template.ResourceTrickle.Interval,
-			"rates": {}
-		};
-		for (const type in template.ResourceTrickle.Rates)
-			ret.resourceTrickle.rates[type] = getEntityValue("ResourceTrickle/Rates/" + type);
-	}
-
-	if (template.Loot)
-	{
-		ret.loot = {};
-		for (const type in template.Loot)
-			ret.loot[type] = getEntityValue("Loot/"+ type);
-	}
-
-	if (template.Obstruction)
-	{
-		ret.obstruction = {
-			"active": ("" + template.Obstruction.Active == "true"),
-			"blockMovement": ("" + template.Obstruction.BlockMovement == "true"),
-			"blockPathfinding": ("" + template.Obstruction.BlockPathfinding == "true"),
-			"blockFoundation": ("" + template.Obstruction.BlockFoundation == "true"),
-			"blockConstruction": ("" + template.Obstruction.BlockConstruction == "true"),
-			"disableBlockMovement": ("" + template.Obstruction.DisableBlockMovement == "true"),
-			"disableBlockPathfinding": ("" + template.Obstruction.DisableBlockPathfinding == "true"),
-			"shape": {}
-		};
-
-		if (template.Obstruction.Static)
-		{
-			ret.obstruction.shape.type = "static";
-			ret.obstruction.shape.width = +template.Obstruction.Static["@width"];
-			ret.obstruction.shape.depth = +template.Obstruction.Static["@depth"];
-		}
-		else if (template.Obstruction.Unit)
-		{
-			ret.obstruction.shape.type = "unit";
-			ret.obstruction.shape.radius = +template.Obstruction.Unit["@radius"];
-		}
-		else
-			ret.obstruction.shape.type = "cluster";
-	}
-
-	if (template.Pack)
-		ret.pack = {
-			"state": template.Pack.State,
-			"time": getEntityValue("Pack/Time"),
-		};
-
-	if (template.Population && template.Population.Bonus)
-		ret.population = {
-			"bonus": getEntityValue("Population/Bonus")
-		};
-
-	if (template.Health)
-		ret.health = Math.round(getEntityValue("Health/Max"));
-
-	if (template.Identity)
-	{
-		ret.selectionGroupName = template.Identity.SelectionGroupName;
-		ret.name = {
-			"specific": (template.Identity.SpecificName || template.Identity.GenericName),
-			"generic": template.Identity.GenericName
-		};
-		ret.icon = template.Identity.Icon;
-		ret.tooltip = template.Identity.Tooltip;
-		ret.requirements = template.Identity.Requirements;
-		ret.visibleIdentityClasses = GetVisibleIdentityClasses(template.Identity);
-		ret.nativeCiv = template.Identity.Civ;
-	}
-
-	if (template.UnitMotion)
-	{
-		const walkSpeed = getEntityValue("UnitMotion/WalkSpeed");
-		ret.speed = {
-			"walk": walkSpeed,
-			"run": walkSpeed,
-			"acceleration": getEntityValue("UnitMotion/Acceleration")
-		};
-		if (template.UnitMotion.RunMultiplier)
-			ret.speed.run *= getEntityValue("UnitMotion/RunMultiplier");
-	}
-
-	if (template.Upgrade)
-	{
-		ret.upgrades = [];
-		for (const upgradeName in template.Upgrade)
-		{
-			const upgrade = template.Upgrade[upgradeName];
-
-			const cost = {};
-			if (upgrade.Cost)
-				for (const res in upgrade.Cost)
-					cost[res] = getEntityValue("Upgrade/" + upgradeName + "/Cost/" + res, "Upgrade/Cost/" + res);
-			if (upgrade.Time)
-				cost.time = getEntityValue("Upgrade/" + upgradeName + "/Time", "Upgrade/Time");
-
-			ret.upgrades.push({
-				"entity": upgrade.Entity,
-				"tooltip": upgrade.Tooltip,
-				"cost": cost,
-				"icon": upgrade.Icon,
-				"requirements": upgrade.Requirements
-			});
-		}
-	}
-
-	if (template.Researcher)
-	{
-		ret.techCostMultiplier = {};
-		for (const res of resources.GetCodes().concat(["time"]))
-			ret.techCostMultiplier[res] = getEntityValue("Researcher/TechCostMultiplier/" + res, null, 1);
-	}
-
-	if (template.Trader)
-		ret.trader = {
-			"GainMultiplier": getEntityValue("Trader/GainMultiplier")
-		};
-
-	if (template.Treasure)
-	{
-		ret.treasure = {
-			"collectTime": getEntityValue("Treasure/CollectTime"),
-			"resources": {}
-		};
-		for (const resource in template.Treasure.Resources)
-			ret.treasure.resources[resource] = getEntityValue("Treasure/Resources/" + resource);
-	}
-
-	if (template.TurretHolder)
-		ret.turretHolder = {
-			"turretPoints": template.TurretHolder.TurretPoints
-		};
-
-	if (template.Upkeep)
-	{
-		ret.upkeep = {
-			"interval": +template.Upkeep.Interval,
-			"rates": {}
-		};
-		for (const type in template.Upkeep.Rates)
-			ret.upkeep.rates[type] = getEntityValue("Upkeep/Rates/" + type);
-	}
-
-	if (template.WallSet)
-	{
-		ret.wallSet = {
-			"templates": {
-				"tower": template.WallSet.Templates.Tower,
-				"gate": template.WallSet.Templates.Gate,
-				"fort": template.WallSet.Templates.Fort || "structures/" + template.Identity.Civ + "/fortress",
-				"long": template.WallSet.Templates.WallLong,
-				"medium": template.WallSet.Templates.WallMedium,
-				"short": template.WallSet.Templates.WallShort
-			},
-			"maxTowerOverlap": +template.WallSet.MaxTowerOverlap,
-			"minTowerOverlap": +template.WallSet.MinTowerOverlap
-		};
-		if (template.WallSet.Templates.WallEnd)
-			ret.wallSet.templates.end = template.WallSet.Templates.WallEnd;
-		if (template.WallSet.Templates.WallCurves)
-			ret.wallSet.templates.curves = template.WallSet.Templates.WallCurves.split(/\s+/);
-	}
-
-	if (template.WallPiece)
-		ret.wallPiece = {
-			"length": +template.WallPiece.Length,
-			"angle": +(template.WallPiece.Orientation || 1) * Math.PI,
-			"indent": +(template.WallPiece.Indent || 0),
-			"bend": +(template.WallPiece.Bend || 0) * Math.PI
-		};
-
-	return ret;
-}
-
-/**
  * Get basic information about a technology template.
  * @param {Object} template - A valid template as obtained by loading the tech JSON file.
  * @param {string} civ - Civilization for which the tech requirements should be calculated.
@@ -644,3 +190,553 @@ function removeFiltersFromTemplateName(templateName)
 {
 	return templateName.split("|").pop();
 }
+
+/**
+ * Helper providing several options to compute an already loaded template's "data", i.e. interesting values with
+ * dynamic modifications (from e.g. auras, techs, or civ bonuses) applied.
+ */
+class TemplateHelper
+{
+	/**
+	 * Stores some temporary data from the current query to avoid having to pass it around all the time
+	 * and to keep the computations clearer and cleaner.
+	 */
+	_context = Object.seal({
+		"template": {},
+		"player": null, // null or a player id
+		"entity": null, // null or an entity id
+		"auraTemplates": {},
+		"resources": {},
+		"customModifiers": null,
+		"applyValueModifications": () => 0
+	});
+
+	/**
+	 * Pull basic information from a template without applying any modifiers whatsoever.
+	 *
+	 * @param {Object} template - A valid template as returned by the template loader.
+	 * @param {Object} auraTemplates - In the form of { key: { "auraName": "", "auraDescription": "" } }.
+	 * @param {Object} resources - An instance of the Resources class.
+	 * @param {string[]} [components] - An array of components to process, if undefined all components are processed.
+	 */
+	getBasicData(template, auraTemplates, resources, components)
+	{
+		return this.computeDataFromModifiers(template, auraTemplates, resources, {}, components);
+	}
+
+	/**
+	 * Pull basic information from a template and apply a given set of modifiers to it.
+	 *
+	 * @param {Object} template - A valid template as returned by the template loader.
+	 * @param {Object} auraTemplates - In the form of { key: { "auraName": "", "auraDescription": "" } }.
+	 * @param {Object} resources - An instance of the Resources class.
+	 * @param {Object} modifiers - Modifications to apply to the template, e.g. from auto-researched techs or unit upgrades
+	 * @param {string[]} [components] - An array of components to process, if undefined all components are processed.
+	 */
+	computeDataFromModifiers(template, auraTemplates, resources, modifiers, components)
+	{
+		this._context.template = template;
+		this._context.player = null;
+		this._context.entity = null;
+		this._context.auraTemplates = auraTemplates;
+		this._context.resources = resources;
+		this._context.customModifiers = modifiers;
+		this._context.applyValueModifications = this._applyCustomModifications.bind(this);
+
+		return this._computeModifiedTemplateData(template, components);
+	}
+
+	/**
+	 * Pull basic information from a template and to it apply all modifiers registered (in the simulation) to a given player.
+	 * Must only be called in simulation context.
+	 *
+	 * @param {Object} template - A valid template as returned by the template loader.
+	 * @param {Object} auraTemplates - In the form of { key: { "auraName": "", "auraDescription": "" } }.
+	 * @param {Object} resources - An instance of the Resources class.
+	 * @param {number} player - ID of the target player.
+	 * @param {string[]} [components] - An array of components to process, if undefined all components are processed.
+	 */
+	computeDataFromPlayer(template, auraTemplates, resources, player, components)
+	{
+		this._context.template = template;
+		this._context.player = player;
+		this._context.entity = null;
+		this._context.auraTemplates = auraTemplates;
+		this._context.resources = resources;
+		this._context.customModifiers = null;
+		this._context.applyValueModifications = this._applyPlayerModifications.bind(this);
+
+		return this._computeModifiedTemplateData(template, components);
+	}
+
+	/**
+	 * Apply the manually-passed ("custom") modifiers to a given value.
+	 */
+	_applyCustomModifications(currentValue, modKey)
+	{
+		if (this._context.modifiers?.[modKey])
+			return GetTechModifiedProperty(
+				this._context.modifiers[modKey], GetIdentityClasses(this._context.template.Identity), currentValue
+			);
+		return currentValue;
+	}
+
+	/**
+	 * Apply the modifiers of the current player to a given value.
+	 */
+	_applyPlayerModifications(currentValue, modKey)
+	{
+		return ApplyValueModificationsToTemplate(modKey, currentValue, this._context.player, this._context.template);
+	}
+
+	/**
+	 * Read a given value from the current template, and apply the current modifications to it.
+	 * Only call this for values that can theoretically be modified (i.e. the simulation supports it), like attack damge or max HP.
+	 * Static, unmodifiable values (like turret points or footprint size) are better read from the template directly.
+	 */
+	_getModifiedValue(valuePath, modKey, defaultValue = 0)
+	{
+		let currentValue = this._context.template;
+		for (const property of valuePath.split("/"))
+			currentValue = currentValue[property] || defaultValue;
+
+		// Using .toFixed() to get around spidermonkey's treatment of numbers (3 * 1.1 = 3.3000000000000003 for instance).
+		return +this._context.applyValueModifications(+currentValue, modKey || valuePath).toFixed(8);
+	}
+
+	/**
+	 * Pull the desired information from a template while accounting for modifications of the current context.
+	 */
+	_computeModifiedTemplateData(template, components)
+	{
+		const ret = {};
+		for (const component of (components || Object.keys(template)))
+		{
+			const handler = this._componentHandlers[component];
+			if (!handler)
+				// There doesn't need to be a handler for each component, so just skip it silently.
+				continue;
+
+			handler(template[component], ret);
+		}
+
+		return ret;
+	}
+
+	/**
+	 * Simple helper for the component handlers.
+	 */
+	_getAttackEffects(template, path)
+	{
+		const ret = {};
+		if (template.Capture)
+			ret.Capture = this._getModifiedValue(path + "/Capture");
+
+		if (template.Damage)
+		{
+			ret.Damage = {};
+			for (const damageType in template.Damage)
+				ret.Damage[damageType] = this._getModifiedValue(path + "/Damage/" + damageType);
+		}
+
+		if (template.ApplyStatus)
+			ret.ApplyStatus = template.ApplyStatus;
+
+		return ret;
+	}
+
+	/**
+	 * The methods performing the core logic, pulling and processing the values of the template's individual
+	 * components.
+	 */
+	_componentHandlers = {
+		"Attack": (attack, ret) =>
+		{
+			ret.attack = {};
+
+			for (const type in attack)
+			{
+				const attackType = attack[type];
+				const data = this._getAttackEffects(attackType, "Attack/" + type);
+
+				const getAttackStat = stat =>
+					this._getModifiedValue("Attack/" + type + "/" + stat);
+
+				data.attackName = {
+					"name": attackType.AttackName._string || attackType.AttackName
+				};
+				const context = attackType.AttackName["@context"];
+				if (context)
+					data.attackName.context = context;
+
+				data.minRange = getAttackStat("MinRange");
+				data.maxRange = getAttackStat("MaxRange");
+				data.yOrigin = getAttackStat("Origin/Y");
+
+				data.elevationAdaptedRange =
+					Math.sqrt(data.maxRange *
+						(2 * data.yOrigin + data.maxRange));
+
+				data.repeatTime = getAttackStat("RepeatTime");
+
+				if (attackType.Projectile)
+					data.projectileCount = +attackType.Projectile.Count || 1;
+
+				if (attackType.Projectile)
+					data.friendlyFire = attackType.Projectile.FriendlyFire === "true";
+
+				if (attackType.Splash)
+				{
+					data.splash = this._getAttackEffects(
+						attackType.Splash,
+						"Attack/" + type + "/Splash"
+					);
+					data.splash.friendlyFire = attackType.Splash.FriendlyFire !== "false";
+					data.splash.shape = attackType.Splash.Shape;
+				}
+
+				ret.attack[type] = data;
+			}
+		},
+		"Auras": (auras, ret) =>
+		{
+			ret.auras = {};
+
+			if (this._context.auraTemplates)
+				for (const auraID of auras._string.split(/\s+/))
+					ret.auras[auraID] =
+						GetAuraDataHelper(this._context.auraTemplates[auraID]);
+		},
+		"BuildRestrictions": (buildRestrictions, ret) =>
+		{
+			ret.buildRestrictions = {
+				"placementType": buildRestrictions.PlacementType,
+				"territory": buildRestrictions.Territory,
+				"category": buildRestrictions.Category
+			};
+
+			if (buildRestrictions.Distance)
+			{
+				ret.buildRestrictions.distance = {
+					"fromClass": buildRestrictions.Distance.FromClass
+				};
+
+				if (buildRestrictions.Distance.MinDistance)
+					ret.buildRestrictions.distance.min =
+						this._getModifiedValue("BuildRestrictions/Distance/MinDistance");
+
+				if (buildRestrictions.Distance.MaxDistance)
+					ret.buildRestrictions.distance.max =
+						this._getModifiedValue("BuildRestrictions/Distance/MaxDistance");
+			}
+		},
+		"BuildingAI": (buildingAI, ret) =>
+		{
+			ret.buildingAI = {
+				"defaultArrowCount": Math.round(this._getModifiedValue("BuildingAI/DefaultArrowCount")),
+				"garrisonArrowMultiplier": this._getModifiedValue("BuildingAI/GarrisonArrowMultiplier"),
+				"maxArrowCount": Math.round(this._getModifiedValue("BuildingAI/MaxArrowCount"))
+			};
+		},
+		"Cost": (cost, ret) =>
+		{
+			ret.cost = {};
+
+			for (const resCode in cost.Resources)
+				ret.cost[resCode] =
+					this._getModifiedValue("Cost/Resources/" + resCode);
+
+			if (cost.Population)
+				ret.cost.population = this._getModifiedValue("Cost/Population");
+
+			if (cost.BuildTime)
+				ret.cost.time = this._getModifiedValue("Cost/BuildTime");
+		},
+		"DeathDamage": (deathDamage, ret) =>
+		{
+			ret.deathDamage = this._getAttackEffects(deathDamage, "DeathDamage");
+			ret.deathDamage.friendlyFire = deathDamage.FriendlyFire != "false";
+		},
+		"Footprint": (footprint, ret) =>
+		{
+			ret.footprint = { "height": footprint.Height };
+
+			if (footprint.Square)
+				ret.footprint.square = {
+					"width": +footprint.Square["@width"],
+					"depth": +footprint.Square["@depth"]
+				};
+			else if (footprint.Circle)
+				ret.footprint.circle = {
+					"radius": +footprint.Circle["@radius"]
+				};
+			else
+				warn("TemplateHelper: Unrecognized Footprint type");
+		},
+		"Garrisonable": (garrisonable, ret) =>
+		{
+			ret.garrisonable = {
+				"size": this._getModifiedValue("Garrisonable/Size")
+			};
+		},
+		"GarrisonHolder": (garrisonHolder, ret) =>
+		{
+			ret.garrisonHolder = {
+				"buffHeal": this._getModifiedValue("GarrisonHolder/BuffHeal"),
+				"capacity": this._getModifiedValue("GarrisonHolder/Max")
+			};
+		},
+		"Heal": (heal, ret) =>
+		{
+			ret.heal = {
+				"health": this._getModifiedValue("Heal/Health"),
+				"range": this._getModifiedValue("Heal/Range"),
+				"interval": this._getModifiedValue("Heal/Interval")
+			};
+		},
+		"Health": (health, ret) =>
+		{
+			ret.maxHitpoints = Math.round(this._getModifiedValue("Health/Max"));
+		},
+		"Identity": (identity, ret) =>
+		{
+			ret.selectionGroupName = identity.SelectionGroupName;
+			ret.name = {
+				"specific": (identity.SpecificName || identity.GenericName),
+				"generic": identity.GenericName
+			};
+			ret.icon = identity.Icon;
+			ret.tooltip = identity.Tooltip;
+			ret.visibleIdentityClasses = GetVisibleIdentityClasses(identity);
+			ret.nativeCiv = identity.Civ;
+			ret.requirements = identity.Requirements;
+			ret.rank = identity.Rank;
+		},
+		"Loot": (loot, ret) =>
+		{
+			ret.loot = {};
+
+			for (const type in loot)
+				ret.loot[type] =
+					this._getModifiedValue("Loot/" + type);
+		},
+		"Obstruction": (obstruction, ret) =>
+		{
+			ret.obstruction = {
+				"active": ("" + obstruction.Active === "true"),
+				"blockMovement": ("" + obstruction.BlockMovement === "true"),
+				"blockPathfinding": ("" + obstruction.BlockPathfinding === "true"),
+				"blockFoundation": ("" + obstruction.BlockFoundation === "true"),
+				"blockConstruction": ("" + obstruction.BlockConstruction === "true"),
+				"disableBlockMovement": ("" + obstruction.DisableBlockMovement === "true"),
+				"disableBlockPathfinding": ("" + obstruction.DisableBlockPathfinding === "true"),
+				"shape": {}
+			};
+
+			if (obstruction.Static)
+			{
+				ret.obstruction.shape.type = "static";
+				ret.obstruction.shape.width = +obstruction.Static["@width"];
+				ret.obstruction.shape.depth = +obstruction.Static["@depth"];
+			}
+			else if (obstruction.Unit)
+			{
+				ret.obstruction.shape.type = "unit";
+				ret.obstruction.shape.radius = +obstruction.Unit["@radius"];
+			}
+			else
+			{
+				ret.obstruction.shape.type = "cluster";
+			}
+		},
+		"Pack": (pack, ret) =>
+		{
+			ret.pack = {
+				"state": pack.State,
+				"time": this._getModifiedValue("Pack/Time")
+			};
+		},
+		"Population": (population, ret) =>
+		{
+			if (!population.Bonus)
+				return;
+
+			ret.population = {
+				"bonus": this._getModifiedValue("Population/Bonus")
+			};
+		},
+		"Researcher": (researcher, ret) =>
+		{
+			ret.researcher = {
+				"techCostMultiplier": {}
+			};
+
+			for (const res of this._context.resources.GetCodes().concat(["time"]))
+				ret.researcher.techCostMultiplier[res] =
+					this._getModifiedValue("Researcher/TechCostMultiplier/" + res, null, 1);
+		},
+		"Resistance": (resistance, ret) =>
+		{
+			const form = this._context.template.Foundation ? "Foundation" : "Entity";
+			const resistanceForm = resistance?.[form];
+			if (!resistanceForm)
+				return;
+
+			ret.resistance = {};
+
+			if (resistanceForm.Damage)
+			{
+				ret.resistance.Damage = {};
+				for (const damageType in resistanceForm.Damage)
+					ret.resistance.Damage[damageType] =
+						this._getModifiedValue("Resistance/Entity/Damage/" + damageType);
+			}
+
+			if (resistanceForm.Capture)
+				ret.resistance.Capture = this._getModifiedValue("Resistance/Entity/Capture");
+
+			if (resistanceForm.ApplyStatus)
+			{
+				ret.resistance.ApplyStatus = {};
+				for (const statusEffect in resistanceForm.ApplyStatus)
+					ret.resistance.ApplyStatus[statusEffect] = {
+						"blockChance": this._getModifiedValue("Resistance/Entity/ApplyStatus/" + statusEffect + "/BlockChance"),
+						"duration": this._getModifiedValue("Resistance/Entity/ApplyStatus/" + statusEffect + "/Duration")
+					};
+			}
+		},
+		"ResourceDropsite": (resourceDropsite, ret) =>
+		{
+			ret.resourceDropsite = {
+				"types": resourceDropsite.Types.split(" ")
+			};
+		},
+		"ResourceGatherer": (resourceGatherer, ret) =>
+		{
+			ret.resourceGatherRates = {};
+
+			const baseSpeed = this._getModifiedValue("ResourceGatherer/BaseSpeed");
+
+			for (const type in resourceGatherer.Rates)
+				ret.resourceGatherRates[type] =
+					this._getModifiedValue("ResourceGatherer/Rates/" + type) * baseSpeed;
+		},
+		"ResourceTrickle": (resourceTrickle, ret) =>
+		{
+			ret.resourceTrickle = {
+				"interval": +resourceTrickle.Interval,
+				"rates": {}
+			};
+
+			for (const type in resourceTrickle.Rates)
+				ret.resourceTrickle.rates[type] =
+					this._getModifiedValue("ResourceTrickle/Rates/" + type);
+		},
+		"Trader": (trader, ret) =>
+		{
+			ret.trader = {
+				"GainMultiplier": this._getModifiedValue("Trader/GainMultiplier")
+			};
+		},
+		"Treasure": (treasure, ret) =>
+		{
+			ret.treasure = {
+				"collectTime": this._getModifiedValue("Treasure/CollectTime"),
+				"resources": {}
+			};
+
+			for (const resource in treasure.Resources)
+				ret.treasure.resources[resource] =
+					this._getModifiedValue("Treasure/Resources/" + resource);
+		},
+		"TurretHolder": (turretHolder, ret) =>
+		{
+			ret.turretHolder = {
+				"turretPoints": turretHolder.TurretPoints
+			};
+		},
+		"UnitMotion": (unitMotion, ret) =>
+		{
+			const walkSpeed = this._getModifiedValue("UnitMotion/WalkSpeed");
+
+			ret.unitMotion = {
+				"walk": walkSpeed,
+				"run": walkSpeed,
+				"acceleration": this._getModifiedValue("UnitMotion/Acceleration")
+			};
+
+			if (unitMotion.RunMultiplier)
+				ret.unitMotion.run *= this._getModifiedValue("UnitMotion/RunMultiplier");
+		},
+		"Upkeep": (upkeep, ret) =>
+		{
+			ret.upkeep = {
+				"interval": +upkeep.Interval,
+				"rates": {}
+			};
+
+			for (const type in upkeep.Rates)
+				ret.upkeep.rates[type] =
+					this._getModifiedValue("Upkeep/Rates/" + type);
+		},
+		"Upgrade": (upgrade, ret) =>
+		{
+			ret.upgrades = [];
+
+			for (const upgradeName in upgrade)
+			{
+				const upgr = upgrade[upgradeName];
+
+				const cost = {};
+				if (upgr.Cost)
+					for (const res in upgr.Cost)
+						cost[res] =
+							this._getModifiedValue("Upgrade/" + upgradeName + "/Cost/" + res, "Upgrade/Cost/" + res);
+
+				if (upgr.Time)
+					cost.time =
+						this._getModifiedValue("Upgrade/" + upgradeName + "/Time", "Upgrade/Time");
+
+				ret.upgrades.push({
+					"entity": upgr.Entity,
+					"tooltip": upgr.Tooltip,
+					cost,
+					"icon": upgr.Icon,
+					"requirements": upgr.Requirements
+				});
+			}
+		},
+		"WallPiece": (wallPiece, ret) =>
+		{
+			ret.wallPiece = {
+				"length": +wallPiece.Length,
+				"angle": +(wallPiece.Orientation || 1) * Math.PI,
+				"indent": +(wallPiece.Indent || 0),
+				"bend": +(wallPiece.Bend || 0) * Math.PI
+			};
+		},
+		"WallSet": (wallSet, ret) =>
+		{
+			ret.wallSet = {
+				"templates": {
+					"tower": wallSet.Templates.Tower,
+					"gate": wallSet.Templates.Gate,
+					"fort": wallSet.Templates.Fort || "structures/" + this._context.template.Identity.Civ + "/fortress",
+					"long": wallSet.Templates.WallLong,
+					"medium": wallSet.Templates.WallMedium,
+					"short": wallSet.Templates.WallShort
+				},
+				"maxTowerOverlap": +wallSet.MaxTowerOverlap,
+				"minTowerOverlap": +wallSet.MinTowerOverlap
+			};
+
+			if (wallSet.Templates.WallEnd)
+				ret.wallSet.templates.end = wallSet.Templates.WallEnd;
+
+			if (wallSet.Templates.WallCurves)
+				ret.wallSet.templates.curves = wallSet.Templates.WallCurves.split(/\s+/);
+		}
+	};
+}
+
+var g_TemplateHelper = new TemplateHelper();
