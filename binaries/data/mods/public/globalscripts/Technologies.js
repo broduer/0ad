@@ -54,9 +54,9 @@ function GetTechModifiedProperty_numeric(modifications, classes, originalValue)
 			continue;
 		if (modification.replace !== undefined)
 			return modification.replace;
-		if (modification.multiply)
+		if (modification.multiply !== undefined)
 			multiply *= modification.multiply;
-		else if (modification.add)
+		else if (modification.add !== undefined)
 			add += modification.add;
 		else
 			warn("GetTechModifiedProperty: numeric modification format not recognized : " + uneval(modification));
