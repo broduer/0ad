@@ -120,7 +120,7 @@ function getMismatchMessage(mismatchType, clientMismatchInfo, serverMismatchInfo
  */
 function reportDisconnect(message, wasConnected)
 {
-	if (message.reason === 0)
+	if (message.reason === 1)
 		reportConnectionRequestTimeOut();
 	else if (message.reason == 16)
 		reportMismatchingSoftwareVersions(message.mismatch_type, message.client_mismatch, message.server_mismatch);
