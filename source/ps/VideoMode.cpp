@@ -61,6 +61,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 
 #if OS_MACOSX && SDL_VERSION_ATLEAST(2, 0, 6)
 #include "ps/DllLoader.h"
@@ -132,6 +133,22 @@ extern void wutil_EnableHiDPIOnWindows();
 
 CVideoMode g_VideoMode;
 
+namespace raii {
+	struct SDLDeleter
+	{
+		void operator()(::SDL_Cursor* cursor) const
+		{
+			SDL_FreeCursor(cursor);
+		}
+		void operator()(::SDL_Surface* surface) const
+		{
+			SDL_FreeSurface(surface);
+		}
+	};
+	using SDL_Cursor = std::unique_ptr<::SDL_Cursor, SDLDeleter>;
+	using SDL_Surface = std::unique_ptr<::SDL_Surface, SDLDeleter>;
+}
+
 class CVideoMode::CCursor
 {
 public:
@@ -142,15 +159,14 @@ public:
 	};
 
 	CCursor();
-	~CCursor();
 
 	void SetCursor(const CStrW& name);
 	void ResetCursor();
+	void ClearCache();
 
 private:
 	CursorBackend m_CursorBackend = CursorBackend::SYSTEM;
-	SDL_Surface* m_CursorSurface = nullptr;
-	SDL_Cursor* m_Cursor = nullptr;
+	std::unordered_map<CStrW, raii::SDL_Cursor> m_CursorsCache;
 	CStrW m_CursorName;
 };
 
@@ -164,24 +180,11 @@ CVideoMode::CCursor::CCursor()
 	ResetCursor();
 }
 
-CVideoMode::CCursor::~CCursor()
-{
-	if (m_Cursor)
-		SDL_FreeCursor(m_Cursor);
-	if (m_CursorSurface)
-		SDL_FreeSurface(m_CursorSurface);
-}
-
 void CVideoMode::CCursor::SetCursor(const CStrW& name)
 {
 	if (m_CursorBackend == CursorBackend::SYSTEM || m_CursorName == name)
 		return;
 	m_CursorName = name;
-
-	if (m_Cursor)
-		SDL_FreeCursor(m_Cursor);
-	if (m_CursorSurface)
-		SDL_FreeSurface(m_CursorSurface);
 
 	if (name.empty())
 	{
@@ -189,94 +192,107 @@ void CVideoMode::CCursor::SetCursor(const CStrW& name)
 		return;
 	}
 
-	const VfsPath pathBaseName(VfsPath(L"art/textures/cursors") / name);
-
-	// Read pixel offset of the cursor's hotspot [the bit of it that's
-	// drawn at (g_mouse_x,g_mouse_y)] from file.
-	int hotspotX = 0, hotspotY = 0;
+	auto it = m_CursorsCache.find(name);
+	if (it == end(m_CursorsCache))
 	{
-		const VfsPath pathHotspotName = pathBaseName.ChangeExtension(L".txt");
-		std::shared_ptr<u8> buffer;
-		size_t size;
-		if (g_VFS->LoadFile(pathHotspotName, buffer, size) != INFO::OK)
+		const VfsPath pathBaseName(VfsPath(L"art/textures/cursors") / name);
+
+		// Read pixel offset of the cursor's hotspot [the bit of it that's
+		// drawn at (g_mouse_x,g_mouse_y)] from file.
+		int hotspotX = 0, hotspotY = 0;
 		{
-			LOGERROR("Can't load hotspot for cursor: %s", pathHotspotName.string8().c_str());
+			const VfsPath pathHotspotName = pathBaseName.ChangeExtension(L".txt");
+			std::shared_ptr<u8> buffer;
+			size_t size;
+			if (g_VFS->LoadFile(pathHotspotName, buffer, size) != INFO::OK)
+			{
+				LOGERROR("Can't load hotspot for cursor: %s", pathHotspotName.string8().c_str());
+				return;
+			}
+			std::wstringstream s(std::wstring(reinterpret_cast<const wchar_t*>(buffer.get()), size));
+			s >> hotspotX >> hotspotY;
+		}
+
+		const VfsPath pathImageName = pathBaseName.ChangeExtension(L".png");
+
+		std::shared_ptr<u8> file;
+		size_t fileSize;
+		if (g_VFS->LoadFile(pathImageName, file, fileSize) != INFO::OK)
+		{
+			LOGERROR("Can't load image for cursor: %s", pathImageName.string8().c_str());
 			return;
 		}
-		std::wstringstream s(std::wstring(reinterpret_cast<const wchar_t*>(buffer.get()), size));
-		s >> hotspotX >> hotspotY;
-	}
 
-	const VfsPath pathImageName = pathBaseName.ChangeExtension(L".png");
-
-	std::shared_ptr<u8> file;
-	size_t fileSize;
-	if (g_VFS->LoadFile(pathImageName, file, fileSize) != INFO::OK)
-	{
-		LOGERROR("Can't load image for cursor: %s", pathImageName.string8().c_str());
-		return;
-	}
-
-	Tex t;
-	if (t.decode(file, fileSize) != INFO::OK)
-	{
-		LOGERROR("Can't decode image for cursor");
-		return;
-	}
-
-	// Convert to required BGRA format.
-	const size_t flags = (t.m_Flags | TEX_BGR) & ~TEX_DXT;
-	if (t.transform_to(flags) != INFO::OK)
-	{
-		LOGERROR("Can't transform image for cursor");
-		return;
-	}
-	void* imageBGRA = t.get_data();
-	if (!imageBGRA)
-	{
-		LOGERROR("Transformed image is empty for cursor");
-		return;
-	}
-
-	m_CursorSurface = SDL_CreateRGBSurfaceFrom(imageBGRA,
-		static_cast<int>(t.m_Width), static_cast<int>(t.m_Height), 32,
-		static_cast<int>(t.m_Width * 4),
-		0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
-	if (!m_CursorSurface)
-	{
-		LOGERROR("Can't create surface for cursor: %s", SDL_GetError());
-		return;
-	}
-	const float scale = g_VideoMode.GetScale();
-	if (scale != 1.0)
-	{
-		SDL_Surface* scaledSurface = SDL_CreateRGBSurface(0,
-			m_CursorSurface->w * scale,
-			m_CursorSurface->h * scale, 32,
-			0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
-		if (!scaledSurface)
+		Tex t;
+		if (t.decode(file, fileSize) != INFO::OK)
 		{
-			LOGERROR("Can't create scaled surface forcursor: %s", SDL_GetError());
+			LOGERROR("Can't decode image for cursor");
 			return;
 		}
-		if (SDL_BlitScaled(m_CursorSurface, nullptr, scaledSurface, nullptr))
+
+		// Convert to required BGRA format.
+		const size_t flags = (t.m_Flags | TEX_BGR) & ~TEX_DXT;
+		if (t.transform_to(flags) != INFO::OK)
+		{
+			LOGERROR("Can't transform image for cursor");
 			return;
-		SDL_FreeSurface(m_CursorSurface);
-		m_CursorSurface = scaledSurface;
-	}
-	m_Cursor = SDL_CreateColorCursor(m_CursorSurface, hotspotX, hotspotY);
-	if (!m_Cursor)
-	{
-		LOGERROR("Can't create cursor: %s", SDL_GetError());
-		return;
+		}
+		void* imageBGRA = t.get_data();
+		if (!imageBGRA)
+		{
+			LOGERROR("Transformed image is empty for cursor");
+			return;
+		}
+
+		raii::SDL_Surface surface(SDL_CreateRGBSurfaceFrom(imageBGRA,
+			static_cast<int>(t.m_Width), static_cast<int>(t.m_Height), 32,
+			static_cast<int>(t.m_Width * 4),
+			0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000));
+		if (!surface)
+		{
+			LOGERROR("Can't create surface for cursor: %s", SDL_GetError());
+			return;
+		}
+		const float scale = g_VideoMode.GetScale();
+		if (scale != 1.0)
+		{
+			raii::SDL_Surface scaledSurface(SDL_CreateRGBSurface(0,
+				surface->w * scale,
+				surface->h * scale, 32,
+				0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000));
+			if (!scaledSurface)
+			{
+				LOGERROR("Can't create scaled surface forcursor: %s", SDL_GetError());
+				return;
+			}
+			if (SDL_BlitScaled(surface.get(), nullptr, scaledSurface.get(), nullptr))
+				return;
+			surface = std::move(scaledSurface);
+		}
+		raii::SDL_Cursor cursor(SDL_CreateColorCursor(surface.get(), hotspotX, hotspotY));
+		if (!cursor)
+		{
+			LOGERROR("Can't create cursor: %s", SDL_GetError());
+			return;
+		}
+		it = m_CursorsCache.emplace(name, std::move(cursor)).first;
 	}
 
-	SDL_SetCursor(m_Cursor);
+	SDL_SetCursor(it->second.get());
+	SDL_ShowCursor(SDL_ENABLE);
 }
 
 void CVideoMode::CCursor::ResetCursor()
 {
 	SetCursor(DEFAULT_CURSOR_NAME);
+}
+
+void CVideoMode::CCursor::ClearCache()
+{
+	CStrW currentCursor = m_CursorName;
+	SetCursor(CStrW());
+	m_CursorsCache.clear();
+	SetCursor(currentCursor);
 }
 
 CVideoMode::CVideoMode() :
@@ -712,6 +728,8 @@ void CVideoMode::Rescale(float scale)
 {
 	ENSURE(m_IsInitialised);
 	m_Scale = scale;
+	if (m_Cursor)
+		m_Cursor->ClearCache();
 	UpdateRenderer(m_CurrentW, m_CurrentH);
 }
 
