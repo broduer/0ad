@@ -165,12 +165,18 @@ public:
 	void ClearCache();
 
 private:
+	Status OnFileReloaded(const VfsPath& path);
+
+	static inline const VfsPath BasePath = L"art/textures/cursors";
+
 	CursorBackend m_CursorBackend = CursorBackend::SYSTEM;
 	std::unordered_map<CStrW, raii::SDL_Cursor> m_CursorsCache;
 	CStrW m_CursorName;
+	FileReloadListener m_ReloadListener;
 };
 
 CVideoMode::CCursor::CCursor()
+	: m_ReloadListener([this](const VfsPath& path) { return OnFileReloaded(path); })
 {
 	if (g_ConfigDB.Get("cursorbackend", std::string{}) == "sdl")
 		m_CursorBackend = CursorBackend::SDL;
@@ -195,7 +201,7 @@ void CVideoMode::CCursor::SetCursor(const CStrW& name)
 	auto it = m_CursorsCache.find(name);
 	if (it == end(m_CursorsCache))
 	{
-		const VfsPath pathBaseName(VfsPath(L"art/textures/cursors") / name);
+		const VfsPath pathBaseName(BasePath / name);
 
 		// Read pixel offset of the cursor's hotspot [the bit of it that's
 		// drawn at (g_mouse_x,g_mouse_y)] from file.
@@ -293,6 +299,30 @@ void CVideoMode::CCursor::ClearCache()
 	SetCursor(CStrW());
 	m_CursorsCache.clear();
 	SetCursor(currentCursor);
+}
+
+Status CVideoMode::CCursor::OnFileReloaded(const VfsPath& path)
+{
+	if (path.IsDirectory() || path.Parent() != BasePath)
+		return INFO::OK;
+
+	const auto extension = path.Extension();
+	if (extension != L".png" && extension != L".txt")
+		return INFO::OK;
+
+	const auto name = path.Filename().Basename().string();
+	if (name == m_CursorName)
+	{
+		SetCursor(CStrW());
+		m_CursorsCache.erase(name);
+		SetCursor(name);
+	}
+	else
+	{
+		m_CursorsCache.erase(name);
+	}
+
+	return INFO::OK;
 }
 
 CVideoMode::CVideoMode() :

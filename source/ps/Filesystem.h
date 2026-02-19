@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,6 +25,7 @@
 #include "ps/Errors.h"
 
 #include <cstddef>
+#include <functional>
 #include <memory>
 
 class CStr8;
@@ -50,6 +51,29 @@ void RegisterFileReloadFunc(FileReloadFunc func, void* obj);
  * (removes any with the same func and obj)
  */
 void UnregisterFileReloadFunc(FileReloadFunc func, void* obj);
+
+/**
+ * RAII helper for file reload listener
+ */
+class FileReloadListener
+{
+public:
+	explicit FileReloadListener(std::function<Status(const VfsPath&)> func) : m_Fn(std::move(func)) { RegisterFileReloadFunc(&NotifyReload, this); }
+	~FileReloadListener() { UnregisterFileReloadFunc(&NotifyReload, this); }
+
+	FileReloadListener(const FileReloadListener&) = delete;
+	FileReloadListener(FileReloadListener&&) = delete;
+	FileReloadListener& operator=(const FileReloadListener&) = delete;
+	FileReloadListener& operator=(FileReloadListener&&) = delete;
+
+private:
+	static Status NotifyReload(void* param, const VfsPath& path)
+	{
+		return static_cast<FileReloadListener*>(param)->m_Fn(path);
+	}
+
+	std::function<Status(const VfsPath&)> m_Fn;
+};
 
 /**
  * poll for directory change notifications and reload all affected files.
