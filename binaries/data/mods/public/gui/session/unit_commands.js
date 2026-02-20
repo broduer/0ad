@@ -187,31 +187,46 @@ function hideUnitCommands()
 		Engine.GetGUIObjectByName("unit" + panelName + "Panel").hidden = true;
 }
 
-// Get all of the available entities which can be trained by the selected entities
-function getAllTrainableEntities(selection)
+// Get all trainable items per player from the selection
+function getAllTrainableItems(selection)
 {
-	let trainableEnts = [];
-	// Get all buildable and trainable entities
+	const items = [];
+	const seen = new Set(); // key: player:template
+
 	for (const ent of selection)
 	{
 		const state = GetEntityState(ent);
-		if (state?.trainer?.entities?.length)
+		if (!state?.trainer?.entities?.length)
+			continue;
+
+		for (const tmpl of state.trainer.entities)
 		{
-			if (!state.production)
-				warn("Trainer without Production Queue found: " + ent + ".");
-			trainableEnts = trainableEnts.concat(state.trainer.entities);
+			const key = state.player + ":" + tmpl;
+			if (!seen.has(key))
+			{
+				seen.add(key);
+				items.push({
+					"template": tmpl,
+					"player": state.player,
+					"trainers": [ent]
+				});
+			}
+			else
+			{
+				// Add to existing item's trainers list
+				const existing = items.find(item => item.player === state.player && item.template === tmpl);
+				if (existing && !existing.trainers.includes(ent))
+					existing.trainers.push(ent);
+			}
 		}
 	}
-
-	// Remove duplicates
-	removeDupes(trainableEnts);
-	return trainableEnts;
+	return items;
 }
 
-function getAllTrainableEntitiesFromSelection()
+function getAllTrainableItemsFromSelection()
 {
 	if (!g_allTrainableEntities)
-		g_allTrainableEntities = getAllTrainableEntities(g_Selection.toList());
+		g_allTrainableEntities = getAllTrainableItems(g_Selection.toList());
 
 	return g_allTrainableEntities;
 }

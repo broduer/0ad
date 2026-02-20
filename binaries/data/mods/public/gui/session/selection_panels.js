@@ -1007,39 +1007,48 @@ g_SelectionPanels.Training = {
 	"rowLength": 10,
 	"getItems": function()
 	{
-		return getAllTrainableEntitiesFromSelection();
+		// Returns items with template, player, and trainers list
+		return getAllTrainableItemsFromSelection();
 	},
 	"setupButton": function(data)
 	{
-		const template = GetTemplateData(data.item, data.player);
+		const item = data.item;
+		const actorPlayer = item.player;
+		const actorPlayerState = GetSimState().players[actorPlayer];
+		const template = GetTemplateData(item.template, actorPlayer);
 		if (!template)
 			return false;
 
-		const requirementsMet = Engine.GuiInterfaceCall("AreRequirementsMet", {
-			"requirements": template.requirements,
-			"player": data.player
-		});
+		// Use the pre-collected trainers for this player
+		const unitIds = item.trainers; // array of entity IDs
+		if (unitIds.length === 0)
+			return false;
 
-		const unitIds = data.unitEntStates.map(status => status.id);
 		const [buildingsCountToTrainFullBatch, fullBatchSize, remainderBatch] =
-			getTrainingStatus(unitIds, data.item, data.playerState);
-
+			getTrainingStatus(unitIds, item.template, actorPlayerState);
 		const trainNum = buildingsCountToTrainFullBatch * fullBatchSize + remainderBatch;
 
+		const requirementsMet = Engine.GuiInterfaceCall("AreRequirementsMet", {
+			"requirements": template.requirements,
+			"player": actorPlayer
+		});
+
 		let neededResources;
-		if (template.cost)
+		if (template.cost && requirementsMet)
+		{
 			neededResources = Engine.GuiInterfaceCall("GetNeededResources", {
 				"cost": multiplyEntityCosts(template, trainNum),
-				"player": data.player
+				"player": actorPlayer
 			});
+		}
 
 		data.button.onPress = function()
 		{
-			if (!neededResources)
-				addTrainingToQueue(unitIds, data.item, data.playerState);
+			if (!neededResources && requirementsMet)
+				addTrainingToQueue(unitIds, item.template, actorPlayerState);
 		};
 
-		const showTemplateFunc = () => { showTemplateDetails(data.item, data.playerState.civ); };
+		const showTemplateFunc = () => { showTemplateDetails(item.template, actorPlayerState.civ); };
 		data.button.onPressRight = showTemplateFunc;
 		data.button.onPressRightDisabled = showTemplateFunc;
 
@@ -1052,13 +1061,17 @@ g_SelectionPanels.Training = {
 			getVisibleEntityClassesFormatted(template),
 			getAurasTooltip(template),
 			getEntityTooltip(template),
-			getEntityCostTooltip(template, data.player, unitIds[0], buildingsCountToTrainFullBatch, fullBatchSize, remainderBatch)
+			getEntityCostTooltip(template, actorPlayer, unitIds[0], buildingsCountToTrainFullBatch, fullBatchSize, remainderBatch)
 		];
-		const limits = getEntityLimitAndCount(data.playerState, data.item);
-		tooltips.push(formatLimitString(limits.entLimit, limits.entCount, limits.entLimitChangers),
-			formatMatchLimitString(limits.matchLimit, limits.matchCount, limits.type));
+
+		const limits = getEntityLimitAndCount(actorPlayerState, item.template);
+		tooltips.push(
+			formatLimitString(limits.entLimit, limits.entCount, limits.entLimitChangers),
+			formatMatchLimitString(limits.matchLimit, limits.matchCount, limits.type)
+		);
 
 		if (Engine.ConfigDB_GetValue("user", "showdetailedtooltips") === "true")
+		{
 			tooltips = tooltips.concat([
 				getHealthTooltip,
 				getAttackTooltip,
@@ -1070,12 +1083,22 @@ g_SelectionPanels.Training = {
 				getSpeedTooltip,
 				getResourceDropsiteTooltip
 			].map(func => func(template)));
+		}
 
 		tooltips.push(getTemplateViewerOnRightClickTooltip());
 		tooltips.push(
 			formatBatchTrainingString(buildingsCountToTrainFullBatch, fullBatchSize, remainderBatch),
-			getRequirementsTooltip(requirementsMet, template.requirements, GetSimState().players[data.player].civ),
-			getNeededResourcesTooltip(neededResources));
+			getRequirementsTooltip(requirementsMet, template.requirements, actorPlayerState.civ),
+			getNeededResourcesTooltip(neededResources)
+		);
+
+		// Add player name for observers
+		if (g_IsObserver)
+		{
+			tooltips.push(sprintf(translate("Player: %(playername)s"), {
+				"playername": g_Players[actorPlayer].name
+			}));
+		}
 
 		data.button.tooltip = tooltips.filter(tip => tip).join("\n");
 
@@ -1087,13 +1110,19 @@ g_SelectionPanels.Training = {
 		}
 		else
 		{
-			data.button.enabled = controlsPlayer(data.player);
+			data.button.enabled = controlsPlayer(actorPlayer) && !neededResources;
 			if (neededResources)
 				modifier = resourcesToAlphaMask(neededResources) + ":";
 		}
 
-		if (data.unitEntStates.every(state => state.upgrade && state.upgrade.isUpgrading))
+		const relevantTrainers = data.unitEntStates.filter(state =>
+			state.player === data.item.player &&
+			state?.trainer?.entities?.includes(data.item.template)
+		);
+
+		if (relevantTrainers.length > 0 && relevantTrainers.every(state => state.upgrade?.isUpgrading))
 		{
+			// All relevant trainers are upgrading
 			data.button.enabled = false;
 			modifier = "color:0 0 0 127:grayscale:";
 			data.button.tooltip += "\n" + objectionFont(translate("Cannot train while upgrading."));
