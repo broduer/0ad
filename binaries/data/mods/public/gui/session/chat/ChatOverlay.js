@@ -31,6 +31,8 @@ class ChatOverlay
 
 	displayChatMessages()
 	{
+		let currentTop = 0;
+
 		for (let i = 0; i < this.chatLinesNumber; ++i)
 		{
 			const chatMessage = this.chatMessages[i];
@@ -40,10 +42,12 @@ class ChatOverlay
 				const newSize = this.chatLines[i].getPreferredTextSize();
 
 				this.chatLines[i].size = {
-					"top": i * newSize.height,
-					"bottom": (i + 1) * newSize.height,
+					"top": currentTop,
+					"bottom": currentTop + newSize.height,
 					"right": newSize.width
 				};
+
+				currentTop += newSize.height;
 
 				if (chatMessage.callback)
 					this.chatLines[i].onPress = chatMessage.callback;
