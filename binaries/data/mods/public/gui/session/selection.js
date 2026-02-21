@@ -83,7 +83,7 @@ EntityGroups.prototype.add = function(ents)
 			continue;
 
 		var templateName = entState.template;
-		var key = GetTemplateData(templateName).selectionGroupName || templateName;
+		var key = GetTemplateData(templateName, entState.player).selectionGroupName || templateName;
 
 		// Group the ents by player and template
 		if (entState.player !== undefined)

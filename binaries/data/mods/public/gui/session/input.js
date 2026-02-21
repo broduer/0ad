@@ -1555,7 +1555,7 @@ function getEntityLimitAndCount(playerState, entType)
 	};
 	if (!playerState.entityLimits)
 		return ret;
-	const template = GetTemplateData(entType);
+	const template = GetTemplateData(entType, playerState.id);
 	let entCategory;
 	let matchLimit;
 	if (template.trainingRestrictions)

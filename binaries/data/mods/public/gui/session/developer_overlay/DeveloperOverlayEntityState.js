@@ -38,7 +38,7 @@ class DeveloperOverlayEntityState
 			const entState = GetEntityState(selection[0]);
 			if (entState)
 			{
-				const template = GetTemplateData(entState.template);
+				const template = GetTemplateData(entState.template, entState.player);
 				text += "\n\nentity: {\n";
 				for (const k in entState)
 					text += "  " + k + ":" + uneval(entState[k]) + "\n";

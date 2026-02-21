@@ -344,7 +344,7 @@ g_SelectionPanels.Garrison = {
 	{
 		const entState = GetEntityState(data.item.ents[0]);
 
-		const template = GetTemplateData(entState.template);
+		const template = GetTemplateData(entState.template, entState.player);
 		if (!template)
 			return false;
 
@@ -566,7 +566,7 @@ g_SelectionPanels.Queue = {
 		// Differentiate between units and techs
 		let template;
 		if (queuedItem.unitTemplate)
-			template = GetTemplateData(queuedItem.unitTemplate);
+			template = GetTemplateData(queuedItem.unitTemplate, data.player);
 		else if (queuedItem.technologyTemplate)
 			template = GetTechnologyData(queuedItem.technologyTemplate, GetSimState().players[data.player].civ);
 		else
@@ -1048,7 +1048,8 @@ g_SelectionPanels.Research = {
 			{
 				showTemplateDetails(
 					t,
-					GetTemplateData(baseData.unitEntStates.find(state => state.id == baseData.item.researchFacilityId).template).nativeCiv);
+					GetTemplateData(baseData.unitEntStates.find(state => state.id == baseData.item.researchFacilityId).template, state.player).nativeCiv
+				);
 			});
 
 			button.onPressRight = showTemplateFunc(techName);
@@ -1113,7 +1114,7 @@ g_SelectionPanels.Selection = {
 	"setupButton": function(data)
 	{
 		const entState = GetEntityState(data.item.ents[0]);
-		const template = GetTemplateData(entState.template);
+		const template = GetTemplateData(entState.template, entState.player);
 		if (!template)
 			return false;
 
@@ -1340,7 +1341,7 @@ g_SelectionPanels.Upgrade = {
 	},
 	"setupButton": function(data)
 	{
-		const template = GetTemplateData(data.item.entity);
+		const template = GetTemplateData(data.item.entity, data.player);
 		if (!template)
 			return false;
 
@@ -1421,7 +1422,7 @@ g_SelectionPanels.Upgrade = {
 			};
 
 			if (!requirementsMet || limits.canBeAddedCount == 0 &&
-				!upgradableEntStates.some(state => hasSameRestrictionCategory(data.item.entity, state.template)))
+				!upgradableEntStates.some(state => hasSameRestrictionCategory(data.item.entity, state.template, state.player)))
 			{
 				data.button.enabled = false;
 				modifier = "color:0 0 0 127:grayscale:";

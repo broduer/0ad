@@ -443,6 +443,7 @@ function updatePlayerData()
 
 		playerData.push({
 			"name": playerState.name,
+			"id": i,
 			"civ": playerState.civ,
 			"color": {
 				"r": playerState.color.r * 255,
@@ -727,7 +728,8 @@ function updateGroups()
 	// Determine the sum of the costs of a given template
 	const getCostSum = (ent) =>
 	{
-		const cost = GetTemplateData(GetEntityState(ent).template).cost;
+		const entState = GetEntityState(ent);
+		const cost = GetTemplateData(entState.template, entState.player).cost;
 		return cost ? Object.keys(cost).map(key => cost[key]).reduce((sum, cur) => sum + cur) : 0;
 	};
 

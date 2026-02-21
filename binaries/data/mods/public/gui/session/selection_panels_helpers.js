@@ -19,10 +19,10 @@ function canMoveSelectionIntoFormation(formationTemplate)
 	return g_canMoveIntoFormation[formationTemplate];
 }
 
-function hasSameRestrictionCategory(templateName1, templateName2)
+function hasSameRestrictionCategory(templateName1, templateName2, player)
 {
-	const template1 = GetTemplateData(templateName1);
-	const template2 = GetTemplateData(templateName2);
+	const template1 = GetTemplateData(templateName1, player);
+	const template2 = GetTemplateData(templateName2, player);
 
 	if (template1.trainingRestrictions && template2.trainingRestrictions)
 		return template1.trainingRestrictions.category == template2.trainingRestrictions.category;
