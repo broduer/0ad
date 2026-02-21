@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Textures>
   <File pattern="*" alpha="transparency"/>
+  <File pattern="grass_*" format="dxt5" alpha="transparency" mipmap="true" filter="triangle"/>
+  <File pattern="farm*" format="dxt5" alpha="transparency" mipmap="true" filter="triangle"/>
 </Textures>

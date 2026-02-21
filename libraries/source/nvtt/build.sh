@@ -67,6 +67,7 @@ patch -d nvtt-${PV} -p1 <patches/0003-Use-execute_process-insted-of-exec_program
 patch -d nvtt-${PV} -p1 <patches/0004-Properly-detect-ppc64le-systems.patch
 patch -d nvtt-${PV} -p1 <patches/0005-Fix-compiler-flags-on-ppc64le-systems.patch
 patch -d nvtt-${PV} -p1 <patches/0006-Fix-altivec-include-on-ppc64le-systems.patch
+patch -d nvtt-${PV} -p1 <patches/0007-vegetation-hack.patch
 
 # build
 (

@@ -50,6 +50,8 @@ SODIUM_VERSION="libsodium-1.0.20"
 FMT_VERSION="7.1.3"
 MOLTENVK_VERSION="1.3.0"
 OPENAL_SOFT_VERSION="1.24.2"
+JPEG_VERSION="jpegsrc.v9f"
+JPEG_DIR="jpeg-9f" # Must match directory name inside source tarball
 # --------------------------------------------------------------
 # Bundled with the game:
 # * SpiderMonkey
@@ -1227,6 +1229,42 @@ echo "Building Molten VK..."
 		already_built
 	fi
 ) || die "Failed to build MoltenVK"
+
+echo "Building libjpeg..."
+(
+	LIB_VERSION="${JPEG_VERSION}"
+	LIB_ARCHIVE="$LIB_VERSION.tar.gz"
+	LIB_DIRECTORY="${JPEG_DIR}"
+	LIB_URL="http://www.ijg.org/files/"
+	mkdir -p libjpeg
+	cd libjpeg
+	if [ $force_rebuild = "true" ] || [ ! -e .already-built ] || [ "$(cat .already-built)" != "$LIB_VERSION" ]; then
+		INSTALL_DIR="$(pwd)"
+
+		rm -f .already-built
+		download_lib $LIB_URL $LIB_ARCHIVE || die
+
+		rm -rf $LIB_DIRECTORY bin include lib share
+		tar -xf $LIB_ARCHIVE || die
+
+		(
+			cd $LIB_DIRECTORY || die
+			./configure \
+				CFLAGS="$CFLAGS" \
+				LDFLAGS="$LDFLAGS" \
+				"$HOST_PLATFORM" \
+				--prefix="$INSTALL_DIR" \
+				--enable-shared=no || die
+			make "${JOBS}" || die
+			make install || die
+		) || die "libjpeg build failed"
+
+		cp -f lib/pkgconfig/* "$PC_PATH"
+		echo "$LIB_VERSION" >.already-built
+	else
+		already_built
+	fi
+) || die "Failed to build libjpeg"
 
 # --------------------------------------------------------------------
 # The following libraries and build tools are shared on different OSes

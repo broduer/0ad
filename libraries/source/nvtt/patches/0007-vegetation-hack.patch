@@ -1,0 +1,43 @@
+Index: src/src/nvtt/Context.cpp
+===================================================================
+--- src/src/nvtt/Context.cpp	(revision 28209)
++++ src/src/nvtt/Context.cpp	(working copy)
+@@ -52,6 +52,8 @@
+ #include "nvcore/Memory.h"
+ #include "nvcore/Ptr.h"
+
++#include <fstream>
++
+ using namespace nv;
+ using namespace nvtt;
+
+@@ -248,6 +250,7 @@
+         return false;
+     }
+
++	const bool needsCoverage{inputOptions.mipmapFilter == MipmapFilter_Triangle && inputOptions.alphaMode == AlphaMode_Transparency && mipmapCount > 1};
+
+     // Output images.
+     for (int f = 0; f < faceCount; f++)
+@@ -282,6 +285,12 @@
+         quantize(tmp, compressionOptions);
+         compress(tmp, f, 0, compressionOptions, outputOptions);
+
++		float coverage = 0.0f;
++		if (needsCoverage)
++		{
++			coverage = tmp.alphaTestCoverage(0.1f);
++		}
++
+         for (int m = 1; m < mipmapCount; m++) {
+             w = max(1, w/2);
+             h = max(1, h/2);
+@@ -315,6 +324,8 @@
+                 else {
+                     img.buildNextMipmap(inputOptions.mipmapFilter);
+                 }
++				if (needsCoverage)
++					img.scaleAlphaToCoverage(coverage, 0.9f);
+             }
+             nvDebugCheck(img.width() == w);
+             nvDebugCheck(img.height() == h);
