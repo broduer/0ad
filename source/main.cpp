@@ -396,6 +396,12 @@ static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency)
 	g_Profiler2.IncrementFrameNumber();
 	PROFILE2_ATTR("%d", g_Profiler2.GetFrameNumber());
 
+	static bool takeScreenshots = g_ConfigDB.Get("videorendering.enabled", false);
+	static int screenshotsStartTime = g_ConfigDB.Get("videorendering.start", 0);
+
+	bool doScreenshot = takeScreenshots && g_Game &&
+		g_Game->IsGameStarted() && g_Game->SimTime() >= screenshotsStartTime * 1000;
+
 	// get elapsed time
 	const double time = timer_Time();
 	g_frequencyFilter->Update(time);
@@ -415,7 +421,7 @@ static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency)
 	ENSURE(realTimeSinceLastFrame > 0.0f);
 
 	// Decide if update is necessary
-	const bool needUpdate{g_app_has_focus || g_NetClient || !g_PauseOnFocusLoss};
+	const bool needUpdate{g_app_has_focus || g_NetClient || !g_PauseOnFocusLoss || doScreenshot};
 
 	// If we are not running a multiplayer game, disable updates when the game is
 	// minimized or out of focus and relinquish the CPU a bit, in order to make
@@ -485,6 +491,9 @@ static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency)
 		g_SoundManager->IdleTask();
 
 	g_Renderer.RenderFrame(true);
+
+	if (doScreenshot)
+		g_Renderer.MakeScreenShotOnNextFrame(CRenderer::ScreenShotType::DEFAULT);
 
 	g_Profiler.Frame();
 
@@ -587,7 +596,6 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 	const bool isVisualReplay = args.Has("replay-visual");
 	const bool isNonVisualReplay = args.Has("replay");
 	const bool isVisual = !args.Has("autostart-nonvisual");
-
 	const int fixedFrameFrequency{args.Has("fixed-frame-frequency")
 		? args.Get("fixed-frame-frequency").ToInt() : 0};
 

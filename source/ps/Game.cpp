@@ -404,6 +404,11 @@ bool CGame::CheatsEnabled() const
 	return m_CheatsEnabled;
 }
 
+int CGame::SimTime() const
+{
+	return GetTurnManager()->GetCurrentTurn() * GetTurnManager()->GetCurrentTurnLength();
+}
+
 void CGame::StartGame(JS::MutableHandleValue attribs, const std::string& savedState)
 {
 	if (m_ReplayLogger)

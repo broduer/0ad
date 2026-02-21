@@ -703,7 +703,7 @@ function updateCinemaPath()
 	const isPlayingCinemaPath = GetSimState().cinemaPlaying && !g_Disconnected;
 
 	Engine.GetGUIObjectByName("session").hidden = !g_ShowGUI || isPlayingCinemaPath;
-	Engine.GetGUIObjectByName("cinemaOverlay").hidden = !isPlayingCinemaPath;
+	Engine.GetGUIObjectByName("cinemaOverlay").hidden = !isPlayingCinemaPath || Engine.ConfigDB_GetValue("user", "cinema.overlay.enabled") !== "true";
 	// TODO: This isn't great and should use a different system.
 	if (isPlayingCinemaPath && Engine.ConfigDB_GetValue("user", "silhouettes") == "true")
 	{

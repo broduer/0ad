@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -152,7 +152,7 @@ Status TexCodecTga::decode(u8* RESTRICT data, size_t /*size*/, Tex* RESTRICT t) 
 }
 
 
-Status TexCodecTga::encode(Tex* RESTRICT t, DynArray* RESTRICT da) const
+Status TexCodecTga::encode(Tex* RESTRICT t, DynArray* RESTRICT da, float) const
 {
 	u8 img_desc = 0;
 	if(t->m_Flags & TEX_TOP_DOWN)

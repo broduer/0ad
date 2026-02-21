@@ -449,7 +449,8 @@ void CRenderer::RenderFrame(const bool needsPresent)
 {
 	// Do not render if not focused while in fullscreen or minimised,
 	// as that triggers a difficult-to-reproduce crash on some graphic cards.
-	if (!ShouldRender())
+	// We might need to overwrite this for video rendering.
+	if (!needsPresent && !ShouldRender())
 		return;
 
 	if (m_ScreenShotType == ScreenShotType::BIG)
@@ -669,10 +670,11 @@ void CRenderer::RenderFrame2D(const bool renderGUI, const bool renderLogger)
 void CRenderer::RenderScreenShot(const bool needsPresent)
 {
 	m_ScreenShotType = ScreenShotType::NONE;
-
+	static std::string screenshotFormat = g_ConfigDB.Get("videorendering.format", std::string{});
 	// get next available numbered filename
 	// note: %04d -> always 4 digits, so sorting by filename works correctly.
-	const VfsPath filenameFormat(L"screenshots/screenshot%04d.png");
+	const VfsPath basenameFormat(L"screenshots/videoscreen%04d");
+	const VfsPath filenameFormat = basenameFormat.ChangeExtension(screenshotFormat);
 	VfsPath filename;
 	vfs::NextNumberedFilename(g_VFS, filenameFormat, g_NextScreenShotNumber, filename);
 
@@ -699,16 +701,11 @@ void CRenderer::RenderScreenShot(const bool needsPresent)
 	if (needsPresent)
 		m->device->Present();
 
-	if (tex_write(&t, filename) == INFO::OK)
+	static float quality = g_ConfigDB.Get("videorendering.jpeg_quality", 0.9f);
+	if (tex_write(&t, filename, quality) == INFO::OK)
 	{
 		OsPath realPath;
 		g_VFS->GetRealPath(filename, realPath);
-
-		LOGMESSAGERENDER("Screenshot written to '%s'", realPath.string8());
-
-		debug_printf(
-			CStr(g_L10n.Translate("Screenshot written to '%s'") + "\n").c_str(),
-			realPath.string8().c_str());
 	}
 	else
 		LOGERROR("Error writing screenshot to '%s'", filename.string8());
@@ -824,7 +821,8 @@ void CRenderer::RenderBigScreenShot(const bool needsPresent)
 		g_Game->GetView()->GetCamera()->SetProjectionFromCamera(oldCamera);
 	}
 
-	if (tex_write(&t, filename) == INFO::OK)
+	static float quality = g_ConfigDB.Get("videorendering.jpeg_quality", 0.9f);
+	if (tex_write(&t, filename, quality) == INFO::OK)
 	{
 		OsPath realPath;
 		g_VFS->GetRealPath(filename, realPath);

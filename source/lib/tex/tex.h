@@ -287,7 +287,7 @@ public:
 	 *		  when no longer needed. Invalid unless function succeeds.
 	 * @return Status
 	 **/
-	Status encode(const OsPath& extension, DynArray* da);
+	Status encode(const OsPath& extension, DynArray* da, int quality);
 
 	/**
 	 * store the given image data into a Tex object; this will be as if

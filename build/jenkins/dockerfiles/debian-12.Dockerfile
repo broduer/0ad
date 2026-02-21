@@ -23,6 +23,7 @@ RUN apt-get -qqy update \
         libboost-filesystem-dev \
         libboost-system-dev \
         libcurl4-gnutls-dev \
+        libjpeg-dev \
         libenet-dev \
         libfmt-dev \
         libfreetype-dev \

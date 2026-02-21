@@ -318,7 +318,7 @@ Status TexCodecPng::decode(u8* RESTRICT data, size_t size, Tex* RESTRICT t) cons
 
 
 // limitation: palette images aren't supported
-Status TexCodecPng::encode(Tex* RESTRICT t, DynArray* RESTRICT da) const
+Status TexCodecPng::encode(Tex* RESTRICT t, DynArray* RESTRICT da, float) const
 {
 	png_infop info_ptr = 0;
 

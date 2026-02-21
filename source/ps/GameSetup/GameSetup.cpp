@@ -223,7 +223,6 @@ void InitVfs(const CmdLineArgs& args)
 	if (readonlyConfig != paths.Config())
 		g_VFS->Mount(L"config/", readonlyConfig, 0, VFS_MAX_PRIORITY-1);
 	g_VFS->Mount(L"config/", paths.Config(), 0, VFS_MAX_PRIORITY);
-	g_VFS->Mount(L"screenshots/", paths.UserData()/"screenshots"/"", 0, VFS_MAX_PRIORITY);
 	g_VFS->Mount(L"saves/", paths.UserData()/"saves"/"", VFS_MOUNT_WATCH, VFS_MAX_PRIORITY);
 
 	// Engine localization files (regular priority, these can be overwritten).
@@ -550,6 +549,12 @@ bool Init(const CmdLineArgs& args, int flags)
 
 	// g_ConfigDB, command line args, globals
 	CONFIG_Init(args);
+
+	// Mount this after the config was initialized
+	CStr screenshotpath = g_ConfigDB.Get("videorendering.path", std::string{});
+	LOGMESSAGE("Attempting to mount screenshot directory: %s", screenshotpath.c_str());
+	if (g_VFS->Mount(L"screenshots/", OsPath(screenshotpath), VFS_MOUNT_MUST_EXIST, VFS_MAX_PRIORITY) == ERR::VFS_DIR_NOT_FOUND)
+		LOGERROR("Screenshot directory does not exist at '%s'! Check the options and restart.", screenshotpath.c_str());
 
 	// Using a global object for the context is a workaround until Simulation and AI use
 	// their own threads and also their own contexts.

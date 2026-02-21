@@ -166,6 +166,11 @@ public:
 	u32 GetCurrentTurn() const { return m_CurrentTurn; }
 
 	/**
+	 * @returns the current turn length.
+	 */
+	u32 GetCurrentTurnLength() const { return m_TurnLength; }
+
+	/**
 	 * @return how many turns are ready to be computed.
 	 * (used to detect players/observers that fall behind the live game.
 	 */

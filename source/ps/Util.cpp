@@ -66,10 +66,10 @@ CStr GetStatusAsString(Status status)
 // write the specified texture to disk.
 // note: <t> cannot be made const because the image may have to be
 // transformed to write it out in the format determined by <fn>'s extension.
-Status tex_write(Tex* t, const VfsPath& filename)
+Status tex_write(Tex* t, const VfsPath& filename, float quality)
 {
 	DynArray da;
-	RETURN_STATUS_IF_ERR(t->encode(filename.Extension(), &da));
+	RETURN_STATUS_IF_ERR(t->encode(filename.Extension(), &da, quality));
 
 	// write to disk
 	Status ret = INFO::OK;

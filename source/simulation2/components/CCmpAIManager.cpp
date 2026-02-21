@@ -399,7 +399,7 @@ public:
 		for (size_t i = 0; i < data.size(); ++i)
 			img[i] = (u8)((data[i] * 255) / max);
 
-		tex_write(&t, filename);
+		tex_write(&t, filename, 1.0f);
 	}
 
 	void SetRNGSeed(u32 seed)

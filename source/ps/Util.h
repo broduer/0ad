@@ -35,7 +35,7 @@ CStr GetStatusAsString(Status status);
 
 OsPath createDateIndexSubdirectory(const OsPath& parentDir);
 
-Status tex_write(Tex* t, const VfsPath& filename);
+Status tex_write(Tex* t, const VfsPath& filename, float quality);
 
 std::string Hexify(const std::string& s);
 std::string Hexify(const u8* s, size_t length);

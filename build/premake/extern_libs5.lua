@@ -467,6 +467,25 @@ extern_lib_defs = {
 			})
 		end,
 	},
+	libjpeg = {
+		compile_settings = function()
+			if os.istarget("windows") then
+				add_default_include_paths("libjpeg")
+			else
+				pkgconfig.add_includes("libjpeg")
+			end
+		end,
+		link_settings = function()
+			if os.istarget("windows") then
+				add_default_lib_paths("libjpeg")
+				add_default_links({
+					win_names  = { "jpeg-9f" },
+				})
+			else
+				pkgconfig.add_links("libjpeg")
+			end
+		end,
+	},
 	libpng = {
 		compile_settings = function()
 			if os.istarget("windows") then

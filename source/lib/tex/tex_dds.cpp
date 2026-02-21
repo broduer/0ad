@@ -631,7 +631,7 @@ Status TexCodecDds::decode(u8* RESTRICT data, size_t /*size*/, Tex* RESTRICT t) 
 }
 
 
-Status TexCodecDds::encode(Tex* RESTRICT, DynArray* RESTRICT) const
+Status TexCodecDds::encode(Tex* RESTRICT, DynArray* RESTRICT, float) const
 {
 	// note: do not return ERR::NOT_SUPPORTED et al. because that would
 	// break tex_write (which assumes either this, 0 or errors are returned).
