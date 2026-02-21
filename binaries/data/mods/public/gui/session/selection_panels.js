@@ -1115,147 +1115,180 @@ g_SelectionPanels.Upgrade = {
 		return 40 - getNumberOfRightPanelButtons();
 	},
 	"rowLength": 10,
-	"getItems": function(unitEntStates)
+	"getItems": function()
 	{
-		// Interface becomes complicated with multiple different units and this is meant per-entity, so prevent it if the selection has multiple different units.
-		if (unitEntStates.some(state => state.template != unitEntStates[0].template))
-			return false;
-
-		return unitEntStates[0].upgrade && unitEntStates[0].upgrade.upgrades;
+		return getAllUpgradeItemsFromSelection();
 	},
 	"setupButton": function(data)
 	{
-		const template = GetTemplateData(data.item.entity);
+		const item = data.item;
+		const player = item.player;
+		const playerState = GetSimState().players[player];
+		const upgradeData = item.upgradeData;
+		const targetTemplate = upgradeData.entity;
+		const template = GetTemplateData(targetTemplate);
 		if (!template)
 			return false;
+
+		// Filter to this item's entities
+		const itemEntityIds = new Set(item.entities);
+		const itemUnitEntStates = data.unitEntStates.filter(state => itemEntityIds.has(state.id));
+
+		// Entity status classification
+		const upgradingEntStates = itemUnitEntStates.filter(state =>
+			state.upgrade?.template == targetTemplate && state.upgrade?.progress > 0);
+		const upgradableEntStates = itemUnitEntStates.filter(state =>
+			!upgradingEntStates.includes(state) &&
+			(!state.production?.queue?.length) &&
+			state.upgrade?.upgrades.some(u => u.entity == targetTemplate));
+
+		const upgradingAny = upgradingEntStates.length > 0;
+		const canUpgradeAny = upgradableEntStates.length > 0;
 
 		const progressOverlay = Engine.GetGUIObjectByName("unitUpgradeProgressSlider[" + data.i + "]");
 		progressOverlay.hidden = true;
 
-		const requirementsMet = !data.item.requirements ||
-			Engine.GuiInterfaceCall("AreRequirementsMet", {
-				"requirements": data.item.requirements,
-				"player": data.player
-			});
+		// Common data for tooltips
+		const primaryName = g_SpecificNamesPrimary ? template.name.specific : template.name.generic;
+		const secondaryName = g_ShowSecondaryNames ? (g_SpecificNamesPrimary ? template.name.generic : template.name.specific) : "";
+		const desc = g_ShowSecondaryNames ?
+			sprintf(translate("Upgrade to %(primaryName)s (%(secondaryName)s)"), { primaryName, secondaryName }) :
+			sprintf(translate("Upgrade to %(primaryName)s"), { primaryName });
 
-		const limits = getEntityLimitAndCount(data.playerState, data.item.entity);
-		const upgradingEntStates = data.unitEntStates.filter(state => state.upgrade.template == data.item.entity);
+		// Resource/requirement checks
+		const requirementsMet = !upgradeData.requirements ||
+			Engine.GuiInterfaceCall("AreRequirementsMet", { "requirements": upgradeData.requirements, "player": player });
+		const limits = getEntityLimitAndCount(playerState, targetTemplate);
 
-		const upgradableEntStates = data.unitEntStates.filter(state =>
-			!state.upgrade.progress &&
-			(!state.production || !state.production.queue || !state.production.queue.length));
-
-		const neededResources = data.item.cost && Engine.GuiInterfaceCall("GetNeededResources", {
-			"cost": multiplyEntityCosts(data.item, upgradableEntStates.length),
-			"player": data.player
+		const getNeeded = (count) => upgradeData.cost && Engine.GuiInterfaceCall("GetNeededResources", {
+			"cost": multiplyEntityCosts(upgradeData, count), "player": player
 		});
+		const neededAll = canUpgradeAny && getNeeded(upgradableEntStates.length);
+		const neededOne = canUpgradeAny && getNeeded(1);
 
-		let tooltip;
+		let tooltip = "";
 		let modifier = "";
-		if (!upgradingEntStates.length && upgradableEntStates.length)
+		let buttonEnabled;
+
+		// Build base tooltip parts
+		const baseTooltipParts = [
+			desc + (upgradeData.tooltip ? " " + translate(upgradeData.tooltip) : ""),
+			canUpgradeAny && getEntityCostTooltip(upgradeData, player, undefined, upgradableEntStates.length),
+			formatLimitString(limits.entLimit, limits.entCount, limits.entLimitChangers),
+			formatMatchLimitString(limits.matchLimit, limits.matchCount, limits.type),
+			getRequirementsTooltip(requirementsMet, upgradeData.requirements, playerState.civ),
+			canUpgradeAny && getNeededResourcesTooltip(neededAll),
+			getTemplateViewerOnRightClickTooltip()
+		];
+		if (g_IsObserver)
+			baseTooltipParts.push(sprintf(translate("Player: %(playername)s"), { "playername": g_Players[player].name }));
+
+		const countDisplay = data.countDisplay;
+		const setCountCaption = (text) =>
 		{
-			const primaryName = g_SpecificNamesPrimary ? template.name.specific : template.name.generic;
-			let secondaryName;
-			if (g_ShowSecondaryNames)
-				secondaryName = g_SpecificNamesPrimary ? template.name.generic : template.name.specific;
+			// Convert to string
+			const captionText = text.toString();
+			countDisplay.caption = captionText;
 
-			const tooltips = [];
-			if (g_ShowSecondaryNames)
+			// If text is too wide, add a line break for fraction format
+			if (captionText.includes("/") &&
+				countDisplay.getPreferredTextSize().width > countDisplay.size.right - countDisplay.size.left)
+				countDisplay.caption = captionText.replace("/", "\n/");
+		};
+
+		// Modes
+		if (upgradingAny) // Mixed (some upgrading)
+		{
+			if (canUpgradeAny)
 			{
-				if (data.item.tooltip)
-					tooltips.push(sprintf(translate("Upgrade to a %(primaryName)s (%(secondaryName)s). %(tooltip)s"), {
-						"primaryName": primaryName,
-						"secondaryName": secondaryName,
-						"tooltip": translate(data.item.tooltip)
-					}));
-				else
-					tooltips.push(sprintf(translate("Upgrade to a %(primaryName)s (%(secondaryName)s)."), {
-						"primaryName": primaryName,
-						"secondaryName": secondaryName
-					}));
-			}
-			else
-			{
-				if (data.item.tooltip)
-					tooltips.push(sprintf(translate("Upgrade to a %(primaryName)s. %(tooltip)s"), {
-						"primaryName": primaryName,
-						"tooltip": translate(data.item.tooltip)
-					}));
-				else
-					tooltips.push(sprintf(translate("Upgrade to a %(primaryName)s."), {
-						"primaryName": primaryName
-					}));
+				const info = sprintf(translate("%(countUpgrading)s upgrading, %(countReady)s ready"), {
+					"countUpgrading": upgradingEntStates.length,
+					"countReady": upgradableEntStates.length
+				});
+				tooltip += info + "\n";
 			}
 
-			tooltips.push(
-				getEntityCostTooltip(data.item, undefined, undefined, data.unitEntStates.length),
-				formatLimitString(limits.entLimit, limits.entCount, limits.entLimitChangers),
-				formatMatchLimitString(limits.matchLimit, limits.matchCount, limits.type),
-				getRequirementsTooltip(requirementsMet, data.item.requirements, GetSimState().players[data.player].civ),
-				getNeededResourcesTooltip(neededResources),
-				getTemplateViewerOnRightClickTooltip()
-			);
+			tooltip +=
+				colorizeHotkey(translate("Click: Cancel upgrading"), "") + "\n" +
+				colorizeHotkey(translate("%(hotkey)s+Click: Upgrade all ready"), "session.queue") + "\n" +
+				colorizeHotkey(translate("%(hotkey)s+Click: Upgrade one ready"), "session.orderone");
 
-			tooltip = tooltips.filter(tip => tip).join("\n");
-
-			data.button.onPress = function()
+			data.button.onPress = () =>
 			{
-				upgradeEntity(
-					data.item.entity,
-					upgradableEntStates.map(state => state.id));
+				if (Engine.HotkeyIsPressed("session.orderone") && canUpgradeAny)
+					upgradeEntity(targetTemplate, [upgradableEntStates[0].id]);
+				else if (Engine.HotkeyIsPressed("session.queue") && canUpgradeAny)
+					upgradeEntity(targetTemplate, upgradableEntStates.map(s => s.id));
+				else if (upgradingAny)
+					cancelUpgradeEntity(upgradingEntStates.map(s => s.id));
 			};
 
-			if (!requirementsMet || limits.canBeAddedCount == 0 &&
-				!upgradableEntStates.some(state => hasSameRestrictionCategory(data.item.entity, state.template)))
+			if (upgradingAny && canUpgradeAny)
+				setCountCaption(upgradingEntStates.length + "/" + (upgradingEntStates.length + upgradableEntStates.length));
+			else if (upgradingAny)
 			{
-				data.button.enabled = false;
+				if (upgradingEntStates.length > 1)
+					setCountCaption(upgradingEntStates.length);
+				else
+					setCountCaption("");
+			}
+
+			if (upgradingAny)
+			{
+				const maxProgress = Math.max(...upgradingEntStates.map(s => s.upgrade.progress || 1));
+				progressOverlay.size.top = progressOverlay.size.bottom +
+					Math.round((1 - maxProgress) * (progressOverlay.size.left - progressOverlay.size.right));
+				progressOverlay.hidden = false;
+			}
+			buttonEnabled = controlsPlayer(player);
+		}
+		else if (canUpgradeAny) // Upgrade (some can be upgraded)
+		{
+			tooltip = baseTooltipParts.filter(tip => tip).join("\n") + "\n" +
+				colorizeHotkey(translate("Click: Upgrade all ready\n%(hotkey)s+Click: Upgrade one ready"), "session.orderone");
+
+			data.button.onPress = () =>
+			{
+				if (Engine.HotkeyIsPressed("session.orderone"))
+				{
+					if (!neededOne)
+						upgradeEntity(targetTemplate, [upgradableEntStates[0].id]);
+				}
+				else if (!neededAll)
+					upgradeEntity(targetTemplate, upgradableEntStates.map(s => s.id));
+			};
+
+			setCountCaption(upgradableEntStates.length > 1 ? upgradableEntStates.length : "");
+
+			if (!requirementsMet || limits.canBeAddedCount == 0)
+			{
+				buttonEnabled = false;
 				modifier = "color:0 0 0 127:grayscale:";
 			}
-			else if (neededResources)
+			else if (neededAll)
 			{
-				data.button.enabled = false;
-				modifier = resourcesToAlphaMask(neededResources) + ":";
+				buttonEnabled = false;
+				modifier = resourcesToAlphaMask(neededAll) + ":";
 			}
-
-			data.countDisplay.caption = upgradableEntStates.length > 1 ? upgradableEntStates.length : "";
+			else buttonEnabled = controlsPlayer(player);
 		}
-		else if (upgradingEntStates.length)
+		else // All busy (can't upgrade any)
 		{
-			tooltip = translate("Cancel Upgrading");
-			data.button.onPress = function() { cancelUpgradeEntity(); };
-			data.countDisplay.caption = upgradingEntStates.length > 1 ? upgradingEntStates.length : "";
-
-			let progress = 0;
-			for (const state of upgradingEntStates)
-				progress = Math.max(progress, state.upgrade.progress || 1);
-
-			// TODO This is bad: we assume the progressOverlay is square
-			progressOverlay.size.top = progressOverlay.size.bottom + Math.round((1 - progress) * (progressOverlay.size.left - progressOverlay.size.right));
-			progressOverlay.hidden = false;
-		}
-		else
-		{
-			tooltip = objectionFont(translatePlural(
-				"Cannot upgrade when the entity is training, researching or already upgrading.",
-				"Cannot upgrade when all entities are training, researching or already upgrading.",
-				data.unitEntStates.length));
-
-			data.button.onPress = function() {};
-
-			data.button.enabled = false;
+			tooltip = desc + (upgradeData.tooltip ? " " + translate(upgradeData.tooltip) : "") + "\n" +
+				objectionFont(translate("Cannot upgrade: all selected entities are busy training or researching."));
+			data.button.onPress = () => {};
+			buttonEnabled = false;
 			modifier = "color:0 0 0 127:grayscale:";
+			setCountCaption(item.entities.length > 1 ? item.entities.length : "");
 		}
-		data.button.enabled = controlsPlayer(data.player);
+
+		data.button.enabled = buttonEnabled;
 		data.button.tooltip = tooltip;
-
-		const showTemplateFunc = () => { showTemplateDetails(data.item.entity, data.playerState.civ); };
-		data.button.onPressRight = showTemplateFunc;
-		data.button.onPressRightDisabled = showTemplateFunc;
-
-		data.icon.sprite = modifier + "stretched:session/" +
-			(data.item.icon || "portraits/" + template.icon);
-
+		data.button.onPressRight = () => showTemplateDetails(targetTemplate, playerState.civ);
+		data.button.onPressRightDisabled = data.button.onPressRight;
+		data.icon.sprite = modifier + "stretched:session/" + (upgradeData.icon || "portraits/" + template.icon);
 		setPanelObjectPosition(data.button, data.i + getNumberOfRightPanelButtons(), data.rowLength);
+		data.button.hidden = false;
 		return true;
 	}
 };

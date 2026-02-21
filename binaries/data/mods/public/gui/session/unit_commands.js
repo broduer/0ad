@@ -297,6 +297,48 @@ function getAllResearchItemsFromSelection()
 	return getAllResearchItems(g_Selection.toList());
 }
 
+// Get all upgrade items from the selection, grouped by player and upgrade template
+function getAllUpgradeItems(selection)
+{
+	const items = [];
+	const seen = new Map(); // key: player:upgradeTemplate -> item index
+
+	for (const ent of selection)
+	{
+		const state = GetEntityState(ent);
+		if (!state?.upgrade?.upgrades)
+			continue;
+
+		const player = state.player;
+		for (const upgrade of state.upgrade.upgrades)
+		{
+			const key = player + ":" + upgrade.entity;
+			if (seen.has(key))
+			{
+				const idx = seen.get(key);
+				items[idx].entities.push(ent);
+			}
+			else
+			{
+				seen.set(key, items.length);
+				items.push({
+					"upgradeTemplate": upgrade.entity,
+					"player": player,
+					"entities": [ent],
+					"upgradeData": upgrade
+				});
+			}
+		}
+	}
+	return items;
+}
+
+function getAllUpgradeItemsFromSelection()
+{
+	// TODO : consider implementing a cache like g_allUpgradeItems
+	return getAllUpgradeItems(g_Selection.toList());
+}
+
 // Get all of the available entities which can be built by the selected entities
 function getAllBuildableEntities(selection)
 {
