@@ -48,15 +48,13 @@ function updateGarrisonHealthBar(entState, selection)
 // Fills out information that most entities have
 function displaySingle(entState)
 {
-	const template = GetTemplateData(entState.templateName);
-
-	const primaryName = g_SpecificNamesPrimary ? template.name.specific : template.name.generic;
+	const primaryName = g_SpecificNamesPrimary ? entState.name.specific : entState.name.generic;
 	let secondaryName;
 	if (g_ShowSecondaryNames)
-		secondaryName = g_SpecificNamesPrimary ? template.name.generic : template.name.specific;
+		secondaryName = g_SpecificNamesPrimary ? entState.name.generic : entState.name.specific;
 
 	// If packed, add that to the generic name (reduces template clutter).
-	if (template.pack && template.pack.state == "packed")
+	if (entState.pack?.state === "packed")
 	{
 		if (secondaryName && g_ShowSecondaryNames)
 			secondaryName = sprintf(translate("%(secondaryName)s — Packed"), { "secondaryName": secondaryName });
@@ -327,8 +325,8 @@ function displaySingle(entState)
 	}
 
 	// TODO: we should require all entities to have icons
-	Engine.GetGUIObjectByName("icon").sprite = template.icon ? ("stretched:session/portraits/" + template.icon) : "BackgroundBlack";
-	if (template.icon)
+	Engine.GetGUIObjectByName("icon").sprite = entState.icon ? ("stretched:session/portraits/" + entState.icon) : "BackgroundBlack";
+	if (entState.icon)
 	{
 		const iconBorder = Engine.GetGUIObjectByName("iconBorder");
 
@@ -373,7 +371,7 @@ function displaySingle(entState)
 		getAurasTooltip,
 		getEntityTooltip,
 		getTreasureTooltip
-	].map(func => func(template)));
+	].map(func => func(entState)));
 
 	const leftClickTooltip = hasClass(entState, "Unit") ? getFollowOnLeftClickTooltip() : getFocusOnLeftClickTooltip();
 	iconTooltips.push(leftClickTooltip + " " + getTemplateViewerOnRightClickTooltip());

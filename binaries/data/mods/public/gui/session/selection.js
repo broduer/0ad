@@ -74,7 +74,7 @@ EntityGroups.prototype.add = function(ents)
 	{
 		if (this.ents[ent])
 			continue;
-		var entState = GetEntityState(ent);
+		const entState = GetEntityState(ent);
 
 		// When this function is called during group rebuild, deleted
 		// entities will not yet have been removed, so entities might
@@ -82,8 +82,7 @@ EntityGroups.prototype.add = function(ents)
 		if (!entState)
 			continue;
 
-		var templateName = entState.templateName;
-		var key = GetTemplateData(templateName, entState.player).selectionGroupName || templateName;
+		let key = entState.selectionGroupName || entState.templateName;
 
 		// Group the ents by player and template
 		if (entState.player !== undefined)

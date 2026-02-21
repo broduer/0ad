@@ -1250,7 +1250,7 @@ var g_UnitActions =
 					let trader;
 					if (entState.trainer?.entities?.length)
 						for (let i = 0; i < entState.trainer.entities.length; ++i)
-							if ((trader = GetTemplateData(entState.trainer.entities[i]).trader))
+							if ((trader = entState.trainer.entities[i].trader))
 								break;
 
 					const traderData = {

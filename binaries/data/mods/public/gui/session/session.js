@@ -824,8 +824,7 @@ function updateGroups()
 	// Determine the sum of the costs of a given template
 	const getCostSum = (ent) =>
 	{
-		const entState = GetEntityState(ent);
-		const cost = GetTemplateData(entState.templateName, entState.player).cost;
+		const cost = GetEntityState(ent).cost;
 		return cost ? Object.keys(cost).map(key => cost[key]).reduce((sum, cur) => sum + cur) : 0;
 	};
 
@@ -842,12 +841,12 @@ function updateGroups()
 		// Choose the icon of the most common template (or the most costly if it's not unique)
 		if (g_Groups.groups[i].getTotalCount() > 0)
 		{
-			const icon = GetTemplateData(GetEntityState(g_Groups.groups[i].getEntsGrouped().reduce((pre, cur) =>
+			const icon = GetEntityState(g_Groups.groups[i].getEntsGrouped().reduce((pre, cur) =>
 			{
 				if (pre.ents.length == cur.ents.length)
 					return getCostSum(pre.ents[0]) > getCostSum(cur.ents[0]) ? pre : cur;
 				return pre.ents.length > cur.ents.length ? pre : cur;
-			}).ents[0]).templateName).icon;
+			}).ents[0]).icon;
 
 			Engine.GetGUIObjectByName("unitGroupIcon[" + i + "]").sprite =
 				icon ? ("stretched:session/portraits/" + icon) : "groupsIcon";

@@ -343,14 +343,12 @@ g_SelectionPanels.Garrison = {
 	"setupButton": function(data)
 	{
 		const entState = GetEntityState(data.item.ents[0]);
-
-		const template = GetTemplateData(entState.templateName, entState.player);
-		if (!template)
+		if (!entState)
 			return false;
 
 		data.button.onPress = function()
 		{
-			unloadTemplate(template.selectionGroupName || entState.templateName, entState.player);
+			unloadTemplate(entState.selectionGroupName || entState.templateName, entState.player);
 		};
 
 		data.countDisplay.caption = data.item.ents.length > 1 ? data.item.ents.length : "";
@@ -360,9 +358,9 @@ g_SelectionPanels.Garrison = {
 		data.button.enabled = canUngarrison;
 
 		data.button.tooltip = (canUngarrison ?
-			sprintf(translate("Unload %(name)s"), { "name": getEntityNames(template) }) + "\n" +
+			sprintf(translate("Unload %(name)s"), { "name": getEntityNames(entState) }) + "\n" +
 			translate("Single-click to unload 1. Shift-click to unload all of this type.") :
-			getEntityNames(template)) + "\n" +
+			getEntityNames(entState)) + "\n" +
 			sprintf(translate("Player: %(playername)s"), {
 				"playername": g_Players[entState.player].name
 			});
@@ -374,7 +372,7 @@ g_SelectionPanels.Garrison = {
 		// also appear disabled to the owner of the structure.
 		data.icon.sprite =
 			(canUngarrison || g_IsObserver ? "" : "grayscale:") +
-			"stretched:session/portraits/" + template.icon;
+			"stretched:session/portraits/" + entState.icon;
 
 		setPanelObjectPosition(data.button, data.i, data.rowLength);
 
@@ -1048,7 +1046,7 @@ g_SelectionPanels.Research = {
 			{
 				showTemplateDetails(
 					t,
-					GetTemplateData(baseData.unitEntStates.find(state => state.id == baseData.item.researchFacilityId).templateName, state.player).nativeCiv
+					baseData.unitEntStates.find(state => state.id == baseData.item.researchFacilityId).nativeCiv
 				);
 			});
 
@@ -1114,8 +1112,7 @@ g_SelectionPanels.Selection = {
 	"setupButton": function(data)
 	{
 		const entState = GetEntityState(data.item.ents[0]);
-		const template = GetTemplateData(entState.templateName, entState.player);
-		if (!template)
+		if (!entState)
 			return false;
 
 		for (const ent of data.item.ents)
@@ -1152,7 +1149,7 @@ g_SelectionPanels.Selection = {
 		}
 
 		const unitOwner = GetEntityState(data.item.ents[0]).player;
-		let tooltip = getEntityNames(template);
+		let tooltip = getEntityNames(entState);
 		if (data.carried)
 			tooltip += "\n" + Object.keys(data.carried).map(res =>
 				resourceIcon(res) + data.carried[res]
@@ -1177,8 +1174,8 @@ g_SelectionPanels.Selection = {
 		};
 		data.button.onPressRight = function() { removeFromSelectionGroup(data.item.key); };
 
-		if (template.icon)
-			data.icon.sprite = "stretched:session/portraits/" + template.icon;
+		if (entState.icon)
+			data.icon.sprite = "stretched:session/portraits/" + entState.icon;
 
 		setPanelObjectPosition(data.button, data.i, data.rowLength);
 		return true;
