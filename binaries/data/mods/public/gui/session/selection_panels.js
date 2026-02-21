@@ -179,28 +179,31 @@ g_SelectionPanels.Construction = {
 	"rowLength": 10,
 	"getItems": function()
 	{
-		return getAllBuildableEntitiesFromSelection();
+		return getAllBuildableItemsFromSelection();
 	},
 	"setupButton": function(data)
 	{
-		const template = GetTemplateData(data.item, data.player);
+		const item = data.item;
+		const player = item.player;
+		const playerState = GetSimState().players[player];
+		const template = GetTemplateData(item.template, player);
 		if (!template)
 			return false;
 
 		const requirementsMet = Engine.GuiInterfaceCall("AreRequirementsMet", {
 			"requirements": template.requirements,
-			"player": data.player
+			"player": player
 		});
 
 		let neededResources;
 		if (template.cost)
 			neededResources = Engine.GuiInterfaceCall("GetNeededResources", {
 				"cost": multiplyEntityCosts(template, 1),
-				"player": data.player
+				"player": player
 			});
 
-		data.button.onPress = function() { startBuildingPlacement(data.item, data.playerState); };
-		const showTemplateFunc = () => { showTemplateDetails(data.item, data.playerState.civ); };
+		data.button.onPress = function() { startBuildingPlacement(item.template, playerState); };
+		const showTemplateFunc = () => { showTemplateDetails(item.template, playerState.civ); };
 		data.button.onPressRight = showTemplateFunc;
 		data.button.onPressRightDisabled = showTemplateFunc;
 
@@ -211,7 +214,7 @@ g_SelectionPanels.Construction = {
 			getEntityTooltip
 		].map(func => func(template));
 		tooltips.push(
-			getEntityCostTooltip(template, data.player),
+			getEntityCostTooltip(template, player),
 			getResourceDropsiteTooltip(template),
 			getGarrisonTooltip(template),
 			getTurretsTooltip(template),
@@ -219,13 +222,21 @@ g_SelectionPanels.Construction = {
 			getTemplateViewerOnRightClickTooltip(template)
 		);
 
-
-		const limits = getEntityLimitAndCount(data.playerState, data.item);
+		const limits = getEntityLimitAndCount(playerState, item.template);
 		tooltips.push(
 			formatLimitString(limits.entLimit, limits.entCount, limits.entLimitChangers),
 			formatMatchLimitString(limits.matchLimit, limits.matchCount, limits.type),
-			getRequirementsTooltip(requirementsMet, template.requirements, GetSimState().players[data.player].civ),
-			getNeededResourcesTooltip(neededResources));
+			getRequirementsTooltip(requirementsMet, template.requirements, playerState.civ),
+			getNeededResourcesTooltip(neededResources)
+		);
+
+		// Add player name for observers
+		if (g_IsObserver)
+		{
+			tooltips.push(sprintf(translate("Player: %(playername)s"), {
+				"playername": g_Players[player].name
+			}));
+		}
 
 		data.button.tooltip = tooltips.filter(tip => tip).join("\n");
 
@@ -233,15 +244,17 @@ g_SelectionPanels.Construction = {
 		if (!requirementsMet || limits.canBeAddedCount == 0)
 		{
 			data.button.enabled = false;
-			modifier += "color:0 0 0 127:grayscale:";
+			modifier = "color:0 0 0 127:grayscale:";
 		}
 		else if (neededResources)
 		{
 			data.button.enabled = false;
-			modifier += resourcesToAlphaMask(neededResources) + ":";
+			modifier = resourcesToAlphaMask(neededResources) + ":";
 		}
 		else
-			data.button.enabled = controlsPlayer(data.player);
+		{
+			data.button.enabled = controlsPlayer(player);
+		}
 
 		if (template.icon)
 			data.icon.sprite = modifier + "stretched:session/portraits/" + template.icon;

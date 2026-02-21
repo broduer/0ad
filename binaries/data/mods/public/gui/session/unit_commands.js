@@ -339,17 +339,45 @@ function getAllUpgradeItemsFromSelection()
 	return getAllUpgradeItems(g_Selection.toList());
 }
 
-// Get all of the available entities which can be built by the selected entities
-function getAllBuildableEntities(selection)
+// Get all buildable items per player from the selection
+function getAllBuildableItems(selection)
 {
-	return Engine.GuiInterfaceCall("GetAllBuildableEntities", { "entities": selection });
+	const items = [];
+	const seen = new Set(); // key: player:template
+
+	// Group entities by player
+	const byPlayer = new Map();
+	for (const ent of selection)
+	{
+		const state = GetEntityState(ent);
+		if (!state) continue;
+		const player = state.player;
+		if (!byPlayer.has(player))
+			byPlayer.set(player, []);
+		byPlayer.get(player).push(ent);
+	}
+
+	// For each player, get their buildable templates
+	for (const [player, entities] of byPlayer)
+	{
+		const templates = Engine.GuiInterfaceCall("GetAllBuildableEntities", { "entities": entities });
+		for (const tmpl of templates)
+		{
+			const key = player + ":" + tmpl;
+			if (!seen.has(key))
+			{
+				seen.add(key);
+				items.push({ "template": tmpl, "player": player });
+			}
+		}
+	}
+	return items;
 }
 
-function getAllBuildableEntitiesFromSelection()
+function getAllBuildableItemsFromSelection()
 {
 	if (!g_allBuildableEntities)
-		g_allBuildableEntities = getAllBuildableEntities(g_Selection.toList());
-
+		g_allBuildableEntities = getAllBuildableItems(g_Selection.toList());
 	return g_allBuildableEntities;
 }
 
