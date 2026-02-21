@@ -231,6 +231,72 @@ function getAllTrainableItemsFromSelection()
 	return g_allTrainableEntities;
 }
 
+// Get all researchable items from the selection, grouped by researchers entities.
+function getAllResearchItems(selection)
+{
+	const items = [];
+	const itemMap = new Map(); // key -> item index
+
+	for (const ent of selection)
+	{
+		const state = GetEntityState(ent);
+		if (!state?.researcher?.technologies?.length)
+			continue;
+
+		if (!state.production)
+			warn("Researcher without ProductionQueue found: " + ent + ".");
+
+		const player = state.player;
+		const facilityId = ent;
+		const isUpgrading = !!state.upgrade && state.upgrade.isUpgrading;
+
+		for (const tech of state.researcher.technologies)
+		{
+			let key;
+			if (tech && tech.pair)
+				key = player + ":pair:" + tech.bottom + "|" + tech.top;
+			else
+				key = player + ":" + tech;
+
+			if (itemMap.has(key))
+			{
+				const idx = itemMap.get(key);
+				const item = items[idx];
+
+				// Add this facility to the item's facilities list
+				if (!item.researchFacilityIds.includes(facilityId))
+					item.researchFacilityIds.push(facilityId);
+
+				if (!isUpgrading)
+					item.hasAvailableFacility = true;
+			}
+			else
+			{
+				const item = {
+					"tech": tech,
+					"techCostMultiplier": state.researcher.techCostMultiplier,
+					"researchFacilityIds": [facilityId],
+					"player": player,
+					"hasAvailableFacility": !isUpgrading // At least this facility is available
+				};
+				itemMap.set(key, items.length);
+				items.push(item);
+			}
+		}
+	}
+
+	// Sort items to prioritize those with available facilities
+	items.sort((a, b) => (b.hasAvailableFacility ? 1 : 0) - (a.hasAvailableFacility ? 1 : 0));
+
+	return items;
+}
+
+function getAllResearchItemsFromSelection()
+{
+	// TODO : consider implementing a cache like g_allResearchItems
+	return getAllResearchItems(g_Selection.toList());
+}
+
 // Get all of the available entities which can be built by the selected entities
 function getAllBuildableEntities(selection)
 {

@@ -647,59 +647,10 @@ g_SelectionPanels.Research = {
 		return 10;
 	},
 	"rowLength": 10,
-	"getItems": function(unitEntStates)
+	"getItems": function()
 	{
-		let ret = [];
-		if (unitEntStates.length == 1)
-		{
-			const entState = unitEntStates[0];
-			if (!entState?.researcher?.technologies)
-				return ret;
-			if (!entState.production)
-				warn("Researcher without ProductionQueue found: " + entState.id + ".");
-			return entState.researcher.technologies.map(tech => ({
-				"tech": tech,
-				"techCostMultiplier": entState.researcher.techCostMultiplier,
-				"researchFacilityId": entState.id,
-				"isUpgrading": !!entState.upgrade && entState.upgrade.isUpgrading
-			}));
-		}
-
-		const sortedEntStates = unitEntStates.sort((a, b) =>
-			(!b.upgrade || !b.upgrade.isUpgrading) - (!a.upgrade || !a.upgrade.isUpgrading) ||
-			(!a.production ? 0 : a.production.queue.length) - (!b.production ? 0 : b.production.queue.length)
-		);
-
-		for (const state of sortedEntStates)
-		{
-			if (!state.researcher || !state.researcher.technologies)
-				continue;
-			if (!state.production)
-				warn("Researcher without ProductionQueue found: " + state.id + ".");
-
-			// Remove the techs we already have in ret (with the same name and techCostMultiplier)
-			const filteredTechs = state.researcher.technologies.filter(
-				tech => tech != null && !ret.some(
-					item =>
-						(item.tech == tech ||
-							item.tech.pair &&
-							tech.pair &&
-							item.tech.bottom == tech.bottom &&
-							item.tech.top == tech.top) &&
-						Object.keys(item.techCostMultiplier).every(
-							k => item.techCostMultiplier[k] == state.researcher.techCostMultiplier[k])
-				));
-
-			if (filteredTechs.length + ret.length <= this.getMaxNumberOfItems() &&
-			    getNumberOfRightPanelButtons() <= this.getMaxNumberOfItems() * (filteredTechs.some(tech => !!tech.pair) ? 1 : 2))
-				ret = ret.concat(filteredTechs.map(tech => ({
-					"tech": tech,
-					"techCostMultiplier": state.researcher.techCostMultiplier,
-					"researchFacilityId": state.id,
-					"isUpgrading": !!state.upgrade && state.upgrade.isUpgrading
-				})));
-		}
-		return ret;
+		// Returns items with tech, techCostMultiplier, researchFacilityIds, player, hasAvailableFacility
+		return getAllResearchItemsFromSelection();
 	},
 	"hideItem": function(i, rowLength) // Called when no item is found
 	{
@@ -729,8 +680,16 @@ g_SelectionPanels.Research = {
 		setPanelObjectPosition(pair, data.i, data.rowLength);
 
 		// Handle one or two techs (tech pair)
-		const player = data.player;
+		const player = data.item.player;
 		const playerState = GetSimState().players[player];
+
+		// Filter available facilities (not upgrading) for this tech
+		const availableFacilities = data.item.researchFacilityIds.filter(facilityId =>
+		{
+			const facilityState = GetEntityState(facilityId);
+			return facilityState && !facilityState.upgrade?.isUpgrading;
+		});
+
 		for (const tech of data.item.tech.pair ? [data.item.tech.bottom, data.item.tech.top] : [data.item.tech])
 		{
 			// Don't change the object returned by GetTechnologyData
@@ -815,11 +774,24 @@ g_SelectionPanels.Research = {
 				tooltips.push(objectionFont(tip));
 			}
 			tooltips.push(getNeededResourcesTooltip(neededResources));
+
+			// Add player name for observers
+			if (g_IsObserver)
+			{
+				tooltips.push(sprintf(translate("Player: %(playername)s"), {
+					"playername": g_Players[player].name
+				}));
+			}
+
 			button.tooltip = tooltips.filter(tip => tip).join("\n");
 
 			button.onPress = (t => function()
 			{
-				addResearchToQueue(data.item.researchFacilityId, t);
+				if (availableFacilities.length > 0)
+					addResearchToQueue(availableFacilities[0], t);
+				else if (data.item.researchFacilityIds.length > 0)
+					addResearchToQueue(data.item.researchFacilityIds[0], t);
+				// If no facilities at all, do nothing (shouldn't happen)
 			})(tech);
 
 			const showTemplateFunc = (t => function()
@@ -859,14 +831,13 @@ g_SelectionPanels.Research = {
 				modifier += resourcesToAlphaMask(neededResources) + ":";
 			}
 			else
-				button.enabled = controlsPlayer(data.player);
+				button.enabled = controlsPlayer(player);
 
-			if (data.item.isUpgrading)
+			if (!data.item.hasAvailableFacility)
 			{
 				button.enabled = false;
 				modifier += "color:0 0 0 127:grayscale:";
 				button.tooltip += "\n" + objectionFont(translate("Cannot research while upgrading."));
-
 			}
 
 			if (template.icon)
