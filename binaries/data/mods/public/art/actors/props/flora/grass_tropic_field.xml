@@ -12,12 +12,12 @@
   <group>
     <variant frequency="1" name="grass_field_temperate">
       <textures>
-        <texture file="gaia/grass_field_temperate.dds" name="baseTex"/>
+        <texture file="gaia/grass_field_temperate.png" name="baseTex"/>
       </textures>
     </variant>
     <variant frequency="1" name="grass_field_temperate_2">
       <textures>
-        <texture file="gaia/grass_field_temperate_2.dds" name="baseTex"/>
+        <texture file="gaia/grass_field_temperate_2.png" name="baseTex"/>
       </textures>
     </variant>
     <variant frequency="2" name="forest_grass_temp_01">
