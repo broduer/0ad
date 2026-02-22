@@ -61,33 +61,66 @@ g_SelectionPanels.Alert = {
 			}
 		};
 
+		const civilianClass = ["Civilian"];
+		const traderClass = ["Trader"];
+
+		let hasCivilian = false;
+		let hasTrader = false;
+		let hasOther = false;
+		let canControl = false;
+
+		for (const state of data.unitEntStates)
+		{
+			if (!state.alertRaiser)
+				continue;
+
+			if (!canControl && controlsPlayer(state.player))
+				canControl = true;
+
+			const classes = state.alertRaiser.classes;
+			if (MatchesClassList(civilianClass, classes))
+				hasCivilian = true;
+			else if (MatchesClassList(traderClass, classes))
+				hasTrader = true;
+			else
+				hasOther = true;
+
+			// Already found all types and canControl
+			if (canControl && hasCivilian && hasTrader && hasOther)
+				break;
+		}
+
 		switch (data.item)
 		{
 		case "raise":
 			data.icon.sprite = "stretched:session/icons/bell_level1.png";
 			data.button.tooltip = translate("Raise an alert!");
-			if (data.unitEntStates.every(state => MatchesClassList(["Civilian"], state.alertRaiser?.classes)))
+
+			if (hasCivilian && !hasTrader && !hasOther)
 				data.button.tooltip += "\n" + bodyFont(translate("Alert nearby Civilians to seek refuge."));
-			else if (data.unitEntStates.every(state => MatchesClassList(["Trader"], state.alertRaiser?.classes)))
+			else if (hasTrader && !hasCivilian && !hasOther)
 				data.button.tooltip += "\n" + bodyFont(translate("Alert nearby Traders to seek refuge."));
 			else
 				data.button.tooltip += "\n" + bodyFont(translate("Alert nearby vulnerable units to seek refuge."));
 			break;
+
 		case "end":
 			data.icon.sprite = "stretched:session/icons/bell_level0.png";
 			data.button.tooltip = translate("End the alert.");
-			if (data.unitEntStates.every(state => MatchesClassList(["Civilian"], state.alertRaiser?.classes)))
+
+			if (hasCivilian && !hasTrader && !hasOther)
 				data.button.tooltip += "\n" + bodyFont(translate("Unload nearby Civilians."));
-			else if (data.unitEntStates.every(state => MatchesClassList(["Trader"], state.alertRaiser?.classes)))
+			else if (hasTrader && !hasCivilian && !hasOther)
 				data.button.tooltip += "\n" + bodyFont(translate("Unload nearby Traders."));
 			else
 				data.button.tooltip += "\n" + bodyFont(translate("Unload nearby vulnerable units."));
 			break;
+
 		default:
 			error("Unknown value for alert action: " + data.item);
 		}
-		data.button.enabled = controlsPlayer(data.player);
 
+		data.button.enabled = canControl;
 		setPanelObjectPosition(data.button, this.getMaxNumberOfItems() - data.i, data.rowLength);
 		return true;
 	}
