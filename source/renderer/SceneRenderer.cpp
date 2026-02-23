@@ -874,7 +874,8 @@ void CSceneRenderer::RenderSubmissions(
 	ITerrainOverlay::RenderOverlaysBeforeWater(deviceCommandContext);
 
 	// render other debug-related overlays before water (so they can be seen when underwater)
-	m->overlayRenderer.RenderOverlaysBeforeWater(deviceCommandContext);
+	if (!g_RenderingOptions.GetCutsceneMode())
+		m->overlayRenderer.RenderOverlaysBeforeWater(deviceCommandContext);
 
 	RenderModels(deviceCommandContext, context, cullGroup);
 
@@ -908,8 +909,9 @@ void CSceneRenderer::RenderSubmissions(
 	// render debug-related terrain overlays
 	ITerrainOverlay::RenderOverlaysAfterWater(deviceCommandContext, cullGroup);
 
-	// render some other overlays after water (so they can be displayed on top of water)
-	m->overlayRenderer.RenderOverlaysAfterWater(deviceCommandContext);
+	if (!g_RenderingOptions.GetCutsceneMode())
+		// render some other overlays after water (so they can be displayed on top of water)
+		m->overlayRenderer.RenderOverlaysAfterWater(deviceCommandContext);
 
 	// particles are transparent so render after water
 	if (g_RenderingOptions.GetParticles())
@@ -1087,7 +1089,7 @@ void CSceneRenderer::PrepareScene(
 
 	m->particleManager.RenderSubmit(*this, frustum);
 
-	if (g_RenderingOptions.GetSilhouettes())
+	if (!g_RenderingOptions.GetCutsceneMode() && g_RenderingOptions.GetSilhouettes())
 	{
 		m->silhouetteRenderer.ComputeSubmissions(m_ViewCamera);
 
@@ -1159,15 +1161,16 @@ void CSceneRenderer::RenderScene(
 void CSceneRenderer::RenderSceneOverlays(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
-	if (g_RenderingOptions.GetSilhouettes())
+	if (!g_RenderingOptions.GetCutsceneMode())
 	{
-		RenderSilhouettes(deviceCommandContext, m->globalContext);
+		if (g_RenderingOptions.GetSilhouettes())
+			RenderSilhouettes(deviceCommandContext, m->globalContext);
+
+		m->silhouetteRenderer.RenderDebugOverlays(deviceCommandContext);
+
+		// Render overlays that should appear on top of all other objects.
+		m->overlayRenderer.RenderForegroundOverlays(deviceCommandContext, m_ViewCamera);
 	}
-
-	m->silhouetteRenderer.RenderDebugOverlays(deviceCommandContext);
-
-	// Render overlays that should appear on top of all other objects.
-	m->overlayRenderer.RenderForegroundOverlays(deviceCommandContext, m_ViewCamera);
 
 	m_CurrentScene = nullptr;
 }

@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,5 +25,3 @@ BEGIN_INTERFACE_WRAPPER(OverlayRenderer)
 DEFINE_INTERFACE_METHOD("Reset", ICmpOverlayRenderer, Reset)
 DEFINE_INTERFACE_METHOD("AddSprite", ICmpOverlayRenderer, AddSprite)
 END_INTERFACE_WRAPPER(OverlayRenderer)
-
-bool ICmpOverlayRenderer::m_OverrideVisible = true;

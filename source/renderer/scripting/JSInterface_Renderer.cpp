@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -41,6 +41,7 @@ void Set##NAME##Enabled(bool enabled) \
 	g_RenderingOptions.Set##NAME(enabled); \
 }
 
+IMPLEMENT_BOOLEAN_SCRIPT_SETTING(CutsceneMode);
 IMPLEMENT_BOOLEAN_SCRIPT_SETTING(DisplayFrustum);
 IMPLEMENT_BOOLEAN_SCRIPT_SETTING(DisplayShadowsFrustum);
 
@@ -76,6 +77,7 @@ void RegisterScriptFunctions(const ScriptRequest& rq)
 	ScriptFunction::Register<&TextureExists>(rq, "TextureExists");
 	ScriptFunction::Register<&GetRenderDebugMode>(rq, "Renderer_GetRenderDebugMode");
 	ScriptFunction::Register<&SetRenderDebugMode>(rq, "Renderer_SetRenderDebugMode");
+	REGISTER_BOOLEAN_SCRIPT_SETTING(CutsceneMode);
 	REGISTER_BOOLEAN_SCRIPT_SETTING(DisplayFrustum);
 	REGISTER_BOOLEAN_SCRIPT_SETTING(DisplayShadowsFrustum);
 }

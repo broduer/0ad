@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -201,7 +201,7 @@ public:
 
 	void RenderSubmit(SceneCollector &collector)
 	{
-		if (!m_Enabled || !ICmpOverlayRenderer::m_OverrideVisible)
+		if (!m_Enabled)
 			return;
 
 		for (size_t i = 0; i < m_Sprites.size(); ++i)

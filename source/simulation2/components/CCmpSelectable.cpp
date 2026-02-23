@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -632,10 +632,6 @@ void CCmpSelectable::UpdateDynamicOverlay(float frameOffset)
 
 void CCmpSelectable::RenderSubmit(SceneCollector& collector, const CFrustum& frustum, bool culling)
 {
-	// don't render selection overlay if it's not gonna be visible
-	if (!ICmpSelectable::m_OverrideVisible)
-		return;
-
 	if (m_Visible && m_Color.a > 0)
 	{
 		if (!m_Cached)

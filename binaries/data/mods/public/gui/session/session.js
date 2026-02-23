@@ -697,25 +697,23 @@ function toggleGUI()
 	updateCinemaPath();
 }
 
-var g_HasHiddenSilhouettes = false;
+// TODO: The whole cinema UI should be handled by its own class.
+var g_CutsceneModeEnabled = false;
 function updateCinemaPath()
 {
 	const isPlayingCinemaPath = GetSimState().cinemaPlaying && !g_Disconnected;
 
 	Engine.GetGUIObjectByName("session").hidden = !g_ShowGUI || isPlayingCinemaPath;
 	Engine.GetGUIObjectByName("cinemaOverlay").hidden = !isPlayingCinemaPath;
-	// TODO: This isn't great and should use a different system.
-	if (isPlayingCinemaPath && Engine.ConfigDB_GetValue("user", "silhouettes") == "true")
+	if (isPlayingCinemaPath && !g_CutsceneModeEnabled)
 	{
-		Engine.ConfigDB_CreateValue("user", "silhouettes", "false");
-		g_HasHiddenSilhouettes = true;
+		Engine.Renderer_SetCutsceneModeEnabled(true);
+		g_CutsceneModeEnabled = true;
 	}
-	else if (!isPlayingCinemaPath && g_HasHiddenSilhouettes)
+	else if (!isPlayingCinemaPath && g_CutsceneModeEnabled)
 	{
-		// TODO: Keyboard shortcuts can still try to toggle silhouettes
-		// which would behave incorrectly on reset.
-		Engine.ConfigDB_Reload("user");
-		g_HasHiddenSilhouettes = false;
+		Engine.Renderer_SetCutsceneModeEnabled(false);
+		g_CutsceneModeEnabled = false;
 	}
 }
 

@@ -248,7 +248,6 @@ public:
 			return;
 
 		CmpPtr<ICmpRangeManager> cmpRangeManager(GetSimContext().GetSystemEntity());
-		CmpPtr<ICmpTerritoryManager> cmpTerritoryManager(GetSimContext().GetSystemEntity());
 		if (cmpRangeManager)
 		{
 			if (enabled)
@@ -256,10 +255,6 @@ public:
 			// TODO: improve m_MapRevealed state and without fade in
 			cmpRangeManager->SetLosRevealWholeMapForAll(enabled);
 		}
-		if (cmpTerritoryManager)
-			cmpTerritoryManager->SetVisibility(!enabled);
-		ICmpSelectable::SetOverrideVisibility(!enabled);
-		ICmpOverlayRenderer::SetOverrideVisibility(!enabled);
 
 		m_Enabled = enabled;
 	}
