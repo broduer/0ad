@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -156,8 +156,8 @@ private:
 	// size/position if we started fullscreen), to support switching back to the old window size/position
 	int m_WindowedW;
 	int m_WindowedH;
-	int m_WindowedX;
-	int m_WindowedY;
+	int m_WindowedX = 0;
+	int m_WindowedY = 0;
 
 	// Whether we're currently being displayed fullscreen
 	bool m_IsFullscreen = false;

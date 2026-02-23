@@ -133,20 +133,18 @@ extern void wutil_EnableHiDPIOnWindows();
 
 CVideoMode g_VideoMode;
 
-namespace raii {
+namespace raii
+{
+namespace
+{
 	struct SDLDeleter
 	{
-		void operator()(::SDL_Cursor* cursor) const
-		{
-			SDL_FreeCursor(cursor);
-		}
-		void operator()(::SDL_Surface* surface) const
-		{
-			SDL_FreeSurface(surface);
-		}
+		void operator()(::SDL_Cursor* cursor) const { SDL_FreeCursor(cursor); }
+		void operator()(::SDL_Surface* surface) const { SDL_FreeSurface(surface); }
 	};
 	using SDL_Cursor = std::unique_ptr<::SDL_Cursor, SDLDeleter>;
 	using SDL_Surface = std::unique_ptr<::SDL_Surface, SDLDeleter>;
+}
 }
 
 class CVideoMode::CCursor
@@ -175,8 +173,7 @@ private:
 	FileReloadListener m_ReloadListener;
 };
 
-CVideoMode::CCursor::CCursor()
-	: m_ReloadListener([this](const VfsPath& path) { return OnFileReloaded(path); })
+CVideoMode::CCursor::CCursor() : m_ReloadListener([this](const VfsPath& path) { return OnFileReloaded(path); })
 {
 	if (g_ConfigDB.Get("cursorbackend", std::string{}) == "sdl")
 		m_CursorBackend = CursorBackend::SDL;
@@ -250,10 +247,9 @@ void CVideoMode::CCursor::SetCursor(const CStrW& name)
 			return;
 		}
 
-		raii::SDL_Surface surface(SDL_CreateRGBSurfaceFrom(imageBGRA,
-			static_cast<int>(t.m_Width), static_cast<int>(t.m_Height), 32,
-			static_cast<int>(t.m_Width * 4),
-			0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000));
+		raii::SDL_Surface surface(SDL_CreateRGBSurfaceFrom(
+		    imageBGRA, static_cast<int>(t.m_Width), static_cast<int>(t.m_Height), 32, static_cast<int>(t.m_Width * 4), 0x00FF0000, 0x0000FF00,
+		    0x000000FF, 0xFF000000));
 		if (!surface)
 		{
 			LOGERROR("Can't create surface for cursor: %s", SDL_GetError());
@@ -262,10 +258,8 @@ void CVideoMode::CCursor::SetCursor(const CStrW& name)
 		const float scale = g_VideoMode.GetScale();
 		if (scale != 1.0)
 		{
-			raii::SDL_Surface scaledSurface(SDL_CreateRGBSurface(0,
-				surface->w * scale,
-				surface->h * scale, 32,
-				0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000));
+			raii::SDL_Surface scaledSurface(
+			    SDL_CreateRGBSurface(0, surface->w * scale, surface->h * scale, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000));
 			if (!scaledSurface)
 			{
 				LOGERROR("Can't create scaled surface forcursor: %s", SDL_GetError());
@@ -325,10 +319,7 @@ Status CVideoMode::CCursor::OnFileReloaded(const VfsPath& path)
 	return INFO::OK;
 }
 
-CVideoMode::CVideoMode() :
-	m_WindowedW(DEFAULT_WINDOW_W), m_WindowedH(DEFAULT_WINDOW_H), m_WindowedX(0), m_WindowedY(0)
-{
-}
+CVideoMode::CVideoMode() : m_WindowedW(DEFAULT_WINDOW_W), m_WindowedH(DEFAULT_WINDOW_H) {}
 
 CVideoMode::~CVideoMode() = default;
 
@@ -364,8 +355,7 @@ bool CVideoMode::SetVideoMode(int w, int h, int bpp, bool fullscreen)
 	Uint32 flags = 0;
 	if (fullscreen)
 	{
-		flags |= g_ConfigDB.Get("borderless.fullscreen", true) ? SDL_WINDOW_FULLSCREEN_DESKTOP :
-			SDL_WINDOW_FULLSCREEN;
+		flags |= g_ConfigDB.Get("borderless.fullscreen", true) ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_FULLSCREEN;
 	}
 	else if (g_ConfigDB.Get("borderless.window", false))
 		flags |= SDL_WINDOW_BORDERLESS;
@@ -472,9 +462,10 @@ bool CVideoMode::SetVideoMode(int w, int h, int bpp, bool fullscreen)
 			// If fullscreen fails, try windowed mode
 			if (fullscreen)
 			{
-				LOGWARNING("Failed to set the video mode to fullscreen for the chosen resolution "
-					"%dx%d:%d (\"%hs\"), falling back to windowed mode",
-					w, h, bpp, SDL_GetError());
+				LOGWARNING(
+				    "Failed to set the video mode to fullscreen for the chosen resolution "
+				    "%dx%d:%d (\"%hs\"), falling back to windowed mode",
+				    w, h, bpp, SDL_GetError());
 				// Using default size for the window for now, as the attempted setting
 				// could be as large, or larger than the screen size.
 				return SetVideoMode(DEFAULT_WINDOW_W, DEFAULT_WINDOW_H, bpp, false);
@@ -495,16 +486,14 @@ bool CVideoMode::SetVideoMode(int w, int h, int bpp, bool fullscreen)
 					}
 				}
 
-				LOGERROR("SetVideoMode failed in SDL_CreateWindow: %dx%d:%d %d (\"%s\")",
-					w, h, bpp, fullscreen ? 1 : 0, SDL_GetError());
+				LOGERROR("SetVideoMode failed in SDL_CreateWindow: %dx%d:%d %d (\"%s\")", w, h, bpp, fullscreen ? 1 : 0, SDL_GetError());
 				return false;
 			}
 		}
 
 		if (SDL_SetWindowDisplayMode(m_Window, NULL) < 0)
 		{
-			LOGERROR("SetVideoMode failed in SDL_SetWindowDisplayMode: %dx%d:%d %d (\"%s\")",
-				w, h, bpp, fullscreen ? 1 : 0, SDL_GetError());
+			LOGERROR("SetVideoMode failed in SDL_SetWindowDisplayMode: %dx%d:%d %d (\"%s\")", w, h, bpp, fullscreen ? 1 : 0, SDL_GetError());
 			return false;
 		}
 
@@ -538,8 +527,7 @@ bool CVideoMode::SetVideoMode(int w, int h, int bpp, bool fullscreen)
 
 			if (SDL_SetWindowFullscreen(m_Window, flags) < 0)
 			{
-				LOGERROR("SetVideoMode failed in SDL_SetWindowFullscreen: %dx%d:%d %d (\"%s\")",
-					w, h, bpp, fullscreen ? 1 : 0, SDL_GetError());
+				LOGERROR("SetVideoMode failed in SDL_SetWindowFullscreen: %dx%d:%d %d (\"%s\")", w, h, bpp, fullscreen ? 1 : 0, SDL_GetError());
 				return false;
 			}
 		}
@@ -557,8 +545,7 @@ bool CVideoMode::SetVideoMode(int w, int h, int bpp, bool fullscreen)
 
 	// #545: we need to constrain the window in fullscreen mode to avoid mouse
 	// "falling out" of the window in case of multiple displays.
-	if (fullscreen ? g_ConfigDB.Get("window.mousegrabinfullscreen", true) :
-		g_ConfigDB.Get("window.mousegrabinwindowmode", false))
+	if (fullscreen ? g_ConfigDB.Get("window.mousegrabinfullscreen", true) : g_ConfigDB.Get("window.mousegrabinwindowmode", false))
 	{
 		SDL_SetWindowGrab(m_Window, SDL_TRUE);
 	}
@@ -709,8 +696,8 @@ bool CVideoMode::TryCreateBackendDevice(SDL_Window* window)
 		if (m_BackendDevice)
 		{
 			// We must not use CShaderManager here to avoid caching.
-			std::unique_ptr<Renderer::Backend::IShaderProgram> shaderProgram =
-				m_BackendDevice->CreateShaderProgram("spirv/canvas2d", CShaderDefines{});
+			std::unique_ptr<Renderer::Backend::IShaderProgram> shaderProgram
+			    = m_BackendDevice->CreateShaderProgram("spirv/canvas2d", CShaderDefines{});
 			if (!shaderProgram)
 			{
 				m_BackendDevice.reset();
@@ -724,8 +711,7 @@ bool CVideoMode::TryCreateBackendDevice(SDL_Window* window)
 void CVideoMode::DowngradeBackendSettingAfterCreationFailure()
 {
 	const Renderer::Backend::Backend fallback = GetFallbackBackend(m_Backend);
-	LOGERROR("Unable to create device for %s backend, switching to %s.",
-		GetBackendName(m_Backend), GetBackendName(fallback));
+	LOGERROR("Unable to create device for %s backend, switching to %s.", GetBackendName(m_Backend), GetBackendName(fallback));
 	m_Backend = fallback;
 }
 
@@ -850,13 +836,15 @@ void CVideoMode::UpdatePosition(int x, int y)
 
 void CVideoMode::UpdateRenderer(int w, int h)
 {
-	if (w < 2) w = 2; // avoid GL errors caused by invalid sizes
-	if (h < 2) h = 2;
+	if (w < 2)
+		w = 2; // avoid GL errors caused by invalid sizes
+	if (h < 2)
+		h = 2;
 
 	g_xres = w;
 	g_yres = h;
 
-	SViewPort vp = { 0, 0, w, h };
+	SViewPort vp = {0, 0, w, h};
 
 	if (g_VideoMode.GetBackendDevice())
 		g_VideoMode.GetBackendDevice()->OnWindowResize(w, h);
@@ -963,9 +951,8 @@ void CVideoMode::SetWindowIcon()
 	if (!bgra_img)
 		return;
 
-	SDL_Surface *iconSurface = SDL_CreateRGBSurfaceFrom(bgra_img,
-		iconTexture.m_Width, iconTexture.m_Height, 32, iconTexture.m_Width * 4,
-		0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+	SDL_Surface* iconSurface = SDL_CreateRGBSurfaceFrom(
+	    bgra_img, iconTexture.m_Width, iconTexture.m_Height, 32, iconTexture.m_Width * 4, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
 	if (!iconSurface)
 		return;
 

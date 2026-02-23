@@ -67,10 +67,7 @@ public:
 	FileReloadListener& operator=(FileReloadListener&&) = delete;
 
 private:
-	static Status NotifyReload(void* param, const VfsPath& path)
-	{
-		return static_cast<FileReloadListener*>(param)->m_Fn(path);
-	}
+	static Status NotifyReload(void* param, const VfsPath& path) { return static_cast<FileReloadListener*>(param)->m_Fn(path); }
 
 	std::function<Status(const VfsPath&)> m_Fn;
 };
@@ -127,4 +124,4 @@ private:
 	size_t m_BufferSize;
 };
 
-#endif	// #ifndef INCLUDED_PS_FILESYSTEM
+#endif // #ifndef INCLUDED_PS_FILESYSTEM
