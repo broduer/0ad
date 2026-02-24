@@ -19,8 +19,8 @@ class Tutorial
 
 	handleNotification(notification)
 	{
-		if (notification.goal)
-			this.displayGoal(notification.goal);
+		if (notification.step)
+			this.displayStep(notification.step);
 		if (notification.warning)
 			this.displayWarning(notification.warning);
 	}
@@ -30,22 +30,22 @@ class Tutorial
 		this.warning.caption = coloredText(translate(warning), "orange");
 	}
 
-	displayGoal(goal)
+	displayStep(step)
 	{
 		this.panel.hidden = false;
 
 		const notificationText =
-			goal.instructions.reduce((instructions, item) =>
+			step.instructions.reduce((instructions, item) =>
 				instructions + (typeof item === "string" ? translate(item) : colorizeHotkey(translate(item.text), item.hotkey)),
 			"");
 
 		this.text.caption = this.instructions.concat(setStringTags(notificationText, this.NewInstructionTags)).join("\n");
 		this.instructions.push(notificationText);
 
-		if (goal.readyButton)
+		if (step.readyButton)
 		{
 			this.readyButton.hidden = false;
-			if (goal.leave)
+			if (step.leave)
 			{
 				this.warning.caption = translate("Click to quit this tutorial.");
 				this.readyButton.caption = translate("Quit");

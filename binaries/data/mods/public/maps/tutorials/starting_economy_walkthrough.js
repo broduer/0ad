@@ -1,4 +1,4 @@
-Trigger.prototype.tutorialGoals = [
+Trigger.prototype.tutorialSteps = [
 	{
 		"instructions": [
 			markForTranslation("This tutorial will teach the basics of developing your economy. Typically, you will start with a Civic Center and a couple units in Village Phase and ultimately, your goal will be to develop and expand your empire, often by evolving to Town Phase and City Phase afterward.\n"),
@@ -54,7 +54,7 @@ Trigger.prototype.tutorialGoals = [
 		{
 			if (msg.cmd.type == "gather" && msg.cmd.target &&
 				TriggerHelper.GetResourceType(msg.cmd.target).specific == "fruit")
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -65,7 +65,7 @@ Trigger.prototype.tutorialGoals = [
 		{
 			if (msg.cmd.type == "gather" && msg.cmd.target &&
 				TriggerHelper.GetResourceType(msg.cmd.target).specific == "tree")
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -76,7 +76,7 @@ Trigger.prototype.tutorialGoals = [
 		{
 			if (msg.cmd.type == "gather" && msg.cmd.target &&
 				TriggerHelper.GetResourceType(msg.cmd.target).specific == "meat")
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -91,10 +91,10 @@ Trigger.prototype.tutorialGoals = [
 			   !msg.cmd.data.command || msg.cmd.data.command != "gather" ||
 			   !msg.cmd.data.resourceType || msg.cmd.data.resourceType.specific != "tree")
 			{
-				this.WarningMessage(markForTranslation("Select the Civic Center, then hover the cursor over a tree and right-click when you see the cursor change into a wood icon."));
+				this.DisplayWarning(markForTranslation("Select the Civic Center, then hover the cursor over a tree and right-click when you see the cursor change into a wood icon."));
 				return;
 			}
-			this.NextGoal();
+			this.NextStep();
 		}
 
 	},
@@ -116,10 +116,10 @@ Trigger.prototype.tutorialGoals = [
 				const txt = +msg.count == 1 ?
 					markForTranslation("Do not forget to hold the hotkey while clicking to train several units.") :
 					markForTranslation("The second icon represents the Hoplites.");
-				this.WarningMessage(txt);
+				this.DisplayWarning(txt);
 				return;
 			}
-			this.NextGoal();
+			this.NextStep();
 		}
 	},
 	{
@@ -130,7 +130,7 @@ Trigger.prototype.tutorialGoals = [
 		],
 		"OnTrainingFinished": function(msg)
 		{
-			this.NextGoal();
+			this.NextStep();
 		}
 	},
 	{
@@ -142,7 +142,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "construct" && msg.cmd.template == "structures/athen/storehouse")
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -153,7 +153,7 @@ Trigger.prototype.tutorialGoals = [
 		{
 			const cmpResourceDropsite = Engine.QueryInterface(msg.building, IID_ResourceDropsite);
 			if (cmpResourceDropsite && cmpResourceDropsite.AcceptsType("wood"))
-				this.NextGoal();
+				this.NextStep();
 		},
 	},
 	{
@@ -164,7 +164,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "unset-rallypoint")
-				this.NextGoal();
+				this.NextStep();
 		},
 		"OnTrainingFinished": function(msg)
 		{
@@ -192,10 +192,10 @@ Trigger.prototype.tutorialGoals = [
 				const txt = +msg.count == 1 ?
 					markForTranslation("Do not forget to hold the hotkey and click to train several units.") :
 					markForTranslation("The first icon represents the Civilians.");
-				this.WarningMessage(txt);
+				this.DisplayWarning(txt);
 				return;
 			}
-			this.NextGoal();
+			this.NextStep();
 		}
 	},
 	{
@@ -209,7 +209,7 @@ Trigger.prototype.tutorialGoals = [
 		},
 		"OnTrainingFinished": function(msg)
 		{
-			this.NextGoal();
+			this.NextStep();
 		}
 	},
 	{
@@ -254,7 +254,7 @@ Trigger.prototype.tutorialGoals = [
 				this.houseGoal.add(+msg.entity);
 				++this.houseCount;
 				if (this.IsDone())
-					this.NextGoal();
+					this.NextStep();
 			}
 		}
 	},
@@ -282,7 +282,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "construct" && msg.cmd.template == "structures/athen/farmstead")
-				this.NextGoal();
+				this.NextStep();
 		},
 		"OnOwnershipChanged": function(msg)
 		{
@@ -304,7 +304,7 @@ Trigger.prototype.tutorialGoals = [
 			if (this.houseGoal.has(+msg.entity))
 				this.houseGoal.delete(+msg.entity);
 			if (this.IsDone())
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -314,7 +314,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "construct" && msg.cmd.template == "structures/athen/field")
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -326,7 +326,7 @@ Trigger.prototype.tutorialGoals = [
 		{
 			if (msg.cmd.type == "gather" && msg.cmd.target &&
 			    TriggerHelper.GetResourceType(msg.cmd.target).specific == "meat")
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -339,10 +339,10 @@ Trigger.prototype.tutorialGoals = [
 			   (msg.cmd.data.command != "build" || !msg.cmd.data.target || !TriggerHelper.EntityMatchesClassList(msg.cmd.data.target, "Field")) &&
 			   (msg.cmd.data.command != "gather" || !msg.cmd.data.resourceType || msg.cmd.data.resourceType.specific != "grain"))
 			{
-				this.WarningMessage(markForTranslation("Select the Civic Center and right-click on the Field."));
+				this.DisplayWarning(markForTranslation("Select the Civic Center and right-click on the Field."));
 				return;
 			}
-			this.NextGoal();
+			this.NextStep();
 		}
 	},
 	{
@@ -363,11 +363,11 @@ Trigger.prototype.tutorialGoals = [
 				const txt = +msg.count != 1 ?
 					markForTranslation("Click without holding a hotkey to train a single unit.") :
 					markForTranslation("Click on the Civilian icon.");
-				this.WarningMessage(txt);
+				this.DisplayWarning(txt);
 				return;
 			}
 			if (++this.femaleCount == 3)
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -383,7 +383,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnResearchQueued": function(msg)
 		{
 			if (msg.technologyTemplate && TriggerHelper.EntityMatchesClassList(msg.researcherEntity, "Farmstead"))
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -395,7 +395,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "construct" && msg.cmd.template == "structures/athen/barracks")
-				this.NextGoal();
+				this.NextStep();
 		}
 
 	},
@@ -406,7 +406,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnStructureBuilt": function(msg)
 		{
 			if (TriggerHelper.EntityMatchesClassList(msg.building, "Barracks"))
-				this.NextGoal();
+				this.NextStep();
 		},
 	},
 	{
@@ -421,7 +421,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnResearchQueued": function(msg)
 		{
 			if (msg.technologyTemplate && TriggerHelper.EntityMatchesClassList(msg.researcherEntity, "CivilCentre"))
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -460,12 +460,12 @@ Trigger.prototype.tutorialGoals = [
 					this.metal = true;
 			}
 			if (this.IsDone())
-				this.NextGoal();
+				this.NextStep();
 		},
 		"OnResearchFinished": function(msg)
 		{
 			if (this.IsDone())
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{

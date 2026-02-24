@@ -1,4 +1,4 @@
-Trigger.prototype.tutorialGoals = [
+Trigger.prototype.tutorialSteps = [
 	{
 		"instructions": markForTranslation("Welcome to the 0\xa0A.D. tutorial."),
 	},
@@ -8,7 +8,7 @@ Trigger.prototype.tutorialGoals = [
 		{
 			if (msg.cmd.type == "gather" && msg.cmd.target &&
 			    TriggerHelper.GetResourceType(msg.cmd.target).specific == "fruit")
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -17,7 +17,7 @@ Trigger.prototype.tutorialGoals = [
 		{
 			if (msg.cmd.type == "gather" && msg.cmd.target &&
 			    TriggerHelper.GetResourceType(msg.cmd.target).specific == "tree")
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -36,10 +36,10 @@ Trigger.prototype.tutorialGoals = [
 				const txt = +msg.count == 1 ?
 					markForTranslation("Do not forget to press the batch training hotkey while clicking to produce multiple units.") :
 					markForTranslation("Click on the Hoplite icon.");
-				this.WarningMessage(txt);
+				this.DisplayWarning(txt);
 				return;
 			}
-			this.NextGoal();
+			this.NextStep();
 		}
 	},
 	{
@@ -47,7 +47,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "repair" && TriggerHelper.EntityMatchesClassList(msg.cmd.target, "House"))
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -55,7 +55,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "repair" && TriggerHelper.EntityMatchesClassList(msg.cmd.target, "Storehouse"))
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -78,10 +78,10 @@ Trigger.prototype.tutorialGoals = [
 				const txt = +msg.count == 1 ?
 					markForTranslation("Do not forget to press the batch training hotkey while clicking to produce multiple units.") :
 					markForTranslation("Click on the Skirmisher icon.");
-				this.WarningMessage(txt);
+				this.DisplayWarning(txt);
 				return;
 			}
-			this.NextGoal();
+			this.NextStep();
 		}
 	},
 	{
@@ -89,7 +89,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "repair" && TriggerHelper.EntityMatchesClassList(msg.cmd.target, "Farmstead"))
-				this.NextGoal();
+				this.NextStep();
 		},
 		"OnTrainingFinished": function(msg)
 		{
@@ -105,7 +105,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnStructureBuilt": function(msg)
 		{
 			if (TriggerHelper.EntityMatchesClassList(msg.building, "Farmstead"))
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -123,13 +123,13 @@ Trigger.prototype.tutorialGoals = [
 			if (msg.cmd.type == "repair" && TriggerHelper.EntityMatchesClassList(msg.cmd.target, "Field"))
 				this.farmStarted = true;
 			if (this.IsDone())
-				this.NextGoal();
+				this.NextStep();
 		},
 		"OnTrainingFinished": function(msg)
 		{
 			this.trainingDone = true;
 			if (this.IsDone())
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -137,7 +137,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "repair" && TriggerHelper.EntityMatchesClassList(msg.cmd.target, "House"))
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -160,12 +160,12 @@ Trigger.prototype.tutorialGoals = [
 				const txt = +msg.count == 1 ?
 					markForTranslation("Do not forget to press the batch training hotkey while clicking to produce multiple units.") :
 					markForTranslation("Click on the Hoplite icon.");
-				this.WarningMessage(txt);
+				this.DisplayWarning(txt);
 				return;
 			}
 			this.trainingStarted = true;
 			if (this.IsDone())
-				this.NextGoal();
+				this.NextStep();
 		},
 		"OnPlayerCommand": function(msg)
 		{
@@ -173,12 +173,12 @@ Trigger.prototype.tutorialGoals = [
 			   !msg.cmd.data.command || msg.cmd.data.command != "gather" ||
 			   !msg.cmd.data.resourceType || msg.cmd.data.resourceType.specific != "tree")
 			{
-				this.WarningMessage(markForTranslation("Select the Civic Center, then hover the cursor over the tree and right-click when you see your cursor change into a wood icon."));
+				this.DisplayWarning(markForTranslation("Select the Civic Center, then hover the cursor over the tree and right-click when you see your cursor change into a wood icon."));
 				return;
 			}
 			this.rallyPointSet = true;
 			if (this.IsDone())
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -186,7 +186,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "repair" && TriggerHelper.EntityMatchesClassList(msg.cmd.target, "Barracks"))
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -198,7 +198,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnResearchQueued": function(msg)
 		{
 			if (msg.technologyTemplate && TriggerHelper.EntityMatchesClassList(msg.researcherEntity, "CivilCentre"))
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -213,7 +213,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnResearchFinished": function(msg)
 		{
 			if (msg.tech == "phase_town_generic")
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -221,7 +221,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "repair" && TriggerHelper.EntityMatchesClassList(msg.cmd.target, "Outpost"))
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -244,12 +244,12 @@ Trigger.prototype.tutorialGoals = [
 				const txt = +msg.count == 1 ?
 					markForTranslation("Do not forget to press the batch training hotkey while clicking to produce multiple units.") :
 					markForTranslation("Click on the Civilian icon.");
-				this.WarningMessage(txt);
+				this.DisplayWarning(txt);
 				return;
 			}
 			this.trainingStarted = true;
 			if (this.IsDone())
-				this.NextGoal();
+				this.NextStep();
 		},
 		"OnPlayerCommand": function(msg)
 		{
@@ -259,7 +259,7 @@ Trigger.prototype.tutorialGoals = [
 				return;
 			this.rallyPointSet = true;
 			if (this.IsDone())
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -267,7 +267,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "repair" && TriggerHelper.EntityMatchesClassList(msg.cmd.target, "Tower"))
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -275,7 +275,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnResearchQueued": function(msg)
 		{
 			if (msg.technologyTemplate && TriggerHelper.EntityMatchesClassList(msg.researcherEntity, "Forge"))
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -283,7 +283,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnResearchFinished": function(msg)
 		{
 			this.LaunchAttack();
-			this.NextGoal();
+			this.NextStep();
 		}
 	},
 	{
@@ -293,7 +293,7 @@ Trigger.prototype.tutorialGoals = [
 			if (msg.to != INVALID_PLAYER)
 				return;
 			if (this.IsAttackRepelled())
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -314,7 +314,7 @@ Trigger.prototype.tutorialGoals = [
 			this.marketStarted = this.marketStarted || TriggerHelper.EntityMatchesClassList(msg.cmd.target, "Market");
 			this.templeStarted = this.templeStarted || TriggerHelper.EntityMatchesClassList(msg.cmd.target, "Temple");
 			if (this.IsDone())
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -326,7 +326,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnResearchQueued": function(msg)
 		{
 			if (msg.technologyTemplate && TriggerHelper.EntityMatchesClassList(msg.researcherEntity, "CivilCentre"))
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -338,7 +338,7 @@ Trigger.prototype.tutorialGoals = [
 		"OnResearchFinished": function(msg)
 		{
 			if (msg.tech == "phase_city_generic")
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
@@ -358,7 +358,7 @@ Trigger.prototype.tutorialGoals = [
 			if (this.IsDone())
 			{
 				this.RemoveChampions();
-				this.NextGoal();
+				this.NextStep();
 			}
 		}
 	},
@@ -372,7 +372,7 @@ Trigger.prototype.tutorialGoals = [
 			if (msg.from != this.enemyID)
 				return;
 			if (TriggerHelper.EntityMatchesClassList(msg.entity, "CivilCentre"))
-				this.NextGoal();
+				this.NextStep();
 		}
 	},
 	{
