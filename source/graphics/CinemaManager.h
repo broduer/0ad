@@ -39,7 +39,6 @@ public:
 	void Render(Renderer::Backend::IDeviceCommandContext& deviceCommandContext) const;
 
 	bool IsPlaying() const;
-	bool IsEnabled() const;
 
 	/**
 	 * Updates CCinemManager and current path

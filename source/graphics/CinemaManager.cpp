@@ -51,12 +51,12 @@ void CCinemaManager::Update(const float deltaRealTime) const
 		return;
 
 	if (IsPlaying())
-		cmpCinemaManager->PlayQueue(deltaRealTime, g_Game->GetView()->GetCamera());
+		cmpCinemaManager->UpdateActivePath(deltaRealTime, g_Game->GetView()->GetCamera());
 }
 
 void CCinemaManager::Render(Renderer::Backend::IDeviceCommandContext& deviceCommandContext) const
 {
-	if (!IsEnabled() && m_DrawPaths)
+	if (!IsPlaying() && m_DrawPaths)
 		DrawPaths(deviceCommandContext);
 }
 
@@ -121,15 +121,10 @@ void CCinemaManager::DrawNodes(Renderer::Backend::IDeviceCommandContext& deviceC
 	}
 }
 
-bool CCinemaManager::IsEnabled() const
-{
-	CmpPtr<ICmpCinemaManager> cmpCinemaManager(g_Game->GetSimulation2()->GetSimContext().GetSystemEntity());
-	return cmpCinemaManager && cmpCinemaManager->IsEnabled();
-}
-
 bool CCinemaManager::IsPlaying() const
 {
-	return IsEnabled() && g_Game && !g_Game->m_Paused;
+	CmpPtr<ICmpCinemaManager> cmpCinemaManager(g_Game->GetSimulation2()->GetSimContext().GetSystemEntity());
+	return cmpCinemaManager && cmpCinemaManager->IsPlayingQueue();
 }
 
 bool CCinemaManager::GetPathsDrawing() const

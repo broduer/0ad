@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -37,33 +37,91 @@
 class TestCmpCinemaManager : public CxxTest::TestSuite
 {
 public:
-	void test_basic()
+	void test_managing_paths()
 	{
 		CXeromycesEngine xeromycesEngine;
 		ComponentTestHelper test(*g_ScriptContext);
 
 		ICmpCinemaManager* cmp = test.Add<ICmpCinemaManager>(CID_CinemaManager, "", SYSTEM_ENTITY);
 
-		TS_ASSERT_EQUALS(cmp->HasPath(L"test"), false);
+		TS_ASSERT(!cmp->HasPath(L"test"));
 		cmp->AddPath(generatePath(L"test"));
-		TS_ASSERT_EQUALS(cmp->HasPath(L"test"), true);
-		cmp->DeletePath(L"test");
-		TS_ASSERT_EQUALS(cmp->HasPath(L"test"), false);
+		TS_ASSERT(cmp->HasPath(L"test"));
+		TS_ASSERT(!cmp->HasPath(L"test_2"));
+		cmp->SetPaths(std::map<CStrW, CCinemaPath>{{L"test_2", generatePath(L"test_2")}});
+		TS_ASSERT(!cmp->HasPath(L"test"));
+		TS_ASSERT(cmp->HasPath(L"test_2"));
+		cmp->DeletePath(L"test_2");
+		TS_ASSERT(!cmp->HasPath(L"test_2"));
+	}
 
-		cmp->AddPath(generatePath(L"long_path", fixed::FromInt(3600)));
-		TS_ASSERT_EQUALS(cmp->HasPath(L"long_path"), true);
+	void test_playing_queue()
+	{
+		CXeromycesEngine xeromycesEngine;
+		ComponentTestHelper test(*g_ScriptContext);
 
-		TS_ASSERT_EQUALS(cmp->IsEnabled(), false);
-		cmp->AddCinemaPathToQueue(L"long_path");
-		cmp->Play();
-		size_t number_of_turns = 0;
-		while (cmp->IsEnabled())
+		ICmpCinemaManager* cmp = test.Add<ICmpCinemaManager>(CID_CinemaManager, "", SYSTEM_ENTITY);
+
+		CMessageUpdate updateMsg(fixed::FromInt(200));
+
+		cmp->AddPath(generatePath(L"path_1", fixed::FromInt(10000)));
+		cmp->AddPath(generatePath(L"path_2", fixed::FromInt(5000)));
+
+		// Try getting the active path if there is none.
+		TS_ASSERT_WSTR_EQUALS(cmp->GetActivePath(), L"");
+
+		// Try to start playing the queue if it's empty.
+		cmp->StartPlayingQueue();
+		TS_ASSERT(!cmp->IsPlayingQueue());
+
+		// Try stopping playing the queue if it's not playing in the first place.
+		cmp->StartPlayingQueue();
+		TS_ASSERT(!cmp->IsPlayingQueue());
+
+		cmp->PushPathToQueue(L"path_1");
+		cmp->PushPathToQueue(L"path_2");
+		// Try getting the active path if there is none.
+		TS_ASSERT_WSTR_EQUALS(cmp->GetActivePath(), L"");
+
+		cmp->StartPlayingQueue();
+		TS_ASSERT(cmp->IsPlayingQueue());
+		TS_ASSERT_WSTR_EQUALS(cmp->GetActivePath(), L"path_1");
+		TS_ASSERT_EQUALS(cmp->GetActivePathElapsedTime(), fixed::FromInt(0));
+
+		for (int i = 0; i < 35; i++)
+			cmp->HandleMessage(updateMsg, true);
+		TS_ASSERT(cmp->IsPlayingQueue());
+		TS_ASSERT_WSTR_EQUALS(cmp->GetActivePath(), L"path_1");
+		TS_ASSERT_EQUALS(cmp->GetActivePathElapsedTime(), fixed::FromInt(7000));
+
+		// Finish path_1 and start with path_2
+		for (int i = 0; i < 20; i++)
+			cmp->HandleMessage(updateMsg, true);
+
+		TS_ASSERT_WSTR_EQUALS(cmp->GetActivePath(), L"path_2");
+		TS_ASSERT_EQUALS(cmp->GetActivePathElapsedTime(), fixed::FromInt(1000));
+
+		// Try restarting while a path is being played.
+		// This should result in the active path starting again from the beginning.
+		cmp->StopPlayingQueue();
+		cmp->StartPlayingQueue();
+		TS_ASSERT(cmp->IsPlayingQueue());
+		TS_ASSERT_WSTR_EQUALS(cmp->GetActivePath(), L"path_2");
+
+		size_t remainingTurns = 0;
+		while (cmp->IsPlayingQueue())
 		{
-			CMessageUpdate msg(fixed::FromInt(36));
-			cmp->HandleMessage(msg, true);
-			++number_of_turns;
+			cmp->HandleMessage(updateMsg, true);
+			remainingTurns++;
 		}
-		TS_ASSERT_EQUALS(number_of_turns, 100);
+		TS_ASSERT_EQUALS(remainingTurns, 25);
+		TS_ASSERT(!cmp->IsPlayingQueue());
+		TS_ASSERT_WSTR_EQUALS(cmp->GetActivePath(), L"");
+		TS_ASSERT_EQUALS(cmp->GetActivePathElapsedTime(), fixed::FromInt(0));
+
+		// Make sure the queue is empty.
+		cmp->StartPlayingQueue();
+		TS_ASSERT(!cmp->IsPlayingQueue());
 	}
 
 private:

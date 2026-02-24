@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,9 +24,13 @@
 
 BEGIN_INTERFACE_WRAPPER(CinemaManager)
 DEFINE_INTERFACE_METHOD("AddPath", ICmpCinemaManager, AddPath)
-DEFINE_INTERFACE_METHOD("AddCinemaPathToQueue", ICmpCinemaManager, AddCinemaPathToQueue)
+DEFINE_INTERFACE_METHOD("HasPath", ICmpCinemaManager, HasPath)
 DEFINE_INTERFACE_METHOD("DeletePath", ICmpCinemaManager, DeletePath)
-DEFINE_INTERFACE_METHOD("IsPlaying", ICmpCinemaManager, IsEnabled)
-DEFINE_INTERFACE_METHOD("Play", ICmpCinemaManager, Play)
-DEFINE_INTERFACE_METHOD("Stop", ICmpCinemaManager, Stop)
+DEFINE_INTERFACE_METHOD("PushPathToQueue", ICmpCinemaManager, PushPathToQueue)
+DEFINE_INTERFACE_METHOD("ClearQueue", ICmpCinemaManager, ClearQueue)
+DEFINE_INTERFACE_METHOD("StartPlayingQueue", ICmpCinemaManager, StartPlayingQueue)
+DEFINE_INTERFACE_METHOD("IsPlayingQueue", ICmpCinemaManager, IsPlayingQueue)
+DEFINE_INTERFACE_METHOD("GetActivePath", ICmpCinemaManager, GetActivePath)
+DEFINE_INTERFACE_METHOD("GetActivePathElapsedTime", ICmpCinemaManager, GetActivePathElapsedTime)
+DEFINE_INTERFACE_METHOD("StopPlayingQueue", ICmpCinemaManager, StopPlayingQueue)
 END_INTERFACE_WRAPPER(CinemaManager)

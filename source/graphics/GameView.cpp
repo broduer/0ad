@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -291,16 +291,15 @@ void CGameView::Update(const float deltaRealTime)
 {
 	m->MiniMapTexture.Update(deltaRealTime);
 
+	m->CinemaManager.Update(deltaRealTime);
+	if (m->CinemaManager.IsPlaying())
+		return;
 	// If camera movement is being handled by the touch-input system,
 	// then we should stop to avoid conflicting with it
 	if (g_TouchInput.IsEnabled())
 		return;
 
 	if (!g_app_has_focus)
-		return;
-
-	m->CinemaManager.Update(deltaRealTime);
-	if (m->CinemaManager.IsEnabled())
 		return;
 
 	m->CameraController->Update(deltaRealTime);
@@ -354,7 +353,7 @@ entity_id_t CGameView::GetFollowedEntity()
 InReaction game_view_handler(const SDL_Event_* ev)
 {
 	// put any events that must be processed even if inactive here
-	if (!g_app_has_focus || !g_Game || !g_Game->IsGameStarted() || g_Game->GetView()->GetCinema()->IsEnabled())
+	if (!g_app_has_focus || !g_Game || !g_Game->IsGameStarted() || g_Game->GetView()->GetCinema()->IsPlaying())
 		return IN_PASS;
 
 	CGameView *pView=g_Game->GetView();

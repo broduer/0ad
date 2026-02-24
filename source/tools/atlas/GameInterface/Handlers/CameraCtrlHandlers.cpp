@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -41,7 +41,7 @@ namespace AtlasMessage {
 
 MESSAGEHANDLER(CameraReset)
 {
-	if (!g_Game || g_Game->GetView()->GetCinema()->IsEnabled())
+	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying())
 		return;
 
 	CVector3D focus = g_Game->GetView()->GetCamera()->GetFocus();
@@ -64,7 +64,7 @@ MESSAGEHANDLER(CameraReset)
 
 MESSAGEHANDLER(ScrollConstant)
 {
-	if (!g_Game || g_Game->GetView()->GetCinema()->IsEnabled())
+	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying())
 		return;
 
 	if (msg->dir < 0 || msg->dir > 5)
@@ -82,7 +82,7 @@ MESSAGEHANDLER(ScrollConstant)
 
 MESSAGEHANDLER(Scroll)
 {
-	if (!g_Game || g_Game->GetView()->GetCinema()->IsEnabled()) // TODO: do this better (probably a separate AtlasView class for cinematics)
+	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying()) // TODO: do this better (probably a separate AtlasView class for cinematics)
 		return;
 
 	static CVector3D targetPos;
@@ -131,7 +131,7 @@ MESSAGEHANDLER(Scroll)
 
 MESSAGEHANDLER(SmoothZoom)
 {
-	if (!g_Game || g_Game->GetView()->GetCinema()->IsEnabled())
+	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying())
 		return;
 
 	g_AtlasGameLoop->input.zoomDelta += msg->amount;
@@ -139,7 +139,7 @@ MESSAGEHANDLER(SmoothZoom)
 
 MESSAGEHANDLER(RotateAround)
 {
-	if (!g_Game || g_Game->GetView()->GetCinema()->IsEnabled())
+	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying())
 		return;
 
 	static CVector3D focusPos;
@@ -245,7 +245,7 @@ QUERYHANDLER(GetView)
 
 MESSAGEHANDLER(SetView)
 {
-	if (!g_Game || g_Game->GetView()->GetCinema()->IsEnabled())
+	if (!g_Game || g_Game->GetView()->GetCinema()->IsPlaying())
 		return;
 
 	CGameView* view = g_Game->GetView();

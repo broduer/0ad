@@ -26,11 +26,10 @@
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "ps/Game.h"
+#include "renderer/Renderer.h"
+#include "renderer/SceneRenderer.h"
 #include "simulation2/MessageTypes.h"
-#include "simulation2/components/ICmpOverlayRenderer.h"
 #include "simulation2/components/ICmpRangeManager.h"
-#include "simulation2/components/ICmpSelectable.h"
-#include "simulation2/components/ICmpTerritoryManager.h"
 #include "simulation2/helpers/CinemaPath.h"
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"
@@ -50,6 +49,7 @@ public:
 	static void ClassInit(CComponentManager& componentManager)
 	{
 		componentManager.SubscribeToMessageType(MT_Update);
+		componentManager.SubscribeToMessageType(MT_Deserialized);
 	}
 
 	DEFAULT_COMPONENT_ALLOCATOR(CinemaManager)
@@ -61,11 +61,11 @@ public:
 
 	void Init(const CParamNode&) override
 	{
-		m_Enabled = false;
-		m_MapRevealed = false;
-		m_ElapsedTime = fixed::Zero();
-		m_TotalTime = fixed::Zero();
-		m_CurrentPathElapsedTime = fixed::Zero();
+		m_IsPlayingPathQueue = false;
+		m_QueuePlayingElapsedTime = fixed::Zero();
+		m_PathQueueDuration = fixed::Zero();
+		m_ActivePathElapsedTime = fixed::Zero();
+		m_WasMapRevealed = false;
 	}
 
 	void Deinit() override
@@ -74,10 +74,10 @@ public:
 
 	void Serialize(ISerializer& serializer) override
 	{
-		serializer.Bool("Enabled", m_Enabled);
-		serializer.NumberFixed_Unbounded("ElapsedTime", m_ElapsedTime);
-		serializer.NumberFixed_Unbounded("CurrentPathElapsedTime", m_CurrentPathElapsedTime);
-		serializer.Bool("MapRevealed", m_MapRevealed);
+		serializer.Bool("IsPlayingPathQueue", m_IsPlayingPathQueue);
+		serializer.NumberFixed_Unbounded("QueueElapsedTime", m_QueuePlayingElapsedTime);
+		serializer.NumberFixed_Unbounded("CurrentPathElapsedTime", m_ActivePathElapsedTime);
+		serializer.Bool("WasMapRevealed", m_WasMapRevealed);
 
 		serializer.NumberU32_Unbounded("NumberOfPaths", m_Paths.size());
 		for (const std::pair<const CStrW, CCinemaPath>& it : m_Paths)
@@ -85,15 +85,15 @@ public:
 
 		serializer.NumberU32_Unbounded("NumberOfQueuedPaths", m_PathQueue.size());
 		for (const CCinemaPath& path : m_PathQueue)
-			serializer.String("PathName", path.GetName(), 1, 128);
+			serializer.String("QueuedPathName", path.GetName(), 1, 128);
 	}
 
 	void Deserialize(const CParamNode&, IDeserializer& deserializer) override
 	{
-		deserializer.Bool("Enabled", m_Enabled);
-		deserializer.NumberFixed_Unbounded("ElapsedTime", m_ElapsedTime);
-		deserializer.NumberFixed_Unbounded("CurrentPathElapsedTime", m_CurrentPathElapsedTime);
-		deserializer.Bool("MapRevealed", m_MapRevealed);
+		deserializer.Bool("IsPlayingPathQueue", m_IsPlayingPathQueue);
+		deserializer.NumberFixed_Unbounded("QueueElapsedTime", m_QueuePlayingElapsedTime);
+		deserializer.NumberFixed_Unbounded("CurrentPathElapsedTime", m_ActivePathElapsedTime);
+		deserializer.Bool("WasMapRevealed", m_WasMapRevealed);
 
 		uint32_t numberOfPaths = 0;
 		deserializer.NumberU32_Unbounded("NumberOfPaths", numberOfPaths);
@@ -108,55 +108,53 @@ public:
 		for (uint32_t i = 0; i < numberOfQueuedPaths; ++i)
 		{
 			CStrW pathName;
-			deserializer.String("PathName", pathName, 1, 128);
+			deserializer.String("QueuedPathName", pathName, 1, 128);
 			ENSURE(HasPath(pathName));
-			AddCinemaPathToQueue(pathName);
+			PushPathToQueue(pathName);
 		}
 
 		if (!m_PathQueue.empty())
 		{
-			m_PathQueue.front().m_TimeElapsed = m_CurrentPathElapsedTime.ToFloat();
+			m_PathQueue.front().m_TimeElapsed = m_ActivePathElapsedTime.ToFloat();
 			m_PathQueue.front().Validate();
 		}
-
-		SetEnabled(m_Enabled);
 	}
 
 	void HandleMessage(const CMessage& msg, bool /*global*/) override
 	{
 		switch (msg.GetType())
 		{
+		case MT_Deserialized:
+			if (!m_IsPlayingPathQueue)
+				break;
+
+			m_IsPlayingPathQueue = false;
+			StartPlayingQueue();
+			break;
 		case MT_Update:
 		{
 			const CMessageUpdate &msgData = static_cast<const CMessageUpdate&>(msg);
-			if (!m_Enabled)
+			if (!m_IsPlayingPathQueue)
 				break;
 
 			// The paths play at a fixed speed, no matter the sim rate.
 			// The turn length we have received here, however, is scaled by that rate.
 			const fixed realTurnLength{msgData.turnLength / fixed::FromFloat(g_Game ? g_Game->GetSimRate() : 1.0f)};
-			m_ElapsedTime += realTurnLength;
-			m_CurrentPathElapsedTime += realTurnLength;
-			if (m_CurrentPathElapsedTime >= m_PathQueue.front().GetDuration())
+			m_QueuePlayingElapsedTime += realTurnLength;
+			m_ActivePathElapsedTime += realTurnLength;
+			if (m_ActivePathElapsedTime >= m_PathQueue.front().GetDuration())
 			{
 				CMessageCinemaPathEnded msgCinemaPathEnded(m_PathQueue.front().GetName());
 				m_PathQueue.pop_front();
 				GetSimContext().GetComponentManager().PostMessage(SYSTEM_ENTITY, msgCinemaPathEnded);
-				m_CurrentPathElapsedTime = fixed::Zero();
+				m_ActivePathElapsedTime = fixed::Zero();
 
 				if (!m_PathQueue.empty())
 					m_PathQueue.front().Reset();
 			}
 
-			if (m_ElapsedTime >= m_TotalTime)
-			{
-				m_CurrentPathElapsedTime = fixed::Zero();
-				m_ElapsedTime = fixed::Zero();
-				m_TotalTime = fixed::Zero();
-				SetEnabled(false);
-				GetSimContext().GetComponentManager().PostMessage(SYSTEM_ENTITY, CMessageCinemaQueueEnded());
-			}
-
+			if (m_QueuePlayingElapsedTime >= m_PathQueueDuration)
+				StopPlayingQueue();
 			break;
 		}
 		default:
@@ -168,55 +166,26 @@ public:
 	{
 		if (m_Paths.find(path.GetName()) != m_Paths.end())
 		{
-			LOGWARNING("Path with name '%s' already exists", path.GetName().ToUTF8());
+			LOGWARNING("Cinema path with name '%s' already exists", path.GetName().ToUTF8());
 			return;
 		}
 		m_Paths[path.GetName()] = path;
-	}
-
-	void AddCinemaPathToQueue(const CStrW& name) override
-	{
-		if (!HasPath(name))
-		{
-			LOGWARNING("Path with name '%s' doesn't exist", name.ToUTF8());
-			return;
-		}
-		m_PathQueue.push_back(m_Paths[name]);
-
-		if (m_PathQueue.size() == 1)
-			m_PathQueue.front().Reset();
-		m_TotalTime += m_Paths[name].GetDuration();
-	}
-
-	void Play() override
-	{
-		SetEnabled(true);
-	}
-
-	void Stop() override
-	{
-		SetEnabled(false);
-	}
-
-	bool HasPath(const CStrW& name) const override
-	{
-		return m_Paths.find(name) != m_Paths.end();
-	}
-
-	void ClearQueue() override
-	{
-		m_PathQueue.clear();
 	}
 
 	void DeletePath(const CStrW& name) override
 	{
 		if (!HasPath(name))
 		{
-			LOGWARNING("Path with name '%s' doesn't exist", name.ToUTF8());
+			LOGWARNING("Cinema path with name '%s' doesn't exist", name.ToUTF8());
 			return;
 		}
 		m_PathQueue.remove_if([name](const CCinemaPath& path) { return path.GetName() == name; });
 		m_Paths.erase(name);
+	}
+
+	bool HasPath(const CStrW& name) const override
+	{
+		return m_Paths.find(name) != m_Paths.end();
 	}
 
 	const std::map<CStrW, CCinemaPath>& GetPaths() const override
@@ -229,41 +198,85 @@ public:
 		m_Paths = newPaths;
 	}
 
-	const std::list<CCinemaPath>& GetQueue() const override
+	void PushPathToQueue(const CStrW& name) override
 	{
-		return m_PathQueue;
+		if (!HasPath(name))
+		{
+			LOGWARNING("Cinema path with name '%s' doesn't exist", name.ToUTF8());
+			return;
+		}
+		m_PathQueue.push_back(m_Paths[name]);
+
+		if (m_PathQueue.size() == 1)
+			m_PathQueue.front().Reset();
+		m_PathQueueDuration += m_Paths[name].GetDuration();
 	}
 
-	bool IsEnabled() const override
+	void ClearQueue() override
 	{
-		return m_Enabled;
+		m_PathQueue.clear();
 	}
 
-	void SetEnabled(bool enabled) override
+	void StartPlayingQueue() override
 	{
-		if (m_PathQueue.empty() && enabled)
-			enabled = false;
-
-		if (m_Enabled == enabled)
+		if (m_IsPlayingPathQueue || m_PathQueue.empty())
 			return;
 
 		CmpPtr<ICmpRangeManager> cmpRangeManager(GetSimContext().GetSystemEntity());
 		if (cmpRangeManager)
 		{
-			if (enabled)
-				m_MapRevealed = cmpRangeManager->GetLosRevealWholeMapForAll();
-			// TODO: improve m_MapRevealed state and without fade in
-			cmpRangeManager->SetLosRevealWholeMapForAll(enabled);
+			m_WasMapRevealed = cmpRangeManager->GetLosRevealWholeMapForAll();
+			// Note: this results in all fogged entities seen during the cinema path being revealed/updated in FOW
+			// after the queue has ended.
+			cmpRangeManager->SetLosRevealWholeMapForAll(true);
 		}
 
-		m_Enabled = enabled;
+		m_IsPlayingPathQueue = true;
 	}
 
-	void PlayQueue(const float deltaRealTime, CCamera* camera) override
+	void StopPlayingQueue() override
 	{
-		if (m_PathQueue.empty())
+		if (!m_IsPlayingPathQueue)
 			return;
-		m_PathQueue.front().Play(deltaRealTime, camera);
+
+		CmpPtr<ICmpRangeManager> cmpRangeManager(GetSimContext().GetSystemEntity());
+		if (cmpRangeManager)
+			cmpRangeManager->SetLosRevealWholeMapForAll(m_WasMapRevealed);
+
+		GetSimContext().GetComponentManager().PostMessage(SYSTEM_ENTITY, CMessageCinemaQueueEnded());
+
+		m_ActivePathElapsedTime = fixed::Zero();
+		m_QueuePlayingElapsedTime = fixed::Zero();
+		m_PathQueueDuration = fixed::Zero();
+		for (const CCinemaPath& path : m_PathQueue)
+			m_PathQueueDuration += path.GetDuration();
+		m_IsPlayingPathQueue = false;
+	}
+
+	bool IsPlayingQueue() const override
+	{
+		return m_IsPlayingPathQueue;
+	}
+
+	void UpdateActivePath(const float deltaRealTime, CCamera* camera) override
+	{
+		if (m_IsPlayingPathQueue)
+		{
+			if (m_PathQueue.empty())
+				StopPlayingQueue();
+			else
+				m_PathQueue.front().Play(deltaRealTime, camera);
+		}
+	}
+
+	const CStrW GetActivePath() const override
+	{
+		return m_IsPlayingPathQueue ? m_PathQueue.front().GetName() : CStrW();
+	}
+
+	const fixed GetActivePathElapsedTime() const override
+	{
+		return m_ActivePathElapsedTime;
 	}
 
 private:
@@ -364,16 +377,22 @@ private:
 		return CCinemaPath(data, pathSpline, targetSpline);
 	}
 
-	bool m_Enabled;
+	bool m_IsPlayingPathQueue;
 	std::map<CStrW, CCinemaPath> m_Paths;
 	std::list<CCinemaPath> m_PathQueue;
+	fixed m_PathQueueDuration;
 
-	// States before playing
-	bool m_MapRevealed;
+	// Total time elapsed since starting to play the queue.
+	fixed m_QueuePlayingElapsedTime;
 
-	fixed m_ElapsedTime;
-	fixed m_TotalTime;
-	fixed m_CurrentPathElapsedTime;
+	// Time elapsed since the currently active path first started playing.
+	fixed m_ActivePathElapsedTime;
+
+	// Time elapsed since the
+	fixed m_QueueEndedElapsedTime;
+
+	// Whether the map was revealed before playing the queue.
+	bool m_WasMapRevealed;
 };
 
 REGISTER_COMPONENT_TYPE(CinemaManager)
