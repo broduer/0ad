@@ -85,9 +85,11 @@ Trigger.prototype.GoalMessage = function(instructions, readyButton=false, leave=
 	cmpGUIInterface.PushNotification({
 		"type": "tutorial",
 		"players": [1],
-		"instructions": typeof instructions === "string" ? [instructions] : instructions,
-		"readyButton": readyButton,
-		"leave": leave
+		"goal": {
+			"instructions": typeof instructions === "string" ? [instructions] : instructions,
+			"readyButton": readyButton,
+			"leave": leave
+		}
 	});
 };
 

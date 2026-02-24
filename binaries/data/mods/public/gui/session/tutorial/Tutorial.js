@@ -17,28 +17,35 @@ class Tutorial
 		this.panel.hidden = !this.panel.hidden || !this.text.caption;
 	}
 
-	update(notification)
+	handleNotification(notification)
+	{
+		if (notification.goal)
+			this.displayGoal(notification.goal);
+		if (notification.warning)
+			this.displayWarning(notification.warning);
+	}
+
+	displayWarning(warning)
+	{
+		this.warning.caption = coloredText(translate(warning), "orange");
+	}
+
+	displayGoal(goal)
 	{
 		this.panel.hidden = false;
 
-		if (notification.warning)
-		{
-			this.warning.caption = coloredText(translate(notification.warning), "orange");
-			return;
-		}
-
 		const notificationText =
-			notification.instructions.reduce((instructions, item) =>
+			goal.instructions.reduce((instructions, item) =>
 				instructions + (typeof item === "string" ? translate(item) : colorizeHotkey(translate(item.text), item.hotkey)),
 			"");
 
 		this.text.caption = this.instructions.concat(setStringTags(notificationText, this.NewInstructionTags)).join("\n");
 		this.instructions.push(notificationText);
 
-		if (notification.readyButton)
+		if (goal.readyButton)
 		{
 			this.readyButton.hidden = false;
-			if (notification.leave)
+			if (goal.leave)
 			{
 				this.warning.caption = translate("Click to quit this tutorial.");
 				this.readyButton.caption = translate("Quit");

@@ -164,7 +164,7 @@ var g_NotificationsTypes =
 		},
 		"tutorial": function(notification, player)
 		{
-			g_Tutorial.update(notification);
+			g_Tutorial.handleNotification(notification);
 		},
 		"tribute": function(notification, player)
 		{
