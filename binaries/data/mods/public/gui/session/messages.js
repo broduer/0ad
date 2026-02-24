@@ -1,14 +1,4 @@
 /**
- * All tutorial messages received so far.
- */
-var g_TutorialMessages = [];
-
-/**
- * GUI tags applied to the most recent tutorial message.
- */
-var g_TutorialNewMessageTags = { "color": "255 226 149" };
-
-/**
  * The number of seconds we monitor to rate limit flares.
  */
 var g_FlareRateLimitScope = 6;
@@ -174,7 +164,7 @@ var g_NotificationsTypes =
 		},
 		"tutorial": function(notification, player)
 		{
-			updateTutorial(notification);
+			g_Tutorial.update(notification);
 		},
 		"tribute": function(notification, player)
 		{
@@ -335,7 +325,7 @@ function findGuidForPlayerID(playerID)
 /**
  * Processes all pending notifications sent from the GUIInterface simulation component.
  */
-function handleNotifications(closePageCallback)
+function handleNotifications()
 {
 	for (const notification of Engine.GuiInterfaceCall("GetNotifications"))
 	{
@@ -346,7 +336,7 @@ function handleNotifications(closePageCallback)
 		}
 
 		for (const player of notification.players)
-			g_NotificationsTypes[notification.type](notification, player, closePageCallback);
+			g_NotificationsTypes[notification.type](notification, player);
 	}
 }
 
@@ -362,57 +352,6 @@ function focusAttack(attack)
 	{
 		const position = attack.position;
 		Engine.SetCameraTarget(position.x, position.y, position.z);
-	}
-}
-
-function toggleTutorial()
-{
-	const tutorialPanel = Engine.GetGUIObjectByName("tutorialPanel");
-	tutorialPanel.hidden = !tutorialPanel.hidden || !Engine.GetGUIObjectByName("tutorialText").caption;
-}
-
-/**
- * Updates the tutorial panel when a new goal.
- */
-function updateTutorial(notification, closePageCallback)
-{
-	// Show the tutorial panel if not yet done
-	Engine.GetGUIObjectByName("tutorialPanel").hidden = false;
-
-	if (notification.warning)
-	{
-		Engine.GetGUIObjectByName("tutorialWarning").caption = coloredText(translate(notification.warning), "orange");
-		return;
-	}
-
-	const notificationText =
-		notification.instructions.reduce((instructions, item) =>
-			instructions + (typeof item === "string" ? translate(item) : colorizeHotkey(translate(item.text), item.hotkey)),
-		"");
-
-	Engine.GetGUIObjectByName("tutorialText").caption = g_TutorialMessages.concat(setStringTags(notificationText, g_TutorialNewMessageTags)).join("\n");
-	g_TutorialMessages.push(notificationText);
-
-	if (notification.readyButton)
-	{
-		Engine.GetGUIObjectByName("tutorialReady").hidden = false;
-		if (notification.leave)
-		{
-			Engine.GetGUIObjectByName("tutorialWarning").caption = translate("Click to quit this tutorial.");
-			Engine.GetGUIObjectByName("tutorialReady").caption = translate("Quit");
-
-			Engine.GetGUIObjectByName("tutorialReady").onPress = () =>
-			{
-				closePageCallback({ [Engine.openRequest]: endGame(true) });
-			};
-		}
-		else
-			Engine.GetGUIObjectByName("tutorialWarning").caption = translate("Click when ready.");
-	}
-	else
-	{
-		Engine.GetGUIObjectByName("tutorialWarning").caption = translate("Follow the instructions.");
-		Engine.GetGUIObjectByName("tutorialReady").hidden = true;
 	}
 }
 

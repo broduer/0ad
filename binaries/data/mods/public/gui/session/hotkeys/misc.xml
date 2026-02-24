@@ -9,7 +9,7 @@
 	</object>
 
 	<object hotkey="session.gui.tutorial.toggle">
-		<action on="Press">toggleTutorial();</action>
+		<action on="Press">g_Tutorial?.toggle();</action>
 	</object>
 
 	<object hotkey="silhouettes">

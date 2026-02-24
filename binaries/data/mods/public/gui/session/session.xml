@@ -20,6 +20,7 @@
 <script directory="gui/session/top_panel/"/>
 <script directory="gui/session/top_panel/IconButtons/"/>
 <script directory="gui/session/trade/"/>
+<script directory="gui/session/tutorial/"/>
 
 <object name="session">
 
@@ -52,7 +53,7 @@
 		<include file="gui/session/TimeNotificationOverlay.xml"/>
 		<include file="gui/session/TopPanel.xml"/>
 		<include file="gui/session/trade/TradeDialog.xml"/>
-		<include file="gui/session/tutorial_panel.xml"/>
+		<include file="gui/session/tutorial/Tutorial.xml"/>
 		<include file="gui/session/Menu.xml"/>
 
 		<!-- Contains miscellanious objects s.a.: the technology research -->

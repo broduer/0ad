@@ -35,6 +35,7 @@ var g_ResearchProgress;
 var g_TimeNotificationOverlay;
 var g_TopPanel;
 var g_TradeDialog;
+var g_Tutorial;
 
 /**
  * Map, player and match settings set in game setup.
@@ -284,6 +285,7 @@ async function init(initData, hotloadData)
 	g_DiplomacyColors = new DiplomacyColors();
 	g_PlayerViewControl = new PlayerViewControl();
 	g_PlayerViewControl.registerViewedPlayerChangeHandler(g_DiplomacyColors.updateDisplayedPlayerColors.bind(g_DiplomacyColors));
+	g_PlayerViewControl.registerViewedPlayerChangeHandler(resetTemplates);
 	g_DiplomacyColors.registerDiplomacyColorsChangeHandler(g_PlayerViewControl.rebuild.bind(g_PlayerViewControl));
 	g_DiplomacyColors.registerDiplomacyColorsChangeHandler(updateGUIObjects);
 	g_PauseControl = new PauseControl();
@@ -339,17 +341,16 @@ async function init(initData, hotloadData)
 			handleNetMessages().catch(reject);
 	}), new Promise(closePageCallback =>
 	{
-		g_PlayerViewControl.registerViewedPlayerChangeHandler(resetTemplates.bind(undefined,
-			closePageCallback));
 		g_Menu = new Menu(g_PauseControl, g_PlayerViewControl, g_Chat, closePageCallback);
 		g_NetworkStatusOverlay = new NetworkStatusOverlay(closePageCallback);
 		g_QuitConfirmationDefeat = new QuitConfirmationDefeat(closePageCallback);
 		g_QuitConfirmationReplay = new QuitConfirmationReplay(closePageCallback);
-		// TODO: use event instead
-		onSimulationUpdate(closePageCallback);
-		Engine.GetGUIObjectByName("session").onSimulationUpdate =
-			onSimulationUpdate.bind(undefined, closePageCallback);
+		g_Tutorial = new Tutorial(closePageCallback);
 	})]);
+
+	// TODO: use event instead
+	onSimulationUpdate();
+	Engine.GetGUIObjectByName("session").onSimulationUpdate = onSimulationUpdate;
 
 	for (const handler of g_PlayersInitHandlers)
 		handler();
@@ -472,14 +473,14 @@ function initializeMusic()
 	global.music.setState(global.music.states.PEACE);
 }
 
-function resetTemplates(closePageCallback)
+function resetTemplates()
 {
 	// Update GUI and clear player-dependent cache
 	g_TemplateData = {};
 	Engine.GuiInterfaceCall("ResetTemplateModified");
 
 	// TODO: do this more selectively
-	onSimulationUpdate(closePageCallback);
+	onSimulationUpdate();
 }
 
 /**
@@ -677,7 +678,7 @@ function onTick()
 	Engine.GuiInterfaceCall("ClearRenamedEntities");
 }
 
-function onSimulationUpdate(closePageCallback)
+function onSimulationUpdate()
 {
 	// Templates change depending on technologies and auras, so they have to be reloaded after such a change.
 	// g_TechnologyData data never changes, so it shouldn't be deleted.
@@ -705,7 +706,7 @@ function onSimulationUpdate(closePageCallback)
 		handler();
 
 	// TODO: Move to handlers
-	handleNotifications(closePageCallback);
+	handleNotifications();
 	updateGUIObjects();
 }
 
