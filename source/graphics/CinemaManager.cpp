@@ -39,12 +39,13 @@
 #include <utility>
 #include <vector>
 
-CCinemaManager::CCinemaManager()
-	: m_DrawPaths(false)
-{
-}
+<<<<<<< Updated upstream
+CCinemaManager::CCinemaManager() {}
 
 void CCinemaManager::Update(const float deltaRealTime) const
+=======
+void CCinemaManager::Update(const float deltaRealTime)
+>>>>>>> Stashed changes
 {
 	CmpPtr<ICmpCinemaManager> cmpCinemaManager(g_Game->GetSimulation2()->GetSimContext().GetSystemEntity());
 	if (!cmpCinemaManager)

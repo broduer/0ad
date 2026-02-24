@@ -30,9 +30,6 @@ struct CColor;
 class CCinemaManager
 {
 public:
-	CCinemaManager();
-	~CCinemaManager() {}
-
 	/**
 	 * Renders paths and their nodes (if enabled).
 	 */
@@ -54,7 +51,7 @@ private:
 	void DrawSpline(Renderer::Backend::IDeviceCommandContext& deviceCommandContext, const RNSpline& spline, const CColor& splineColor, int smoothness) const;
 	void DrawNodes(Renderer::Backend::IDeviceCommandContext& deviceCommandContext, const RNSpline& spline, const CColor& nodesColor) const;
 
-	bool m_DrawPaths;
+	bool m_DrawPaths = false;
 };
 
 #endif
