@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<object name="instructionPanel" type="image" sprite="ModernFade" size="50%-380 38 50%+380 292">
+	<object size="10 10 100%-20 100%-48">
+		<object name="instructionPanelText" type="text" style="TutorialPanel"/>
+	</object>
+	<object name="instructionPanelWarning" type="text" style="ModernLeftLabelText" size="10 100%-42 100%-20 100%-12"/>
+	<object name="instructionPanelReady" type="button" style="ModernButtonRed" size="100%-160 100%-42 100%-20 100%-12">
+		<translatableAttribute id="caption">Ready</translatableAttribute>
+	</object>
+</object>

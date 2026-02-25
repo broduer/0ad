@@ -35,7 +35,7 @@ var g_ResearchProgress;
 var g_TimeNotificationOverlay;
 var g_TopPanel;
 var g_TradeDialog;
-var g_Tutorial;
+var g_TutorialManager;
 
 /**
  * Map, player and match settings set in game setup.
@@ -345,7 +345,7 @@ async function init(initData, hotloadData)
 		g_NetworkStatusOverlay = new NetworkStatusOverlay(closePageCallback);
 		g_QuitConfirmationDefeat = new QuitConfirmationDefeat(closePageCallback);
 		g_QuitConfirmationReplay = new QuitConfirmationReplay(closePageCallback);
-		g_Tutorial = new Tutorial(closePageCallback);
+		g_TutorialManager = new TutorialManager(closePageCallback);
 	})]);
 
 	// TODO: use event instead

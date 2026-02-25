@@ -1,3 +1,10 @@
+// Needs to be kept in sync with the one in gui/session/tutorial/Tutorial.js
+var TUTORIAL_STEP_TYPE = deepfreeze({
+	"INSTRUCTION": 1
+});
+
+Engine.RegisterGlobal("TUTORIAL_STEP_TYPE", TUTORIAL_STEP_TYPE);
+
 Trigger.prototype.InitTutorial = function(data)
 {
 	this.index = 0;
@@ -76,19 +83,22 @@ Trigger.prototype.NextStep = function(deserializing = false)
 		}
 	}
 
-	this.DisplayStep(step.instructions, readyButton, ++this.index == this.tutorialSteps.length);
+	this.DisplayStep(step, readyButton, ++this.index == this.tutorialSteps.length);
 };
 
-Trigger.prototype.DisplayStep = function(instructions, readyButton=false, leave=false)
+Trigger.prototype.DisplayStep = function(step, readyButton = false, leave = false)
 {
 	const cmpGUIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface);
 	cmpGUIInterface.PushNotification({
 		"type": "tutorial",
 		"players": [1],
 		"step": {
-			"instructions": typeof instructions === "string" ? [instructions] : instructions,
-			"readyButton": readyButton,
-			"leave": leave
+			"type": step.type,
+			"panelData": {
+				...step.panelData,
+				"readyButton": readyButton,
+				"leave": leave
+			}
 		}
 	});
 };
@@ -109,7 +119,7 @@ Trigger.prototype.OnDeserializedTrigger = function()
 
 	// Display messages from already processed steps
 	for (let i = 0; i < this.index; ++i)
-		this.DisplayStep(this.tutorialSteps[i].instructions, false, false);
+		this.DisplayStep(this.tutorialSteps[i], false, false);
 
 	this.NextStep(true);
 };

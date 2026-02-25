@@ -1,32 +1,40 @@
 Trigger.prototype.tutorialSteps = [
 	{
-		"instructions": markForTranslation("Welcome to the 0\xa0A.D. tutorial."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("Welcome to the 0\xa0A.D. tutorial.")
+		}
 	},
 	{
-		"instructions": markForTranslation("Left-click on a Civilian and then right-click on a berry bush to make that Civilian gather food. Civilians gather vegetables faster than other units."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("Left-click on a Civilian and then right-click on a berry bush to make that Civilian gather food. Civilians gather vegetables faster than other units.")
+		},
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "gather" && msg.cmd.target &&
-			    TriggerHelper.GetResourceType(msg.cmd.target).specific == "fruit")
+                TriggerHelper.GetResourceType(msg.cmd.target).specific == "fruit")
 				this.NextStep();
 		}
 	},
 	{
-		"instructions": markForTranslation("Select the Citizen Soldier, right-click on a tree near the Civic Center to begin gathering wood. Citizen Soldiers gather wood faster than Civilians."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("Select the Citizen Soldier, right-click on a tree near the Civic Center to begin gathering wood. Citizen Soldiers gather wood faster than Civilians.")
+		},
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "gather" && msg.cmd.target &&
-			    TriggerHelper.GetResourceType(msg.cmd.target).specific == "tree")
+                TriggerHelper.GetResourceType(msg.cmd.target).specific == "tree")
 				this.NextStep();
 		}
 	},
 	{
-		"instructions": [
-			{
-				"text": markForTranslation("Select the Civic Center building and hold %(hotkey)s while clicking on the Hoplite icon once to begin training a batch of Hoplites."),
-				"hotkey": "session.batchtrain"
-			}
-		],
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("Select the Civic Center building and hold %(hotkey)s while clicking on the Hoplite icon once to begin training a batch of Hoplites."),
+			"hotkeys": ["session.batchtrain"]
+		},
 		"OnTrainingQueued": function(msg)
 		{
 			if (msg.unitTemplate != "units/spart/infantry_spearman_b" || +msg.count == 1)
@@ -43,7 +51,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("Select the two idle Civilians and build a House nearby by selecting the House icon. Place the House by left-clicking on a piece of land."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("Select the two idle Civilians and build a House nearby by selecting the House icon. Place the House by left-clicking on a piece of land.")
+		},
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "repair" && TriggerHelper.EntityMatchesClassList(msg.cmd.target, "House"))
@@ -51,7 +62,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("When they are ready, select the newly trained Hoplites and assign them to build a Storehouse beside some nearby trees. They will begin to gather wood when it's constructed."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("When they are ready, select the newly trained Hoplites and assign them to build a Storehouse beside some nearby trees. They will begin to gather wood when it's constructed.")
+		},
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "repair" && TriggerHelper.EntityMatchesClassList(msg.cmd.target, "Storehouse"))
@@ -59,12 +73,11 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": [
-			{
-				"text": markForTranslation("Train a batch of Skirmishers by holding %(hotkey)s and clicking on the Skirmisher icon in the Civic Center."),
-				"hotkey": "session.batchtrain"
-			}
-		],
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("Train a batch of Skirmishers by holding %(hotkey)s and clicking on the Skirmisher icon in the Civic Center."),
+			"hotkeys": ["session.batchtrain"]
+		},
 		"Init": function()
 		{
 			this.trainingDone = false;
@@ -85,7 +98,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("Build a Farmstead in an open space beside the Civic Center using any idle builders."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("Build a Farmstead in an open space beside the Civic Center using any idle builders.")
+		},
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "repair" && TriggerHelper.EntityMatchesClassList(msg.cmd.target, "Farmstead"))
@@ -97,7 +113,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("Let's wait for the Farmstead to be built."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("Let's wait for the Farmstead to be built.")
+		},
 		"OnTrainingFinished": function(msg)
 		{
 			this.trainingDone = true;
@@ -109,7 +128,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("Once the Farmstead is constructed, its builders will automatically begin gathering food if there is any nearby. Select the builders and instead make them construct a Field beside the Farmstead."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("Once the Farmstead is constructed, its builders will automatically begin gathering food if there is any nearby. Select the builders and instead make them construct a Field beside the Farmstead.")
+		},
 		"Init": function()
 		{
 			this.farmStarted = false;
@@ -133,7 +155,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("The Field's builders will now automatically begin gathering food from the Field. Using the newly created group of skirmishers, get them to build another House nearby."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("The Field's builders will now automatically begin gathering food from the Field. Using the newly created group of skirmishers, get them to build another House nearby.")
+		},
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "repair" && TriggerHelper.EntityMatchesClassList(msg.cmd.target, "House"))
@@ -141,7 +166,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("Train a batch of Hoplites at the Civic Center. Select the Civic Center and with it selected right-click on a tree nearby. Units from the Civic Center will now automatically gather wood."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("Train a batch of Hoplites at the Civic Center. Select the Civic Center and with it selected right-click on a tree nearby. Units from the Civic Center will now automatically gather wood.")
+		},
 		"Init": function()
 		{
 			this.rallyPointSet = false;
@@ -170,8 +198,8 @@ Trigger.prototype.tutorialSteps = [
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type != "set-rallypoint" || !msg.cmd.data ||
-			   !msg.cmd.data.command || msg.cmd.data.command != "gather" ||
-			   !msg.cmd.data.resourceType || msg.cmd.data.resourceType.specific != "tree")
+               !msg.cmd.data.command || msg.cmd.data.command != "gather" ||
+               !msg.cmd.data.resourceType || msg.cmd.data.resourceType.specific != "tree")
 			{
 				this.DisplayWarning(markForTranslation("Select the Civic Center, then hover the cursor over the tree and right-click when you see your cursor change into a wood icon."));
 				return;
@@ -182,7 +210,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("Build a Barracks nearby. Whenever your population limit is reached, build an extra House using any available builder units. This will be the fifth Village Phase structure that you have built, allowing you to advance to the Town Phase."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("Build a Barracks nearby. Whenever your population limit is reached, build an extra House using any available builder units. This will be the fifth Village Phase structure that you have built, allowing you to advance to the Town Phase.")
+		},
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "repair" && TriggerHelper.EntityMatchesClassList(msg.cmd.target, "Barracks"))
@@ -190,7 +221,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("Select the Civic Center again and advance to Town Phase by clicking on the II icon (you have to wait for the barracks to be built first). This will allow Town Phase buildings to be constructed."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("Select the Civic Center again and advance to Town Phase by clicking on the II icon (you have to wait for the barracks to be built first). This will allow Town Phase buildings to be constructed.")
+		},
 		"IsDone": function()
 		{
 			return TriggerHelper.HasDealtWithTech(this.playerID, "phase_town_generic");
@@ -202,7 +236,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("While waiting for the phasing up, you may reassign your idle workers to gathering the resources you are short of."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("While waiting for the phasing up, you may reassign your idle workers to gathering the resources you are short of.")
+		},
 		"IsDone": function()
 		{
 			const cmpPlayerManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_PlayerManager);
@@ -217,7 +254,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("Order the idle Skirmishers to build an outpost to the north east at the edge of your territory."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("Order the idle Skirmishers to build an outpost to the north east at the edge of your territory.")
+		},
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "repair" && TriggerHelper.EntityMatchesClassList(msg.cmd.target, "Outpost"))
@@ -225,7 +265,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("Start training a batch of Civilians in the Civic Center and set its rally point to the Field (right click on it)."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("Start training a batch of Civilians in the Civic Center and set its rally point to the Field (right click on it).")
+		},
 		"Init": function()
 		{
 			this.rallyPointSet = false;
@@ -254,8 +297,8 @@ Trigger.prototype.tutorialSteps = [
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type != "set-rallypoint" || !msg.cmd.data ||
-			   !msg.cmd.data.command || msg.cmd.data.command != "gather" ||
-			   !msg.cmd.data.resourceType || msg.cmd.data.resourceType.specific != "grain")
+               !msg.cmd.data.command || msg.cmd.data.command != "gather" ||
+               !msg.cmd.data.resourceType || msg.cmd.data.resourceType.specific != "grain")
 				return;
 			this.rallyPointSet = true;
 			if (this.IsDone())
@@ -263,7 +306,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("Prepare for an attack by an enemy player. Train more soldiers using the Barracks, and get idle soldiers to build a Tower near your Outpost."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("Prepare for an attack by an enemy player. Train more soldiers using the Barracks, and get idle soldiers to build a Tower near your Outpost.")
+		},
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "repair" && TriggerHelper.EntityMatchesClassList(msg.cmd.target, "Tower"))
@@ -271,7 +317,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("Build a Forge and research the Infantry Training technology (sword icon) to improve infantry hack attack."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("Build a Forge and research the Infantry Training technology (sword icon) to improve infantry hack attack.")
+		},
 		"OnResearchQueued": function(msg)
 		{
 			if (msg.technologyTemplate && TriggerHelper.EntityMatchesClassList(msg.researcherEntity, "Forge"))
@@ -279,7 +328,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("The enemy is coming. Train more soldiers to fight off the enemies."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("The enemy is coming. Train more soldiers to fight off the enemies.")
+		},
 		"OnResearchFinished": function(msg)
 		{
 			this.LaunchAttack();
@@ -287,7 +339,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("Try to repel the attack."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("Try to repel the attack.")
+		},
 		"OnOwnershipChanged": function(msg)
 		{
 			if (msg.to != INVALID_PLAYER)
@@ -297,7 +352,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("The enemy attack has been thwarted. Now build a market and a temple while you assign new units to gather required resources."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("The enemy attack has been thwarted. Now build a market and a temple while you assign new units to gather required resources.")
+		},
 		"Init": function()
 		{
 			this.marketStarted = false;
@@ -318,7 +376,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("Once you meet the City Phase requirements, select your Civic Center and advance to City Phase."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("Once you meet the City Phase requirements, select your Civic Center and advance to City Phase.")
+		},
 		"IsDone": function()
 		{
 			return TriggerHelper.HasDealtWithTech(this.playerID, "phase_city_generic");
@@ -330,7 +391,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("While waiting for the phase change, you may train more soldiers at the Barracks."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("While waiting for the phase change, you may train more soldiers at the Barracks.")
+		},
 		"IsDone": function()
 		{
 			return TriggerHelper.HasDealtWithTech(this.playerID, "phase_city_generic");
@@ -342,7 +406,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("Now that you are in City Phase, build the Arsenal nearby and then use it to construct 2 Battering Rams."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("Now that you are in City Phase, build the Arsenal nearby and then use it to construct 2 Battering Rams.")
+		},
 		"Init": function()
 		{
 			this.ramCount = 0;
@@ -363,10 +430,12 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": [
-			markForTranslation("Stop all your soldiers gathering resources and instead task small groups to find the enemy Civic Center on the map. Once the enemy's base has been spotted, send your Siege Engines and all remaining soldiers to destroy it.\n"),
-			markForTranslation("Civilians should continue to gather resources.")
-		],
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text":
+                markForTranslation("Stop all your soldiers gathering resources and instead task small groups to find the enemy Civic Center on the map. Once the enemy's base has been spotted, send your Siege Engines and all remaining soldiers to destroy it.\n") +
+                markForTranslation("Civilians should continue to gather resources.")
+		},
 		"OnOwnershipChanged": function(msg)
 		{
 			if (msg.from != this.enemyID)
@@ -376,7 +445,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"instructions": markForTranslation("The enemy has been defeated. These tutorial tasks are now completed."),
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("The enemy has been defeated. These tutorial tasks are now completed.")
+		},
 		"Init": function()
 		{
 			const cmpEndGameManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_EndGameManager);
