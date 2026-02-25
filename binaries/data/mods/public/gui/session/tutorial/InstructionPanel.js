@@ -6,17 +6,17 @@ class InstructionPanel
 {
 	panel = Engine.GetGUIObjectByName("instructionPanel");
 	text = Engine.GetGUIObjectByName("instructionPanelText");
-	warning = Engine.GetGUIObjectByName("instructionPanelWarning");
-	readyButton = Engine.GetGUIObjectByName("instructionPanelReady");
+	hint = Engine.GetGUIObjectByName("instructionPanelHint");
+	continueButton = Engine.GetGUIObjectByName("instructionPanelContinueButton");
 	instructions = [];
 	closePage;
 
 	constructor(closePage)
 	{
 		this.closePage = closePage;
-		this.readyButton.onPress = () =>
+		this.continueButton.onPress = () =>
 		{
-			Engine.PostNetworkCommand({ "type": "dialog-answer", "tutorial": "ready" });
+			Engine.PostNetworkCommand({ "type": "dialog-answer", "tutorial": "continue" });
 		};
 	}
 
@@ -27,7 +27,7 @@ class InstructionPanel
 
 	displayWarning(warning)
 	{
-		this.warning.caption = setStringTags(warning, this.WarningTags);
+		this.hint.caption = setStringTags(warning, this.WarningTags);
 	}
 
 	displayStep(panelData)
@@ -35,22 +35,22 @@ class InstructionPanel
 		this.text.caption = this.instructions.concat(setStringTags(panelData.text, this.NewInstructionTags)).join("\n");
 		this.instructions.push(panelData.text);
 
-		if (panelData.readyButton)
+		if (panelData.showContinueButton)
 		{
-			this.readyButton.hidden = false;
-			if (panelData.leave)
+			this.continueButton.hidden = false;
+			if (panelData.isLast)
 			{
-				this.warning.caption = translate("Click to quit this tutorial.");
-				this.readyButton.caption = translate("Quit");
-				this.readyButton.onPress = this.closePage;
+				this.hint.caption = translate("Click to quit this tutorial.");
+				this.continueButton.caption = translate("Quit");
+				this.continueButton.onPress = this.closePage;
 			}
 			else
-				this.warning.caption = translate("Click when ready.");
+				this.hint.caption = this.HintCaptions.Continue;
 		}
 		else
 		{
-			this.warning.caption = translate("Follow the instructions.");
-			this.readyButton.hidden = true;
+			this.hint.caption = this.HintCaptions.Instruction;
+			this.continueButton.hidden = true;
 		}
 	}
 }
@@ -64,3 +64,9 @@ InstructionPanel.prototype.NewInstructionTags = { "color": "255 226 149" };
  * Tags applied to warning messages.
  */
 InstructionPanel.prototype.WarningTags = { "color": "orange" };
+
+InstructionPanel.prototype.HintCaptions = {
+	"Continue": translate("Click when continue."),
+	"Instruction": translate("Follow the instructions."),
+	"Quit": translate("Click to quit this tutorial.")
+};

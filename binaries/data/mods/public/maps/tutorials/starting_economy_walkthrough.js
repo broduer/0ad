@@ -274,9 +274,9 @@ Trigger.prototype.tutorialSteps = [
 		"panelData": {
 			"text":
 				markForTranslation("You may notice that berries are a finite supply of food. We will need a more lasting food source. Fields produce an unlimited food resource, but are slower to gather than forageable fruits.\n") +
-				markForTranslation("But to minimize the distance between a farm and its corresponding food dropsite, we will first build a Farmstead.")
+				markForTranslation("But to minimize the distance between a farm and its corresponding food dropsite, we will first build a Farmstead."),
+			"showContinueButton": true
 		},
-		"delay": -1,
 		"OnOwnershipChanged": function(msg)
 		{
 			if (this.houseGoal.has(+msg.entity))

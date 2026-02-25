@@ -39,15 +39,10 @@ Trigger.prototype.NextStep = function(deserializing = false)
 	if (this.index > this.tutorialSteps.length)
 		return;
 	const step = this.tutorialSteps[this.index];
-	let needDelay = true;
-	let readyButton = false;
 
 	Trigger.prototype.Init = step.Init || null;
 	if (!deserializing && this.Init)
 		this.Init();
-
-	Trigger.prototype.IsDone = step.IsDone || (() => false);
-	const stepAlreadyDone = this.IsDone();
 
 	for (const event of this.tutorialEvents)
 	{
@@ -56,36 +51,31 @@ Trigger.prototype.NextStep = function(deserializing = false)
 		{
 			Trigger.prototype[action] = step[event];
 			this.EnableTrigger(event, action);
-			if (!stepAlreadyDone)
-				needDelay = false;
 		}
 		else
 			this.DisableTrigger(event, action);
 	}
 
-	// Steps without actions to be performed by the player must have
-	// - either the property delay (a value > 0 to wait for a given time, and -1 to display the Ready button)
-	// - or no trigger functions (needDelay will be set automatically to true and the Ready button displayed)
-	if (step.delay || needDelay)
+	Trigger.prototype.IsDone = step.IsDone || (() => false);
+	const showContinueButton =
+		step.panelData.showContinueButton === undefined ?
+			this.IsDone() || this.tutorialEvents.every(event => !step[event]) :
+			step.panelData.showContinueButton;
+
+	if (showContinueButton)
 	{
-		if (step.delay && step.delay > 0)
-			this.DoAfterDelay(+step.delay, "NextStep", {});
-		else
+		this.EnableTrigger("OnPlayerCommand", "OnPlayerCommandTrigger");
+		Trigger.prototype.OnPlayerCommandTrigger = function(msg)
 		{
-			this.EnableTrigger("OnPlayerCommand", "OnPlayerCommandTrigger");
-			Trigger.prototype.OnPlayerCommandTrigger = function(msg)
-			{
-				if (msg.cmd.type == "dialog-answer" && msg.cmd.tutorial && msg.cmd.tutorial == "ready")
-					this.NextStep();
-			};
-			readyButton = true;
-		}
+			if (msg.cmd.type == "dialog-answer" && msg.cmd.tutorial && msg.cmd.tutorial == "continue")
+				this.NextStep();
+		};
 	}
 
-	this.DisplayStep(step, readyButton, ++this.index == this.tutorialSteps.length);
+	this.DisplayStep(step, showContinueButton, ++this.index == this.tutorialSteps.length);
 };
 
-Trigger.prototype.DisplayStep = function(step, readyButton = false, leave = false)
+Trigger.prototype.DisplayStep = function(step, showContinueButton = false, isLast = false)
 {
 	const cmpGUIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface);
 	cmpGUIInterface.PushNotification({
@@ -95,8 +85,8 @@ Trigger.prototype.DisplayStep = function(step, readyButton = false, leave = fals
 			"type": step.type,
 			"panelData": {
 				...step.panelData,
-				"readyButton": readyButton,
-				"leave": leave
+				"showContinueButton": showContinueButton,
+				"isLast": isLast
 			}
 		}
 	});

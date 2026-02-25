@@ -3,8 +3,8 @@
 	<object size="10 10 100%-20 100%-48">
 		<object name="instructionPanelText" type="text" style="TutorialPanel"/>
 	</object>
-	<object name="instructionPanelWarning" type="text" style="ModernLeftLabelText" size="10 100%-42 100%-20 100%-12"/>
-	<object name="instructionPanelReady" type="button" style="ModernButtonRed" size="100%-160 100%-42 100%-20 100%-12">
-		<translatableAttribute id="caption">Ready</translatableAttribute>
+	<object name="instructionPanelHint" type="text" style="ModernLeftLabelText" size="10 100%-42 100%-20 100%-12"/>
+	<object name="instructionPanelContinueButton" type="button" style="ModernButtonRed" size="100%-160 100%-42 100%-20 100%-12">
+		<translatableAttribute id="caption">Continue</translatableAttribute>
 	</object>
 </object>
