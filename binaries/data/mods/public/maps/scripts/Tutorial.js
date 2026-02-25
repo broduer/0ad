@@ -8,7 +8,6 @@ Engine.RegisterGlobal("TUTORIAL_STEP_TYPE", TUTORIAL_STEP_TYPE);
 Trigger.prototype.InitTutorial = function(data)
 {
 	this.index = 0;
-	this.fullText = "";
 	this.tutorialEvents = [];
 
 	// Register needed triggers
