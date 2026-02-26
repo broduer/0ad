@@ -7,7 +7,7 @@ Engine.RegisterGlobal("TUTORIAL_STEP_TYPE", TUTORIAL_STEP_TYPE);
 
 Trigger.prototype.InitTutorial = function(data)
 {
-	this.index = 0;
+	this.stepIndex = 0;
 	this.tutorialEvents = [];
 
 	// Register needed triggers
@@ -36,9 +36,9 @@ Trigger.prototype.InitTutorial = function(data)
 
 Trigger.prototype.NextStep = function(deserializing = false)
 {
-	if (this.index > this.tutorialSteps.length)
+	if (this.stepIndex > this.tutorialSteps.length)
 		return;
-	const step = this.tutorialSteps[this.index];
+	const step = this.tutorialSteps[this.stepIndex];
 
 	Trigger.prototype.Init = step.Init || null;
 	if (!deserializing && this.Init)
@@ -72,7 +72,7 @@ Trigger.prototype.NextStep = function(deserializing = false)
 		};
 	}
 
-	this.DisplayStep(step, showContinueButton, ++this.index == this.tutorialSteps.length);
+	this.DisplayStep(step, showContinueButton, ++this.stepIndex == this.tutorialSteps.length);
 };
 
 Trigger.prototype.DisplayStep = function(step, showContinueButton = false, isLast = false)
@@ -104,10 +104,10 @@ Trigger.prototype.DisplayWarning = function(warning)
 
 Trigger.prototype.DeserializedAction = function()
 {
-	this.index = Math.max(0, this.index - 1);
+	this.stepIndex = Math.max(0, this.stepIndex - 1);
 
 	// Display messages from already processed steps
-	for (let i = 0; i < this.index; ++i)
+	for (let i = 0; i < this.stepIndex; ++i)
 		this.DisplayStep(this.tutorialSteps[i], false, false);
 
 	this.NextStep(true);
