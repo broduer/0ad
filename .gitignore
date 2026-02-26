@@ -2,6 +2,7 @@
 binaries/system/*
 !binaries/system/*.bat
 !binaries/system/readme.txt
+server/target
 
 # Workspaces
 build/workspaces/*

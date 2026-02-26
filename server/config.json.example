@@ -1,0 +1,19 @@
+{
+  "xmpp_server": "lobby.wildfiregames.com",
+  "accounts": [
+    {
+      "jid": "dedicated1@lobby.wildfiregames.com",
+      "password": ""
+    },{
+      "jid": "dedicated2@lobby.wildfiregames.com",
+      "password": ""
+    },{
+      "jid": "dedicated3@lobby.wildfiregames.com",
+      "password": ""
+    }
+  ],
+  "muc_room": "arena29@conference.lobby.wildfiregames.com",
+  "bot_jid": "wfgbot29@lobby.wildfiregames.com/CC",
+  "public_ip": "1.1.1.1",
+  "server_name": "My Dedicated Server"
+}
