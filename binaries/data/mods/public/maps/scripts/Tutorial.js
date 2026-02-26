@@ -12,8 +12,7 @@ Trigger.prototype.InitTutorial = function(data)
 
 	// Register needed triggers
 	this.RegisterTrigger("OnDeserialized", "DeserializedAction", { "enabled": true });
-	this.RegisterTrigger("OnPlayerCommand", "PlayerCommandAction", { "enabled": false });
-	this.tutorialEvents.push("OnPlayerCommand");
+	this.RegisterTrigger("OnPlayerCommand", "BasePlayerCommandAction", { "enabled": true });
 
 	for (const step of this.tutorialSteps)
 	{
@@ -49,7 +48,17 @@ Trigger.prototype.NextStep = function(deserializing = false)
 		const action = event.substring(2) + "Action";
 		if (step[event])
 		{
-			Trigger.prototype[action] = step[event];
+			Trigger.prototype[action] =
+				event == "OnPlayerCommand" ?
+					(msg) =>
+					{
+						// Don't forward tutorial continue commands, since the step trigger actions aren't supposed to handle them,
+						// plus we might have already loaded in the next step.
+						if (msg.cmd.type != "dialog-answer" || msg.cmd.tutorial != "continue")
+							step.OnPlayerCommand.call(this, msg);
+					} :
+					step[event];
+
 			this.EnableTrigger(event, action);
 		}
 		else
@@ -57,20 +66,10 @@ Trigger.prototype.NextStep = function(deserializing = false)
 	}
 
 	Trigger.prototype.IsDone = step.IsDone || (() => false);
-	const showContinueButton =
-		step.panelData.showContinueButton === undefined ?
-			this.IsDone() || this.tutorialEvents.every(event => !step[event]) :
-			step.panelData.showContinueButton;
-
-	if (showContinueButton)
-	{
-		this.EnableTrigger("OnPlayerCommand", "PlayerCommandAction");
-		Trigger.prototype.PlayerCommandAction = function(msg)
-		{
-			if (msg.cmd.type == "dialog-answer" && msg.cmd.tutorial && msg.cmd.tutorial == "continue")
-				this.NextStep();
-		};
-	}
+	const showContinueButton = this.IsDone() || (step.panelData.showContinueButton === undefined ?
+		this.tutorialEvents.every(event => !step[event]) :
+		step.panelData.showContinueButton
+	);
 
 	this.DisplayStep(step, showContinueButton, ++this.stepIndex == this.tutorialSteps.length);
 };
@@ -100,6 +99,12 @@ Trigger.prototype.DisplayWarning = function(warning)
 		"players": [1],
 		"warning": warning
 	});
+};
+
+Trigger.prototype.BasePlayerCommandAction = function(msg)
+{
+	if (msg.cmd.type == "dialog-answer" && msg.cmd.tutorial == "continue")
+		this.NextStep();
 };
 
 Trigger.prototype.DeserializedAction = function()
