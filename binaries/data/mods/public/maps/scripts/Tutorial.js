@@ -11,8 +11,8 @@ Trigger.prototype.InitTutorial = function(data)
 	this.tutorialEvents = [];
 
 	// Register needed triggers
-	this.RegisterTrigger("OnDeserialized", "OnDeserializedTrigger", { "enabled": true });
-	this.RegisterTrigger("OnPlayerCommand", "OnPlayerCommandTrigger", { "enabled": false });
+	this.RegisterTrigger("OnDeserialized", "DeserializedAction", { "enabled": true });
+	this.RegisterTrigger("OnPlayerCommand", "PlayerCommandAction", { "enabled": false });
 	this.tutorialEvents.push("OnPlayerCommand");
 
 	for (const step of this.tutorialSteps)
@@ -25,7 +25,7 @@ Trigger.prototype.InitTutorial = function(data)
 				continue;
 			if (key == "IsDone")
 				continue;
-			const action = key + "Trigger";
+			const action = key.substring(2) + "Action";
 			this.RegisterTrigger(key, action, { "enabled": false });
 			this.tutorialEvents.push(key);
 		}
@@ -46,7 +46,7 @@ Trigger.prototype.NextStep = function(deserializing = false)
 
 	for (const event of this.tutorialEvents)
 	{
-		const action = event + "Trigger";
+		const action = event.substring(2) + "Action";
 		if (step[event])
 		{
 			Trigger.prototype[action] = step[event];
@@ -64,8 +64,8 @@ Trigger.prototype.NextStep = function(deserializing = false)
 
 	if (showContinueButton)
 	{
-		this.EnableTrigger("OnPlayerCommand", "OnPlayerCommandTrigger");
-		Trigger.prototype.OnPlayerCommandTrigger = function(msg)
+		this.EnableTrigger("OnPlayerCommand", "PlayerCommandAction");
+		Trigger.prototype.PlayerCommandAction = function(msg)
 		{
 			if (msg.cmd.type == "dialog-answer" && msg.cmd.tutorial && msg.cmd.tutorial == "continue")
 				this.NextStep();
@@ -102,7 +102,7 @@ Trigger.prototype.DisplayWarning = function(warning)
 	});
 };
 
-Trigger.prototype.OnDeserializedTrigger = function()
+Trigger.prototype.DeserializedAction = function()
 {
 	this.index = Math.max(0, this.index - 1);
 
