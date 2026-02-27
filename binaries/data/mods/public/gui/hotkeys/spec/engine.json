@@ -19,6 +19,10 @@
 				"name": "Pause/Unpause",
 				"desc": "Pause/Unpause the game."
 			},
+			"openoptions": {
+				"name": "Open Options",
+				"desc": "Open options window."
+			},
 			"screenshot": {
 				"name": "Screenshot",
 				"desc": "Take PNG screenshot."

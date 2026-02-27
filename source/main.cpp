@@ -266,6 +266,13 @@ static InReaction MainInputHandler(const SDL_Event_* ev)
 			const SDL_bool willGrabMouse{SDL_GetWindowGrab(window) ? SDL_FALSE : SDL_TRUE};
 			SDL_SetWindowGrab(window, willGrabMouse);
 		}
+		else if (hotkey == "openoptions")
+		{
+			LOGMESSAGE("OPENOPTIONS HOTKEY TRIGGERED");
+			Script::StructuredClone data;
+			g_GUI->OpenChildPage(L"page_options.xml", data);
+			return IN_HANDLED;
+		}
 		break;
 	}
 
