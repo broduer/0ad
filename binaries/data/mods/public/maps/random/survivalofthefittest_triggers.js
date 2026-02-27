@@ -71,6 +71,7 @@ var disabledTemplates = (civ) => [
 
 	// Walls
 	"structures/" + civ + "/wallset_stone",
+	"structures/" + civ + "/wallset_palisade",
 	"structures/rome/wallset_siege",
 	"structures/wallset_palisade",
 
