@@ -1130,8 +1130,9 @@ function handleInputAfterGui(ev)
 			{
 				if (clickedEntity == INVALID_ENTITY)
 					clickedEntity = Engine.PickEntityAtPoint(ev.x, ev.y);
+				const clickedEntityState = GetEntityState(clickedEntity);
 				// Abort if we didn't click on an entity or if the entity was removed before the mousebuttonup event.
-				if (clickedEntity == INVALID_ENTITY || !GetEntityState(clickedEntity))
+				if (clickedEntity == INVALID_ENTITY || !clickedEntityState)
 				{
 					clickedEntity = INVALID_ENTITY;
 					if (!Engine.HotkeyIsPressed("selection.add") && !Engine.HotkeyIsPressed("selection.remove"))
@@ -1157,18 +1158,18 @@ function handleInputAfterGui(ev)
 
 					if (ev.clicks == 2)
 					{
-						templateToMatch = GetEntityState(clickedEntity).selectionGroupName;
+						templateToMatch = clickedEntityState.selectionGroupName;
 						if (templateToMatch)
 							matchRank = false;
 						else
 							// No selection group name defined, so fall back to exact match.
-							templateToMatch = GetEntityState(clickedEntity).templateName;
+							templateToMatch = clickedEntityState.templateName;
 
 					}
 					else
 						// Triple click
 						// Select units matching exact template name (same rank).
-						templateToMatch = GetEntityState(clickedEntity).templateName;
+						templateToMatch = clickedEntityState.templateName;
 
 					// TODO: Should we handle "control all units" here as well?
 					ents = Engine.PickSimilarPlayerEntities(templateToMatch, showOffscreen, matchRank, false);
