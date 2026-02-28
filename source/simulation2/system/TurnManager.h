@@ -23,7 +23,6 @@
 #include "simulation2/helpers/SimulationCommand.h"
 
 #include <cstddef>
-#include <deque>
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
 #include <js/Value.h>
@@ -207,8 +206,9 @@ protected:
 	// Current turn length
 	std::uint32_t m_TurnLength;
 
-	/// Commands queued at each turn (index 0 is for m_CurrentTurn+1)
-	std::deque<std::map<turn_id_t, std::vector<SimulationCommand>>> m_QueuedCommands;
+	/// Commands queued at each turn
+	/// map<target_turn, map<source_client, vector<SimulationCommand>>>
+	std::map<turn_id_t, std::map<int, std::vector<SimulationCommand>>> m_QueuedCommands;
 
 	int m_PlayerId;
 	unsigned int m_ClientId;

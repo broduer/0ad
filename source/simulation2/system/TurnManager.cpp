@@ -53,7 +53,6 @@ CTurnManager::CTurnManager(CSimulation2& simulation, std::uint32_t defaultTurnLe
 {
 	Script::Request rq(m_Simulation2.GetScriptInterface());
 	m_QuickSaveMetadata.init(rq.cx);
-	m_QueuedCommands.resize(1);
 }
 
 void CTurnManager::ResetState(turn_id_t newCurrentTurn, turn_id_t newReadyTurn)
@@ -61,9 +60,7 @@ void CTurnManager::ResetState(turn_id_t newCurrentTurn, turn_id_t newReadyTurn)
 	m_CurrentTurn = newCurrentTurn;
 	m_ReadyTurn = newReadyTurn;
 	m_DeltaSimTime = 0;
-	size_t queuedCommandsSize = m_QueuedCommands.size();
 	m_QueuedCommands.clear();
-	m_QueuedCommands.resize(queuedCommandsSize);
 }
 
 void CTurnManager::SetPlayerID(int playerId)
@@ -142,11 +139,13 @@ bool CTurnManager::Update(float simFrameLength, size_t maxTurns, const UpdateCal
 
 		// Put all the client commands into a single list, in a globally consistent order
 		std::vector<SimulationCommand> commands;
-		for (std::pair<const turn_id_t, std::vector<SimulationCommand>>& p : m_QueuedCommands[0])
-			commands.insert(commands.end(), std::make_move_iterator(p.second.begin()), std::make_move_iterator(p.second.end()));
-
-		m_QueuedCommands.pop_front();
-		m_QueuedCommands.resize(m_QueuedCommands.size() + 1);
+		auto it = m_QueuedCommands.begin();
+		if (it != m_QueuedCommands.end() && it->first == m_CurrentTurn)
+		{
+			for (auto& [player, cmds] : it->second)
+				commands.insert(commands.end(), std::make_move_iterator(cmds.begin()), std::make_move_iterator(cmds.end()));
+			m_QueuedCommands.erase(it);
+		}
 
 		m_Replay.Turn(m_CurrentTurn-1, m_TurnLength, commands);
 
@@ -185,11 +184,13 @@ bool CTurnManager::UpdateFastForward()
 
 		// Put all the client commands into a single list, in a globally consistent order
 		std::vector<SimulationCommand> commands;
-		for (std::pair<const turn_id_t, std::vector<SimulationCommand>>& p : m_QueuedCommands[0])
-			commands.insert(commands.end(), std::make_move_iterator(p.second.begin()), std::make_move_iterator(p.second.end()));
-
-		m_QueuedCommands.pop_front();
-		m_QueuedCommands.resize(m_QueuedCommands.size() + 1);
+		auto it = m_QueuedCommands.begin();
+		if (it != m_QueuedCommands.end() && it->first == m_CurrentTurn)
+		{
+			for (auto& [player, cmds] : it->second)
+				commands.insert(commands.end(), std::make_move_iterator(cmds.begin()), std::make_move_iterator(cmds.end()));
+			m_QueuedCommands.erase(it);
+		}
 
 		m_Replay.Turn(m_CurrentTurn-1, m_TurnLength, commands);
 
@@ -234,10 +235,9 @@ void CTurnManager::AddCommand(int client, int player, JS::HandleValue data, turn
 
 	Script::DeepFreezeObject(rq, data);
 
-	size_t command_in_turns = turn - (m_CurrentTurn+1);
-	if (m_QueuedCommands.size() <= command_in_turns)
-		m_QueuedCommands.resize(command_in_turns+1);
-	m_QueuedCommands[turn - (m_CurrentTurn+1)][client].emplace_back(player, rq.cx, data);
+	auto [turnIt, _1] = m_QueuedCommands.try_emplace(turn);
+	auto [clientIt, _2] = turnIt->second.try_emplace(client);
+	clientIt->second.emplace_back(player, rq.cx, data);
 }
 
 void CTurnManager::FinishedAllCommands(turn_id_t turn, std::uint32_t turnLength)
