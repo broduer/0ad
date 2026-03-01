@@ -45,6 +45,7 @@ GNUTLS_VERSION="gnutls-3.8.4"
 # NOTE: remember to also update LIB_URL below when changing version
 ICU_VERSION="icu4c-69_1"
 ENET_VERSION="enet-1.3.18"
+NGTCP2_VERSION="1.25.0"
 MINIUPNPC_VERSION="miniupnpc-2.2.8"
 SODIUM_VERSION="libsodium-1.0.20"
 FMT_VERSION="7.1.3"
@@ -1017,6 +1018,52 @@ echo "Building ENet..."
 			make "${JOBS}" || die
 			make install || die
 		) || die "ENet build failed"
+
+		cp -f lib/pkgconfig/* "$PC_PATH"
+		echo "$LIB_VERSION" >.already-built
+	else
+		already_built
+	fi
+) || die "Failed to build ENet"
+
+# --------------------------------------------------------------
+echo "Building ngtcp2..."
+
+(
+	LIB_VERSION="${NGTCP2_VERSION}"
+	LIB_ARCHIVE="ngtcp2-${LIB_VERSION}.tar.xz"
+	LIB_DIRECTORY="ngtcp2-${LIB_VERSION}"
+	LIB_URL="https://github.com/ngtcp2/ngtcp2/releases/download/v${LIB_VERSION}/"
+
+	mkdir -p ngtcp2
+	cd ngtcp2
+
+	if [ $force_rebuild = "true" ] || [ ! -e .already-built ] || [ "$(cat .already-built)" != "$LIB_VERSION" ]; then
+		INSTALL_DIR="$(pwd)"
+
+		rm -f .already-built
+		download_lib $LIB_URL $LIB_ARCHIVE || die
+
+		rm -rf $LIB_DIRECTORY bin include lib sbin share
+		tar -xf $LIB_ARCHIVE || die
+
+		cmake -B build \
+			-S "${LIB_DIRECTORY}" \
+			-DCMAKE_INSTALL_PREFIX="${INSTALL_DIR}" \
+			-DCMAKE_PREFIX_PATH="${INSTALL_DIR}" \
+			-DCMAKE_INSTALL_LIBDIR=lib \
+			-DENABLE_STATIC_LIB=ON \
+			-DENABLE_SHARED_LIB=ON \
+			-DENABLE_LIB_ONLY=ON \
+			-DBUILD_TESTING=OFF \
+			-DENABLE_GNUTLS=ON \
+			-DENABLE_OPENSSL=OFF \
+			-DENABLE_WOLFSSL=OFF \
+			-DENABLE_BORINGSSL=OFF \
+			-DENABLE_PICOTLS=OFF \
+			-DENABLE_JEMALLOC=OFF || die
+		cmake --build build "${JOBS}" || die
+		cmake --install build || die
 
 		cp -f lib/pkgconfig/* "$PC_PATH"
 		echo "$LIB_VERSION" >.already-built

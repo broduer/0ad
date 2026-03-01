@@ -572,6 +572,16 @@ extern_lib_defs = {
 			end
 		end,
 	},
+	ngtcp2 = {
+		compile_settings = function()
+			pkgconfig.add_includes("libngtcp2")
+			pkgconfig.add_includes("libngtcp2_crypto_gnutls")
+		end,
+		link_settings = function()
+			pkgconfig.add_links("libngtcp2")
+			pkgconfig.add_links("libngtcp2_crypto_gnutls")
+		end
+	},
 	nvtt = {
 		compile_settings = function()
 			if not _OPTIONS["with-system-nvtt"] then
