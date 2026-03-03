@@ -336,7 +336,7 @@ void Interface::ApplyMessage(const GameMessage& msg)
 				ScriptRequest rq(scriptInterface);
 				JS::RootedValue commandJSON(rq.cx);
 				Script::ParseJSON(rq, command.json_cmd, &commandJSON);
-				turnMgr->PostCommand(command.playerID, commandJSON);
+				turnMgr->PostCommand(commandJSON, command.playerID);
 			}
 
 			const u32 deltaRealTime = DEFAULT_TURN_LENGTH;

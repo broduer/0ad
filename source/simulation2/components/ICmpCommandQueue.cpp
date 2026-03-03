@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -23,6 +23,5 @@
 
 BEGIN_INTERFACE_WRAPPER(CommandQueue)
 DEFINE_INTERFACE_METHOD("PushLocalCommand", ICmpCommandQueue, PushLocalCommand)
-DEFINE_INTERFACE_METHOD("PostNetworkCommand", ICmpCommandQueue, PostNetworkCommand)
-// Excluded: FlushTurn (doesn't make sense for scripts to call it)
+DEFINE_INTERFACE_METHOD("PostNetworkCommand", ICmpCommandQueue, PostNetworkCommandFromScript)
 END_INTERFACE_WRAPPER(CommandQueue)

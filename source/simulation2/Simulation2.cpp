@@ -34,6 +34,7 @@
 #include "maths/MathUtil.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
+#include "ps/Game.h"
 #include "ps/ConfigDB.h"
 #include "ps/Errors.h"
 #include "ps/Filesystem.h"
@@ -161,6 +162,8 @@ public:
 
 	bool m_EnableOOSLog{false};
 	OsPath m_OOSLogPath;
+
+	bool m_SkipAI{false};
 
 	// Functions and data for the serialization test mode: (see Update() for relevant comments)
 
@@ -578,9 +581,9 @@ void CSimulation2Impl::UpdateComponents(CSimContext& simContext, fixed turnLengt
 	// Clean up any entities destroyed during the simulation update
 	componentManager.FlushDestroyedComponents();
 
-	// Compute AI immediately at turn's end.
+	// Compute AI immediately at turn's end (only on the AI host).
 	CmpPtr<ICmpAIManager> cmpAIManager(simContext, SYSTEM_ENTITY);
-	if (cmpAIManager)
+	if (cmpAIManager && (!g_Game || !g_Game->GetSimulation2()->IsAISkipped()))
 	{
 		cmpAIManager->StartComputation();
 		cmpAIManager->PushCommands();
@@ -951,6 +954,16 @@ std::string CSimulation2::GetPlayerDefaults()
 std::string CSimulation2::GetMapSizes()
 {
 	return ReadJSON(L"simulation/data/settings/map_sizes.json");
+}
+
+void CSimulation2::SetAISkipped(bool skip)
+{
+	m->m_SkipAI = skip;
+}
+
+bool CSimulation2::IsAISkipped() const
+{
+	return m->m_SkipAI;
 }
 
 std::string CSimulation2::GetAIData()

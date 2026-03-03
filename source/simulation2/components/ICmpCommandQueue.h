@@ -24,6 +24,7 @@
 
 #include <js/TypeDecls.h>
 #include <js/Value.h>
+#include <optional>
 #include <vector>
 
 struct SimulationCommand;
@@ -49,9 +50,19 @@ public:
 	virtual void PushLocalCommand(player_id_t player, JS::HandleValue cmd) = 0;
 
 	/**
-	 * Send a command associated with the current player to the networking system.
+	 * Send a command to the networking system.
+	 * When @p player is set, the command is sent on behalf of that player (used for AI commands on the host).
+	 * When std::nullopt, the current player is used.
 	 */
-	virtual void PostNetworkCommand(JS::HandleValue cmd) = 0;
+	virtual void PostNetworkCommand(JS::HandleValue cmd, std::optional<player_id_t> player = std::nullopt) = 0;
+
+	/**
+	 * Script-facing wrapper that calls PostNetworkCommand with no explicit player.
+	 */
+	void PostNetworkCommandFromScript(JS::HandleValue cmd)
+	{
+		PostNetworkCommand(cmd);
+	}
 
 	/**
 	 * Calls the ProcessCommand(player, cmd) global script function for each command in the

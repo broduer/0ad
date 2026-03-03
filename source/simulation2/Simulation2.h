@@ -276,6 +276,14 @@ public:
 	std::string GetMapSizes();
 
 	/**
+	 * Skip AI computation on this machine.
+	 * Set to true for non-host multiplayer clients and during replay.
+	 * When false (default), this machine is the AI host.
+	 */
+	void SetAISkipped(bool skip);
+	bool IsAISkipped() const;
+
+	/**
 	 * Get AI data
 	 *
 	 * @return string containing JSON format data

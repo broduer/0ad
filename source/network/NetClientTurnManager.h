@@ -42,7 +42,7 @@ public:
 
 	void OnSimulationMessage(CSimulationMessage* msg) override;
 
-	void PostCommand(JS::HandleValue data) override;
+	void PostCommand(JS::HandleValue data, std::optional<player_id_t> player = std::nullopt) override;
 
 	/**
 	 * Notify the server that all commands are sent to prepare the connection for termination.

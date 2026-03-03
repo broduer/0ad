@@ -50,12 +50,13 @@ CNetClientTurnManager::CNetClientTurnManager(CSimulation2& simulation, CNetClien
 {
 }
 
-void CNetClientTurnManager::PostCommand(JS::HandleValue data)
+void CNetClientTurnManager::PostCommand(JS::HandleValue data, std::optional<player_id_t> player)
 {
-	NETCLIENTTURN_LOG("PostCommand()\n");
+	NETCLIENTTURN_LOG("PostCommand(player=%d)\n", player.value_or(m_PlayerId));
 
 	// Transmit command to server
-	CSimulationMessage msg(m_Simulation2.GetScriptInterface(), m_ClientId, m_PlayerId, m_CurrentTurn + m_CommandDelay, data);
+	CSimulationMessage msg(m_Simulation2.GetScriptInterface(), m_ClientId,
+		player.value_or(m_PlayerId), m_CurrentTurn + m_CommandDelay, data);
 	m_NetClient.SendMessage(&msg);
 
 	// Add to our local queue

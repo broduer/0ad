@@ -192,6 +192,7 @@ bool CGame::StartVisualReplay(const OsPath& replayPath)
 	debug_printf("Starting to replay %s\n", replayPath.string8().c_str());
 
 	m_IsVisualReplay = true;
+	m_Simulation2->SetAISkipped(true);
 
 	SetTurnManager(new CReplayTurnManager(*m_Simulation2, GetReplayLogger()));
 

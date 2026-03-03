@@ -65,6 +65,19 @@ namespace SavedGames
 	 */
 	Status SavePrefix(const CStrW& prefix, const CStrW& description, CSimulation2& simulation, const Script::StructuredClone& guiMetadataClone);
 
+	/**
+	 * Create new saved game archive using pre-serialized simulation state.
+	 * Metadata (camera, mods, initAttributes) is still taken from the local simulation.
+	 *
+	 * @param name Name to save the game with
+	 * @param description A user-given description of the save
+	 * @param simulation Used for metadata (initAttributes, scriptInterface) but NOT for serialization
+	 * @param guiMetadataClone if not NULL, store some UI-related data with the saved game
+	 * @param simState Pre-serialized simulation state bytes
+	 * @return INFO::OK if successfully saved, else an error Status
+	 */
+	Status SaveWithState(const CStrW& name, const CStrW& description, CSimulation2& simulation, const Script::StructuredClone& guiMetadataClone, const std::string& simState);
+
 	struct LoadResult
 	{
 		// Object containing metadata associated with saved game,

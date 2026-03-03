@@ -139,8 +139,10 @@ public:
 
 	/**
 	 * Called by simulation code, to add a new command to be distributed to all clients and executed soon.
+	 * When @p player is set, the command is sent on behalf of that player (used for AI commands on the host).
+	 * When std::nullopt, the current player (m_PlayerId) is used.
 	 */
-	virtual void PostCommand(JS::HandleValue data) = 0;
+	virtual void PostCommand(JS::HandleValue data, std::optional<player_id_t> player = std::nullopt) = 0;
 
 	/**
 	 * Called when all commands for a given turn have been received.

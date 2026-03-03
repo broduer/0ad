@@ -37,6 +37,7 @@
 #include "ps/Compress.h"
 #include "ps/Game.h"
 #include "ps/Hashing.h"
+#include "ps/SavedGame.h"
 #include "ps/Profile.h"
 #include "ps/Threading.h"
 #include "scriptinterface/JSON.h"
@@ -132,6 +133,7 @@ CNetClient::CNetClient(CGame* game, const CStrW& username, const CStr& hostJID) 
 	AddTransition(NCS_INGAME, (uint)NMT_FLARE, NCS_INGAME, &OnFlare, this);
 	AddTransition(NCS_INGAME, (uint)NMT_SYNC_ERROR, NCS_INGAME, &OnInGame, this);
 	AddTransition(NCS_INGAME, (uint)NMT_END_COMMAND_BATCH, NCS_INGAME, &OnInGame, this);
+	AddTransition(NCS_INGAME, (uint)NMT_JOIN_SYNC_START, NCS_INGAME, &OnSaveGameStateReceived, this);
 
 	// Set first state
 	SetFirstState(NCS_UNCONNECTED);
@@ -447,6 +449,8 @@ void CNetClient::HandleDisconnect(u32 reason)
 
 	DestroyConnection();
 
+	m_PendingSave.reset();
+
 	// Update the state immediately to UNCONNECTED (don't bother with FSM transitions since
 	// we'd need one for every single state, and we don't need to use per-state actions)
 	SetCurrState(NCS_UNCONNECTED);
@@ -647,6 +651,10 @@ void CNetClient::StartGame(const JS::MutableHandleValue initAttributes, const st
 
 	m_ClientTurnManager = new CNetClientTurnManager{*m_Game->GetSimulation2(), *this,
 		static_cast<int>(m_HostID), m_Game->GetReplayLogger()};
+
+	// Only the controller (host) runs AI; non-host clients skip AI entirely.
+	if (!m_IsController)
+		m_Game->GetSimulation2()->SetAISkipped(true);
 
 	m_Game->SetPlayerID(player);
 	m_Game->StartGame(initAttributes, savedState);
@@ -1045,6 +1053,57 @@ bool CNetClient::OnFlare(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 		"type", "flare",
 		"guid", message->m_GUID,
 		"position", position);
+
+	return true;
+}
+
+void CNetClient::RequestSaveGame(const CStrW& filename, const CStrW& description, const Script::StructuredClone& guiMetadataClone)
+{
+	if (m_PendingSave)
+		return;
+
+	m_PendingSave = PendingSave{filename, description, guiMetadataClone};
+
+	// Send NMT_SAVED_GAME_START with empty initAttributes to signal a save request
+	CGameSavedStartMessage gameSavedStart;
+	gameSavedStart.m_InitAttributes = "";
+	SendMessage(&gameSavedStart);
+}
+
+bool CNetClient::OnSaveGameStateReceived(CNetClient* client, CFsmEvent<CNetMessage*>* event)
+{
+	ENSURE(event->GetType() == static_cast<uint>(NMT_JOIN_SYNC_START));
+
+	if (!client->m_PendingSave)
+		return true;
+
+	client->m_Session->GetFileTransferer().StartTask(CNetFileTransferer::RequestType::REJOIN,
+		[client](std::string buffer)
+		{
+			if (!client->m_PendingSave)
+				return;
+
+			std::string state;
+			DecompressZLib(buffer, state, true);
+
+			// Strip the 4-byte turn number prefix
+			if (state.size() < 4)
+			{
+				client->m_PendingSave.reset();
+				return;
+			}
+
+			std::string simState(state.begin() + 4, state.end());
+
+			SavedGames::SaveWithState(
+				client->m_PendingSave->m_Filename,
+				client->m_PendingSave->m_Description,
+				*client->m_Game->GetSimulation2(),
+				client->m_PendingSave->m_GuiMetadataClone,
+				simState);
+
+			client->m_PendingSave.reset();
+		});
 
 	return true;
 }

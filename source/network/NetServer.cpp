@@ -711,6 +711,7 @@ void CNetServerWorker::SetupSession(CNetServerSession* session)
 	session->AddTransition(NSS_INGAME, (uint)NMT_FLARE, NSS_INGAME, &OnFlare, session);
 	session->AddTransition(NSS_INGAME, (uint)NMT_SYNC_CHECK, NSS_INGAME, &OnSyncCheck, session);
 	session->AddTransition(NSS_INGAME, (uint)NMT_END_COMMAND_BATCH, NSS_INGAME, &OnEndCommandBatch, session);
+	session->AddTransition(NSS_INGAME, (uint)NMT_SAVED_GAME_START, NSS_INGAME, &OnSavedGameStart, session);
 
 	// Set first state
 	session->SetFirstState(NSS_HANDSHAKE);
@@ -1213,8 +1214,26 @@ bool CNetServerWorker::OnSimulationCommand(CNetServerSession* session, CFsmEvent
 
 	PlayerAssignmentMap::iterator it = server.m_PlayerAssignments.find(session->GetGUID());
 	// When cheating is disabled, fail if the player the message claims to
-	// represent does not exist or does not match the sender's player name
-	if (!cheatsEnabled && (it == server.m_PlayerAssignments.end() || it->second.m_PlayerID != message->m_Player))
+	// represent does not exist or does not match the sender's player name.
+	// Exception: the controller (host) may send commands on behalf of AI players,
+	// but only if the target player is not assigned to any human client.
+	bool isController = session->GetGUID() == server.m_ControllerGUID;
+	if (!cheatsEnabled && it != server.m_PlayerAssignments.end() &&
+		it->second.m_PlayerID != message->m_Player)
+	{
+		if (!isController)
+			return true;
+
+		// Verify the target player is not assigned to any human client
+		if (std::any_of(server.m_PlayerAssignments.begin(),
+			server.m_PlayerAssignments.end(),
+			[&](const auto& p) {
+				return p.second.m_Enabled
+					&& p.second.m_PlayerID == message->m_Player;
+			}))
+			return true;
+	}
+	else if (!cheatsEnabled && it == server.m_PlayerAssignments.end())
 		return true;
 
 	// Send it back to all clients that have finished
@@ -1380,7 +1399,44 @@ bool CNetServerWorker::OnSavedGameStart(CNetServerSession* session, CFsmEvent<CN
 	CNetServerWorker& server{session->GetServer()};
 
 	if (session->GetGUID() != server.m_ControllerGUID)
+	{
+		// Non-controller client wants to save: fetch state from controller
+		CNetServerSession* controllerSession = nullptr;
+		for (CNetServerSession* s : server.m_Sessions)
+		{
+			if (s->GetGUID() == server.m_ControllerGUID)
+			{
+				controllerSession = s;
+				break;
+			}
+		}
+
+		if (!controllerSession)
+			return true;
+
+		u32 requestingHostID = session->GetHostID();
+		controllerSession->GetFileTransferer().StartTask(CNetFileTransferer::RequestType::REJOIN,
+			[&server, requestingHostID](std::string buffer)
+			{
+				const auto sessionIt = std::find_if(server.m_Sessions.begin(), server.m_Sessions.end(),
+					[requestingHostID](const CNetServerSession* s)
+					{
+						return s->GetHostID() == requestingHostID;
+					});
+
+				if (sessionIt == server.m_Sessions.end())
+					return;
+
+				server.m_JoinSyncFile = std::move(buffer);
+
+				CJoinSyncStartMessage message;
+				message.m_InitAttributes = Script::StringifyJSON(
+					ScriptRequest{server.GetScriptInterface()}, &server.m_InitAttributes);
+				(*sessionIt)->SendMessage(&message);
+			});
+
 		return true;
+	}
 
 	CGameSavedStartMessage* message = static_cast<CGameSavedStartMessage*>(event->GetParamRef());
 	session->GetFileTransferer().StartTask(CNetFileTransferer::RequestType::LOADGAME,

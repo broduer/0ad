@@ -21,10 +21,13 @@
 
 #include "gui/GUIManager.h"
 #include "lib/debug.h"
+#include "lib/file/vfs/vfs_path.h"
+#include "lib/file/vfs/vfs_util.h"
 #include "network/NetClient.h"
 #include "network/NetServer.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
+#include "ps/Filesystem.h"
 #include "ps/Game.h"
 #include "ps/SavedGame.h"
 #include "scriptinterface/FunctionWrapper.h"
@@ -57,6 +60,13 @@ bool DeleteSavedGame(const std::wstring& name)
 void SaveGame(const ScriptRequest& rq, const std::wstring& filename, const std::wstring& description, JS::HandleValue GUIMetadata)
 {
 	Script::StructuredClone GUIMetadataClone = Script::WriteStructuredClone(rq, GUIMetadata);
+
+	if (g_NetClient && !g_NetClient->IsController())
+	{
+		g_NetClient->RequestSaveGame(filename, description, GUIMetadataClone);
+		return;
+	}
+
 	if (SavedGames::Save(filename, description, *g_Game->GetSimulation2(), GUIMetadataClone) < 0)
 		LOGERROR("Failed to save game");
 }
@@ -64,6 +74,20 @@ void SaveGame(const ScriptRequest& rq, const std::wstring& filename, const std::
 void SaveGamePrefix(const ScriptRequest& rq, const std::wstring& prefix, const std::wstring& description, JS::HandleValue GUIMetadata)
 {
 	Script::StructuredClone GUIMetadataClone = Script::WriteStructuredClone(rq, GUIMetadata);
+
+	if (g_NetClient && !g_NetClient->IsController())
+	{
+		// Resolve the prefix to a filename locally, then route through NetClient
+		const VfsPath basenameFormat(L"saves/" + prefix + L"-%04d");
+		const VfsPath filenameFormat = basenameFormat.ChangeExtension(L".0adsave");
+		VfsPath resolvedFilename;
+		size_t nextSaveNumber = 0;
+		vfs::NextNumberedFilename(g_VFS, filenameFormat, nextSaveNumber, resolvedFilename);
+
+		g_NetClient->RequestSaveGame(resolvedFilename.Filename().string(), description, GUIMetadataClone);
+		return;
+	}
+
 	if (SavedGames::SavePrefix(prefix, description, *g_Game->GetSimulation2(), GUIMetadataClone) < 0)
 		LOGERROR("Failed to save game");
 }

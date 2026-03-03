@@ -118,11 +118,25 @@ bool CComponentManager::ComputeStateHash(std::string& outHash, bool quick) const
 	serializer.StringASCII("rng", SerializeRNG(m_RNG), 0, 32);
 	serializer.NumberU32_Unbounded("next entity id", m_NextEntityId);
 
+	// Resolve the dynamic CID for AIInterface at runtime. Scripted components
+	// get dynamic CIDs (>= CID__LastNative) when registered via JS, so the
+	// static CID_AIInterfaceScripted enum value doesn't match the actual key
+	// in m_ComponentsByTypeId.
+	const ComponentTypeId cidAIInterface = LookupCID("AIInterface");
+
 	std::map<ComponentTypeId, std::map<entity_id_t, IComponent*> >::const_iterator cit = m_ComponentsByTypeId.begin();
 	for (; cit != m_ComponentsByTypeId.end(); ++cit)
 	{
 		// In quick mode, only check unit positions
 		if (quick && !(cit->first == CID_Position))
+			continue;
+
+		// Always skip AI components - AI state is not part of the synchronized
+		// simulation. AIInterface accumulates events for AI consumption and
+		// its state diverges when AI computation is skipped on non-host clients.
+		// AI commands reach all clients via CommandQueue (which IS hashed),
+		// so game effects are already captured.
+		if (cit->first == CID_AIManager || (cidAIInterface != CID__Invalid && cit->first == cidAIInterface))
 			continue;
 
 		// Only emit component types if they have a component that will be serialized

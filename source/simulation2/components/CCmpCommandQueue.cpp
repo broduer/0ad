@@ -33,6 +33,7 @@
 
 #include <cstddef>
 #include <js/RootingAPI.h>
+#include <optional>
 #include <js/TypeDecls.h>
 #include <js/Value.h>
 #include <string>
@@ -98,7 +99,7 @@ public:
 		m_LocalQueue.emplace_back(SimulationCommand(player, rq.cx, cmd));
 	}
 
-	void PostNetworkCommand(JS::HandleValue cmd1) override
+	void PostNetworkCommand(JS::HandleValue cmd1, std::optional<player_id_t> player = std::nullopt) override
 	{
 		ScriptRequest rq(GetSimContext().GetScriptInterface());
 
@@ -110,7 +111,7 @@ public:
 
 		// TODO: would be nicer to not use globals
 		if (g_Game && g_Game->GetTurnManager())
-			g_Game->GetTurnManager()->PostCommand(cmd);
+			g_Game->GetTurnManager()->PostCommand(cmd, player);
 	}
 
 	void FlushTurn(const std::vector<SimulationCommand>& commands) override

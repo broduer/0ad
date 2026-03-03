@@ -253,6 +253,12 @@ public:
 	void SendPausedMessage(bool pause);
 
 	/**
+	 * Request a save game. For non-controller clients, this fetches the
+	 * controller's game state before saving.
+	 */
+	void RequestSaveGame(const CStrW& filename, const CStrW& description, const Script::StructuredClone& guiMetadataClone);
+
+	/**
 	 * @return Whether the NetClient is shutting down.
 	 */
 	bool ShouldShutdown() const;
@@ -288,6 +294,7 @@ private:
 	static bool OnClientsLoading(CNetClient* client, CFsmEvent<CNetMessage*>* event);
 	static bool OnClientPaused(CNetClient* client, CFsmEvent<CNetMessage*>* event);
 	static bool OnLoadedGame(CNetClient* client, CFsmEvent<CNetMessage*>* event);
+	static bool OnSaveGameStateReceived(CNetClient* client, CFsmEvent<CNetMessage*>* event);
 
 	/**
 	 * Take ownership of a session object, and use it for all network communication.
@@ -348,6 +355,15 @@ private:
 
 	/// Serialized game state received when joining an in-progress game
 	std::string m_JoinSyncBuffer;
+
+	/// Pending save info for non-controller save requests
+	struct PendingSave
+	{
+		CStrW m_Filename;
+		CStrW m_Description;
+		Script::StructuredClone m_GuiMetadataClone;
+	};
+	std::optional<PendingSave> m_PendingSave;
 
 	std::string m_SavedState;
 

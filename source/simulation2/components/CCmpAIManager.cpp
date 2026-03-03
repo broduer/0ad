@@ -34,6 +34,7 @@
 #include "maths/FixedVector2D.h"
 #include "ps/CLogger.h"
 #include "ps/Filesystem.h"
+#include "ps/Game.h"
 #include "ps/Profile.h"
 #include "ps/Profiler2.h"
 #include "ps/TemplateLoader.h"
@@ -48,6 +49,7 @@
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptRequest.h"
 #include "scriptinterface/StructuredClone.h"
+#include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpAIInterface.h"
 #include "simulation2/components/ICmpCommandQueue.h"
 #include "simulation2/components/ICmpPathfinder.h"
@@ -909,6 +911,7 @@ public:
 
 		u32 numAis;
 		deserialize.NumberU32_Unbounded("num ais", numAis);
+
 		if (numAis > 0)
 			LoadUsedEntityTemplates();
 
@@ -1055,7 +1058,12 @@ public:
 			for (size_t j = 0; j < commands[i].commands.size(); ++j)
 			{
 				Script::ReadStructuredClone(rq, commands[i].commands[j], &clonedCommandVal);
-				cmpCommandQueue->PushLocalCommand(commands[i].player, clonedCommandVal);
+				// In multiplayer, route AI commands through the network so all
+				// clients receive them. In singleplayer, push locally.
+				if (g_Game && !g_Game->GetSimulation2()->IsAISkipped())
+					cmpCommandQueue->PostNetworkCommand(clonedCommandVal, commands[i].player);
+				else
+					cmpCommandQueue->PushLocalCommand(commands[i].player, clonedCommandVal);
 			}
 		}
 	}

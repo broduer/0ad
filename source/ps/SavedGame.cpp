@@ -76,7 +76,7 @@ Status SavedGames::SavePrefix(const CStrW& prefix, const CStrW& description, CSi
 	return Save(filename.Filename().string(), description, simulation, guiMetadataClone);
 }
 
-Status SavedGames::Save(const CStrW& name, const CStrW& description, CSimulation2& simulation, const Script::StructuredClone& guiMetadataClone)
+static Status SaveInternal(const CStrW& name, const CStrW& description, CSimulation2& simulation, const Script::StructuredClone& guiMetadataClone, const std::string* externalSimState)
 {
 	ScriptRequest rq(simulation.GetScriptInterface());
 
@@ -97,11 +97,21 @@ Status SavedGames::Save(const CStrW& name, const CStrW& description, CSimulation
 
 	time_t now = time(NULL);
 
-	// Construct the serialized state to be saved
-
-	std::stringstream simStateStream;
-	if (!simulation.SerializeState(simStateStream))
-		WARN_RETURN(ERR::FAIL);
+	// Get the simulation state - either serialize locally or use provided bytes
+	const std::string* simStateData;
+	std::string localSimState;
+	if (externalSimState)
+	{
+		simStateData = externalSimState;
+	}
+	else
+	{
+		std::stringstream simStateStream;
+		if (!simulation.SerializeState(simStateStream))
+			WARN_RETURN(ERR::FAIL);
+		localSimState = simStateStream.str();
+		simStateData = &localSimState;
+	}
 
 	JS::RootedValue initAttributes(rq.cx, simulation.GetInitAttributes());
 	JS::RootedValue mods(rq.cx);
@@ -151,7 +161,7 @@ Status SavedGames::Save(const CStrW& name, const CStrW& description, CSimulation
 		WARN_RETURN(ERR::FAIL);
 
 	WARN_RETURN_STATUS_IF_ERR(archiveWriter->AddMemory((const u8*)metadataString.c_str(), metadataString.length(), now, "metadata.json"));
-	WARN_RETURN_STATUS_IF_ERR(archiveWriter->AddMemory((const u8*)simStateStream.str().c_str(), simStateStream.str().length(), now, "simulation.dat"));
+	WARN_RETURN_STATUS_IF_ERR(archiveWriter->AddMemory((const u8*)simStateData->c_str(), simStateData->length(), now, "simulation.dat"));
 	archiveWriter.reset(); // close the file
 
 	WriteBuffer buffer;
@@ -167,6 +177,16 @@ Status SavedGames::Save(const CStrW& name, const CStrW& description, CSimulation
 	debug_printf("Saved game to '%s'\n", realPath.string8().c_str());
 
 	return INFO::OK;
+}
+
+Status SavedGames::Save(const CStrW& name, const CStrW& description, CSimulation2& simulation, const Script::StructuredClone& guiMetadataClone)
+{
+	return SaveInternal(name, description, simulation, guiMetadataClone, nullptr);
+}
+
+Status SavedGames::SaveWithState(const CStrW& name, const CStrW& description, CSimulation2& simulation, const Script::StructuredClone& guiMetadataClone, const std::string& simState)
+{
+	return SaveInternal(name, description, simulation, guiMetadataClone, &simState);
 }
 
 /**

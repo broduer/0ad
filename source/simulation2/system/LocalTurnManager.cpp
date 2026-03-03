@@ -32,14 +32,9 @@ CLocalTurnManager::CLocalTurnManager(CSimulation2& simulation, IReplayLogger& re
 {
 }
 
-void CLocalTurnManager::PostCommand(player_id_t playerid, JS::HandleValue data)
+void CLocalTurnManager::PostCommand(JS::HandleValue data, std::optional<player_id_t> player)
 {
-	AddCommand(m_ClientId, playerid, data, m_CurrentTurn + m_CommandDelay);
-}
-
-void CLocalTurnManager::PostCommand(JS::HandleValue data)
-{
-	AddCommand(m_ClientId, m_PlayerId, data, m_CurrentTurn + m_CommandDelay);
+	AddCommand(m_ClientId, player.value_or(m_PlayerId), data, m_CurrentTurn + m_CommandDelay);
 }
 
 void CLocalTurnManager::NotifyFinishedOwnCommands(u32 turn)
