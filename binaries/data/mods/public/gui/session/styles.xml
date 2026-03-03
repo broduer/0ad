@@ -222,15 +222,14 @@
 		text_valign="center"
 	/>
 
-	<style name="TutorialPanel"
-		buffer_zone="8"
+	<style name="TutorialInstructionText"
+		buffer_zone="18"
 		font="sans-bold-14"
 		scrollbar="true"
 		scrollbar_style="ModernScrollBar"
-		scroll_bottom="true"
 		textcolor="white"
-		text_align="left"
-		text_valign="top"
+		text_align="center"
+		text_valign="center"
 		sprite="ModernDarkBox"
 		sprite_overlay="ModernDarkBoxGoldBorder"
 	/>

@@ -32,8 +32,9 @@ class InstructionPanel
 
 	displayStep(panelData)
 	{
-		this.text.caption = this.instructions.concat(setStringTags(panelData.text, this.NewInstructionTags)).join("\n");
-		this.instructions.push(panelData.text);
+		this.text.caption = panelData.text;
+		const panelHeight = Math.min(this.MaxPanelHeight, this.text.size.top + this.text.getTextSize().height - this.text.size.bottom);
+		this.panel.size.bottom = this.panel.getComputedSize().top + panelHeight;
 
 		if (panelData.showContinueButton)
 		{
@@ -70,3 +71,5 @@ InstructionPanel.prototype.HintCaptions = {
 	"Instruction": translate("Follow the instructions."),
 	"Quit": translate("Click to quit this tutorial.")
 };
+
+InstructionPanel.prototype.MaxPanelHeight = 185;
