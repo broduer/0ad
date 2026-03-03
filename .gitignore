@@ -29,7 +29,7 @@ libraries/source/spirv-reflect/*
 appimage-build/
 archives/
 build/bin/
-source/tools/spirv/rules.*.json
+source/tools/spirv/rules.json
 
 # Linting
 cppcheck-error.log
