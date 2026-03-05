@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -111,6 +111,7 @@ public:
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		Renderer::Backend::IShaderProgram* shader,
 		const CVector2D& transformScale, const CVector2D& translation,
+		const float scale,
 		const bool debugFontBox, const CColor& debugBoxColor);
 
 private:

@@ -479,6 +479,7 @@ void CCanvas2D::DrawRotatedTexture(
 
 void CCanvas2D::DrawText(CTextRenderer& textRenderer)
 {
+	GPU_SCOPED_LABEL(m->DeviceCommandContext, "Rendering text");
 	m->BindTechIfNeeded();
 
 	m->DeviceCommandContext->SetUniform(
@@ -486,6 +487,7 @@ void CCanvas2D::DrawText(CTextRenderer& textRenderer)
 
 	textRenderer.Render(
 		m->DeviceCommandContext, m->Tech->GetShader(), m->TransformScale, m->Translation,
+		m->Scale,
 		m->DebugFontBox, m->DebugBoxColor);
 }
 

@@ -48,6 +48,11 @@ namespace
 // We can't draw chars more than vertices, currently we use 4 vertices per char.
 constexpr size_t MAX_CHAR_COUNT_PER_BATCH = 65536 / 4;
 
+float SnapToPixels(float value, float guiScale)
+{
+	return std::round(value * guiScale) / guiScale;
+}
+
 } // anonymous namespace
 
 CTextRenderer::CTextRenderer()
@@ -208,6 +213,7 @@ void CTextRenderer::Render(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	Renderer::Backend::IShaderProgram* shader,
 	const CVector2D& transformScale, const CVector2D& translation,
+	const float scale,
 	const bool debugFontBox, const CColor& debugBoxColor)
 {
 	std::vector<std::uint16_t, ProxyAllocator<std::uint16_t, PS::Memory::ScopedLinearAllocator>> indices{m_ScopedLinearAllocator};
@@ -294,8 +300,8 @@ void CTextRenderer::Render(
 
 		for (SBatchRun& run : batch.runs)
 		{
-			float x{std::ceil(run.x)};
-			float y{std::ceil(run.y)};
+			float x{run.x};
+			const float penY{SnapToPixels(run.y, scale)};
 			for (size_t i = 0; i < run.text->size(); ++i)
 			{
 				const CFont::GlyphData* g = batch.font->GetGlyph((*run.text)[i]);
@@ -308,25 +314,32 @@ void CTextRenderer::Render(
 				if (!g)
 					continue;
 
+				const float penX{SnapToPixels(x, scale)};
+
+				const float px0{penX + g->x0};
+				const float py0{penY + g->y0};
+				const float px1{penX + g->x1};
+				const float py1{penY + g->y1};
+
 				uvs[idx*4].X = g->u1;
 				uvs[idx*4].Y = g->v0;
-				positions[idx*4].X = g->x1 + x;
-				positions[idx*4].Y = g->y0 + y;
+				positions[idx*4].X = px1;
+				positions[idx*4].Y = py0;
 
 				uvs[idx*4+1].X = g->u0;
 				uvs[idx*4+1].Y = g->v0;
-				positions[idx*4+1].X = g->x0 + x;
-				positions[idx*4+1].Y = g->y0 + y;
+				positions[idx*4+1].X = px0;
+				positions[idx*4+1].Y = py0;
 
 				uvs[idx*4+2].X = g->u0;
 				uvs[idx*4+2].Y = g->v1;
-				positions[idx*4+2].X = g->x0 + x;
-				positions[idx*4+2].Y = g->y1 + y;
+				positions[idx*4+2].X = px0;
+				positions[idx*4+2].Y = py1;
 
 				uvs[idx*4+3].X = g->u1;
 				uvs[idx*4+3].Y = g->v1;
-				positions[idx*4+3].X = g->x1 + x;
-				positions[idx*4+3].Y = g->y1 + y;
+				positions[idx*4+3].X = px1;
+				positions[idx*4+3].Y = py1;
 
 				indices[idx*6+0] = static_cast<std::uint16_t>(idx * 4 + 0);
 				indices[idx*6+1] = static_cast<std::uint16_t>(idx * 4 + 1);
