@@ -138,9 +138,7 @@ private:
 	friend class CFontManager;
 
 	bool AddFontFromPath(const OsPath& fontPath);
-	bool SetFontParams(
-		Renderer::Backend::IDevice* device, const std::string& fontName,
-		float size, float strokeWidth, float scale);
+	bool SetFontParams(Renderer::Backend::IDevice* device, const std::string& fontName, float size, float strokeWidth, float scale);
 
 	void BlendGlyphBitmapToTexture(const FT_Bitmap& bitmap, int targetX, int targetY, std::uint8_t r,
 		std::uint8_t g, std::uint8_t b);
@@ -148,10 +146,11 @@ private:
 		std::uint8_t g, std::uint8_t b);
 	void BlendGlyphBitmapToTextureR8(const FT_Bitmap& bitmap, int targetX, int targetY);
 
-	std::optional<CVector2D> GenerateStrokeGlyphBitmap(const FT_Glyph& glyph, std::uint16_t codepoint,
-		FT_Render_Mode renderMode, const float baselineInAtlas);
-	std::optional<CVector2D> GenerateGlyphBitmap(FT_Glyph& glyph, std::uint16_t codepoint,
-		FT_Render_Mode renderMode, CVector2D offset, const float baselineInAtlas);
+	std::optional<FT_Glyph> RasterizeStrokeBitmap(const FT_Glyph& sourceGlyph, std::uint16_t codepoint,
+		FT_Render_Mode renderMode);
+	std::optional<FT_Glyph> RasterizeFillBitmap(FT_Glyph& sourceGlyph, std::uint16_t codepoint,
+		FT_Render_Mode renderMode);
+	void CompositeStrokeAndFillToAtlas(const FT_Bitmap& strokeBitmap, int strokeAtlasX, int strokeAtlasY, const FT_Bitmap& fillBitmap, int fillAtlasX, int fillAtlasY);
 
 	const GlyphData* ExtractAndGenerateGlyph(std::uint16_t codepoint);
 	bool ConstructAtlasTexture(Renderer::Backend::IDevice* device);
