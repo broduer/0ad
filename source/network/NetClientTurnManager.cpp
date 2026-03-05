@@ -25,6 +25,7 @@
 #include "lib/utf8.h"
 #include "network/NetMessage.h"
 #include "ps/CLogger.h"
+#include "ps/Game.h"
 #include "ps/Profile.h"
 #include "ps/Pyrogenesis.h"
 #include "ps/Replay.h"
@@ -58,9 +59,8 @@ void CNetClientTurnManager::PostCommand(JS::HandleValue data)
 	CSimulationMessage msg(m_Simulation2.GetScriptInterface(), m_ClientId, m_PlayerId, m_CurrentTurn + m_CommandDelay, data);
 	m_NetClient.SendMessage(&msg);
 
-	// Add to our local queue
-	//AddCommand(m_ClientId, m_PlayerId, data, m_CurrentTurn + m_CommandDelay);
-	// TODO: we should do this when the server stops sending our commands back to us
+	// Add to our local queue (the server won't echo our own command back)
+	AddCommand(m_ClientId, m_PlayerId, data, m_CurrentTurn + m_CommandDelay);
 }
 
 void CNetClientTurnManager::NotifyFinishedOwnCommands(u32 turn)
@@ -109,6 +109,12 @@ void CNetClientTurnManager::OnDestroyConnection()
 
 void CNetClientTurnManager::OnSimulationMessage(CSimulationMessage* msg)
 {
+	// Skip our own commands - we already queued them locally in PostCommand.
+	// Server should not be able to alter/add commands for our own player when
+	// cheats are disabled
+	if (msg->m_Client == m_ClientId && !g_Game->CheatsEnabled() && m_NetClient.GetCurrState() != NCS_JOIN_SYNCING)
+		return;
+
 	// Command received from the server - store it for later execution
 	AddCommand(msg->m_Client, msg->m_Player, msg->m_Data, msg->m_Turn);
 }

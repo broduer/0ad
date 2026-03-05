@@ -374,12 +374,15 @@ bool CNetServerWorker::SendMessage(ENetPeer* peer, const CNetMessage* message)
 
 bool CNetServerWorker::Multicast(const CNetMessage* message,
 	const std::vector<NetServerSessionState>& targetStates,
-	const std::optional<std::vector<std::string>>& receivers /* = std::nullopt */)
+	const std::optional<std::vector<std::string>>& receivers /* = std::nullopt */,
+	const std::optional<std::string>& exclude /* = std::nullopt */)
 {
 	ENSURE(m_Host);
 
 	const auto isReceiver = [&](const CNetServerSession& session)
 		{
+			if (exclude && session.GetGUID() == *exclude)
+				return false;
 			if (!PS::contains(targetStates,
 				static_cast<NetServerSessionState>(session.GetCurrState())))
 			{
@@ -1218,15 +1221,15 @@ bool CNetServerWorker::OnSimulationCommand(CNetServerSession* session, CFsmEvent
 		return true;
 
 	// Send it back to all clients that have finished
-	// the loading screen (and the synchronization when rejoining)
-	server.Multicast(message, { NSS_INGAME });
+	// the loading screen (and the synchronization when rejoining),
+	// excluding the sender who already queued the command locally.
+	server.Multicast(message, { NSS_INGAME }, std::nullopt, session->GetGUID());
 
 	// Save all the received commands
 	if (server.m_SavedCommands.size() < message->m_Turn + 1)
 		server.m_SavedCommands.resize(message->m_Turn + 1);
 	server.m_SavedCommands[message->m_Turn].push_back(*message);
 
-	// TODO: we shouldn't send the message back to the client that first sent it
 	return true;
 }
 
