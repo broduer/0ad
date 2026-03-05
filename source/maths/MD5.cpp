@@ -1,4 +1,4 @@
-/* Copyright (C) 2010 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -56,7 +56,13 @@ void MD5::UpdateRest(const u8* data, size_t len)
 	// Process whole chunks of the input
 	while (len >= CHUNK_SIZE)
 	{
+#if defined(__ARM_ARCH_7A__)
+		// Avoid SIGBUS on alignment-sensitive architecture
+		memcpy(m_Buf, data, CHUNK_SIZE);
+		Transform((const u32*)m_Buf);
+#else
 		Transform((const u32*)data); // assumes little-endian; ignores alignment
+#endif
 		data += CHUNK_SIZE;
 		len -= CHUNK_SIZE;
 	}
