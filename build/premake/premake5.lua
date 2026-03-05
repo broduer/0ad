@@ -129,8 +129,12 @@ else
 		arch = "aarch64"
 	elseif string.find(machine, "e2k") == 1 then
 		arch = "e2k"
+	elseif string.find(machine, "loongarch64") == 1 then
+		arch = "loong64"
 	elseif string.find(machine, "ppc64") == 1 or string.find(machine, "powerpc64") == 1 then
 		arch = "ppc64"
+	elseif string.find(machine, "riscv64") == 1 then
+		arch = "riscv64"
 	else
 		print("WARNING: Cannot determine architecture from GCC, assuming x86")
 	end
@@ -1003,8 +1007,12 @@ function setup_all_libs ()
 		table.insert(source_dirs, "lib/sysdep/arch/aarch64");
 	elseif arch == "e2k" then
 		table.insert(source_dirs, "lib/sysdep/arch/e2k");
+	elseif arch == "loong64" then
+		table.insert(source_dirs, "lib/sysdep/arch/loong64");
 	elseif arch == "ppc64" then
 		table.insert(source_dirs, "lib/sysdep/arch/ppc64");
+	elseif arch == "riscv64" then
+		table.insert(source_dirs, "lib/sysdep/arch/riscv64");
 	end
 
 	-- OS-specific
@@ -1214,6 +1222,11 @@ function setup_main_exe ()
 				-- Dynamic libraries (needed for linking for gold)
 				"dl",
 			}
+
+			if arch == "riscv64" then
+				-- Needed to resolve __atomic_load_16 et al.
+				links { "atomic" }
+			end
 		end
 
 		-- Threading support
@@ -1615,6 +1628,11 @@ function setup_tests()
 				-- Dynamic libraries (needed for linking for gold)
 				"dl",
 			}
+
+			if arch == "riscv64" then
+				-- Needed to resolve __atomic_load_16 et al.
+				links { "atomic" }
+			end
 		end
 
 		-- Threading support

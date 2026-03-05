@@ -372,7 +372,9 @@ void RunHardwareDetection(bool writeSystemInfoBeforeDetection, Renderer::Backend
 	Script::SetProperty(rq, settings, "arch_arm", ARCH_ARM);
 	Script::SetProperty(rq, settings, "arch_aarch64", ARCH_AARCH64);
 	Script::SetProperty(rq, settings, "arch_e2k", ARCH_E2K);
+	Script::SetProperty(rq, settings, "arch_loong64", ARCH_LOONG64);
 	Script::SetProperty(rq, settings, "arch_ppc64", ARCH_PPC64);
+	Script::SetProperty(rq, settings, "arch_riscv64", ARCH_RISCV64);
 
 #ifdef NDEBUG
 	Script::SetProperty(rq, settings, "build_debug", 0);
@@ -460,7 +462,7 @@ void RunHardwareDetection(bool writeSystemInfoBeforeDetection, Renderer::Backend
 	Script::SetProperty(rq, settings, "neon", static_cast<int>(SDL_HasNEON()));
 
 	// The version should be increased for every meaningful change.
-	const int reportVersion = 23;
+	const int reportVersion = 24;
 
 	// Send the same data to the reporting system
 	g_UserReporter.SubmitReport(

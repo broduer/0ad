@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -82,9 +82,21 @@
 #else
 # define ARCH_E2K 0
 #endif
+// .. LoongArch64
+#if defined(__loongarch__) && defined(__loongarch_lp64)
+# define ARCH_LOONG64 1
+#else
+# define ARCH_LOONG64 0
+#endif
+// .. RISC-V 64
+#if defined(__riscv) && __riscv_xlen == 64
+# define ARCH_RISCV64 1
+#else
+# define ARCH_RISCV64 0
+#endif
 
 // ensure exactly one architecture has been detected
-#if (ARCH_IA32+ARCH_IA64+ARCH_AMD64+ARCH_ALPHA+ARCH_ARM+ARCH_AARCH64+ARCH_MIPS+ARCH_E2K+ARCH_PPC64) != 1
+#if (ARCH_IA32+ARCH_IA64+ARCH_AMD64+ARCH_ALPHA+ARCH_ARM+ARCH_AARCH64+ARCH_MIPS+ARCH_E2K+ARCH_PPC64+ARCH_LOONG64+ARCH_RISCV64) != 1
 # error "architecture not correctly detected (either none or multiple ARCH_* defined)"
 #endif
 
