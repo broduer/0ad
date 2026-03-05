@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -35,10 +35,7 @@ class CScrollPanel : public IGUIPanel, public IGUIScrollBarOwner
 public:
 	CScrollPanel(CGUI& pGUI);
 
-	virtual void UpdateCachedSize();
 	virtual void ResetStates();
-
-	void Setup();
 
 	void ResetScrollPosition(EScrollOrientation orientation = EScrollOrientation::BOTH);
 
@@ -48,7 +45,9 @@ protected:
 	 */
 	virtual void HandleMessage(SGUIMessage& Message);
 
-	void UpdateScrollPosition(float vscroll, float hscroll);
+	virtual void RecalculateActualSize() const;
+
+	void UpdateScrollBars();
 
 	bool HasHorizontalScrollBar() const { return *m_Orientation == EScrollOrientation::HORIZONTAL || *m_Orientation == EScrollOrientation::BOTH; };
 	bool HasVerticalScrollBar() const { return *m_Orientation == EScrollOrientation::VERTICAL || *m_Orientation == EScrollOrientation::BOTH; };

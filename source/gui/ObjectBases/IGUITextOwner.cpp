@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -79,7 +79,7 @@ void IGUITextOwner::HandleMessage(SGUIMessage& Message)
 	}
 }
 
-void IGUITextOwner::UpdateCachedSize()
+void IGUITextOwner::HandleSizeChanged()
 {
 	// update our text positions
 	m_GeneratedTextsValid = false;
@@ -103,7 +103,7 @@ void IGUITextOwner::DrawText(CCanvas2D& canvas, size_t index, const CGUIColor& c
 	m_GeneratedTexts.at(index).Draw(m_pObject.GetGUI(), canvas, color, pos, clipping);
 }
 
-void IGUITextOwner::CalculateTextPosition(CRect& ObjSize, CVector2D& TextPos, CGUIText& Text)
+void IGUITextOwner::CalculateTextPosition(const CRect& ObjSize, CVector2D& TextPos, CGUIText& Text)
 {
 	// The horizontal Alignment is now computed in GenerateText in order to not have to
 	// loop through all of the TextCall objects again.

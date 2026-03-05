@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -41,7 +41,7 @@ void JSI_GUIProxy<IGUIObject>::CreateFunctions(const ScriptRequest& rq, GUIProxy
 	CreateFunction<&IGUIObject::GetName>(rq, cache, "toSource");
 	CreateFunction<&IGUIObject::SetFocus>(rq, cache, "focus");
 	CreateFunction<&IGUIObject::ReleaseFocus>(rq, cache, "blur");
-	CreateFunction<&IGUIObject::GetComputedSize>(rq, cache, "getComputedSize");
+	CreateFunction<&IGUIObject::GetActualSize>(rq, cache, "getComputedSize");
 }
 DECLARE_GUIPROXY(IGUIObject);
 

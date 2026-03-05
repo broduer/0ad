@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -913,10 +913,10 @@ void CInput::HandleMessage(SGUIMessage& Message)
 			 Message.value == "z" ||
 			 Message.value == "absolute"))
 		{
-			GetScrollBar(0).SetX(m_CachedActualSize.right);
-			GetScrollBar(0).SetY(m_CachedActualSize.top);
+			GetScrollBar(0).SetX(GetActualSize().right);
+			GetScrollBar(0).SetY(GetActualSize().top);
 			GetScrollBar(0).SetZ(GetBufferedZ());
-			GetScrollBar(0).SetLength(m_CachedActualSize.bottom - m_CachedActualSize.top);
+			GetScrollBar(0).SetLength(GetActualSize().bottom - GetActualSize().top);
 		}
 
 		// Update scrollbar
@@ -945,7 +945,7 @@ void CInput::HandleMessage(SGUIMessage& Message)
 			if (!m_MultiLine)
 				GetScrollBar(0).SetLength(0.f);
 			else
-				GetScrollBar(0).SetLength(m_CachedActualSize.bottom - m_CachedActualSize.top);
+				GetScrollBar(0).SetLength(GetActualSize().bottom - GetActualSize().top);
 
 			UpdateText();
 		}
@@ -970,7 +970,7 @@ void CInput::HandleMessage(SGUIMessage& Message)
 		    m_MultiLine &&
 		    GetScrollBar(0).GetStyle())
 		{
-			if (m_pGUI.GetMousePos().X > m_CachedActualSize.right - GetScrollBar(0).GetStyle()->m_Width)
+			if (m_pGUI.GetMousePos().X > GetActualSize().right - GetScrollBar(0).GetStyle()->m_Width)
 				break;
 		}
 
@@ -1127,10 +1127,10 @@ void CInput::HandleMessage(SGUIMessage& Message)
 	}
 	case GUIM_LOAD:
 	{
-		GetScrollBar(0).SetX(m_CachedActualSize.right);
-		GetScrollBar(0).SetY(m_CachedActualSize.top);
+		GetScrollBar(0).SetX(GetActualSize().right);
+		GetScrollBar(0).SetY(GetActualSize().top);
 		GetScrollBar(0).SetZ(GetBufferedZ());
-		GetScrollBar(0).SetLength(m_CachedActualSize.bottom - m_CachedActualSize.top);
+		GetScrollBar(0).SetLength(GetActualSize().bottom - GetActualSize().top);
 		GetScrollBar(0).SetScrollBarStyle(m_ScrollBarStyle);
 
 		UpdateText();
@@ -1148,10 +1148,10 @@ void CInput::HandleMessage(SGUIMessage& Message)
 
 		// Tell the IME where to draw the candidate list
 		SDL_Rect rect;
-		rect.h = m_CachedActualSize.GetSize().Height;
-		rect.w = m_CachedActualSize.GetSize().Width;
-		rect.x = m_CachedActualSize.TopLeft().X;
-		rect.y = m_CachedActualSize.TopLeft().Y;
+		rect.h = GetActualSize().GetSize().Height;
+		rect.w = GetActualSize().GetSize().Width;
+		rect.x = GetActualSize().TopLeft().X;
+		rect.y = GetActualSize().TopLeft().Y;
 		SDL_SetTextInputRect(&rect);
 		SDL_StartTextInput();
 		break;
@@ -1182,19 +1182,19 @@ void CInput::HandleMessage(SGUIMessage& Message)
 	UpdateBufferPositionSetting();
 }
 
-void CInput::UpdateCachedSize()
+void CInput::HandleSizeChanged()
 {
 	// If an ancestor's size changed, this will let us intercept the change and
 	// update our scrollbar positions
 
-	IGUIObject::UpdateCachedSize();
+	IGUIObject::HandleSizeChanged();
 
 	if (m_ScrollBar)
 	{
-		GetScrollBar(0).SetX(m_CachedActualSize.right);
-		GetScrollBar(0).SetY(m_CachedActualSize.top);
+		GetScrollBar(0).SetX(GetActualSize().right);
+		GetScrollBar(0).SetY(GetActualSize().top);
 		GetScrollBar(0).SetZ(GetBufferedZ());
-		GetScrollBar(0).SetLength(m_CachedActualSize.bottom - m_CachedActualSize.top);
+		GetScrollBar(0).SetLength(GetActualSize().bottom - GetActualSize().top);
 	}
 
 	m_GeneratedPlaceholderTextValid = false;
@@ -1222,7 +1222,7 @@ void CInput::DrawContent(CCanvas2D& canvas)
 	if (m_Mask && m_MaskChar->length() > 0)
 		mask_char = (*m_MaskChar)[0];
 
-	m_pGUI.DrawSprite(m_Sprite, canvas, m_CachedActualSize);
+	m_pGUI.DrawSprite(m_Sprite, canvas, GetActualSize());
 
 	float scroll = 0.f;
 	if (m_ScrollBar && m_MultiLine)
@@ -1252,8 +1252,8 @@ void CInput::DrawContent(CCanvas2D& canvas)
 	textRenderer.SetCurrentFont(font_name, CStrIntern{});
 
 	textRenderer.Translate(
-		(float)(int)(m_CachedActualSize.left) + m_BufferZone,
-		(float)(int)(m_CachedActualSize.top + h) + m_BufferZone);
+		(float)(int)(GetActualSize().left) + m_BufferZone,
+		(float)(int)(GetActualSize().top + h) + m_BufferZone);
 
 	// U+FE33: PRESENTATION FORM FOR VERTICAL LOW LINE
 	// (sort of like a | which is aligned to the left of most characters)
@@ -1306,7 +1306,7 @@ void CInput::DrawContent(CCanvas2D& canvas)
 			it != m_CharacterPositions.end();
 			++it, buffered_y += ls, x_pointer = 0.f)
 		{
-			if (m_MultiLine && buffered_y > m_CachedActualSize.GetHeight())
+			if (m_MultiLine && buffered_y > GetActualSize().GetHeight())
 				break;
 
 			// We might as well use 'i' here to iterate, because we need it
@@ -1348,33 +1348,33 @@ void CInput::DrawContent(CCanvas2D& canvas)
 					if (m_MultiLine)
 					{
 						rect = CRect(
-							m_CachedActualSize.left + box_x + m_BufferZone,
-							m_CachedActualSize.top + buffered_y + (h - ls) / 2,
-							m_CachedActualSize.left + x_pointer + m_BufferZone,
-							m_CachedActualSize.top + buffered_y + (h + ls) / 2);
+							GetActualSize().left + box_x + m_BufferZone,
+							GetActualSize().top + buffered_y + (h - ls) / 2,
+							GetActualSize().left + x_pointer + m_BufferZone,
+							GetActualSize().top + buffered_y + (h + ls) / 2);
 
-						if (rect.bottom < m_CachedActualSize.top)
+						if (rect.bottom < GetActualSize().top)
 							continue;
 
-						if (rect.top < m_CachedActualSize.top)
-							rect.top = m_CachedActualSize.top;
+						if (rect.top < GetActualSize().top)
+							rect.top = GetActualSize().top;
 
-						if (rect.bottom > m_CachedActualSize.bottom)
-							rect.bottom = m_CachedActualSize.bottom;
+						if (rect.bottom > GetActualSize().bottom)
+							rect.bottom = GetActualSize().bottom;
 					}
 					else // if one-line
 					{
 						rect = CRect(
-							m_CachedActualSize.left + box_x + m_BufferZone - m_HorizontalScroll,
-							m_CachedActualSize.top + buffered_y + (h - ls) / 2,
-							m_CachedActualSize.left + x_pointer + m_BufferZone - m_HorizontalScroll,
-							m_CachedActualSize.top + buffered_y + (h + ls) / 2);
+							GetActualSize().left + box_x + m_BufferZone - m_HorizontalScroll,
+							GetActualSize().top + buffered_y + (h - ls) / 2,
+							GetActualSize().left + x_pointer + m_BufferZone - m_HorizontalScroll,
+							GetActualSize().top + buffered_y + (h + ls) / 2);
 
-						if (rect.left < m_CachedActualSize.left)
-							rect.left = m_CachedActualSize.left;
+						if (rect.left < GetActualSize().left)
+							rect.left = GetActualSize().left;
 
-						if (rect.right > m_CachedActualSize.right)
-							rect.right = m_CachedActualSize.right;
+						if (rect.right > GetActualSize().right)
+							rect.right = GetActualSize().right;
 					}
 
 					m_pGUI.DrawSprite(m_SpriteSelectArea, canvas, rect);
@@ -1414,7 +1414,7 @@ void CInput::DrawContent(CCanvas2D& canvas)
 	{
 		if (buffered_y + m_BufferZone >= -ls || !m_MultiLine)
 		{
-			if (m_MultiLine && buffered_y + m_BufferZone > m_CachedActualSize.GetHeight())
+			if (m_MultiLine && buffered_y + m_BufferZone > GetActualSize().GetHeight())
 				break;
 
 			const CVector2D savedTranslate = textRenderer.GetTranslate();
@@ -1474,7 +1474,7 @@ void CInput::DrawContent(CCanvas2D& canvas)
 
 				// check it's now outside a one-liner, then we'll break
 				if (!m_MultiLine && i < (int)it->m_ListOfX.size() &&
-					it->m_ListOfX[i] - m_HorizontalScroll > m_CachedActualSize.GetWidth() - m_BufferZone)
+					it->m_ListOfX[i] - m_HorizontalScroll > GetActualSize().GetWidth() - m_BufferZone)
 					break;
 			}
 
@@ -1500,7 +1500,7 @@ void CInput::DrawContent(CCanvas2D& canvas)
 void CInput::Draw(CCanvas2D& canvas)
 {
 	// We'll have to setup clipping manually, since we're doing the rendering manually.
-	CRect cliparea = m_VisibleArea ? m_VisibleArea : m_CachedActualSize;
+	CRect cliparea = m_VisibleArea ? m_VisibleArea : GetActualSize();
 
 	// First we'll figure out the clipping area, which is the cached actual size
 	//  substracted by an optional scrollbar
@@ -1535,7 +1535,7 @@ void CInput::Draw(CCanvas2D& canvas)
 		IGUIScrollBarOwner::Draw(canvas);
 
 	// Draw the overlays last
-	m_pGUI.DrawSprite(m_SpriteOverlay, canvas, m_CachedActualSize, m_VisibleArea);
+	m_pGUI.DrawSprite(m_SpriteOverlay, canvas, GetActualSize(), m_VisibleArea);
 }
 
 void CInput::DrawPlaceholderText(CCanvas2D& canvas, const CRect& clipping)
@@ -1543,7 +1543,7 @@ void CInput::DrawPlaceholderText(CCanvas2D& canvas, const CRect& clipping)
 	if (!m_GeneratedPlaceholderTextValid)
 		SetupGeneratedPlaceholderText();
 
-	m_GeneratedPlaceholderText.Draw(m_pGUI, canvas, m_PlaceholderColor, m_CachedActualSize.TopLeft(), clipping);
+	m_GeneratedPlaceholderText.Draw(m_pGUI, canvas, m_PlaceholderColor, GetActualSize().TopLeft(), clipping);
 }
 
 void CInput::UpdateText(int from, int to_before, int to_after)
@@ -1894,7 +1894,7 @@ void CInput::UpdateText(int from, int to_before, int to_after)
 	if (m_ScrollBar)
 	{
 		GetScrollBar(0).SetScrollRange(m_CharacterPositions.size() * font.GetHeight() + m_BufferZone * 2.f);
-		GetScrollBar(0).SetScrollSpace(m_CachedActualSize.GetHeight());
+		GetScrollBar(0).SetScrollSpace(GetActualSize().GetHeight());
 	}
 }
 
@@ -1920,7 +1920,7 @@ int CInput::GetMouseHoveringTextPosition() const
 		const float spacing{font.GetHeight()};
 
 		// Change mouse position relative to text.
-		mouse -= m_CachedActualSize.TopLeft();
+		mouse -= GetActualSize().TopLeft();
 		mouse.X -= m_BufferZone;
 		mouse.Y += scroll - m_BufferZone;
 
@@ -1942,7 +1942,7 @@ int CInput::GetMouseHoveringTextPosition() const
 	{
 		// current is already set to begin,
 		//  but we'll change the mouse.x to fit our horizontal scrolling
-		mouse -= m_CachedActualSize.TopLeft();
+		mouse -= GetActualSize().TopLeft();
 		mouse.X -= m_BufferZone - m_HorizontalScroll;
 		// mouse.y is moot
 	}
@@ -2028,9 +2028,9 @@ bool CInput::SelectingText() const
 float CInput::GetTextAreaWidth()
 {
 	if (m_ScrollBar && GetScrollBar(0).GetStyle())
-		return m_CachedActualSize.GetWidth() - m_BufferZone * 2.f - GetScrollBar(0).GetStyle()->m_Width;
+		return GetActualSize().GetWidth() - m_BufferZone * 2.f - GetScrollBar(0).GetStyle()->m_Width;
 
-	return m_CachedActualSize.GetWidth() - m_BufferZone * 2.f;
+	return GetActualSize().GetWidth() - m_BufferZone * 2.f;
 }
 
 void CInput::UpdateAutoScroll()
@@ -2062,10 +2062,10 @@ void CInput::UpdateAutoScroll()
 		}
 
 		// If scrolling down
-		if (-scroll + static_cast<float>(row + 1) * spacing + m_BufferZone * 2.f > m_CachedActualSize.GetHeight())
+		if (-scroll + static_cast<float>(row + 1) * spacing + m_BufferZone * 2.f > GetActualSize().GetHeight())
 		{
 			// Scroll so the selected row is shown completely, also with m_BufferZone length to the edge.
-			GetScrollBar(0).SetPos(static_cast<float>(row + 1) * spacing - m_CachedActualSize.GetHeight() + m_BufferZone * 2.f);
+			GetScrollBar(0).SetPos(static_cast<float>(row + 1) * spacing - GetActualSize().GetHeight() + m_BufferZone * 2.f);
 		}
 		// If scrolling up
 		else if (-scroll + (float)row * spacing < 0.f)
@@ -2095,8 +2095,8 @@ void CInput::UpdateAutoScroll()
 		}
 
 		// Check if outside to the right
-		if (x_position - m_HorizontalScroll + m_BufferZone * 2.f > m_CachedActualSize.GetWidth())
-			m_HorizontalScroll = x_position - m_CachedActualSize.GetWidth() + m_BufferZone * 2.f;
+		if (x_position - m_HorizontalScroll + m_BufferZone * 2.f > GetActualSize().GetWidth())
+			m_HorizontalScroll = x_position - GetActualSize().GetWidth() + m_BufferZone * 2.f;
 
 		// Check if outside to the left
 		if (x_position - m_HorizontalScroll < 0.f)
@@ -2104,12 +2104,12 @@ void CInput::UpdateAutoScroll()
 
 		// Check if the text doesn't even fill up to the right edge even though scrolling is done.
 		if (m_HorizontalScroll != 0.f &&
-			x_total - m_HorizontalScroll + m_BufferZone * 2.f < m_CachedActualSize.GetWidth())
-			m_HorizontalScroll = x_total - m_CachedActualSize.GetWidth() + m_BufferZone * 2.f;
+			x_total - m_HorizontalScroll + m_BufferZone * 2.f < GetActualSize().GetWidth())
+			m_HorizontalScroll = x_total - GetActualSize().GetWidth() + m_BufferZone * 2.f;
 
 		// Now this is the fail-safe, if x_total isn't even the length of the control,
 		//  remove all scrolling
-		if (x_total + m_BufferZone * 2.f < m_CachedActualSize.GetWidth())
+		if (x_total + m_BufferZone * 2.f < GetActualSize().GetWidth())
 			m_HorizontalScroll = 0.f;
 	}
 }

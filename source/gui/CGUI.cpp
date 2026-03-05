@@ -348,7 +348,6 @@ JSObject* CGUI::TickObjects(const ScriptRequest& rq, Script::StructuredClone ini
 		sendingPromise = CallPageInit(rq, initData, hotloadData, scriptName);
 	}
 
-	m_BaseObject->RecurseObject(&IGUIObject::IsHidden, &IGUIObject::DispatchDelayedSettingChanges);
 	m_BaseObject->RecurseObject(&IGUIObject::IsHiddenOrGhostOrOutOfBoundaries, &IGUIObject::Tick);
 	SendEventToAll(EventNameTick);
 	m_Tooltip.Update(FindObjectUnderMouse(), m_MousePos, *this);
@@ -387,7 +386,7 @@ void CGUI::DrawSprite(const CGUISpriteInstance& Sprite, CCanvas2D& canvas, const
 
 void CGUI::UpdateResolution()
 {
-	m_BaseObject->RecurseObject(nullptr, &IGUIObject::UpdateCachedSize);
+	m_BaseObject->RecurseObject(nullptr, &IGUIObject::HandleSizeChanged);
 }
 
 std::unique_ptr<IGUIObject> CGUI::ConstructObject(const CStr& str)
@@ -593,7 +592,7 @@ void CGUI::LoadXmlFile(const VfsPath& Filename, std::unordered_set<VfsPath>& Pat
 
 void CGUI::LoadedXmlFiles()
 {
-	m_BaseObject->RecurseObject(nullptr, &IGUIObject::UpdateCachedSize);
+	m_BaseObject->RecurseObject(nullptr, &IGUIObject::HandleSizeChanged);
 
 	SGUIMessage msg(GUIM_LOAD);
 	m_BaseObject->RecurseObject(nullptr, &IGUIObject::HandleMessage, msg);

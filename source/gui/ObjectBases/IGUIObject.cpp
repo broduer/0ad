@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -137,8 +137,8 @@ void IGUIObject::SettingChanged(const CStr& Setting, const bool SendMessage)
 {
 	if (Setting == "size")
 	{
-		// If setting was "size", we need to re-cache itself and all children
-		RecurseObject(nullptr, &IGUIObject::UpdateCachedSize);
+		// Notify all children that they'll have to re-cache their actual size.
+		RecurseObject(nullptr, &IGUIObject::HandleSizeChanged);
 	}
 	else if (Setting == "hidden")
 	{
@@ -181,7 +181,7 @@ bool IGUIObject::IsMouseOver() const
 	if (m_VisibleArea)
 		return m_VisibleArea.PointInside(m_pGUI.GetMousePos());
 
-	return m_CachedActualSize.PointInside(m_pGUI.GetMousePos());
+	return GetActualSize().PointInside(m_pGUI.GetMousePos());
 }
 
 void IGUIObject::UpdateMouseOver(IGUIObject* const& pMouseOver)
@@ -241,13 +241,25 @@ void IGUIObject::ResetStates()
 	UpdateMouseOver(nullptr);
 }
 
-void IGUIObject::UpdateCachedSize()
+void IGUIObject::HandleSizeChanged()
+{
+	m_CachedActualSizeDirty = true;
+}
+
+const CRect& IGUIObject::GetActualSize() const
+{
+	if (std::exchange(m_CachedActualSizeDirty, false))
+		RecalculateActualSize();
+
+	return m_CachedActualSize;
+}
+
+void IGUIObject::RecalculateActualSize() const
 {
 	// If absolute="false" and the object has got a parent,
-	//  use its cached size instead of the screen. Notice
-	//  it must have just been cached for it to work.
+	//  use its cached size instead of the screen.
 	if (!m_Absolute && m_pParent && !IsRootObject())
-		m_CachedActualSize = m_Size->GetSize(m_pParent->m_CachedActualSize);
+		m_CachedActualSize = m_Size->GetSize(m_pParent->GetActualSize());
 	else
 		m_CachedActualSize = m_Size->GetSize(CRect(m_pGUI.GetWindowSize()));
 
@@ -269,14 +281,6 @@ void IGUIObject::UpdateCachedSize()
 			m_CachedActualSize.top += delta/2.f;
 		}
 	}
-}
-
-CRect IGUIObject::GetComputedSize()
-{
-	// Ensure the size is up to date before we use it.
-	m_Settings.at("size")->DispatchDelayedSettingChange();
-	UpdateCachedSize();
-	return m_CachedActualSize;
 }
 
 bool IGUIObject::ApplyStyle(const CStr& StyleName)
@@ -548,10 +552,10 @@ void IGUIObject::DrawInArea(CCanvas2D& canvas, CRect& area)
 {
 	bool isInsideBoundaries = false;
 	RecurseObject(nullptr, &IGUIObject::SetIsInsideBoundaries, isInsideBoundaries);
-	if (!area.IntersectWith(m_CachedActualSize))
+	if (!area.IntersectWith(GetActualSize()))
 		return;
 
-	CRect intersection = area.Intersection(m_CachedActualSize);
+	CRect intersection = area.Intersection(GetActualSize());
 
 	m_VisibleArea = intersection;
 
@@ -563,10 +567,4 @@ void IGUIObject::DrawInArea(CCanvas2D& canvas, CRect& area)
 
 bool IGUIObject::IsHiddenOrGhostOrOutOfBoundaries() const {
 	return !m_IsInsideBoundaries || IsHiddenOrGhost();
-}
-
-void IGUIObject::DispatchDelayedSettingChanges()
-{
-	for (const auto& setting : m_Settings)
-		setting.second->DispatchDelayedSettingChange();
 }

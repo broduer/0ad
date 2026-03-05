@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -49,7 +49,7 @@ void CSlider::ResetStates()
 
 float CSlider::GetSliderRatio() const
 {
-	return (m_MaxValue - m_MinValue) / (m_CachedActualSize.GetWidth() - m_ButtonSide);
+	return (m_MaxValue - m_MinValue) / (GetActualSize().GetWidth() - m_ButtonSide);
 }
 
 void CSlider::IncrementallyChangeValue(const float difference)
@@ -105,7 +105,7 @@ void CSlider::HandleMessage(SGUIMessage& Message)
 
 void CSlider::Draw(CCanvas2D& canvas)
 {
-	CRect sliderLine(m_CachedActualSize);
+	CRect sliderLine(GetActualSize());
 	sliderLine.left += m_ButtonSide / 2.0f;
 	sliderLine.right -= m_ButtonSide / 2.0f;
 	m_pGUI.DrawSprite(IsEnabled() ? m_SpriteBar : m_SpriteBarDisabled, canvas, sliderLine, m_VisibleArea);
@@ -124,7 +124,7 @@ CRect CSlider::GetButtonRect() const
 	// config for debug purposes.
 	const float value = Clamp<float>(m_Value, m_MinValue, m_MaxValue);
 	float ratio = m_MaxValue > m_MinValue ? (value - m_MinValue) / (m_MaxValue - m_MinValue) : 0.0f;
-	float x = m_CachedActualSize.left + ratio * (m_CachedActualSize.GetWidth() - m_ButtonSide);
-	float y = m_CachedActualSize.top + (m_CachedActualSize.GetHeight() - m_ButtonSide) / 2.0;
+	float x = GetActualSize().left + ratio * (GetActualSize().GetWidth() - m_ButtonSide);
+	float y = GetActualSize().top + (GetActualSize().GetHeight() - m_ButtonSide) / 2.0;
 	return CRect(x, y, x + m_ButtonSide, y + m_ButtonSide);
 }

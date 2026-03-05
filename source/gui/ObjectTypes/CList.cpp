@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -158,10 +158,10 @@ void CList::ResetStates()
 	IGUIScrollBarOwner::ResetStates();
 }
 
-void CList::UpdateCachedSize()
+void CList::HandleSizeChanged()
 {
-	IGUIObject::UpdateCachedSize();
-	IGUITextOwner::UpdateCachedSize();
+	IGUIObject::HandleSizeChanged();
+	IGUITextOwner::HandleSizeChanged();
 }
 
 void CList::HandleMessage(SGUIMessage& Message)

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -194,12 +194,13 @@ public:
 	 * is not wanted in real time, therefore it is cached, update
 	 * the cached size with this function.
 	 */
-	virtual void UpdateCachedSize();
+	virtual void HandleSizeChanged();
 
 	/**
-	 * Updates and returns the size of the object.
+	 * Get the size of the object.
+	 * Besides m_Size it also depends on the parent's size, hence "actual".
 	 */
-	virtual CRect GetComputedSize();
+	virtual const CRect& GetActualSize() const;
 
 	virtual const CStrW& GetTooltipText() const { return m_Tooltip; }
 	virtual const CStr& GetTooltipStyle() const { return m_TooltipStyle; }
@@ -276,8 +277,6 @@ public:
 	}
 
 	virtual void DrawInArea(CCanvas2D& canvas, CRect& area);
-
-	virtual void DispatchDelayedSettingChanges();
 
 protected:
 	/**
@@ -391,13 +390,6 @@ protected:
 	virtual void AdditionalChildrenHandled() {}
 
 	/**
-	 * Cached size, real size m_Size is actually dependent on resolution
-	 * and can have different *real* outcomes, this is the real outcome
-	 * cached to avoid slow calculations in real time.
-	 */
-	CRect m_CachedActualSize;
-
-	/**
 	 * Execute the script for a particular action.
 	 * Does nothing if no script has been registered for that action.
 	 *
@@ -427,6 +419,11 @@ protected:
 	 * @param pMouseOver Object that is currently hovered, can be nullptr too!
 	 */
 	void UpdateMouseOver(IGUIObject* const& pMouseOver);
+
+	/**
+	 * Recompute the actual (absolute) size from scratch again and cache it.
+	 */
+	virtual void RecalculateActualSize() const;
 
 	//@}
 private:
@@ -517,6 +514,20 @@ protected:
 
 	CRect m_VisibleArea;
 	bool m_IsInsideBoundaries = true;
+
+	/**
+	 * The actual size (usually) depends on the size of the parent.
+	 * And to avoid recomputing all the time, it is cached here.
+	 * Do not read from this directly, it is not guaranteed to be up-to-date,
+	 * call GetActualSize() insead.
+	 */
+	mutable CRect m_CachedActualSize;
+
+	/**
+	 * Whether m_CacheActualSize is not up-to-date and will have to be recomputed
+	 * when accessing it the next time.
+	 */
+	mutable bool m_CachedActualSizeDirty = true;
 
 	CGUISimpleSetting<bool> m_Enabled;
 	CGUISimpleSetting<bool> m_Hidden;

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -73,9 +73,10 @@ bool SetCRectField(JSContext* cx, unsigned argc, JS::Value* vp)
 		return false;
 
 	wrapper->GetMutable().*RectMember.*Member = static_cast<float>(val);
+	wrapper->Set(wrapper->GetMutable(), true); // causes CGUISimpleSetting to actually process the change
+
 	args.rval().setUndefined();
 
-	wrapper->DeferSettingChange();
 	return true;
 }
 

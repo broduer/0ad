@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -53,10 +53,10 @@ CChart::CChart(CGUI& pGUI)
 {
 }
 
-void CChart::UpdateCachedSize()
+void CChart::HandleSizeChanged()
 {
-	IGUIObject::UpdateCachedSize();
-	IGUITextOwner::UpdateCachedSize();
+	IGUIObject::HandleSizeChanged();
+	IGUITextOwner::HandleSizeChanged();
 }
 
 void CChart::HandleMessage(SGUIMessage& Message)
@@ -72,11 +72,11 @@ void CChart::HandleMessage(SGUIMessage& Message)
 void CChart::DrawAxes(CCanvas2D& canvas) const
 {
 	canvas.DrawRect(CRect(
-		m_CachedActualSize.TopLeft(),
-		m_CachedActualSize.BottomLeft() + CVector2D(m_AxisWidth, 0.0f)), m_AxisColor);
+		GetActualSize().TopLeft(),
+		GetActualSize().BottomLeft() + CVector2D(m_AxisWidth, 0.0f)), m_AxisColor);
 	canvas.DrawRect(CRect(
-		m_CachedActualSize.BottomLeft() - CVector2D(0.0f, m_AxisWidth),
-		m_CachedActualSize.BottomRight()), m_AxisColor);
+		GetActualSize().BottomLeft() - CVector2D(0.0f, m_AxisWidth),
+		GetActualSize().BottomRight()), m_AxisColor);
 }
 
 void CChart::Draw(CCanvas2D& canvas)
@@ -130,8 +130,8 @@ void CChart::Draw(CCanvas2D& canvas)
 CRect CChart::GetChartRect() const
 {
 	return CRect(
-		m_CachedActualSize.TopLeft() + CVector2D(m_AxisWidth, m_AxisWidth),
-		m_CachedActualSize.BottomRight() - CVector2D(m_AxisWidth, m_AxisWidth)
+		GetActualSize().TopLeft() + CVector2D(m_AxisWidth, m_AxisWidth),
+		GetActualSize().BottomRight() - CVector2D(m_AxisWidth, m_AxisWidth)
 	);
 }
 

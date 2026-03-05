@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -70,7 +70,7 @@ public:
 	 * Get Scroll Bar reference (it should be transparent it's actually
 	 * pointers).
 	 */
-	virtual IGUIScrollBar& GetScrollBar(const int& index)
+	virtual IGUIScrollBar& GetScrollBar(const int& index) const
 	{
 		return *m_ScrollBars[index];
 	}

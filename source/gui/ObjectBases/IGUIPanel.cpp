@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -38,21 +38,14 @@ IGUIPanel::~IGUIPanel()
 
 bool IGUIPanel::IsMouseOver() const
 {
+	GetActualSize(); // Updates m_CachedLayoutActualSize if necessary.
 	return m_CachedLayoutActualSize.PointInside(m_pGUI.GetMousePos());
 }
 
-void IGUIPanel::UpdateCachedSize()
+void IGUIPanel::RecalculateActualSize() const
 {
-	IGUIObject::UpdateCachedSize();
+	IGUIObject::RecalculateActualSize();
 	m_CachedLayoutActualSize = m_CachedActualSize;
-}
-
-CRect IGUIPanel::GetComputedSize()
-{
-	// Ensure the size is up to date before we use it.
-	m_Settings.at("size")->DispatchDelayedSettingChange();
-	UpdateCachedSize();
-	return m_CachedLayoutActualSize;
 }
 
 const std::vector<IGUIObject*>& IGUIPanel::GetVisibleChildren() const

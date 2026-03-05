@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -57,9 +57,9 @@ public:
 	virtual void ResetStates();
 
 	/**
-	 * @see IGUIObject#UpdateCachedSize()
+	 * @see IGUIObject#HandleSizeChanged()
 	 */
-	virtual void UpdateCachedSize();
+	virtual void HandleSizeChanged();
 
 	/**
 	 * Adds an item last to the list.
@@ -119,8 +119,8 @@ protected:
 	                      const CGUISpriteInstance& spriteSelectArea, const CGUISpriteInstance& spriteSelectAreaOverlay, const CGUIColor& textColor);
 
 	// Get the area of the list. This is so that it can easily be changed, like in CDropDown
-	//  where the area is not equal to m_CachedActualSize.
-	virtual CRect GetListRect() const { return m_CachedActualSize; }
+	//  where the area is not equal to GetActualSize().
+	virtual CRect GetListRect() const { return GetActualSize(); }
 
 	// Returns whether SetupText() has run since the last message was received
 	// (and thus whether list items have possibly changed).

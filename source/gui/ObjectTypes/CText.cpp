@@ -64,7 +64,7 @@ void CText::SetupText()
 	if (m_GeneratedTexts.empty())
 		return;
 
-	float width = m_CachedActualSize.GetWidth();
+	float width = GetActualSize().GetWidth();
 	// remove scrollbar if applicable
 	if (m_ScrollBar && GetScrollBar(0).GetStyle())
 		width -= GetScrollBar(0).GetStyle()->m_Width;
@@ -83,12 +83,12 @@ void CText::SetupText()
 			bottom = true;
 
 		GetScrollBar(0).SetScrollRange(m_GeneratedTexts[0].GetSize().Height);
-		GetScrollBar(0).SetScrollSpace(m_CachedActualSize.GetHeight());
+		GetScrollBar(0).SetScrollSpace(GetActualSize().GetHeight());
 
-		GetScrollBar(0).SetX(m_CachedActualSize.right);
-		GetScrollBar(0).SetY(m_CachedActualSize.top);
+		GetScrollBar(0).SetX(GetActualSize().right);
+		GetScrollBar(0).SetY(GetActualSize().top);
 		GetScrollBar(0).SetZ(GetBufferedZ());
-		GetScrollBar(0).SetLength(m_CachedActualSize.bottom - m_CachedActualSize.top);
+		GetScrollBar(0).SetLength(GetActualSize().bottom - GetActualSize().top);
 
 		if (bottom)
 			GetScrollBar(0).SetPos(GetScrollBar(0).GetMaxPos());
@@ -98,7 +98,7 @@ void CText::SetupText()
 	}
 
 	if (!m_ScrollBar || !std::ranges::any_of(m_ScrollBars, &IGUIScrollBar::IsVisible))
-		CalculateTextPosition(m_CachedActualSize, m_TextPos, m_GeneratedTexts[0]);
+		CalculateTextPosition(GetActualSize(), m_TextPos, m_GeneratedTexts[0]);
 }
 
 void CText::ResetStates()
@@ -107,10 +107,10 @@ void CText::ResetStates()
 	IGUIScrollBarOwner::ResetStates();
 }
 
-void CText::UpdateCachedSize()
+void CText::HandleSizeChanged()
 {
-	IGUIObject::UpdateCachedSize();
-	IGUITextOwner::UpdateCachedSize();
+	IGUIObject::HandleSizeChanged();
+	IGUITextOwner::HandleSizeChanged();
 }
 
 CSize2D CText::GetTextSize()
@@ -132,7 +132,7 @@ const CStrW& CText::GetTooltipText() const
 			if (textChunk.m_Tooltip.empty())
 				continue;
 			CRect area(textChunk.m_Pos - CVector2D(0.f, textChunk.m_Size.Height), textChunk.m_Size);
-			if (area.PointInside(m_pGUI.GetMousePos() - m_CachedActualSize.TopLeft()))
+			if (area.PointInside(m_pGUI.GetMousePos() - GetActualSize().TopLeft()))
 				return textChunk.m_Tooltip;
 		}
 	return m_Tooltip;
@@ -162,10 +162,10 @@ void CText::HandleMessage(SGUIMessage& Message)
 
 	case GUIM_LOAD:
 	{
-		GetScrollBar(0).SetX(m_CachedActualSize.right);
-		GetScrollBar(0).SetY(m_CachedActualSize.top);
+		GetScrollBar(0).SetX(GetActualSize().right);
+		GetScrollBar(0).SetY(GetActualSize().top);
 		GetScrollBar(0).SetZ(GetBufferedZ());
-		GetScrollBar(0).SetLength(m_CachedActualSize.bottom - m_CachedActualSize.top);
+		GetScrollBar(0).SetLength(GetActualSize().bottom - GetActualSize().top);
 		GetScrollBar(0).SetScrollBarStyle(m_ScrollBarStyle);
 		break;
 	}
@@ -179,14 +179,14 @@ void CText::HandleMessage(SGUIMessage& Message)
 
 void CText::Draw(CCanvas2D& canvas)
 {
-	m_pGUI.DrawSprite(m_Sprite, canvas, m_CachedActualSize, m_VisibleArea);
+	m_pGUI.DrawSprite(m_Sprite, canvas, GetActualSize(), m_VisibleArea);
 
 	float scroll = 0.f;
 	if (m_ScrollBar)
 		scroll = GetScrollBar(0).GetPos();
 
 	// Clipping area (we'll have to subtract the scrollbar)
-	CRect cliparea = m_VisibleArea ? m_VisibleArea : m_CachedActualSize;
+	CRect cliparea = m_VisibleArea ? m_VisibleArea : GetActualSize();
 	if (m_Clip)
 	{
 		if (m_ScrollBar)
@@ -206,7 +206,7 @@ void CText::Draw(CCanvas2D& canvas)
 
 	if (m_ScrollBar && std::ranges::any_of(m_ScrollBars, &IGUIScrollBar::IsVisible))
 	{
-		DrawText(canvas, 0, color, m_CachedActualSize.TopLeft() - CVector2D(0.f, scroll), cliparea);
+		DrawText(canvas, 0, color, GetActualSize().TopLeft() - CVector2D(0.f, scroll), cliparea);
 		// Draw scrollbars on top of the content
 		IGUIScrollBarOwner::Draw(canvas);
 	}
@@ -214,5 +214,5 @@ void CText::Draw(CCanvas2D& canvas)
 		DrawText(canvas, 0, color, m_TextPos, cliparea);
 
 	// Draw the overlays last
-	m_pGUI.DrawSprite(m_SpriteOverlay, canvas, m_CachedActualSize, m_VisibleArea);
+	m_pGUI.DrawSprite(m_SpriteOverlay, canvas, GetActualSize(), m_VisibleArea);
 }

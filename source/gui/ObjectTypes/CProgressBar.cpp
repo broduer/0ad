@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -56,10 +56,10 @@ void CProgressBar::HandleMessage(SGUIMessage& Message)
 
 void CProgressBar::Draw(CCanvas2D& canvas)
 {
-	m_pGUI.DrawSprite(m_SpriteBackground, canvas, m_CachedActualSize, m_VisibleArea);
+	m_pGUI.DrawSprite(m_SpriteBackground, canvas, GetActualSize(), m_VisibleArea);
 
 	// Get size of bar (notice it is drawn slightly closer, to appear above the background)
-	CRect size = m_CachedActualSize;
-	size.right = size.left + m_CachedActualSize.GetWidth() * (m_Progress / 100.f),
+	CRect size = GetActualSize();
+	size.right = size.left + GetActualSize().GetWidth() * (m_Progress / 100.f),
 	m_pGUI.DrawSprite(m_SpriteBar, canvas, size, m_VisibleArea);
 }

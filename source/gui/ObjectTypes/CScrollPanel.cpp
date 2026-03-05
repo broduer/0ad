@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -56,10 +56,36 @@ void CScrollPanel::ResetStates()
 	IGUIScrollBarOwner::ResetStates();
 }
 
-void CScrollPanel::UpdateCachedSize()
+void CScrollPanel::RecalculateActualSize() const
 {
-	IGUIPanel::UpdateCachedSize();
-	Setup();
+	IGUIPanel::RecalculateActualSize();
+
+	IGUIScrollBar& scrollbar0 = GetScrollBar(0);
+	float vscroll = scrollbar0.GetPos();
+	IGUIScrollBar& scrollbar1 = GetScrollBar(1);
+	float hscroll = scrollbar1.GetPos();
+
+	m_CachedActualSize = m_CachedLayoutActualSize;
+
+	if (HasVerticalScrollBar() && m_CachedLayoutActualSize.GetHeight() < m_MinHeight)
+		m_CachedActualSize.bottom = m_CachedLayoutActualSize.top + m_MinHeight;
+
+	if (HasHorizontalScrollBar() && m_CachedLayoutActualSize.GetWidth() < m_MinWidth)
+		m_CachedActualSize.right = m_CachedLayoutActualSize.left + m_MinWidth;
+
+	m_CachedActualSize.top -= vscroll;
+	m_CachedActualSize.bottom -= vscroll;
+
+	m_CachedActualSize.left -= hscroll;
+	m_CachedActualSize.right -= hscroll;
+
+	if (scrollbar0.IsVisible())
+		m_CachedActualSize.right -= scrollbar0.GetOuterRect().GetWidth();
+	if (scrollbar1.IsVisible())
+		m_CachedActualSize.bottom -= scrollbar1.GetOuterRect().GetHeight();
+
+	for (IGUIObject* child : m_Children)
+		child->RecurseObject(&IGUIObject::IsHiddenOrGhost, &IGUIObject::HandleSizeChanged);
 }
 
 void CScrollPanel::HandleMessage(SGUIMessage& Message)
@@ -71,24 +97,9 @@ void CScrollPanel::HandleMessage(SGUIMessage& Message)
 
 	float vscroll = scrollbar0.GetPos();
 	float hscroll = scrollbar1.GetPos();
-	bool updateScrollPosition = false;
-
 	IGUIScrollBarOwner::HandleMessage(Message);
-
-	if (vscroll != scrollbar0.GetPos())
-	{
-		vscroll = scrollbar0.GetPos();
-		updateScrollPosition = true;
-	}
-
-	if (hscroll != scrollbar1.GetPos())
-	{
-		hscroll = scrollbar1.GetPos();
-		updateScrollPosition = true;
-	}
-
-	if (updateScrollPosition)
-		UpdateScrollPosition(vscroll, hscroll);
+	if (vscroll != scrollbar0.GetPos() || hscroll != scrollbar1.GetPos())
+		m_CachedActualSizeDirty = true;
 
 	switch (Message.type)
 	{
@@ -97,20 +108,20 @@ void CScrollPanel::HandleMessage(SGUIMessage& Message)
 		{
 			scrollbar0.SetScrollBarStyle(m_ScrollBarStyle);
 			scrollbar1.SetScrollBarStyle(m_ScrollBarStyle);
-			Setup();
+			UpdateScrollBars();
 		}
 
 		if (Message.value == "orientation" || Message.value == "size" || Message.value == "min_width" || Message.value == "min_height")
 		{
 			scrollbar0.SetPos(0);
 			scrollbar1.SetPos(0);
-			Setup();
+			UpdateScrollBars();
 		}
 		break;
 
 	case GUIM_CHILD_RESIZED:
 	case GUIM_CHILD_TOGGLE_VISIBILITY:
-		Setup();
+		UpdateScrollBars();
 		Message.Skip(false);
 		break;
 
@@ -118,7 +129,7 @@ void CScrollPanel::HandleMessage(SGUIMessage& Message)
 		scrollbar0.SetScrollBarStyle(m_ScrollBarStyle);
 		scrollbar1.SetScrollBarStyle(m_ScrollBarStyle);
 
-		Setup();
+		UpdateScrollBars();
 		break;
 
 	default:
@@ -146,32 +157,21 @@ void CScrollPanel::Draw(CCanvas2D& canvas)
 	m_Drawing = false;
 }
 
-void CScrollPanel::Setup()
+void CScrollPanel::UpdateScrollBars()
 {
 	IGUIScrollBar& scrollbar0 = GetScrollBar(0);
 	IGUIScrollBar& scrollbar1 = GetScrollBar(1);
-
-	m_CachedActualSize = m_CachedLayoutActualSize;
-
-	if (HasVerticalScrollBar() && m_CachedLayoutActualSize.GetHeight() < m_MinHeight)
-		m_CachedActualSize.bottom = m_CachedLayoutActualSize.top + m_MinHeight;
-
-	if (HasHorizontalScrollBar() && m_CachedLayoutActualSize.GetWidth() < m_MinWidth)
-		m_CachedActualSize.right = m_CachedLayoutActualSize.left + m_MinWidth;
-
-	for (IGUIObject* child : m_Children)
-		child->RecurseObject(&IGUIObject::IsHiddenOrGhost, &IGUIObject::UpdateCachedSize);
 
 	float vscroll = scrollbar0.GetPos();
 	float hscroll = scrollbar1.GetPos();
 	float maxVRange = 0;
 	float maxHRange = 0;
 
-	for (IGUIObject* child : m_Children)
+	for (const IGUIObject* child : m_Children)
 	{
 		if (child->IsHiddenOrGhost())
 			continue;
-		CRect childSize = child->GetComputedSize();
+		const CRect& childSize = child->GetActualSize();
 		maxVRange = std::max(maxVRange, childSize.bottom);
 		maxHRange = std::max(maxHRange, childSize.right);
 	}
@@ -216,37 +216,6 @@ void CScrollPanel::Setup()
 		hscroll = maxHRange;
 		scrollbar1.SetPos(hscroll);
 	}
-
-	UpdateScrollPosition(vscroll, hscroll);
-}
-
-void CScrollPanel::UpdateScrollPosition(float scroll, float hscroll)
-{
-	IGUIScrollBar& scrollbar0 = GetScrollBar(0);
-	IGUIScrollBar& scrollbar1 = GetScrollBar(1);
-
-	m_CachedActualSize = m_CachedLayoutActualSize;
-
-	if (HasVerticalScrollBar() && m_CachedLayoutActualSize.GetHeight() < m_MinHeight)
-		m_CachedActualSize.bottom = m_CachedLayoutActualSize.top + m_MinHeight;
-
-	if (HasHorizontalScrollBar() && m_CachedLayoutActualSize.GetWidth() < m_MinWidth)
-		m_CachedActualSize.right = m_CachedLayoutActualSize.left + m_MinWidth;
-
-	m_CachedActualSize.top -= scroll;
-	m_CachedActualSize.bottom -= scroll;
-
-	m_CachedActualSize.left -= hscroll;
-	m_CachedActualSize.right -= hscroll;
-
-	// upddate scroll bars size base on m_Width
-	if (scrollbar0.IsVisible())
-		m_CachedActualSize.right -= scrollbar0.GetOuterRect().GetWidth();
-	if (scrollbar1.IsVisible())
-		m_CachedActualSize.bottom -= scrollbar1.GetOuterRect().GetHeight();
-
-	for (IGUIObject* child : m_Children)
-		child->RecurseObject(&IGUIObject::IsHiddenOrGhost, &IGUIObject::UpdateCachedSize);
 }
 
 void CScrollPanel::ResetScrollPosition(EScrollOrientation orientation)

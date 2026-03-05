@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -132,7 +132,7 @@ void COList::SetupText()
 
 CRect COList::GetListRect() const
 {
-	return m_CachedActualSize + CRect(0, m_HeadingHeight, 0, 0);
+	return GetActualSize() + CRect(0, m_HeadingHeight, 0, 0);
 }
 
 void COList::HandleMessage(SGUIMessage& Message)
@@ -156,7 +156,7 @@ void COList::HandleMessage(SGUIMessage& Message)
 			return;
 
 		const CVector2D& mouse = m_pGUI.GetMousePos();
-		if (!m_CachedActualSize.PointInside(mouse))
+		if (!GetActualSize().PointInside(mouse))
 			return;
 
 		float xpos = 0;
@@ -169,7 +169,7 @@ void COList::HandleMessage(SGUIMessage& Message)
 			// Check if it's a decimal value, and if so, assume relative positioning.
 			if (column.m_Width < 1 && column.m_Width > 0)
 				width *= m_TotalAvailableColumnWidth;
-			CVector2D leftTopCorner = m_CachedActualSize.TopLeft() + CVector2D(xpos, 0);
+			CVector2D leftTopCorner = GetActualSize().TopLeft() + CVector2D(xpos, 0);
 			if (mouse.X >= leftTopCorner.X &&
 				mouse.X < leftTopCorner.X + width &&
 				mouse.Y < leftTopCorner.Y + m_HeadingHeight)
@@ -362,8 +362,8 @@ void COList::DrawList(CCanvas2D& canvas, const int& selected, const CGUISpriteIn
 	}
 
 	// Draw line above column header
-	CRect rect_head(m_CachedActualSize.left, m_CachedActualSize.top, m_CachedActualSize.right,
-									m_CachedActualSize.top + m_HeadingHeight);
+	CRect rect_head(GetActualSize().left, GetActualSize().top, GetActualSize().right,
+									GetActualSize().top + m_HeadingHeight);
 	m_pGUI.DrawSprite(m_SpriteHeading, canvas, rect_head, m_VisibleArea);
 
 	// Draw column headers
@@ -382,7 +382,7 @@ void COList::DrawList(CCanvas2D& canvas, const int& selected, const CGUISpriteIn
 		if (column.m_Width < 1 && column.m_Width > 0)
 			width *= m_TotalAvailableColumnWidth;
 
-		CVector2D leftTopCorner = m_CachedActualSize.TopLeft() + CVector2D(xpos, 0);
+		CVector2D leftTopCorner = GetActualSize().TopLeft() + CVector2D(xpos, 0);
 
 		// Draw sort arrows in colum header
 		if (m_Sortable)

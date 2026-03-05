@@ -206,9 +206,9 @@ bool CMiniMap::IsMouseOver() const
 {
 	const CVector2D& mousePos = m_pGUI.GetMousePos();
 	// Take the magnitude of the difference of the mouse position and minimap center.
-	const float distanceFromCenter = (mousePos - m_CachedActualSize.CenterPoint()).Length();
+	const float distanceFromCenter = (mousePos - GetActualSize().CenterPoint()).Length();
 	// If the distance is less then the radius of the minimap (half the width) the mouse is over the minimap.
-	return distanceFromCenter < m_CachedActualSize.GetWidth() / 2.0;
+	return distanceFromCenter < GetActualSize().GetWidth() / 2.0;
 }
 
 void CMiniMap::GetMouseWorldCoordinates(float& x, float& z) const
@@ -216,8 +216,8 @@ void CMiniMap::GetMouseWorldCoordinates(float& x, float& z) const
 	// Determine X and Z according to proportion of mouse position and minimap.
 	const CVector2D& mousePos = m_pGUI.GetMousePos();
 
-	float px = (mousePos.X - m_CachedActualSize.left) / m_CachedActualSize.GetWidth();
-	float py = (m_CachedActualSize.bottom - mousePos.Y) / m_CachedActualSize.GetHeight();
+	float px = (mousePos.X - GetActualSize().left) / GetActualSize().GetWidth();
+	float py = (GetActualSize().bottom - mousePos.Y) / GetActualSize().GetHeight();
 
 	float angle = GetAngle();
 
@@ -256,8 +256,8 @@ CVector2D CMiniMap::WorldSpaceToMiniMapSpace(const CVector3D& worldPosition) con
 
 	// Calculate coordinates in GUI space.
 	return CVector2D(
-		m_CachedActualSize.left + (0.5f + rotatedX) * m_CachedActualSize.GetWidth(),
-		m_CachedActualSize.bottom - (0.5f + rotatedY) * m_CachedActualSize.GetHeight());
+		GetActualSize().left + (0.5f + rotatedX) * GetActualSize().GetWidth(),
+		GetActualSize().bottom - (0.5f + rotatedY) * GetActualSize().GetHeight());
 }
 
 bool CMiniMap::FireWorldClickEvent(int button, int /*clicks*/)
@@ -364,7 +364,7 @@ void CMiniMap::Draw(CCanvas2D& canvas)
 		return;
 
 	if (!m_Mask)
-		canvas.DrawRect(m_CachedActualSize, CColor(0.0f, 0.0f, 0.0f, 1.0f));
+		canvas.DrawRect(GetActualSize(), CColor(0.0f, 0.0f, 0.0f, 1.0f));
 
 	CSimulation2* sim = g_Game->GetSimulation2();
 	CmpPtr<ICmpRangeManager> cmpRangeManager(*sim, SYSTEM_ENTITY);
@@ -379,13 +379,13 @@ void CMiniMap::Draw(CCanvas2D& canvas)
 	CMiniMapTexture& miniMapTexture = g_Game->GetView()->GetMiniMapTexture();
 	if (miniMapTexture.GetTexture())
 	{
-		const CVector2D center = m_CachedActualSize.CenterPoint();
+		const CVector2D center = GetActualSize().CenterPoint();
 		const CRect source(
 			0,
 			miniMapTexture.IsFlipped() ? 0 : miniMapTexture.GetTexture()->GetHeight(),
 			miniMapTexture.GetTexture()->GetWidth(),
 			miniMapTexture.IsFlipped() ? miniMapTexture.GetTexture()->GetHeight() : 0);
-		const CSize2D size(m_CachedActualSize.GetSize() / m_MapScale);
+		const CSize2D size(GetActualSize().GetSize() / m_MapScale);
 		const CRect destination(center - size / 2.0f, size);
 		canvas.DrawRotatedTexture(
 			miniMapTexture.GetTexture(), destination, source,

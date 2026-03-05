@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -63,9 +63,9 @@ public:
 		TestGUIObject(CGUI& gui) : IGUIObject(gui) {}
 
 		void Draw(CCanvas2D&) {}
-		void UpdateCachedSize() {
-			haveUpdateCachedSize = true;
-			IGUIObject::UpdateCachedSize();
+		void RecalculateActualSize() const {
+			cachedSizeRecalculated = true;
+			IGUIObject::RecalculateActualSize();
 		}
 
 		CGUISimpleSetting<CGUISize>* GetSizeSetting() const
@@ -73,7 +73,7 @@ public:
 			return static_cast<CGUISimpleSetting<CGUISize>*>(m_Settings.at("size"));
 		}
 
-		bool haveUpdateCachedSize{false};
+		mutable bool cachedSizeRecalculated{false};
 	};
 
 	void setUp()
@@ -139,7 +139,6 @@ public:
 
 		CGUISimpleSetting<CGUISize>* setting{object.GetSizeSetting()};
 		object.SetSettingFromString("size", L"2 2 20 20", false);
-		object.haveUpdateCachedSize = false;
 
 		ScriptRequest rq{gui.GetScriptInterface()};
 		JS::RootedValue val(rq.cx);
@@ -151,36 +150,33 @@ public:
 		TS_ASSERT(gui.GetScriptInterface()->LoadGlobalScriptFile(L"gui/settings/cguisize/lazyassign.js"));
 		TS_ASSERT_EQUALS(setting->GetMutable().pixel, (CRect{5, 2, 20, 20}));
 		TS_ASSERT_EQUALS(setting->GetMutable().percent, (CRect{0, 0, 0, 0}));
-		TS_ASSERT_EQUALS(object.haveUpdateCachedSize, false);
+		TS_ASSERT(!object.cachedSizeRecalculated);
 
-		// Force update of cached size.
-		object.GetComputedSize();
-		object.haveUpdateCachedSize = false;
+		// This should finally recalculate the dirty (cached) actual size in order to return an up-to-date value.
+		TS_ASSERT_EQUALS(object.GetActualSize(), (CRect{5, 2, 20, 20}));
+		TS_ASSERT(object.cachedSizeRecalculated);
+
+		object.cachedSizeRecalculated = false;
 
 		// Compound assignment operator.
 		TS_ASSERT(gui.GetScriptInterface()->LoadGlobalScriptFile(L"gui/settings/cguisize/compoundassignmentoperator.js"));
 		TS_ASSERT_EQUALS(setting->GetMutable().pixel, (CRect{10, 2, 20, 20}));
 		TS_ASSERT_EQUALS(setting->GetMutable().percent, (CRect{0, 0, 0, 0}));
-		TS_ASSERT_EQUALS(object.haveUpdateCachedSize, false);
-
-		// Force update of cached size.
-		object.GetComputedSize();
-		object.haveUpdateCachedSize = false;
 
 		// Object assignment.
 		TS_ASSERT(gui.GetScriptInterface()->LoadGlobalScriptFile(L"gui/settings/cguisize/objectassign.js"));
 		TS_ASSERT_EQUALS(setting->GetMutable().pixel, (CRect{10, 2, 20, 20}));
 		TS_ASSERT_EQUALS(setting->GetMutable().percent, (CRect{4, 0, 0, 20}));
-		TS_ASSERT_EQUALS(object.haveUpdateCachedSize, false);
-
-		// Force update of cached size.
-		object.GetComputedSize();
-		object.haveUpdateCachedSize = false;
 
 		// assign
 		TS_ASSERT(gui.GetScriptInterface()->LoadGlobalScriptFile(L"gui/settings/cguisize/assign.js"));
 		TS_ASSERT_EQUALS(setting->GetMutable().pixel, (CRect{3, 0, 0, 2}));
 		TS_ASSERT_EQUALS(setting->GetMutable().percent, (CRect{0, 0, 0, 0}));
-		TS_ASSERT_EQUALS(object.haveUpdateCachedSize, true);
+
+		TS_ASSERT(!object.cachedSizeRecalculated);
+		// Call the getComputedSize method on it, which should finally recalculate the dirty (cached) actual size in
+		// order to return an up-to-date value.
+		TS_ASSERT(gui.GetScriptInterface()->LoadGlobalScriptFile(L"gui/settings/cguisize/getcomputedsize.js"));
+		TS_ASSERT(object.cachedSizeRecalculated);
 	}
 };

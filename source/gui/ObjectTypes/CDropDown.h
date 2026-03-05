@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -93,7 +93,7 @@ protected:
 	 * If the size changed, the texts have to be updated as
 	 * the word wrapping depends on the size.
 	 */
-	virtual void UpdateCachedSize();
+	virtual void HandleSizeChanged();
 
 	/**
 	 * Sets up text, should be called every time changes has been
@@ -117,7 +117,7 @@ protected:
 	bool m_Open;
 
 	// I didn't cache this at first, but it's just as easy as caching
-	//  m_CachedActualSize, so I thought, what the heck it's used a lot.
+	//  GetActualSize(), so I thought, what the heck it's used a lot.
 	CRect m_CachedListRect;
 
 	// Hide scrollbar when it's not needed

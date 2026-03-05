@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -29,15 +29,13 @@ public:
 	IGUIPanel(CGUI& pGUI);
 	virtual ~IGUIPanel();
 
-	virtual void UpdateCachedSize();
-	virtual CRect GetComputedSize();
-
 	virtual bool IsMouseOver() const;
 
 	virtual const std::vector<IGUIObject*>& GetVisibleChildren() const;
 
 protected:
-	CRect m_CachedLayoutActualSize;
+	virtual void RecalculateActualSize() const;
+	mutable CRect m_CachedLayoutActualSize;
 	bool m_Drawing = false;
 };
 

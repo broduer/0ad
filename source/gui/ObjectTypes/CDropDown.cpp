@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -73,9 +73,9 @@ void CDropDown::SetupText()
 	CList::SetupText();
 }
 
-void CDropDown::UpdateCachedSize()
+void CDropDown::HandleSizeChanged()
 {
-	CList::UpdateCachedSize();
+	CList::HandleSizeChanged();
 	SetupText();
 }
 
@@ -191,7 +191,7 @@ void CDropDown::HandleMessage(SGUIMessage& Message)
 			const CVector2D& mouse = m_pGUI.GetMousePos();
 
 			// If the regular area is pressed, then abort, and close.
-			if (m_CachedActualSize.PointInside(mouse))
+			if (GetActualSize().PointInside(mouse))
 			{
 				m_Open = false;
 				GetScrollBar(0).SetZ(GetBufferedZ());
@@ -370,51 +370,51 @@ void CDropDown::SetupListRect()
 
 	if (m_ItemsYPositions.empty())
 	{
-		m_CachedListRect = CRect(m_CachedActualSize.left, m_CachedActualSize.bottom + m_DropDownBuffer,
-		                         m_CachedActualSize.right, m_CachedActualSize.bottom + m_DropDownBuffer + m_DropDownSize);
+		m_CachedListRect = CRect(GetActualSize().left, GetActualSize().bottom + m_DropDownBuffer,
+		                         GetActualSize().right, GetActualSize().bottom + m_DropDownBuffer + m_DropDownSize);
 		m_HideScrollBar = false;
 	}
 	// Too many items so use a scrollbar
 	else if (m_ItemsYPositions.back() > m_DropDownSize)
 	{
 		// Place items below if at least some items can be placed below
-		if (m_CachedActualSize.bottom + m_DropDownBuffer + m_DropDownSize <= windowSize.Height)
-			m_CachedListRect = CRect(m_CachedActualSize.left, m_CachedActualSize.bottom + m_DropDownBuffer,
-			                         m_CachedActualSize.right, m_CachedActualSize.bottom + m_DropDownBuffer + m_DropDownSize);
-		else if ((m_ItemsYPositions.size() > m_MinimumVisibleItems && windowSize.Height - m_CachedActualSize.bottom - m_DropDownBuffer >= m_ItemsYPositions[m_MinimumVisibleItems]) ||
-		         m_CachedActualSize.top < windowSize.Height - m_CachedActualSize.bottom)
-			m_CachedListRect = CRect(m_CachedActualSize.left, m_CachedActualSize.bottom + m_DropDownBuffer,
-			                         m_CachedActualSize.right, windowSize.Height);
+		if (GetActualSize().bottom + m_DropDownBuffer + m_DropDownSize <= windowSize.Height)
+			m_CachedListRect = CRect(GetActualSize().left, GetActualSize().bottom + m_DropDownBuffer,
+			                         GetActualSize().right, GetActualSize().bottom + m_DropDownBuffer + m_DropDownSize);
+		else if ((m_ItemsYPositions.size() > m_MinimumVisibleItems && windowSize.Height - GetActualSize().bottom - m_DropDownBuffer >= m_ItemsYPositions[m_MinimumVisibleItems]) ||
+		         GetActualSize().top < windowSize.Height - GetActualSize().bottom)
+			m_CachedListRect = CRect(GetActualSize().left, GetActualSize().bottom + m_DropDownBuffer,
+			                         GetActualSize().right, windowSize.Height);
 		// Not enough space below, thus place items above
 		else
-			m_CachedListRect = CRect(m_CachedActualSize.left, std::max(0.f, m_CachedActualSize.top - m_DropDownBuffer - m_DropDownSize),
-			                         m_CachedActualSize.right, m_CachedActualSize.top - m_DropDownBuffer);
+			m_CachedListRect = CRect(GetActualSize().left, std::max(0.f, GetActualSize().top - m_DropDownBuffer - m_DropDownSize),
+			                         GetActualSize().right, GetActualSize().top - m_DropDownBuffer);
 
 		m_HideScrollBar = false;
 	}
 	else
 	{
 		// Enough space below, no scrollbar needed
-		if (m_CachedActualSize.bottom + m_DropDownBuffer + m_ItemsYPositions.back() <= windowSize.Height)
+		if (GetActualSize().bottom + m_DropDownBuffer + m_ItemsYPositions.back() <= windowSize.Height)
 		{
-			m_CachedListRect = CRect(m_CachedActualSize.left, m_CachedActualSize.bottom + m_DropDownBuffer,
-			                         m_CachedActualSize.right, m_CachedActualSize.bottom + m_DropDownBuffer + m_ItemsYPositions.back());
+			m_CachedListRect = CRect(GetActualSize().left, GetActualSize().bottom + m_DropDownBuffer,
+			                         GetActualSize().right, GetActualSize().bottom + m_DropDownBuffer + m_ItemsYPositions.back());
 			m_HideScrollBar = true;
 		}
 		// Enough space below for some items, but not all, so place items below and use a scrollbar
-		else if ((m_ItemsYPositions.size() > m_MinimumVisibleItems && windowSize.Height - m_CachedActualSize.bottom - m_DropDownBuffer >= m_ItemsYPositions[m_MinimumVisibleItems]) ||
-		         m_CachedActualSize.top < windowSize.Height - m_CachedActualSize.bottom)
+		else if ((m_ItemsYPositions.size() > m_MinimumVisibleItems && windowSize.Height - GetActualSize().bottom - m_DropDownBuffer >= m_ItemsYPositions[m_MinimumVisibleItems]) ||
+		         GetActualSize().top < windowSize.Height - GetActualSize().bottom)
 		{
-			m_CachedListRect = CRect(m_CachedActualSize.left, m_CachedActualSize.bottom + m_DropDownBuffer,
-			                         m_CachedActualSize.right, windowSize.Height);
+			m_CachedListRect = CRect(GetActualSize().left, GetActualSize().bottom + m_DropDownBuffer,
+			                         GetActualSize().right, windowSize.Height);
 			m_HideScrollBar = false;
 		}
 		// Not enough space below, thus place items above. Hide the scrollbar accordingly
 		else
 		{
-			m_CachedListRect = CRect(m_CachedActualSize.left, std::max(0.f, m_CachedActualSize.top - m_DropDownBuffer - m_ItemsYPositions.back()),
-			                         m_CachedActualSize.right, m_CachedActualSize.top - m_DropDownBuffer);
-			m_HideScrollBar = m_CachedActualSize.top > m_ItemsYPositions.back() + m_DropDownBuffer;
+			m_CachedListRect = CRect(GetActualSize().left, std::max(0.f, GetActualSize().top - m_DropDownBuffer - m_ItemsYPositions.back()),
+			                         GetActualSize().right, GetActualSize().top - m_DropDownBuffer);
+			m_HideScrollBar = GetActualSize().top > m_ItemsYPositions.back() + m_DropDownBuffer;
 		}
 	}
 }
@@ -428,8 +428,8 @@ bool CDropDown::IsMouseOver() const
 {
 	if (m_Open)
 	{
-		CRect rect(m_CachedActualSize.left, std::min(m_CachedActualSize.top, GetListRect().top),
-		           m_CachedActualSize.right, std::max(m_CachedActualSize.bottom, GetListRect().bottom));
+		CRect rect(GetActualSize().left, std::min(GetActualSize().top, GetListRect().top),
+		           GetActualSize().right, std::max(GetActualSize().bottom, GetListRect().bottom));
 		return rect.PointInside(m_pGUI.GetMousePos());
 	}
 	else
@@ -441,12 +441,12 @@ void CDropDown::Draw(CCanvas2D& canvas)
 	const CGUISpriteInstance& sprite = m_Enabled ? m_Sprite : m_SpriteDisabled;
 	const CGUISpriteInstance& spriteOverlay = m_Enabled ? m_SpriteOverlay : m_SpriteOverlayDisabled;
 
-	m_pGUI.DrawSprite(sprite, canvas, m_CachedActualSize, m_VisibleArea);
+	m_pGUI.DrawSprite(sprite, canvas, GetActualSize(), m_VisibleArea);
 
 	if (m_ButtonWidth > 0.f)
 	{
-		CRect rect(m_CachedActualSize.right - m_ButtonWidth, m_CachedActualSize.top,
-				   m_CachedActualSize.right, m_CachedActualSize.bottom);
+		CRect rect(GetActualSize().right - m_ButtonWidth, GetActualSize().top,
+				   GetActualSize().right, GetActualSize().bottom);
 
 		if (!m_Enabled)
 		{
@@ -466,11 +466,11 @@ void CDropDown::Draw(CCanvas2D& canvas)
 
 	if (m_Selected != -1) // TODO: Maybe check validity completely?
 	{
-		CRect cliparea = m_VisibleArea != CRect() ? m_VisibleArea : m_CachedActualSize;
-		if (cliparea.right > m_CachedActualSize.right - m_ButtonWidth)
-			cliparea.right = m_CachedActualSize.right - m_ButtonWidth;
+		CRect cliparea = m_VisibleArea != CRect() ? m_VisibleArea : GetActualSize();
+		if (cliparea.right > GetActualSize().right - m_ButtonWidth)
+			cliparea.right = GetActualSize().right - m_ButtonWidth;
 
-		CVector2D pos(m_CachedActualSize.left, m_CachedActualSize.top);
+		CVector2D pos(GetActualSize().left, GetActualSize().top);
 		DrawText(canvas, m_Selected, m_Enabled ? m_TextColorSelected : m_TextColorDisabled, pos, cliparea);
 	}
 
@@ -488,7 +488,7 @@ void CDropDown::Draw(CCanvas2D& canvas)
 		if (m_HideScrollBar)
 			m_ScrollBar.Set(old, false);
 	}
-	m_pGUI.DrawSprite(spriteOverlay, canvas, m_CachedActualSize, m_VisibleArea);
+	m_pGUI.DrawSprite(spriteOverlay, canvas, GetActualSize(), m_VisibleArea);
 }
 
 // When a dropdown list is opened, it needs to be visible above all the other

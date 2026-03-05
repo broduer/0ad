@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -54,18 +54,6 @@ public:
 	 */
 	virtual void ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue value) = 0;
 
-	void DeferSettingChange()
-	{
-		delayNotification = true;
-	}
-
-	void DispatchDelayedSettingChange()
-	{
-		if (!std::exchange(delayNotification, false))
-			return;
-
-		OnSettingChange(GetName(), true);
-	}
 protected:
 	IGUISetting(IGUISetting&& other);
 	IGUISetting& operator=(IGUISetting&& other) = delete;
@@ -95,7 +83,6 @@ protected:
 	 */
 	IGUIObject& m_Object;
 
-	bool delayNotification{false};
 private:
 	CStr m_Name;
 };

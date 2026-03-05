@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -121,10 +121,10 @@ void CTooltip::SetupText()
 	m_Size.Set(size, true);
 }
 
-void CTooltip::UpdateCachedSize()
+void CTooltip::HandleSizeChanged()
 {
-	IGUIObject::UpdateCachedSize();
-	IGUITextOwner::UpdateCachedSize();
+	IGUIObject::HandleSizeChanged();
+	IGUITextOwner::HandleSizeChanged();
 }
 
 void CTooltip::HandleMessage(SGUIMessage& Message)
@@ -143,8 +143,8 @@ void CTooltip::Draw(CCanvas2D& canvas)
 		m_GeneratedTextsValid = true;
 	}
 
-	m_pGUI.DrawSprite(m_Sprite, canvas, m_CachedActualSize);
-	DrawText(canvas, 0, m_TextColor, m_CachedActualSize.TopLeft());
+	m_pGUI.DrawSprite(m_Sprite, canvas, GetActualSize());
+	DrawText(canvas, 0, m_TextColor, GetActualSize().TopLeft());
 }
 
 float CTooltip::GetBufferedZ() const
