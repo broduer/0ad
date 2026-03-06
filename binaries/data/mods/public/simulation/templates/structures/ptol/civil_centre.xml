@@ -2,7 +2,7 @@
 <Entity parent="template_structure_civic_civil_centre">
   <Footprint>
     <Square width="41" depth="33"/>
-    <Height>8.0</Height>
+    <Height>1.0</Height>
   </Footprint>
   <Identity>
     <Civ>ptol</Civ>
@@ -20,5 +20,10 @@
   </Trainer>
   <VisualActor>
     <Actor>structures/ptolemies/civic_centre.xml</Actor>
+  </VisualActor>
+  <VisualActor>
+   <SelectionShape>
+      <Footprint/>
+    </SelectionShape>
   </VisualActor>
 </Entity>
