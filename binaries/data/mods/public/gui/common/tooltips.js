@@ -42,8 +42,7 @@ function getCostTypes()
 
 function resourceIcon(resource)
 {
-	// The icons are larger than the font is high; they have to be moved down a bit to appear fully in-line with the text.
-	return '[icon="icon_' + resource + '" displace="0 3"]';
+	return `[icon="icon_${resource}"]`;
 }
 
 function resourceNameFirstWord(type)
