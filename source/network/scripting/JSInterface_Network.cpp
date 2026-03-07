@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,6 +19,7 @@
 
 #include "JSInterface_Network.h"
 
+#include "i18n/L10n.h"
 #include "lib/code_generation.h"
 #include "lib/debug.h"
 #include "lib/types.h"
@@ -89,7 +90,7 @@ void StartNetworkHost(const CStrW& playerName, const u16 serverPort, const CStr&
 	if (!g_NetServer->SetupConnection(serverPort))
 	{
 		SAFE_DELETE(g_NetServer);
-		throw std::runtime_error{"Failed to start server"};
+		throw std::runtime_error{g_L10n.Translate("Failed to start server")};
 	}
 
 	// In lobby, we send our public ip and port on request to the players who want to connect.
@@ -97,7 +98,7 @@ void StartNetworkHost(const CStrW& playerName, const u16 serverPort, const CStr&
 	if (hasLobby && !g_NetServer->SetConnectionData())
 	{
 		SAFE_DELETE(g_NetServer);
-		throw std::runtime_error{"Failed to resolve public IP-address."};
+		throw std::runtime_error{g_L10n.Translate("Failed to resolve public IP-address.")};
 	}
 
 	// Generate a secret to identify the host client.
@@ -138,7 +139,7 @@ void StartNetworkHost(const CStrW& playerName, const u16 serverPort, const CStr&
 	{
 		SAFE_DELETE(g_NetClient);
 		SAFE_DELETE(g_Game);
-		throw std::runtime_error{"Failed to connect to server"};
+		throw std::runtime_error{g_L10n.Translate("Failed to connect to server")};
 	}
 }
 
@@ -156,7 +157,7 @@ void StartNetworkJoin(const CStrW& playerName, const CStr& serverAddress, u16 se
 	{
 		SAFE_DELETE(g_NetClient);
 		SAFE_DELETE(g_Game);
-		throw std::runtime_error{"Failed to connect to server"};
+		throw std::runtime_error{g_L10n.Translate("Failed to connect to server")};
 	}
 }
 
@@ -222,7 +223,7 @@ void AssignNetworkPlayer(int playerID, const CStr& guid)
 void KickPlayer(const CStrW& playerName, bool ban)
 {
 	if (!g_NetClient)
-		throw std::logic_error{"g_NetClient is null."};
+		throw std::logic_error{g_L10n.Translate("Client isn't started")};
 	g_NetClient->SendKickPlayerMessage(playerName, ban);
 }
 
@@ -238,11 +239,7 @@ void SendNetworkChat(const ScriptRequest& rq, const CStrW& message, JS::HandleVa
 
 	auto receivers = std::make_optional<std::vector<std::string>>();
 	if (!Script::FromJSVal(rq, handle, *receivers))
-	{
-		throw std::invalid_argument{"The second argument to `SendNetworkChat` has to be either an "
-			"Array or a nullish value."};
-		return;
-	}
+		throw std::invalid_argument{g_L10n.Translate("The second argument to `SendNetworkChat` has to be either an Array or a nullish value.")};
 
 	g_NetClient->SendChatMessage(message, std::move(receivers));
 }
@@ -284,7 +281,8 @@ void StartNetworkGame(const ScriptInterface& scriptInterface, JS::HandleValue sa
 		g_NetClient->SendStartSavedGameMessage(attributesAsString, loadResult->savedState);
 	else
 	{
-		throw std::runtime_error{fmt::format("Failed to load the saved game: \"{}\"",
+		throw std::runtime_error{fmt::format(fmt::runtime(
+			g_L10n.Translate("Failed to load the saved game: \"{}\"")),
 			utf8_from_wstring(savegameID).c_str())};
 	}
 }
