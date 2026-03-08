@@ -490,6 +490,9 @@ echo "Building wxWidgets..."
 
 		rm -rf $LIB_DIRECTORY bin include lib share
 		tar -xf $LIB_ARCHIVE || die
+		# Backport wxWidgets commit dd3f2509499e0e6aac4ebf8dab72b5d496c5bfbc.
+		# Merged in wxWidgets 3.3.2.
+		patch -Np1 -d $LIB_DIRECTORY -i "$(pwd)/../../macos-patches/05-wxwidgets-no-agl-framework.patch" || die
 
 		(
 			mkdir -p $LIB_DIRECTORY/build-release
