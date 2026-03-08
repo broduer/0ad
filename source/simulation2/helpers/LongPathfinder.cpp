@@ -24,7 +24,9 @@
 #include "maths/Fixed.h"
 #include "maths/FixedVector2D.h"
 #include "ps/CLogger.h"
+#include "ps/Future.h"
 #include "ps/Profiler2.h"
+#include "ps/TaskManager.h"
 #include "renderer/TerrainOverlay.h"
 #include "simulation2/helpers/HierarchicalPathfinder.h"
 #include "simulation2/helpers/Pathfinding.h"
@@ -195,9 +197,9 @@ public:
 		m_ChunksH = (terrain.m_H + JPC_CHUNK_SIZE - 1) / JPC_CHUNK_SIZE;
 		m_Data.assign(TotalDataSize(), 0);
 
-		for (u8 cj = 0; cj < m_ChunksH; ++cj)
-			for (u8 ci = 0; ci < m_ChunksW; ++ci)
-				BuildChunk(terrain, passClass, ci, cj);
+		ForEachChunk([&](u8 ci, u8 cj) {
+			BuildChunk(terrain, passClass, ci, cj);
+		});
 	}
 
 	void RebuildDirty(const Grid<NavcellData>& terrain, pass_class_t passClass, const DirtyStripeMask& dirty)
@@ -213,10 +215,10 @@ public:
 		ENSURE(dirty.m_ChunksW == m_ChunksW);
 		ENSURE(dirty.m_ChunksH == m_ChunksH);
 
-		for (u8 cj = 0; cj < m_ChunksH; ++cj)
-			for (u8 ci = 0; ci < m_ChunksW; ++ci)
-				if (dirty.HasAnyDirtyStripe(ci, cj))
-					BuildChunk(terrain, passClass, ci, cj, &dirty);
+		ForEachChunk([&](u8 ci, u8 cj) {
+			if (dirty.HasAnyDirtyStripe(ci, cj))
+				BuildChunk(terrain, passClass, ci, cj, &dirty);
+		});
 	}
 
 	size_t GetMemoryUsage() const
@@ -245,6 +247,48 @@ public:
 	}
 
 private:
+	template<typename Callback>
+	void ForEachChunk(Callback&& callback)
+	{
+		const size_t chunkCount = static_cast<size_t>(m_ChunksW) * m_ChunksH;
+		if (chunkCount <= 1)
+		{
+			if (chunkCount == 1)
+				callback(0, 0);
+			return;
+		}
+
+		const size_t numFutures = std::min(g_TaskManager.GetNumberOfWorkers(), chunkCount - 1);
+		if (numFutures == 0)
+		{
+			for (size_t chunk = 0; chunk < chunkCount; ++chunk)
+				callback(static_cast<u8>(chunk % m_ChunksW), static_cast<u8>(chunk / m_ChunksW));
+			return;
+		}
+
+		std::atomic<size_t> nextChunkIdx{0};
+		auto processChunks = [&]() {
+			for (;;)
+			{
+				const size_t chunk = nextChunkIdx.fetch_add(1);
+				if (chunk >= chunkCount)
+					break;
+
+				callback(static_cast<u8>(chunk % m_ChunksW), static_cast<u8>(chunk / m_ChunksW));
+			}
+		};
+
+		std::vector<Future<void>> futures;
+		futures.reserve(numFutures);
+		for (size_t i = 0; i < numFutures; ++i)
+			futures.push_back({g_TaskManager, processChunks});
+
+		processChunks();
+
+		for (Future<void>& future : futures)
+			future.Get();
+	}
+
 	template<bool VERTICAL, bool POSITIVE>
 	int GetJumpPoint(int i, int j, const PathGoal& goal) const
 	{
