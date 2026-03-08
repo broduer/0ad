@@ -587,12 +587,14 @@ void CCmpPathfinder::UpdateGrid()
 	{
 		std::map<std::string, pass_class_t> nonPathfindingPassClasses, pathfindingPassClasses;
 		GetPassabilityClasses(nonPathfindingPassClasses, pathfindingPassClasses);
-		m_LongPathfinder->Reload(m_Grid);
+		m_LongPathfinder->Reload(m_Grid, pathfindingPassClasses);
 		m_PathfinderHier->Recompute(m_Grid, nonPathfindingPassClasses, pathfindingPassClasses);
 	}
 	else
 	{
-		m_LongPathfinder->Update(m_Grid);
+		std::map<std::string, pass_class_t> nonPathfindingPassClasses, pathfindingPassClasses;
+		GetPassabilityClasses(nonPathfindingPassClasses, pathfindingPassClasses);
+		m_LongPathfinder->Update(m_Grid, m_DirtinessInformation.dirtinessGrid, pathfindingPassClasses);
 		m_PathfinderHier->Update(m_Grid, m_DirtinessInformation.dirtinessGrid);
 	}
 

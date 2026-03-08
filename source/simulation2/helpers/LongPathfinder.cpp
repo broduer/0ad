@@ -30,14 +30,127 @@
 #include "simulation2/helpers/Pathfinding.h"
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstddef>
+#include <limits>
 #include <mutex>
 #include <utility>
 
 namespace
 {
 static std::mutex g_DebugMutex;
+constexpr u8 JPC_CHUNK_SIZE = 48;
+constexpr u8 JPC_CONTINUE = 0xFF;
+constexpr u8 JPC_OBSTRUCTION_BIT = 0x80;
+constexpr u8 JPC_COORD_MASK = 0x7F;
+static_assert(JPC_CHUNK_SIZE < JPC_COORD_MASK);
+constexpr u16 MAX_SHIPPED_MAP_TILES = 512;
+static_assert(
+	(MAX_SHIPPED_MAP_TILES * Pathfinding::NAVCELLS_PER_TERRAIN_TILE + JPC_CHUNK_SIZE - 1) / JPC_CHUNK_SIZE <= std::numeric_limits<u8>::max(),
+	"DirtyStripeMask chunk indices assume supported map sizes fit in u8.");
+
+size_t PassClassToIndex(pass_class_t passClass)
+{
+	ENSURE(passClass);
+	ENSURE((passClass & (passClass - 1)) == 0);
+	return std::countr_zero(passClass);
+}
+
+struct DirtyStripeMask
+{
+	u8 m_ChunksW = 0;
+	u8 m_ChunksH = 0;
+	std::vector<u8> m_HorizontalRows;
+	std::vector<u8> m_VerticalColumns;
+
+	bool IsHorizontalDirty(u8 ci, u8 cj, u8 localRow) const
+	{
+		return m_HorizontalRows[(cj * m_ChunksW + ci) * JPC_CHUNK_SIZE + localRow] != 0;
+	}
+
+	bool IsVerticalDirty(u8 ci, u8 cj, u8 localColumn) const
+	{
+		return m_VerticalColumns[(cj * m_ChunksW + ci) * JPC_CHUNK_SIZE + localColumn] != 0;
+	}
+
+	bool HasAnyDirtyStripe(u8 ci, u8 cj) const
+	{
+		const size_t base = (cj * m_ChunksW + ci) * JPC_CHUNK_SIZE;
+		for (u8 local = 0; local < JPC_CHUNK_SIZE; ++local)
+			if (m_HorizontalRows[base + local] != 0 || m_VerticalColumns[base + local] != 0)
+				return true;
+		return false;
+	}
+};
+
+void MarkHorizontalDirtyRow(DirtyStripeMask& dirty, u16 gridHeight, u8 ci, int globalRow)
+{
+	if (globalRow < 0 || globalRow >= gridHeight)
+		return;
+
+	const u8 cj = globalRow / JPC_CHUNK_SIZE;
+	const u8 localRow = globalRow % JPC_CHUNK_SIZE;
+	dirty.m_HorizontalRows[(cj * dirty.m_ChunksW + ci) * JPC_CHUNK_SIZE + localRow] = 1;
+}
+
+void MarkVerticalDirtyColumn(DirtyStripeMask& dirty, u16 gridWidth, int globalColumn, u8 cj)
+{
+	if (globalColumn < 0 || globalColumn >= gridWidth)
+		return;
+
+	const u8 ci = globalColumn / JPC_CHUNK_SIZE;
+	const u8 localColumn = globalColumn % JPC_CHUNK_SIZE;
+	dirty.m_VerticalColumns[(cj * dirty.m_ChunksW + ci) * JPC_CHUNK_SIZE + localColumn] = 1;
+}
+
+DirtyStripeMask ComputeDirtyStripes(const Grid<u8>& dirtinessGrid, u16 gridWidth, u16 gridHeight)
+{
+	DirtyStripeMask dirty;
+	dirty.m_ChunksW = (gridWidth + JPC_CHUNK_SIZE - 1) / JPC_CHUNK_SIZE;
+	dirty.m_ChunksH = (gridHeight + JPC_CHUNK_SIZE - 1) / JPC_CHUNK_SIZE;
+	dirty.m_HorizontalRows.assign(dirty.m_ChunksW * dirty.m_ChunksH * JPC_CHUNK_SIZE, 0);
+	dirty.m_VerticalColumns.assign(dirty.m_ChunksW * dirty.m_ChunksH * JPC_CHUNK_SIZE, 0);
+
+	if (dirtinessGrid.m_W == 0 || dirtinessGrid.m_H == 0)
+		return dirty;
+
+	for (u16 j = 0; j < dirtinessGrid.m_H; ++j)
+	{
+		for (u16 i = 0; i < dirtinessGrid.m_W; ++i)
+		{
+			if (!dirtinessGrid.get(i, j))
+				continue;
+
+			const u8 ci = i / JPC_CHUNK_SIZE;
+			const u8 cj = j / JPC_CHUNK_SIZE;
+			const int chunkStartI = ci * JPC_CHUNK_SIZE;
+			const int chunkStartJ = cj * JPC_CHUNK_SIZE;
+			const int chunkEndI = std::min<int>(chunkStartI + JPC_CHUNK_SIZE, gridWidth) - 1;
+			const int chunkEndJ = std::min<int>(chunkStartJ + JPC_CHUNK_SIZE, gridHeight) - 1;
+
+			for (int row = j - 1; row <= j + 1; ++row)
+			{
+				MarkHorizontalDirtyRow(dirty, gridHeight, ci, row);
+				if (i == chunkStartI && ci > 0)
+					MarkHorizontalDirtyRow(dirty, gridHeight, ci - 1, row);
+				if (i == chunkEndI && ci + 1 < dirty.m_ChunksW)
+					MarkHorizontalDirtyRow(dirty, gridHeight, ci + 1, row);
+			}
+
+			for (int column = i - 1; column <= i + 1; ++column)
+			{
+				MarkVerticalDirtyColumn(dirty, gridWidth, column, cj);
+				if (j == chunkStartJ && cj > 0)
+					MarkVerticalDirtyColumn(dirty, gridWidth, column, cj - 1);
+				if (j == chunkEndJ && cj + 1 < dirty.m_ChunksH)
+					MarkVerticalDirtyColumn(dirty, gridWidth, column, cj + 1);
+			}
+		}
+	}
+
+	return dirty;
+}
 }
 
 /**
@@ -71,324 +184,389 @@ static std::mutex g_DebugMutex;
  */
 class JumpPointCache
 {
-	/**
-	 * Simple space-inefficient row storage.
-	 */
-	struct RowRaw
-	{
-		std::vector<u16> data;
-
-		size_t GetMemoryUsage() const
-		{
-			return data.capacity() * sizeof(u16);
-		}
-
-		RowRaw(int length)
-		{
-			data.resize(length);
-		}
-
-		/**
-		 * Set cells x0 <= x < x1 to have jump point x1.
-		 */
-		void SetRange(int x0, int x1, bool obstruction)
-		{
-			ENSURE(0 <= x0 && x0 <= x1 && x1 < (int)data.size());
-			for (int x = x0; x < x1; ++x)
-				data[x] = (x1 << 1) | (obstruction ? 1 : 0);
-		}
-
-		/**
-		 * Returns the coordinate of the next jump point xp (where x < xp),
-		 * and whether it's an obstruction point or jump point.
-		 */
-		void Get(int x, int& xp, bool& obstruction) const
-		{
-			ENSURE(0 <= x && x < (int)data.size());
-			xp = data[x] >> 1;
-			obstruction = data[x] & 1;
-		}
-
-		void Finish() { }
-	};
-
-	struct RowTree
-	{
-		/**
-		 * Represents an interval [u15 x0, u16 x1)
-		 * with a boolean obstruction flag,
-		 * packed into a single u32.
-		 */
-		struct Interval
-		{
-			Interval() : data(0) { }
-
-			Interval(int x0, int x1, bool obstruction)
-			{
-				ENSURE(0 <= x0 && x0 < 0x8000);
-				ENSURE(0 <= x1 && x1 < 0x10000);
-				data = ((u32)x0 << 17) | (u32)(obstruction ? 0x10000 : 0) | (u32)x1;
-			}
-
-			int x0() { return data >> 17; }
-			int x1() { return data & 0xFFFF; }
-			bool obstruction() { return (data & 0x10000) != 0; }
-
-			u32 data;
-		};
-
-		std::vector<Interval> data;
-
-		size_t GetMemoryUsage() const
-		{
-			return data.capacity() * sizeof(Interval);
-		}
-
-		RowTree(int /*length*/)
-		{
-		}
-
-		void SetRange(int x0, int x1, bool obstruction)
-		{
-			ENSURE(0 <= x0 && x0 <= x1);
-			data.emplace_back(x0, x1, obstruction);
-		}
-
-		/**
-		 * Recursive helper function for Finish().
-		 * Given two ranges [x0, pivot) and [pivot, x1) in the sorted array 'data',
-		 * the pivot element is added onto the binary tree (stored flattened in an
-		 * array), and then each range is split into two sub-ranges with a pivot in
-		 * the middle (to ensure the tree remains balanced) and ConstructTree recurses.
-		 */
-		void ConstructTree(std::vector<Interval>& tree, size_t x0, size_t pivot, size_t x1, size_t idx_tree)
-		{
-			ENSURE(x0 < data.size());
-			ENSURE(x1 <= data.size());
-			ENSURE(x0 <= pivot);
-			ENSURE(pivot < x1);
-			ENSURE(idx_tree < tree.size());
-
-			tree[idx_tree] = data[pivot];
-
-			if (x0 < pivot)
-				ConstructTree(tree, x0, (x0 + pivot) / 2, pivot, (idx_tree << 1) + 1);
-			if (pivot + 1 < x1)
-				ConstructTree(tree, pivot + 1, (pivot + x1) / 2, x1, (idx_tree << 1) + 2);
-		}
-
-		void Finish()
-		{
-			// Convert the sorted interval list into a balanced binary tree
-
-			std::vector<Interval> tree;
-
-			if (!data.empty())
-			{
-				size_t depth = ceil_log2(data.size() + 1);
-				tree.resize((1 << depth) - 1);
-				ConstructTree(tree, 0, data.size() / 2, data.size(), 0);
-			}
-
-			data.swap(tree);
-		}
-
-		void Get(int x, int& xp, bool& obstruction) const
-		{
-			// Search the binary tree for an interval which contains x
-			int i = 0;
-			while (true)
-			{
-				ENSURE(i < (int)data.size());
-				Interval interval = data[i];
-				if (x < interval.x0())
-					i = (i << 1) + 1;
-				else if (x >= interval.x1())
-					i = (i << 1) + 2;
-				else
-				{
-					ENSURE(interval.x0() <= x && x < interval.x1());
-					xp = interval.x1();
-					obstruction = interval.obstruction();
-					return;
-				}
-			}
-		}
-	};
-
-	// Pick one of the row implementations
-	typedef RowRaw Row;
-
 public:
-	int m_Width;
-	int m_Height;
-	std::vector<Row> m_JumpPointsRight;
-	std::vector<Row> m_JumpPointsLeft;
-	std::vector<Row> m_JumpPointsUp;
-	std::vector<Row> m_JumpPointsDown;
-
-	/**
-	 * Compute the cached obstruction/jump points for each cell,
-	 * in a single direction. By default the code assumes the rightwards
-	 * (+i) direction; set 'transpose' to switch to upwards (+j),
-	 * and/or set 'mirror' to reverse the direction.
-	 */
-	void ComputeRows(std::vector<Row>& rows,
-		const Grid<NavcellData>& terrain, pass_class_t passClass,
-		bool transpose, bool mirror)
+	void Reload(const Grid<NavcellData>& terrain, pass_class_t passClass)
 	{
-		int w = terrain.m_W;
-		int h = terrain.m_H;
+		PROFILE2("JumpPointCache rebuild all");
 
-		if (transpose)
-			std::swap(w, h);
+		m_Width = terrain.m_W;
+		m_Height = terrain.m_H;
+		m_ChunksW = (terrain.m_W + JPC_CHUNK_SIZE - 1) / JPC_CHUNK_SIZE;
+		m_ChunksH = (terrain.m_H + JPC_CHUNK_SIZE - 1) / JPC_CHUNK_SIZE;
+		m_Data.assign(TotalDataSize(), 0);
 
-		// Check the terrain passability, adjusted for transpose/mirror
-#define TERRAIN_IS_PASSABLE(i, j) \
-	IS_PASSABLE( \
-		mirror \
-		? (transpose ? terrain.get((j), w-1-(i)) : terrain.get(w-1-(i), (j))) \
-		: (transpose ? terrain.get((j), (i)) : terrain.get((i), (j))) \
-	, passClass)
-
-		rows.reserve(h);
-		for (int j = 0; j < h; ++j)
-			rows.emplace_back(w);
-
-		for (int j = 1; j < h - 1; ++j)
-		{
-			// Find the first passable cell.
-			// Then, find the next jump/obstruction point after that cell,
-			// and store that point for the passable range up to that cell,
-			// then repeat.
-
-			int i = 0;
-			while (i < w)
-			{
-				// Restart the 'while' loop until we reach a passable cell
-				if (!TERRAIN_IS_PASSABLE(i, j))
-				{
-					++i;
-					continue;
-				}
-
-				// i is now a passable cell; find the next jump/obstruction point.
-				// (We assume the map is surrounded by impassable cells, so we don't
-				// need to explicitly check for world bounds here.)
-
-				int i0 = i;
-				while (true)
-				{
-					++i;
-
-					// Check if we hit an obstructed tile
-					if (!TERRAIN_IS_PASSABLE(i, j))
-					{
-						rows[j].SetRange(i0, i, true);
-						break;
-					}
-
-					// Check if we reached a jump point
-					if ((!TERRAIN_IS_PASSABLE(i - 1, j - 1) && TERRAIN_IS_PASSABLE(i, j - 1)) ||
-						(!TERRAIN_IS_PASSABLE(i - 1, j + 1) && TERRAIN_IS_PASSABLE(i, j + 1)))
-					{
-						rows[j].SetRange(i0, i, false);
-						break;
-					}
-				}
-			}
-
-			rows[j].Finish();
-		}
-#undef TERRAIN_IS_PASSABLE
+		for (u8 cj = 0; cj < m_ChunksH; ++cj)
+			for (u8 ci = 0; ci < m_ChunksW; ++ci)
+				BuildChunk(terrain, passClass, ci, cj);
 	}
 
-	void reset(const Grid<NavcellData>* terrain, pass_class_t passClass)
+	void RebuildDirty(const Grid<NavcellData>& terrain, pass_class_t passClass, const DirtyStripeMask& dirty)
 	{
-		PROFILE2("JumpPointCache reset");
+		PROFILE2("JumpPointCache rebuild dirty stripes");
 
-		m_Width = terrain->m_W;
-		m_Height = terrain->m_H;
+		if (m_Width != terrain.m_W || m_Height != terrain.m_H)
+		{
+			Reload(terrain, passClass);
+			return;
+		}
 
-		ComputeRows(m_JumpPointsRight, *terrain, passClass, false, false);
-		ComputeRows(m_JumpPointsLeft, *terrain, passClass, false, true);
-		ComputeRows(m_JumpPointsUp, *terrain, passClass, true, false);
-		ComputeRows(m_JumpPointsDown, *terrain, passClass, true, true);
+		ENSURE(dirty.m_ChunksW == m_ChunksW);
+		ENSURE(dirty.m_ChunksH == m_ChunksH);
+
+		for (u8 cj = 0; cj < m_ChunksH; ++cj)
+			for (u8 ci = 0; ci < m_ChunksW; ++ci)
+				if (dirty.HasAnyDirtyStripe(ci, cj))
+					BuildChunk(terrain, passClass, ci, cj, &dirty);
 	}
 
 	size_t GetMemoryUsage() const
 	{
-		size_t bytes = 0;
-		for (int i = 0; i < m_Width; ++i)
-		{
-			bytes += m_JumpPointsUp[i].GetMemoryUsage();
-			bytes += m_JumpPointsDown[i].GetMemoryUsage();
-		}
-		for (int j = 0; j < m_Height; ++j)
-		{
-			bytes += m_JumpPointsRight[j].GetMemoryUsage();
-			bytes += m_JumpPointsLeft[j].GetMemoryUsage();
-		}
-		return bytes;
+		return m_Data.capacity() * sizeof(u8);
 	}
 
-	/**
-	 * Returns the next jump point (or goal point) to explore,
-	 * at (ip, j) where i < ip.
-	 * Returns i if there is no such point.
-	 */
 	int GetJumpPointRight(int i, int j, const PathGoal& goal) const
 	{
-		int ip;
-		bool obstruction;
-		m_JumpPointsRight[j].Get(i, ip, obstruction);
-		// Adjust ip to be a goal cell, if there is one closer than the jump point;
-		// and then return the new ip if there is a goal,
-		// or the old ip if there is a (non-obstruction) jump point
-		if (goal.NavcellRectContainsGoal(i + 1, j, ip - 1, j, &ip, NULL) || !obstruction)
-			return ip;
-		return i;
+		return GetJumpPoint<false, true>(i, j, goal);
 	}
 
 	int GetJumpPointLeft(int i, int j, const PathGoal& goal) const
 	{
-		int mip; // mirrored value, because m_JumpPointsLeft is generated from a mirrored map
-		bool obstruction;
-		m_JumpPointsLeft[j].Get(m_Width - 1 - i, mip, obstruction);
-		int ip = m_Width - 1 - mip;
-		if (goal.NavcellRectContainsGoal(i - 1, j, ip + 1, j, &ip, NULL) || !obstruction)
-			return ip;
-		return i;
+		return GetJumpPoint<false, false>(i, j, goal);
 	}
 
 	int GetJumpPointUp(int i, int j, const PathGoal& goal) const
 	{
-		int jp;
-		bool obstruction;
-		m_JumpPointsUp[i].Get(j, jp, obstruction);
-		if (goal.NavcellRectContainsGoal(i, j + 1, i, jp - 1, NULL, &jp) || !obstruction)
-			return jp;
-		return j;
+		return GetJumpPoint<true, true>(i, j, goal);
 	}
 
 	int GetJumpPointDown(int i, int j, const PathGoal& goal) const
 	{
-		int mjp; // mirrored value
-		bool obstruction;
-		m_JumpPointsDown[i].Get(m_Height - 1 - j, mjp, obstruction);
-		int jp = m_Height - 1 - mjp;
-		if (goal.NavcellRectContainsGoal(i, j - 1, i, jp + 1, NULL, &jp) || !obstruction)
-			return jp;
-		return j;
+		return GetJumpPoint<true, false>(i, j, goal);
 	}
+
+private:
+	template<bool VERTICAL, bool POSITIVE>
+	int GetJumpPoint(int i, int j, const PathGoal& goal) const
+	{
+		const int sourceI = i;
+		const int sourceJ = j;
+		const int step = POSITIVE ? 1 : -1;
+		int chunkI = i / JPC_CHUNK_SIZE;
+		int chunkJ = j / JPC_CHUNK_SIZE;
+		int sourceSlot = (VERTICAL ? j : i) % JPC_CHUNK_SIZE;
+
+		while (true)
+		{
+			const int localFixed = VERTICAL ? i - chunkI * JPC_CHUNK_SIZE : j - chunkJ * JPC_CHUNK_SIZE;
+			const int chunkStart = (VERTICAL ? chunkJ : chunkI) * JPC_CHUNK_SIZE;
+
+			// For NEGATIVE at sourceSlot==0, the first candidate is before the chunk start,
+			// so treat this as a virtual CONTINUE to the previous chunk.
+			const u8 entry = (!POSITIVE && sourceSlot == 0) ? JPC_CONTINUE :
+				GetEntry<VERTICAL, POSITIVE>(chunkI, chunkJ, localFixed, sourceSlot);
+			const int boundary = POSITIVE ? chunkStart + PrimaryLength<VERTICAL>(chunkI, chunkJ) - 1 : chunkStart;
+
+			if (entry == JPC_CONTINUE)
+			{
+				int goalCoord;
+				if constexpr (VERTICAL)
+				{
+					if ((POSITIVE && j + 1 <= boundary && goal.NavcellRectContainsGoal(i, j + 1, i, boundary, NULL, &goalCoord)) ||
+						(!POSITIVE && j - 1 >= boundary && goal.NavcellRectContainsGoal(i, j - 1, i, boundary, NULL, &goalCoord)))
+						return goalCoord;
+
+					if ((POSITIVE && chunkJ + 1 >= m_ChunksH) ||
+						(!POSITIVE && chunkJ == 0))
+						return sourceJ;
+
+					chunkJ += step;
+					sourceSlot = POSITIVE ? -1 : PrimaryLength<VERTICAL>(chunkI, chunkJ);
+					j = boundary;
+				}
+				else
+				{
+					if ((POSITIVE && i + 1 <= boundary && goal.NavcellRectContainsGoal(i + 1, j, boundary, j, &goalCoord, NULL)) ||
+						(!POSITIVE && i - 1 >= boundary && goal.NavcellRectContainsGoal(i - 1, j, boundary, j, &goalCoord, NULL)))
+						return goalCoord;
+
+					if ((POSITIVE && chunkI + 1 >= m_ChunksW) ||
+						(!POSITIVE && chunkI == 0))
+						return sourceI;
+
+					chunkI += step;
+					sourceSlot = POSITIVE ? -1 : PrimaryLength<VERTICAL>(chunkI, chunkJ);
+					i = boundary;
+				}
+				continue;
+			}
+
+			const int jump = chunkStart + (entry & JPC_COORD_MASK);
+			int goalCoord;
+			if constexpr (VERTICAL)
+			{
+				if ((POSITIVE && j + 1 <= jump - 1 && goal.NavcellRectContainsGoal(i, j + 1, i, jump - 1, NULL, &goalCoord)) ||
+					(!POSITIVE && j - 1 >= jump + 1 && goal.NavcellRectContainsGoal(i, j - 1, i, jump + 1, NULL, &goalCoord)))
+					return goalCoord;
+			}
+			else
+			{
+				if ((POSITIVE && i + 1 <= jump - 1 && goal.NavcellRectContainsGoal(i + 1, j, jump - 1, j, &goalCoord, NULL)) ||
+					(!POSITIVE && i - 1 >= jump + 1 && goal.NavcellRectContainsGoal(i - 1, j, jump + 1, j, &goalCoord, NULL)))
+					return goalCoord;
+			}
+
+			if ((entry & JPC_OBSTRUCTION_BIT) == 0)
+				return jump;
+			return VERTICAL ? sourceJ : sourceI;
+		}
+	}
+
+	static bool IsPassable(const Grid<NavcellData>& terrain, pass_class_t passClass, int i, int j)
+	{
+		if (i < 0 || j < 0 || i >= terrain.m_W || j >= terrain.m_H)
+			return false;
+		return IS_PASSABLE(terrain.get(i, j), passClass);
+	}
+
+	template<bool VERTICAL, bool POSITIVE>
+	static bool IsJumpPoint(const Grid<NavcellData>& terrain, pass_class_t passClass, int i, int j)
+	{
+		if constexpr (!VERTICAL && POSITIVE)
+			return (!IsPassable(terrain, passClass, i - 1, j - 1) && IsPassable(terrain, passClass, i, j - 1)) ||
+				(!IsPassable(terrain, passClass, i - 1, j + 1) && IsPassable(terrain, passClass, i, j + 1));
+		if constexpr (!VERTICAL && !POSITIVE)
+			return (!IsPassable(terrain, passClass, i + 1, j - 1) && IsPassable(terrain, passClass, i, j - 1)) ||
+				(!IsPassable(terrain, passClass, i + 1, j + 1) && IsPassable(terrain, passClass, i, j + 1));
+		if constexpr (VERTICAL && POSITIVE)
+			return (!IsPassable(terrain, passClass, i - 1, j - 1) && IsPassable(terrain, passClass, i - 1, j)) ||
+				(!IsPassable(terrain, passClass, i + 1, j - 1) && IsPassable(terrain, passClass, i + 1, j));
+		return (!IsPassable(terrain, passClass, i - 1, j + 1) && IsPassable(terrain, passClass, i - 1, j)) ||
+			(!IsPassable(terrain, passClass, i + 1, j + 1) && IsPassable(terrain, passClass, i + 1, j));
+	}
+
+	static u8 Encode(int coord, bool obstruction)
+	{
+		return static_cast<u8>(coord | (obstruction ? JPC_OBSTRUCTION_BIT : 0));
+	}
+
+	int ChunkWidth(u8 ci) const
+	{
+		return std::min<int>(JPC_CHUNK_SIZE, m_Width - ci * JPC_CHUNK_SIZE);
+	}
+
+	int ChunkHeight(u8 cj) const
+	{
+		return std::min<int>(JPC_CHUNK_SIZE, m_Height - cj * JPC_CHUNK_SIZE);
+	}
+
+	template<bool VERTICAL>
+	int PrimaryLength(u8 ci, u8 cj) const
+	{
+		if constexpr (VERTICAL)
+			return ChunkHeight(cj);
+		return ChunkWidth(ci);
+	}
+
+	template<bool VERTICAL>
+	int FixedLength(u8 ci, u8 cj) const
+	{
+		if constexpr (VERTICAL)
+			return ChunkWidth(ci);
+		return ChunkHeight(cj);
+	}
+
+	static size_t ChunkSize(int width, int height)
+	{
+		return 2 * height * (width + 1) + 2 * width * (height + 1);
+	}
+
+	size_t RowSize(int height) const
+	{
+		return (m_ChunksW - 1) * ChunkSize(JPC_CHUNK_SIZE, height) +
+			ChunkSize(ChunkWidth(m_ChunksW - 1), height);
+	}
+
+	size_t TotalDataSize() const
+	{
+		return (m_ChunksH - 1) * RowSize(JPC_CHUNK_SIZE) +
+			RowSize(ChunkHeight(m_ChunksH - 1));
+	}
+
+	size_t ChunkOffset(u8 ci, u8 cj) const
+	{
+		return cj * RowSize(JPC_CHUNK_SIZE) + ci * ChunkSize(JPC_CHUNK_SIZE, ChunkHeight(cj));
+	}
+
+	template<bool VERTICAL, bool POSITIVE>
+	size_t DirectionOffset(u8 ci, u8 cj) const
+	{
+		const int width = ChunkWidth(ci);
+		const int height = ChunkHeight(cj);
+		size_t offset = ChunkOffset(ci, cj);
+		if constexpr (!VERTICAL && POSITIVE)
+			return offset;
+		offset += height * (width + 1);
+		if constexpr (!VERTICAL && !POSITIVE)
+			return offset;
+		offset += height * (width + 1);
+		if constexpr (VERTICAL && POSITIVE)
+			return offset;
+		return offset + width * (height + 1);
+	}
+
+	template<bool VERTICAL, bool POSITIVE>
+	size_t EntryIndex(u8 ci, u8 cj, int localFixed, int sourceSlot) const
+	{
+		const int stride = PrimaryLength<VERTICAL>(ci, cj) + 1;
+		if constexpr (POSITIVE)
+			return DirectionOffset<VERTICAL, POSITIVE>(ci, cj) + localFixed * stride + sourceSlot + 1;
+		return DirectionOffset<VERTICAL, POSITIVE>(ci, cj) + localFixed * stride + sourceSlot;
+	}
+
+	template<bool VERTICAL, bool POSITIVE>
+	u8& GetEntry(u8 ci, u8 cj, int localFixed, int sourceSlot)
+	{
+		return m_Data[EntryIndex<VERTICAL, POSITIVE>(ci, cj, localFixed, sourceSlot)];
+	}
+
+	template<bool VERTICAL, bool POSITIVE>
+	u8 GetEntry(u8 ci, u8 cj, int localFixed, int sourceSlot) const
+	{
+		return m_Data[EntryIndex<VERTICAL, POSITIVE>(ci, cj, localFixed, sourceSlot)];
+	}
+
+	template<bool VERTICAL, bool POSITIVE>
+	void BuildDirection(u8 ci, u8 cj, const Grid<NavcellData>& terrain, pass_class_t passClass, int i0, int j0, const DirtyStripeMask* dirty)
+	{
+		const int primaryLength = PrimaryLength<VERTICAL>(ci, cj);
+		const int fixedLength = FixedLength<VERTICAL>(ci, cj);
+		const int stride = primaryLength + 1;
+		const bool hasNextChunk = POSITIVE ? (VERTICAL ? cj + 1 < m_ChunksH : ci + 1 < m_ChunksW) :
+			(VERTICAL ? cj > 0 : ci > 0);
+		u8* const directionData = m_Data.data() + DirectionOffset<VERTICAL, POSITIVE>(ci, cj);
+
+		for (int localFixed = 0; localFixed < fixedLength; ++localFixed)
+		{
+			if (dirty)
+			{
+				if constexpr (VERTICAL)
+				{
+					if (!dirty->IsVerticalDirty(ci, cj, localFixed))
+						continue;
+				}
+				else
+				{
+					if (!dirty->IsHorizontalDirty(ci, cj, localFixed))
+						continue;
+				}
+			}
+
+			u8* const row = directionData + localFixed * stride;
+
+			if constexpr (POSITIVE)
+			{
+				u8 carry = hasNextChunk ? JPC_CONTINUE : Encode(primaryLength, true);
+				for (int source = primaryLength - 1; source >= -1; --source)
+				{
+					const int candidate = source + 1;
+					const int globalI = i0 + (VERTICAL ? localFixed : candidate);
+					const int globalJ = j0 + (VERTICAL ? candidate : localFixed);
+					const int coord = VERTICAL ? globalJ - j0 : globalI - i0;
+					if (!IsPassable(terrain, passClass, globalI, globalJ))
+						carry = Encode(coord, true);
+					else if (IsJumpPoint<VERTICAL, POSITIVE>(terrain, passClass, globalI, globalJ))
+						carry = Encode(coord, false);
+					row[source + 1] = carry;
+				}
+			}
+			else
+			{
+				u8 carry = hasNextChunk ? JPC_CONTINUE : Encode(0, true);
+				for (int source = 1; source <= primaryLength; ++source)
+				{
+					const int candidate = source - 1;
+					const int globalI = i0 + (VERTICAL ? localFixed : candidate);
+					const int globalJ = j0 + (VERTICAL ? candidate : localFixed);
+					const int coord = VERTICAL ? globalJ - j0 : globalI - i0;
+					if (!IsPassable(terrain, passClass, globalI, globalJ))
+						carry = Encode(coord, true);
+					else if (IsJumpPoint<VERTICAL, POSITIVE>(terrain, passClass, globalI, globalJ))
+						carry = Encode(coord, false);
+					row[source] = carry;
+				}
+			}
+		}
+	}
+
+	void BuildChunk(const Grid<NavcellData>& terrain, pass_class_t passClass, u8 ci, u8 cj, const DirtyStripeMask* dirty = nullptr)
+	{
+		const int i0 = ci * JPC_CHUNK_SIZE;
+		const int j0 = cj * JPC_CHUNK_SIZE;
+
+		BuildDirection<false, true>(ci, cj, terrain, passClass, i0, j0, dirty);
+		BuildDirection<false, false>(ci, cj, terrain, passClass, i0, j0, dirty);
+		BuildDirection<true, true>(ci, cj, terrain, passClass, i0, j0, dirty);
+		BuildDirection<true, false>(ci, cj, terrain, passClass, i0, j0, dirty);
+	}
+
+	u16 m_Width = 0;
+	u16 m_Height = 0;
+	u8 m_ChunksW = 0;
+	u8 m_ChunksH = 0;
+	std::vector<u8> m_Data;
 };
 
 //////////////////////////////////////////////////////////
 
 LongPathfinder::LongPathfinder() :
-	m_UseJPSCache(false),
+	m_UseJPSCache(true),
 	m_Grid(NULL), m_GridSize(0)
 {
+}
+
+void LongPathfinder::Reload(Grid<NavcellData>* passabilityGrid, const std::map<std::string, pass_class_t>& pathfindingPassClasses)
+{
+	m_Grid = passabilityGrid;
+	ASSERT(passabilityGrid->m_H == passabilityGrid->m_W);
+	m_GridSize = passabilityGrid->m_W;
+
+	for (std::unique_ptr<JumpPointCache>& cache : m_JumpPointCache)
+		cache.reset();
+
+	if (!m_UseJPSCache)
+		return;
+
+	for (const std::pair<const std::string, pass_class_t>& passClassMask : pathfindingPassClasses)
+	{
+		const size_t idx = PassClassToIndex(passClassMask.second);
+		m_JumpPointCache[idx] = std::make_unique<JumpPointCache>();
+		m_JumpPointCache[idx]->Reload(*m_Grid, passClassMask.second);
+	}
+}
+
+void LongPathfinder::Update(Grid<NavcellData>* passabilityGrid, const Grid<u8>& dirtinessGrid, const std::map<std::string, pass_class_t>& pathfindingPassClasses)
+{
+	m_Grid = passabilityGrid;
+	ASSERT(passabilityGrid->m_H == passabilityGrid->m_W);
+	ASSERT(m_GridSize == passabilityGrid->m_H);
+
+	if (!m_UseJPSCache)
+		return;
+	const DirtyStripeMask dirty = ComputeDirtyStripes(dirtinessGrid, passabilityGrid->m_W, passabilityGrid->m_H);
+	std::array<bool, PASS_CLASS_BITS> activePassClasses = {};
+
+	for (const std::pair<const std::string, pass_class_t>& passClassMask : pathfindingPassClasses)
+	{
+		const size_t idx = PassClassToIndex(passClassMask.second);
+		activePassClasses[idx] = true;
+		if (!m_JumpPointCache[idx])
+			m_JumpPointCache[idx] = std::make_unique<JumpPointCache>();
+		m_JumpPointCache[idx]->RebuildDirty(*m_Grid, passClassMask.second, dirty);
+	}
+
+	for (size_t i = 0; i < m_JumpPointCache.size(); ++i)
+		if (!activePassClasses[i])
+			m_JumpPointCache[i].reset();
 }
 
 #define PASSABLE(i, j) IS_PASSABLE(state.terrain->get(i, j), state.passClass)
@@ -510,7 +688,7 @@ inline bool OnTheWay(int i, int j, int di, int dj, int iGoal, int jGoal)
 
 void LongPathfinder::AddJumpedHoriz(int i, int j, int di, PathCost g, PathfinderState& state, bool detectGoal) const
 {
-	if (m_UseJPSCache)
+	if (state.jpc)
 	{
 		int jump;
 		if (di > 0)
@@ -519,7 +697,11 @@ void LongPathfinder::AddJumpedHoriz(int i, int j, int di, PathCost g, Pathfinder
 			jump = state.jpc->GetJumpPointLeft(i, j, state.goal);
 
 		if (jump != i)
+		{
+			if (detectGoal && state.goal.NavcellContainsGoal(jump, j))
+				state.open.clear();
 			ProcessNeighbour(i, j, jump, j, g, state);
+		}
 	}
 	else
 	{
@@ -552,13 +734,16 @@ void LongPathfinder::AddJumpedHoriz(int i, int j, int di, PathCost g, Pathfinder
 // Returns the i-coordinate of the jump point if it exists, else returns i
 int LongPathfinder::HasJumpedHoriz(int i, int j, int di, PathfinderState& state, bool detectGoal) const
 {
-	if (m_UseJPSCache)
+	if (state.jpc)
 	{
 		int jump;
 		if (di > 0)
 			jump = state.jpc->GetJumpPointRight(i, j, state.goal);
 		else
 			jump = state.jpc->GetJumpPointLeft(i, j, state.goal);
+
+		if (detectGoal && jump != i && state.goal.NavcellContainsGoal(jump, j))
+			state.open.clear();
 
 		return jump;
 	}
@@ -588,7 +773,7 @@ int LongPathfinder::HasJumpedHoriz(int i, int j, int di, PathfinderState& state,
 
 void LongPathfinder::AddJumpedVert(int i, int j, int dj, PathCost g, PathfinderState& state, bool detectGoal) const
 {
-	if (m_UseJPSCache)
+	if (state.jpc)
 	{
 		int jump;
 		if (dj > 0)
@@ -597,7 +782,11 @@ void LongPathfinder::AddJumpedVert(int i, int j, int dj, PathCost g, PathfinderS
 			jump = state.jpc->GetJumpPointDown(i, j, state.goal);
 
 		if (jump != j)
+		{
+			if (detectGoal && state.goal.NavcellContainsGoal(i, jump))
+				state.open.clear();
 			ProcessNeighbour(i, j, i, jump, g, state);
+		}
 	}
 	else
 	{
@@ -630,13 +819,16 @@ void LongPathfinder::AddJumpedVert(int i, int j, int dj, PathCost g, PathfinderS
 // Returns the j-coordinate of the jump point if it exists, else returns j
 int LongPathfinder::HasJumpedVert(int i, int j, int dj, PathfinderState& state, bool detectGoal) const
 {
-	if (m_UseJPSCache)
+	if (state.jpc)
 	{
 		int jump;
 		if (dj > 0)
 			jump = state.jpc->GetJumpPointUp(i, j, state.goal);
 		else
 			jump = state.jpc->GetJumpPointDown(i, j, state.goal);
+
+		if (detectGoal && jump != j && state.goal.NavcellContainsGoal(i, jump))
+			state.open.clear();
 
 		return jump;
 	}
@@ -724,22 +916,10 @@ void LongPathfinder::ComputeJPSPath(const HierarchicalPathfinder& hierPath, enti
 	PROFILE2("ComputePathJPS");
 	PathfinderState state = { 0 };
 
-	if (m_UseJPSCache)
+	if (m_UseJPSCache && passClass != SPECIAL_PASS_CLASS)
 	{
-		// Needs to lock for construction, or several threads might try doing that at the same time.
-		static std::mutex JPCMutex;
-		std::unique_lock<std::mutex> lock(JPCMutex);
-		std::map<pass_class_t, std::shared_ptr<JumpPointCache>>::const_iterator it = m_JumpPointCache.find(passClass);
-		if (it != m_JumpPointCache.end())
-			state.jpc = it->second.get();
-
-		if (!state.jpc)
-		{
-			m_JumpPointCache[passClass] = std::make_shared<JumpPointCache>();
-			m_JumpPointCache[passClass]->reset(m_Grid, passClass);
-			debug_printf("PATHFINDER: JPC memory: %d kB\n", (int)state.jpc->GetMemoryUsage() / 1024);
-			state.jpc = m_JumpPointCache[passClass].get();
-		}
+		const size_t idx = PassClassToIndex(passClass);
+		state.jpc = m_JumpPointCache[idx].get();
 	}
 
 	// Convert the start coordinates to tile indexes

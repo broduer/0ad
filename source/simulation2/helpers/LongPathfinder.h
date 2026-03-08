@@ -29,6 +29,7 @@
 #include "simulation2/helpers/PriorityQueue.h"
 
 #include <atomic>
+#include <array>
 #include <map>
 #include <memory>
 #include <vector>
@@ -186,23 +187,8 @@ public:
 		m_Debug.PassClass = passClass;
 	}
 
-	void Reload(Grid<NavcellData>* passabilityGrid)
-	{
-		m_Grid = passabilityGrid;
-		ASSERT(passabilityGrid->m_H == passabilityGrid->m_W);
-		m_GridSize = passabilityGrid->m_W;
-
-		m_JumpPointCache.clear();
-	}
-
-	void Update(Grid<NavcellData>* passabilityGrid)
-	{
-		m_Grid = passabilityGrid;
-		ASSERT(passabilityGrid->m_H == passabilityGrid->m_W);
-		ASSERT(m_GridSize == passabilityGrid->m_H);
-
-		m_JumpPointCache.clear();
-	}
+	void Reload(Grid<NavcellData>* passabilityGrid, const std::map<std::string, pass_class_t>& pathfindingPassClasses);
+	void Update(Grid<NavcellData>* passabilityGrid, const Grid<u8>& dirtinessGrid, const std::map<std::string, pass_class_t>& pathfindingPassClasses);
 
 	/**
 	 * Compute a tile-based path from the given point to the goal, and return the set of waypoints.
@@ -287,7 +273,7 @@ private:
 	// This is thread-safe as it is order independent (no change in the output of the function for a given set of params).
 	// Obviously, this means that the cache should actually be a cache and not return different results
 	// from what would happen if things hadn't been cached.
-	mutable std::map<pass_class_t, std::shared_ptr<JumpPointCache>> m_JumpPointCache;
+	mutable std::array<std::unique_ptr<JumpPointCache>, PASS_CLASS_BITS> m_JumpPointCache;
 };
 
 #endif // INCLUDED_LONGPATHFINDER

@@ -500,7 +500,7 @@ public:
 		m_NonPathfindingPassClasses = nonPathfindingPassClassMasks;
 		m_PathfindingPassClasses = pathfindingPassClassMasks;
 
-		m_LongPathfinder.Reload(&m_PassabilityMap);
+		m_LongPathfinder.Reload(&m_PassabilityMap, pathfindingPassClassMasks);
 		m_HierarchicalPathfinder.Recompute(&m_PassabilityMap, nonPathfindingPassClassMasks, pathfindingPassClassMasks);
 
 		if (m_HasSharedComponent)
@@ -535,12 +535,12 @@ public:
 		m_PassabilityMap = passabilityMap;
 		if (globallyDirty)
 		{
-			m_LongPathfinder.Reload(&m_PassabilityMap);
+			m_LongPathfinder.Reload(&m_PassabilityMap, pathfindingPassClassMasks);
 			m_HierarchicalPathfinder.Recompute(&m_PassabilityMap, nonPathfindingPassClassMasks, pathfindingPassClassMasks);
 		}
 		else
 		{
-			m_LongPathfinder.Update(&m_PassabilityMap);
+			m_LongPathfinder.Update(&m_PassabilityMap, dirtinessGrid, pathfindingPassClassMasks);
 			m_HierarchicalPathfinder.Update(&m_PassabilityMap, dirtinessGrid);
 		}
 
@@ -759,7 +759,7 @@ public:
 		deserializer.NumberU16_Unbounded("pathfinder grid h", mapH);
 		m_PassabilityMap = Grid<NavcellData>(mapW, mapH);
 		deserializer.RawBytes("pathfinder grid data", (u8*)m_PassabilityMap.m_Data, mapW*mapH*sizeof(NavcellData));
-		m_LongPathfinder.Reload(&m_PassabilityMap);
+		m_LongPathfinder.Reload(&m_PassabilityMap, m_PathfindingPassClasses);
 		m_HierarchicalPathfinder.Recompute(&m_PassabilityMap, m_NonPathfindingPassClasses, m_PathfindingPassClasses);
 	}
 
