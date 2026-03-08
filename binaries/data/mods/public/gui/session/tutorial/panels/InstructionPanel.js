@@ -6,9 +6,9 @@ class InstructionPanel extends TutorialPanel
 {
 	instructions = [];
 
-	constructor(closePage)
+	constructor(continueCallback)
 	{
-		super("instructionPanel", closePage);
+		super("instructionPanel", continueCallback);
 	}
 
 	displayStep(step)

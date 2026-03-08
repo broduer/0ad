@@ -12,9 +12,9 @@ class InfoPanel extends TutorialPanel
 	paragraphs = [];
 	appendable = true;
 
-	constructor(closePage)
+	constructor(continueCallback)
 	{
-		super("infoPanel", closePage);
+		super("infoPanel", continueCallback);
 	}
 
 	displayStep(step)

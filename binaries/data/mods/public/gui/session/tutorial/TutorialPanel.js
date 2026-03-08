@@ -11,9 +11,7 @@ class TutorialPanel
 	hint;
 	button;
 
-	closePage;
-
-	constructor(name, closePage)
+	constructor(name, continueCallback)
 	{
 		this.panel = Engine.GetGUIObjectByName(name);
 		this.text = Engine.GetGUIObjectByName(name + "Text");
@@ -21,12 +19,7 @@ class TutorialPanel
 		this.button = Engine.GetGUIObjectByName(name + "Button");
 
 		this.button.caption = this.ButtonCaptions.Continue;
-		this.button.onPress = () =>
-		{
-			Engine.PostNetworkCommand({ "type": "dialog-answer", "tutorial": "continue" });
-		};
-
-		this.closePage = closePage;
+		this.button.onPress = continueCallback;
 	}
 
 	setVisible(visible)
@@ -50,7 +43,6 @@ class TutorialPanel
 			{
 				this.hint.caption = this.HintCaptions.Quit;
 				this.button.caption = this.ButtonCaptions.Quit;
-				this.button.onPress = this.closePage;
 			}
 			else
 				this.hint.caption = this.HintCaptions.Continue;

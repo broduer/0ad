@@ -10,30 +10,13 @@ Trigger.prototype.tutorialSteps = [
 		"panelData": {
 			"appendable": "true",
 			"title": markForTranslation("Basic Controls"),
-			"text": markForTranslation("You can toggle between fullscreen and windowed mode using %(hotkey)s."),
-			"hotkeys": ["togglefullscreen"]
-		}
-	},
-	{
-		"type": TUTORIAL_STEP_TYPE.INFO,
-		"panelData": {
-			"appendToPrevious": "true",
-			"text": markForTranslation("You can change the level of zoom using the mouse wheel and the camera view using any of your keyboard's arrow keys.")
-		}
-	},
-	{
-		"type": TUTORIAL_STEP_TYPE.INFO,
-		"panelData": {
-			"appendToPrevious": "true",
-			"text": markForTranslation("Adjust the game window to your preferences.")
-		}
-	},
-	{
-		"type": TUTORIAL_STEP_TYPE.INFO,
-		"panelData": {
-			"appendToPrevious": "true",
-			"text": markForTranslation("You may also toggle between showing and hiding this tutorial panel at any moment using %(hotkey)s."),
-			"hotkeys": ["session.gui.tutorial.toggle"]
+			"texts": [
+				markForTranslation("You can toggle between fullscreen and windowed mode using %(hotkey1)s."),
+				markForTranslation("You can change the level of zoom using the mouse wheel and the camera view using any of your keyboard's arrow keys."),
+				markForTranslation("Adjust the game window to your preferences."),
+				markForTranslation("You may also toggle between showing and hiding this tutorial panel at any moment using %(hotkey2)s.")
+			],
+			"hotkeys": ["togglefullscreen", "session.gui.tutorial.toggle"]
 		}
 	},
 	{
@@ -45,16 +28,12 @@ Trigger.prototype.tutorialSteps = [
 	{
 		"type": TUTORIAL_STEP_TYPE.INFO,
 		"panelData": {
-			"appendable": "true",
+			"appendable": true,
 			"title": markForTranslation("Production Panel"),
-			"text": markForTranslation("Now that the Civic Center is selected, you will notice that a production panel will appear on the lower right of your screen detailing the actions that the buildings supports. For the production panel, available actions are not masked in any color, while an icon masked in gray indicates that the action has not been unlocked and a red mask indicates that you do not have sufficient resources to perform that action. Additionally, you can hover the cursor over any icon to show a tooltip with more details.")
-		}
-	},
-	{
-		"type": TUTORIAL_STEP_TYPE.INFO,
-		"panelData": {
-			"appendToPrevious": "true",
-			"text": markForTranslation("The top row of buttons contains portraits of units that may be trained at the building while the bottom one or two rows will have researchable technologies. Hover the cursor over the II icon. The tooltip will tell us that advancing to Town Phase requires both more constructed structures as well as more food and wood resources.")
+			"texts": [
+				markForTranslation("Now that the Civic Center is selected, you will notice that a production panel will appear on the lower right of your screen detailing the actions that the buildings supports. For the production panel, available actions are not masked in any color, while an icon masked in gray indicates that the action has not been unlocked and a red mask indicates that you do not have sufficient resources to perform that action. Additionally, you can hover the cursor over any icon to show a tooltip with more details."),
+				markForTranslation("The top row of buttons contains portraits of units that may be trained at the building while the bottom one or two rows will have researchable technologies. Hover the cursor over the II icon. The tooltip will tell us that advancing to Town Phase requires both more constructed structures as well as more food and wood resources.")
+			]
 		}
 	},
 	{
@@ -73,39 +52,15 @@ Trigger.prototype.tutorialSteps = [
 	{
 		"type": TUTORIAL_STEP_TYPE.INFO,
 		"panelData": {
-			"appendable": "true",
 			"title": markForTranslation("Making Selections"),
-			"text": markForTranslation("There are primarily three ways to select units:")
-		}
-	},
-	{
-		"type": TUTORIAL_STEP_TYPE.INFO,
-		"panelData": {
-			"appendToPrevious": "true",
-			"text": markForTranslation("1) Hold the left mouse button and drag a selection rectangle that encloses the units you want to select.")
-		}
-	},
-	{
-		"type": TUTORIAL_STEP_TYPE.INFO,
-		"panelData": {
-			"appendToPrevious": "true",
-			"text": markForTranslation("2) Click on one of them and then add additional units to your selection by holding %(hotkey)s and clicking each additional unit (or also via the above selection rectangle)."),
-			"hotkeys": ["selection.add"]
-		}
-	},
-	{
-		"type": TUTORIAL_STEP_TYPE.INFO,
-		"panelData": {
-			"appendToPrevious": "true",
-			"text": markForTranslation("3) Double-click on a unit. This will select every unit of the same type as the specified unit in your visible window. %(hotkey)s+double-click will select all units of the same type on the entire map."),
-			"hotkeys": ["selection.offscreen"]
-		}
-	},
-	{
-		"type": TUTORIAL_STEP_TYPE.INFO,
-		"panelData": {
-			"appendToPrevious": "true",
-			"text": markForTranslation("You can click on an empty space on the map to reset the selection.")
+			"texts": [
+				markForTranslation("There are primarily three ways to select units:"),
+				markForTranslation("1) Hold the left mouse button and drag a selection rectangle that encloses the units you want to select."),
+				markForTranslation("2) Click on one of them and then add additional units to your selection by holding %(hotkey1)s and clicking each additional unit (or also via the above selection rectangle)."),
+				markForTranslation("3) Double-click on a unit. This will select every unit of the same type as the specified unit in your visible window. %(hotkey2)s+double-click will select all units of the same type on the entire map."),
+				markForTranslation("You can click on an empty space on the map to reset the selection.")
+			],
+			"hotkeys": ["selection.add", "selection.offscreen"]
 		}
 	},
 	{
@@ -179,14 +134,10 @@ Trigger.prototype.tutorialSteps = [
 		"type": TUTORIAL_STEP_TYPE.INFO,
 		"panelData": {
 			"appendToPrevious": true,
-			"text": markForTranslation("Rally points are indicated by a small flag at the end of the blue line.")
-		}
-	},
-	{
-		"type": TUTORIAL_STEP_TYPE.INFO,
-		"panelData": {
-			"appendToPrevious": true,
-			"text": markForTranslation("Now that the rally point is set, we can produce additional units and they will do their assigned task automatically.")
+			"texts": [
+				markForTranslation("Rally points are indicated by a small flag at the end of the blue line."),
+				markForTranslation("Now that the rally point is set, we can produce additional units and they will do their assigned task automatically.")
+			]
 		}
 	},
 	{
@@ -215,20 +166,10 @@ Trigger.prototype.tutorialSteps = [
 	{
 		"type": TUTORIAL_STEP_TYPE.INFO,
 		"panelData": {
-			"appendable": true,
-			"text": markForTranslation("While waiting, direct your attention to the panel at the top of your screen. On the upper left, you will see your current resource supply (food, wood, stone, and metal). As each worker brings resources back to the Civic Center (or another dropsite), you will see the amount of the corresponding resource increase."),
-			"showContinueButton": true
-		},
-		"OnTrainingFinished": function(msg)
-		{
-			this.trainingFinished = true;
-		}
-	},
-	{
-		"type": TUTORIAL_STEP_TYPE.INFO,
-		"panelData": {
-			"appendToPrevious": true,
-			"text": markForTranslation("This is a very important concept to keep in mind: gathered resources have to be brought back to a dropsite to be accounted, and you should always try to minimize the distance between resource and nearest dropsite to improve your gathering efficiency."),
+			"texts": [
+				markForTranslation("While waiting, direct your attention to the panel at the top of your screen. On the upper left, you will see your current resource supply (food, wood, stone, and metal). As each worker brings resources back to the Civic Center (or another dropsite), you will see the amount of the corresponding resource increase."),
+				markForTranslation("This is a very important concept to keep in mind: gathered resources have to be brought back to a dropsite to be accounted, and you should always try to minimize the distance between resource and nearest dropsite to improve your gathering efficiency.")
+			],
 			"showContinueButton": true
 		},
 		"OnTrainingFinished": function(msg)
@@ -253,16 +194,11 @@ Trigger.prototype.tutorialSteps = [
 	{
 		"type": TUTORIAL_STEP_TYPE.INFO,
 		"panelData": {
-			"appendable": true,
 			"title": markForTranslation("Storehouse"),
-			"text": markForTranslation("The newly trained units automatically go to the trees and start gathering wood.")
-		}
-	},
-	{
-		"type": TUTORIAL_STEP_TYPE.INFO,
-		"panelData": {
-			"appendToPrevious": true,
-			"text": markForTranslation("But as they have to bring it back to the Civic Center to deposit it, their gathering efficiency suffers from the distance. To fix that, we can build a Storehouse, a dropsite for wood, stone, and metal, close to the trees.")
+			"texts": [
+				markForTranslation("The newly trained units automatically go to the trees and start gathering wood."),
+				markForTranslation("But as they have to bring it back to the Civic Center to deposit it, their gathering efficiency suffers from the distance. To fix that, we can build a Storehouse, a dropsite for wood, stone, and metal, close to the trees.")
+			]
 		}
 	},
 	{
@@ -391,20 +327,11 @@ Trigger.prototype.tutorialSteps = [
 	{
 		"type": TUTORIAL_STEP_TYPE.INFO,
 		"panelData": {
-			"appendable": true,
-			"text": markForTranslation("You may notice that berries are a finite supply of food. We will need a more lasting food source. Fields produce an unlimited food resource, but are slower to gather than forageable fruits.")
-		},
-		"OnOwnershipChanged": function(msg)
-		{
-			if (this.houseGoal.has(+msg.entity))
-				this.houseGoal.delete(+msg.entity);
-		}
-	},
-	{
-		"type": TUTORIAL_STEP_TYPE.INFO,
-		"panelData": {
-			"appendToPrevious": true,
-			"text": markForTranslation("But to minimize the distance between a farm and its corresponding food dropsite, we will first build a Farmstead.")
+			"texts": [
+				markForTranslation("You may notice that berries are a finite supply of food. We will need a more lasting food source. Fields produce an unlimited food resource, but are slower to gather than forageable fruits."),
+				markForTranslation("But to minimize the distance between a farm and its corresponding food dropsite, we will first build a Farmstead.")
+			],
+			"showContinueButton": true
 		},
 		"OnOwnershipChanged": function(msg)
 		{
@@ -599,7 +526,7 @@ Trigger.prototype.tutorialSteps = [
 		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
 		"panelData": {
 			"text":
-				markForTranslation("In later phases, you need usually stone and metal to build bigger structures and train better soldiers. Hence, while waiting for the research to be done, you will send half of your idle Citizen Soldiers (who have finished building the Barracks) to gather stone and the other half to gather metal.\n") +
+				markForTranslation("In later phases, you need usually stone and metal to build bigger structures and train better soldiers. Hence, while waiting for the research to be done, you will send half of your idle Citizen Soldiers (who have finished building the Barracks) to gather stone and the other half to gather metal.") +
 				markForTranslation("To do so, we could select three Citizen Soldiers and right-click on the stone quarry on the west of the Civic Center (the cursor changes when hovering the stone quarry while your soldiers are selected). However, these soldiers were gathering wood, so they may still carry some wood which would be lost when starting to gather another resource.")
 		}
 	},
