@@ -176,10 +176,6 @@ Trigger.prototype.tutorialSteps = [
 		{
 			if (msg.cmd.type == "unset-rallypoint")
 				this.NextStep();
-		},
-		"OnTrainingFinished": function(msg)
-		{
-			this.trainingDone = true;
 		}
 	},
 	{
@@ -187,10 +183,6 @@ Trigger.prototype.tutorialSteps = [
 		"panelData": {
 			"text": markForTranslation("Let's train some Civilians to gather more food. Select the Civic Center, hold %(hotkey)s and click on the Civilian icon to train five Civilians."),
 			"hotkeys": ["session.batchtrain"]
-		},
-		"Init": function()
-		{
-			this.trainingDone = false;
 		},
 		"OnTrainingQueued": function(msg)
 		{
@@ -214,10 +206,6 @@ Trigger.prototype.tutorialSteps = [
 			"text":
 				markForTranslation("The units should be ready soon.\n") +
 				markForTranslation("In the meantime, direct your attention to your population count on the top panel. It is the fifth item from the left, after the resources. It would be prudent to keep an eye on it. It indicates your current population (including those being trained) and the current population limit, which is determined by your built structures.")
-		},
-		"IsDone": function(msg)
-		{
-			return this.trainingDone;
 		},
 		"OnTrainingFinished": function(msg)
 		{
