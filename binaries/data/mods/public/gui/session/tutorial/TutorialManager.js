@@ -1,6 +1,7 @@
 // Needs to be kept in sync with the one in maps/scripts/Tutorial.js
 const TUTORIAL_STEP_TYPE = deepfreeze({
-	"INSTRUCTION": 1
+	"INSTRUCTION": 1,
+	"INFO": 2
 });
 
 /**
@@ -21,6 +22,7 @@ class TutorialManager
 		this.closePageCallback = closePageCallback;
 
 		this.panels.set(TUTORIAL_STEP_TYPE.INSTRUCTION, new InstructionPanel(this.closePage.bind(this)));
+		this.panels.set(TUTORIAL_STEP_TYPE.INFO, new InfoPanel(this.closePage.bind(this)));
 		this.parentObj.hidden = true;
 	}
 

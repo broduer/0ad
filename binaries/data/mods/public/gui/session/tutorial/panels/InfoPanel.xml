@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<object name="infoPanel" type="image" sprite="ModernDialog" size="50%-365 90 50%+365 345">
+	<object type="text" size="50%-96 -16 50%+96 10" style="TitleText">
+		<translatableAttribute id="caption">Information</translatableAttribute>
+	</object>
+	<object name="infoPanelTitle" type="text" size="25 17 100%-25 52" style="TutorialInfoTitle"/>
+	<object name="infoPanelText" type="text" size="25 52 100%-25 100%-64" style="TutorialInfoText"/>
+	<object name="infoPanelHint" type="text" style="ModernLeftLabelText" size="30 100%-54 100%-200 100%-14"/>
+	<object name="infoPanelButton" type="button" size="100%-180 100%-48 100%-30 100%-20" style="ModernButtonRed"/>
+</object>

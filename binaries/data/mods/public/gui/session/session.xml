@@ -21,6 +21,7 @@
 <script directory="gui/session/top_panel/IconButtons/"/>
 <script directory="gui/session/trade/"/>
 <script directory="gui/session/tutorial/"/>
+<script directory="gui/session/tutorial/panels/"/>
 
 <object name="session">
 

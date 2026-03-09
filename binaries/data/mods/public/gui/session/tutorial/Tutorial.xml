@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <object name="tutorialPanels">
-	<include file="gui/session/tutorial/InstructionPanel.xml"/>
+	<include directory="gui/session/tutorial/panels/"/>
 </object>
