@@ -1161,16 +1161,12 @@ UnitAI.prototype.UnitFsmSpec = {
 					this.patrolStartPosOrder.targetClasses = this.order.data.targetClasses;
 					this.patrolStartPosOrder.allowCapture = this.order.data.allowCapture;
 				}
-
-				this.SetAnimationVariant("combat");
-
 				return false;
 			},
 
 			"leave": function()
 			{
 				delete this.patrolStartPosOrder;
-				this.SetDefaultAnimationVariant();
 			},
 
 			"PATROLLING": {
