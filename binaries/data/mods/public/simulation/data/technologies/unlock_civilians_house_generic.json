@@ -17,7 +17,8 @@
 	"requirements": {
 		"all": [
 			{ "tech": "phase_village" },
-			{ "notciv": "kush" }
+			{ "notciv": "kush" },
+			{ "notciv": "rome" }
 		]
 	},
 	"icon": "wives_festival.png",
