@@ -13,24 +13,38 @@ class TutorialManager
 {
 	parentObj = Engine.GetGUIObjectByName("tutorialPanels");
 
-	panels = new Map();
-	pendingSteps = [];
+	panels = new Map([
+		[TUTORIAL_STEP_TYPE.INSTRUCTION, new InstructionPanel(this.continue.bind(this))],
+		[TUTORIAL_STEP_TYPE.INFO, new InfoPanel(this.continue.bind(this))]
+	]);
+
+	displayedSteps = []; // All steps that have already been displayed, in the form of [stepType, panelData]
+	pendingSteps = []; // All received steps that have yet to be displayed, in the form of [stepType, panelData]
 	activePanel;
+	currentWarning = "";
 	isFinished = false;
 	closePageCallback;
 
-	constructor(closePageCallback)
+	constructor(closePageCallback, hotloadData)
 	{
 		this.closePageCallback = closePageCallback;
 
-		this.panels.set(TUTORIAL_STEP_TYPE.INSTRUCTION, new InstructionPanel(this.continue.bind(this)));
-		this.panels.set(TUTORIAL_STEP_TYPE.INFO, new InfoPanel(this.continue.bind(this)));
 		this.parentObj.hidden = true;
+
+		if (hotloadData)
+		{
+			for (const [stepType, panelData] of hotloadData.displayedSteps)
+				this.displayStep(stepType, panelData);
+
+			this.pendingSteps = hotloadData.pendingSteps;
+			if (hotloadData.warning)
+				this.displayWarning(hotloadData.warning);
+		}
 	}
 
 	toggleVisibility()
 	{
-		this.parentObj.hidden = !this.activePanel || !this.parentObj.hidden;
+		this.parentObj.hidden = !this.displayedSteps.length || !this.parentObj.hidden;
 	}
 
 	handleNotification(notification)
@@ -70,6 +84,7 @@ class TutorialManager
 
 	displayWarning(warning)
 	{
+		this.currentWarning = warning;
 		this.activePanel.displayWarning(translate(warning));
 	}
 
@@ -80,6 +95,9 @@ class TutorialManager
 
 	displayStep(stepType, panelData)
 	{
+		if (this.isFinished)
+			return;
+
 		this.parentObj.hidden = false;
 		this.isFinished = panelData.isLast;
 
@@ -102,6 +120,9 @@ class TutorialManager
 		this.panels.forEach((panel, type) => panel.setVisible(type == stepType));
 		this.activePanel = this.panels.get(stepType);
 		this.activePanel.displayStep(panelData);
+
+		this.displayedSteps.push([stepType, panelData]);
+		this.currentWarning = "";
 	}
 
 	continue()
@@ -112,5 +133,14 @@ class TutorialManager
 			this.displayNextPendingStep();
 		else
 			Engine.PostNetworkCommand({ "type": "dialog-answer", "tutorial": "continue" });
+	}
+
+	getHotloadData()
+	{
+		return {
+			"displayedSteps": this.displayedSteps,
+			"pendingSteps": this.pendingSteps,
+			"warning": this.currentWarning
+		};
 	}
 }

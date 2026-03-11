@@ -345,7 +345,7 @@ async function init(initData, hotloadData)
 		g_NetworkStatusOverlay = new NetworkStatusOverlay(closePageCallback);
 		g_QuitConfirmationDefeat = new QuitConfirmationDefeat(closePageCallback);
 		g_QuitConfirmationReplay = new QuitConfirmationReplay(closePageCallback);
-		g_TutorialManager = new TutorialManager(closePageCallback);
+		g_TutorialManager = new TutorialManager(closePageCallback, hotloadData?.tutorial);
 	})]);
 
 	// TODO: use event instead
@@ -610,6 +610,7 @@ function getHotloadData()
 		"selection": g_Selection.selected,
 		"playerAssignments": g_PlayerAssignments,
 		"player": g_Players,
+		"tutorial": g_TutorialManager.getHotloadData()
 	};
 }
 
