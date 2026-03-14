@@ -111,6 +111,11 @@ public:
 		reachables.clear();
 		hierPath.FindReachableRegions(hierPath.Get(20, 20, PASS_1), reachables, PASS_1);
 		TS_ASSERT(reachables.size() == 9);
+
+		const auto regionPath = hierPath.FindRegionPath(hierPath.Get(20, 20, PASS_1), 20, 20, hierPath.Get(220, 220, PASS_1), 220, 220, PASS_1);
+		TS_ASSERT(regionPath.size() >= 5);
+		TS_ASSERT(regionPath.front() == hierPath.Get(20, 20, PASS_1));
+		TS_ASSERT(std::find(regionPath.begin(), regionPath.end(), hierPath.Get(220, 220, PASS_1)) != regionPath.end());
 	}
 
 	void test_reachability_and_update()
@@ -178,6 +183,7 @@ public:
 		reachables.clear();
 		hierPath.FindReachableRegions(hierPath.Get(170, 120, PASS_1), reachables, PASS_1);
 		TS_ASSERT(reachables.size() == 6);
+		TS_ASSERT(hierPath.FindRegionPath(hierPath.Get(20, 20, PASS_1), 20, 20, hierPath.Get(220, 220, PASS_1), 220, 220, PASS_1).empty());
 
 		//////////////////////////////////////////////////////
 		// Un-split the map in two in the middle.

@@ -24,6 +24,7 @@
 #include "lib/debug.h"
 #include "lib/types.h"
 #include "simulation2/helpers/Grid.h"
+#include "simulation2/helpers/HierarchicalPathfinder.h"
 #include "simulation2/helpers/PathGoal.h"
 #include "simulation2/helpers/Position.h"
 #include "simulation2/helpers/PriorityQueue.h"
@@ -160,11 +161,14 @@ struct PathfinderState
 	u16 iBest, jBest; // closest tile
 
 	const JumpPointCache* jpc;
+
+	u8 chunkBoundsWidth;
+	u8 chunkBoundsHeight;
+	std::vector<u8> chunkBounds;
+	std::vector<u8> skippedNavcells;
 };
 
 class LongOverlay;
-
-class HierarchicalPathfinder;
 
 class LongPathfinder
 {
@@ -247,6 +251,8 @@ public:
 
 private:
 	PathCost CalculateHeuristic(int i, int j, int iGoal, int jGoal) const;
+	bool IsPassable(int i, int j, const PathfinderState& state) const;
+	void BuildHierarchicalBounds(const std::vector<HierarchicalPathfinder::RegionID>& regionPath, PathfinderState& state) const;
 	void ProcessNeighbour(int pi, int pj, int i, int j, PathCost pg, PathfinderState& state) const;
 
 	/**
@@ -264,6 +270,8 @@ private:
 	 * TODO: cleanup documentation
 	 */
 	void ComputeJPSPath(const HierarchicalPathfinder& hierPath, entity_pos_t x0, entity_pos_t z0, const PathGoal& origGoal, pass_class_t passClass, WaypointPath& path) const;
+	void ComputeJPSPathInternal(const HierarchicalPathfinder& hierPath, entity_pos_t x0, entity_pos_t z0, const PathGoal& origGoal,
+		pass_class_t passClass, bool useHierarchicalBounds, bool updateDebugOverlay, const char* debugImageLabel, WaypointPath& path) const;
 	void GetDebugDataJPS(u32& steps, double& time, Grid<u8>& grid) const;
 
 	// Helper functions for ComputePath

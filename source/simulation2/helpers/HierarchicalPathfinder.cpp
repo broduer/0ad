@@ -35,6 +35,9 @@
 
 #include <algorithm>
 #include <cstring>
+#include <queue>
+#include <unordered_map>
+#include <unordered_set>
 
 class CSimContext;
 
@@ -676,6 +679,183 @@ HierarchicalPathfinder::GlobalRegionID HierarchicalPathfinder::GetGlobalRegion(u
 HierarchicalPathfinder::GlobalRegionID HierarchicalPathfinder::GetGlobalRegion(RegionID region, pass_class_t passClass) const
 {
 	return region.r == 0 ? GlobalRegionID(0) : m_GlobalRegions.at(passClass).at(region);
+}
+
+std::vector<HierarchicalPathfinder::RegionID> HierarchicalPathfinder::FindRegionPath(RegionID start, u16 iStart, u16 jStart, RegionID goal, u16 iGoal, u16 jGoal, pass_class_t passClass) const
+{
+	PROFILE2("Hierarchical FindRegionPath");
+
+	// Bias very slightly in favour of turning.
+	// The hierarchical grid is generally 4-directional movement,
+	// so paths can end up being pretty poor. This makes it prefer more diagonal movement.
+	constexpr u32 BEND_BONUS = 3;
+	constexpr u32 CORRIDOR_SLACK = CHUNK_SIZE / 2;
+
+	if (start.r == 0 || goal.r == 0)
+		return {};
+
+	if (GetGlobalRegion(start, passClass) != GetGlobalRegion(goal, passClass))
+		return {};
+
+	struct SearchNode
+	{
+		RegionID region;
+		u32 g;
+		u32 f;
+
+		bool operator<(const SearchNode& other) const
+		{
+			if (f != other.f)
+				return f > other.f;
+			return g < other.g;
+		}
+	};
+
+	struct NodeState
+	{
+		RegionID parent;
+		u32 g;
+	};
+
+	const auto regionCenterI = [](const RegionID& region) -> int
+	{
+		return region.ci * CHUNK_SIZE + CHUNK_SIZE / 2;
+	};
+
+	const auto regionCenterJ = [](const RegionID& region) -> int
+	{
+		return region.cj * CHUNK_SIZE + CHUNK_SIZE / 2;
+	};
+
+	const auto distance = [](int fromI, int fromJ, int toI, int toJ) -> u32
+	{
+		const int di = fromI - toI;
+		const int dj = fromJ - toJ;
+		return isqrt64(static_cast<u64>(di) * di + static_cast<u64>(dj) * dj);
+	};
+
+	const auto heuristic = [&](const RegionID& from) -> u32
+	{
+		if (from == goal)
+			return 0;
+		return distance(regionCenterI(from), regionCenterJ(from), iGoal, jGoal);
+	};
+
+	const auto edgeCost = [&](const RegionID& from, const RegionID& to) -> u32
+	{
+		if (from == start)
+			return distance(iStart, jStart, regionCenterI(to), regionCenterJ(to));
+		if (to == goal)
+			return distance(regionCenterI(from), regionCenterJ(from), iGoal, jGoal);
+		return distance(regionCenterI(from), regionCenterJ(from), regionCenterI(to), regionCenterJ(to));
+	};
+
+	std::priority_queue<SearchNode> open;
+	std::unordered_map<RegionID, NodeState> visited;
+
+	visited.emplace(start, NodeState{ start, 0 });
+	open.push({ start, 0, heuristic(start) });
+
+	const EdgesMap& edges = m_Edges.at(passClass);
+
+	while (!open.empty())
+	{
+		const SearchNode current = open.top();
+		open.pop();
+
+		const auto visitedIt = visited.find(current.region);
+		if (visitedIt == visited.end() || current.g != visitedIt->second.g)
+			continue;
+
+		if (current.region == goal)
+		{
+			break;
+		}
+
+		const auto edgeIt = edges.find(current.region);
+		if (edgeIt == edges.end())
+			continue;
+
+		for (const RegionID& neighbor : edgeIt->second)
+		{
+			u32 stepCost = edgeCost(current.region, neighbor);
+			const RegionID& parent = visitedIt->second.parent;
+			if (!(parent == current.region))
+			{
+				const int prevDi = static_cast<int>(current.region.ci) - static_cast<int>(parent.ci);
+				const int prevDj = static_cast<int>(current.region.cj) - static_cast<int>(parent.cj);
+				const int nextDi = static_cast<int>(neighbor.ci) - static_cast<int>(current.region.ci);
+				const int nextDj = static_cast<int>(neighbor.cj) - static_cast<int>(current.region.cj);
+				if (prevDi != nextDi || prevDj != nextDj)
+					stepCost -= std::min(stepCost, BEND_BONUS);
+			}
+
+			const u32 newCost = current.g + stepCost;
+			const auto neighborIt = visited.find(neighbor);
+			if (neighborIt != visited.end() && newCost >= neighborIt->second.g)
+				continue;
+
+			visited.insert_or_assign(neighbor, NodeState{ current.region, newCost });
+			open.push({ neighbor, newCost, newCost + heuristic(neighbor) });
+		}
+	}
+
+	const auto goalIt = visited.find(goal);
+	if (goalIt == visited.end())
+		return {};
+
+	std::vector<RegionID> bestPath;
+	{
+		RegionID region = goal;
+		while (!(region == start))
+		{
+			bestPath.push_back(region);
+			region = visited.at(region).parent;
+		}
+		bestPath.push_back(start);
+		std::reverse(bestPath.begin(), bestPath.end());
+	}
+
+	std::vector<RegionID> corridor = bestPath;
+	std::unordered_set<RegionID> inCorridor(bestPath.begin(), bestPath.end());
+	std::vector<RegionID> reverseOpen;
+	reverseOpen.reserve(bestPath.size());
+	reverseOpen.push_back(goal);
+
+	while (!reverseOpen.empty())
+	{
+		const RegionID currentRegion = reverseOpen.back();
+		reverseOpen.pop_back();
+
+		const auto currentIt = visited.find(currentRegion);
+		if (currentIt == visited.end())
+			continue;
+
+		const auto edgeIt = edges.find(currentRegion);
+		if (edgeIt == edges.end())
+			continue;
+
+		for (const RegionID& candidate : edgeIt->second)
+		{
+			const auto candidateIt = visited.find(candidate);
+			if (candidateIt == visited.end())
+				continue;
+			if (candidateIt->second.g > currentIt->second.g)
+				continue;
+
+			const u32 candidateCost = candidateIt->second.g + edgeCost(candidate, currentRegion);
+			if (candidateCost > currentIt->second.g + CORRIDOR_SLACK)
+				continue;
+
+			if (!inCorridor.insert(candidate).second)
+				continue;
+
+			corridor.push_back(candidate);
+			reverseOpen.push_back(candidate);
+		}
+	}
+
+	return corridor;
 }
 
 void CreatePointGoalAt(u16 i, u16 j, PathGoal& goal)

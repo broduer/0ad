@@ -20,7 +20,11 @@
 #include "LongPathfinder.h"
 
 #include "graphics/SColor.h"
+#include "lib/allocators/dynarray.h"
+#include "lib/allocators/shared_ptr.h"
 #include "lib/bits.h"
+#include "lib/file/file.h"
+#include "lib/tex/tex.h"
 #include "maths/Fixed.h"
 #include "maths/FixedVector2D.h"
 #include "ps/CLogger.h"
@@ -32,12 +36,118 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdio>
 #include <mutex>
 #include <utility>
 
 namespace
 {
+constexpr bool USE_HIERARCHICAL_BOUNDS = true;
+constexpr bool DUMP_PATHFINDER_DEBUG_IMAGE = false;
 static std::mutex g_DebugMutex;
+static std::atomic<u32> g_DebugImageCounter = 0;
+
+void SetDebugPixel(u8* image, size_t width, u16 i, u16 j, const SColor4ub& color)
+{
+	u8* pixel = image + (j * width + i) * 4;
+	pixel[0] = color.R;
+	pixel[1] = color.G;
+	pixel[2] = color.B;
+	pixel[3] = color.A;
+}
+
+void MarkSkippedNavcell(u16 i, u16 j, PathfinderState& state)
+{
+	if (!DUMP_PATHFINDER_DEBUG_IMAGE || state.skippedNavcells.empty())
+		return;
+
+	state.skippedNavcells[j * state.terrain->m_W + i] = 1;
+}
+
+void DumpPathfinderDebugImage(const Grid<NavcellData>& terrain, u16 gridSize, pass_class_t passClass,
+	const PathfinderState& state, const WaypointPath& path, const char* label)
+{
+	if (!DUMP_PATHFINDER_DEBUG_IMAGE)
+		return;
+
+	std::shared_ptr<u8> image(new u8[gridSize * gridSize * 4], ArrayDeleter());
+	for (u16 j = 0; j < gridSize; ++j)
+	{
+		for (u16 i = 0; i < gridSize; ++i)
+		{
+			const bool passable = IS_PASSABLE(terrain.get(i, j), passClass);
+			SColor4ub color = passable ? SColor4ub(255, 255, 255, 255) : SColor4ub(0, 0, 0, 255);
+
+			if (passable && !state.chunkBounds.empty())
+			{
+				const u8 chunkI = static_cast<u8>(i / HierarchicalPathfinder::CHUNK_SIZE);
+				const u8 chunkJ = static_cast<u8>(j / HierarchicalPathfinder::CHUNK_SIZE);
+				if (!state.chunkBounds[chunkJ * state.chunkBoundsWidth + chunkI])
+					color = SColor4ub(64, 64, 64, 255);
+			}
+
+			if (!state.skippedNavcells.empty() && state.skippedNavcells[j * gridSize + i])
+				color = SColor4ub(160, 160, 160, 255);
+
+			const PathfindTile tile = state.tiles->get(i, j);
+			if (tile.IsOpen())
+				color = SColor4ub(64, 224, 64, 255);
+			else if (tile.IsClosed())
+				color = SColor4ub(0, 160, 0, 255);
+
+			SetDebugPixel(image.get(), gridSize, i, j, color);
+		}
+	}
+
+	if (!path.m_Waypoints.empty())
+	{
+		u16 prevI = 0;
+		u16 prevJ = 0;
+		for (size_t waypointIndex = 0; waypointIndex < path.m_Waypoints.size(); ++waypointIndex)
+		{
+			u16 i, j;
+			Pathfinding::NearestNavcell(path.m_Waypoints[waypointIndex].x, path.m_Waypoints[waypointIndex].z, i, j, gridSize, gridSize);
+			if (waypointIndex == 0)
+			{
+				prevI = i;
+				prevJ = j;
+				SetDebugPixel(image.get(), gridSize, i, j, SColor4ub(0, 255, 255, 255));
+				continue;
+			}
+
+			do
+			{
+				SetDebugPixel(image.get(), gridSize, prevI, prevJ, SColor4ub(0, 255, 255, 255));
+				prevI = prevI < i ? prevI + 1 : prevI > i ? prevI - 1 : prevI;
+				prevJ = prevJ < j ? prevJ + 1 : prevJ > j ? prevJ - 1 : prevJ;
+			}
+			while (prevI != i || prevJ != j);
+
+			SetDebugPixel(image.get(), gridSize, i, j, SColor4ub(0, 255, 255, 255));
+		}
+	}
+
+	Tex texture;
+	if (texture.wrap(gridSize, gridSize, 32, TEX_ALPHA, image, 0) != INFO::OK)
+		return;
+
+	DynArray encoded;
+	if (texture.encode(OsPath(L".png"), &encoded) != INFO::OK)
+		return;
+
+	char filename[96];
+	snprintf(filename, ARRAY_SIZE(filename), "pathfinder_debug_%06u_%s.png", g_DebugImageCounter.fetch_add(1), label);
+	FILE* file = fopen(filename, "wb");
+	if (!file)
+	{
+		da_free(&encoded);
+		return;
+	}
+
+	fwrite(encoded.base, 1, encoded.pos, file);
+	fclose(file);
+	da_free(&encoded);
+}
 }
 
 /**
@@ -391,7 +501,34 @@ LongPathfinder::LongPathfinder() :
 {
 }
 
-#define PASSABLE(i, j) IS_PASSABLE(state.terrain->get(i, j), state.passClass)
+#define PASSABLE(i, j) IsPassable((i), (j), state)
+
+bool LongPathfinder::IsPassable(int i, int j, const PathfinderState& state) const
+{
+	if (!IS_PASSABLE(state.terrain->get(i, j), state.passClass))
+		return false;
+
+	if (state.chunkBounds.empty())
+		return true;
+
+	const u8 chunkI = static_cast<u8>(i / HierarchicalPathfinder::CHUNK_SIZE);
+	const u8 chunkJ = static_cast<u8>(j / HierarchicalPathfinder::CHUNK_SIZE);
+	return state.chunkBounds[chunkJ * state.chunkBoundsWidth + chunkI] != 0;
+}
+
+void LongPathfinder::BuildHierarchicalBounds(const std::vector<HierarchicalPathfinder::RegionID>& regionPath, PathfinderState& state) const
+{
+	PROFILE2("JPS BuildHierarchicalBounds");
+	if (!USE_HIERARCHICAL_BOUNDS || regionPath.empty())
+		return;
+
+	state.chunkBoundsWidth = (m_Grid->m_W + HierarchicalPathfinder::CHUNK_SIZE - 1) / HierarchicalPathfinder::CHUNK_SIZE;
+	state.chunkBoundsHeight = (m_Grid->m_H + HierarchicalPathfinder::CHUNK_SIZE - 1) / HierarchicalPathfinder::CHUNK_SIZE;
+	state.chunkBounds.assign(state.chunkBoundsWidth * state.chunkBoundsHeight, 0);
+
+	for (const HierarchicalPathfinder::RegionID& region : regionPath)
+		state.chunkBounds[region.cj * state.chunkBoundsWidth + region.ci] = 1;
+}
 
 // Calculate heuristic cost from tile i,j to goal
 // (This ought to be an underestimate for correctness)
@@ -544,6 +681,7 @@ void LongPathfinder::AddJumpedHoriz(int i, int j, int di, PathCost g, Pathfinder
 				break;
 			}
 
+			MarkSkippedNavcell(ni, j, state);
 			ni += di;
 		}
 	}
@@ -581,6 +719,7 @@ int LongPathfinder::HasJumpedHoriz(int i, int j, int di, PathfinderState& state,
 				(!PASSABLE(ni - di, j + 1) && PASSABLE(ni, j + 1)))
 				return ni;
 
+			MarkSkippedNavcell(ni, j, state);
 			ni += di;
 		}
 	}
@@ -622,6 +761,7 @@ void LongPathfinder::AddJumpedVert(int i, int j, int dj, PathCost g, PathfinderS
 				break;
 			}
 
+			MarkSkippedNavcell(i, nj, state);
 			nj += dj;
 		}
 	}
@@ -659,6 +799,7 @@ int LongPathfinder::HasJumpedVert(int i, int j, int dj, PathfinderState& state, 
 				(!PASSABLE(i + 1, nj - dj) && PASSABLE(i + 1, nj)))
 				return nj;
 
+			MarkSkippedNavcell(i, nj, state);
 			nj += dj;
 		}
 	}
@@ -714,12 +855,14 @@ void LongPathfinder::AddJumpedDiag(int i, int j, int di, int dj, PathCost g, Pat
 			return;
 		}
 
+		MarkSkippedNavcell(ni, nj, state);
 		ni += di;
 		nj += dj;
 	}
 }
 
-void LongPathfinder::ComputeJPSPath(const HierarchicalPathfinder& hierPath, entity_pos_t x0, entity_pos_t z0, const PathGoal& origGoal, pass_class_t passClass, WaypointPath& path) const
+void LongPathfinder::ComputeJPSPathInternal(const HierarchicalPathfinder& hierPath, entity_pos_t x0, entity_pos_t z0, const PathGoal& origGoal,
+	pass_class_t passClass, bool useHierarchicalBounds, bool updateDebugOverlay, const char* debugImageLabel, WaypointPath& path) const
 {
 	PROFILE2("ComputePathJPS");
 	PathfinderState state = { 0 };
@@ -774,12 +917,30 @@ void LongPathfinder::ComputeJPSPath(const HierarchicalPathfinder& hierPath, enti
 	ENSURE((state.goal.x / Pathfinding::NAVCELL_SIZE).ToInt_RoundToNegInfinity() == state.iGoal);
 	ENSURE((state.goal.z / Pathfinding::NAVCELL_SIZE).ToInt_RoundToNegInfinity() == state.jGoal);
 
+	if (useHierarchicalBounds && passClass != SPECIAL_PASS_CLASS)
+	{
+		const auto regionPath = hierPath.FindRegionPath(
+			hierPath.Get(i0, j0, passClass),
+			i0,
+			j0,
+			hierPath.Get(state.iGoal, state.jGoal, passClass),
+			state.iGoal,
+			state.jGoal,
+			passClass);
+		if (regionPath.empty())
+			return;
+
+		BuildHierarchicalBounds(regionPath, state);
+	}
+
 	state.passClass = passClass;
 
 	state.steps = 0;
 
 	state.tiles = new PathfindTileGrid(m_Grid->m_W, m_Grid->m_H);
 	state.terrain = m_Grid;
+	if (DUMP_PATHFINDER_DEBUG_IMAGE)
+		state.skippedNavcells.assign(m_Grid->m_W * m_Grid->m_H, 0);
 
 	state.iBest = i0;
 	state.jBest = j0;
@@ -911,8 +1072,10 @@ void LongPathfinder::ComputeJPSPath(const HierarchicalPathfinder& hierPath, enti
 
 	ImprovePathWaypoints(path, passClass, origGoal.maxdist, x0, z0);
 
+	DumpPathfinderDebugImage(*m_Grid, m_GridSize, passClass, state, path, debugImageLabel);
+
 	// Save this grid for debug display
-	if (m_Debug.Overlay)
+	if (updateDebugOverlay && m_Debug.Overlay)
 	{
 		std::lock_guard<std::mutex> lock(g_DebugMutex);
 		delete m_Debug.Grid;
@@ -922,6 +1085,17 @@ void LongPathfinder::ComputeJPSPath(const HierarchicalPathfinder& hierPath, enti
 	}
 	else
 		SAFE_DELETE(state.tiles);
+}
+
+void LongPathfinder::ComputeJPSPath(const HierarchicalPathfinder& hierPath, entity_pos_t x0, entity_pos_t z0, const PathGoal& origGoal, pass_class_t passClass, WaypointPath& path) const
+{
+	ComputeJPSPathInternal(hierPath, x0, z0, origGoal, passClass, USE_HIERARCHICAL_BOUNDS, true, "bounded", path);
+
+	if (DUMP_PATHFINDER_DEBUG_IMAGE && passClass != SPECIAL_PASS_CLASS)
+	{
+		WaypointPath unboundedPath;
+		ComputeJPSPathInternal(hierPath, x0, z0, origGoal, passClass, false, false, "unbounded", unboundedPath);
+	}
 }
 
 #undef PASSABLE

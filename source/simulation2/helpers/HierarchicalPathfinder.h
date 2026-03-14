@@ -28,6 +28,7 @@
 #include "renderer/TerrainOverlay.h"
 
 #include <cstddef>
+#include <functional>
 #include <limits>
 #include <map>
 #include <set>
@@ -173,10 +174,16 @@ public:
 
 	void RenderSubmit(SceneCollector& collector);
 
-private:
+	/**
+	 * Finds a region-level path between two reachable regions.
+	 * Returns an empty path if either region is invalid or both regions are disconnected.
+	 */
+	std::vector<RegionID> FindRegionPath(RegionID start, u16 iStart, u16 jStart, RegionID goal, u16 iGoal, u16 jGoal, pass_class_t passClass) const;
+
 	static const u8 CHUNK_SIZE = 96; // number of navcells per side
 									 // TODO: figure out best number. Probably 64 < n < 128
 
+private:
 	struct Chunk
 	{
 		u8 m_ChunkI, m_ChunkJ; // chunk ID
@@ -308,6 +315,20 @@ private:
 public:
 	std::vector<SOverlayLine> m_DebugOverlayLines;
 };
+
+namespace std
+{
+	template<>
+	struct hash<HierarchicalPathfinder::RegionID>
+	{
+		size_t operator()(const HierarchicalPathfinder::RegionID& region) const noexcept
+		{
+			return static_cast<size_t>(region.ci)
+				| (static_cast<size_t>(region.cj) << 8)
+				| (static_cast<size_t>(region.r) << 16);
+		}
+	};
+}
 
 class HierarchicalOverlay : public TerrainTextureOverlay
 {
