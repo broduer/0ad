@@ -8,7 +8,7 @@ Engine.RegisterGlobal("TUTORIAL_STEP_TYPE", TUTORIAL_STEP_TYPE);
 
 Trigger.prototype.InitTutorial = function(data)
 {
-	this.stepIndex = 0;
+	this.stepIndex = -1;
 	this.tutorialEvents = [];
 
 	// Register needed triggers
@@ -36,7 +36,7 @@ Trigger.prototype.InitTutorial = function(data)
 
 Trigger.prototype.NextStep = function(deserializing = false)
 {
-	if (this.stepIndex > this.tutorialSteps.length)
+	if (++this.stepIndex >= this.tutorialSteps.length)
 		return;
 	const step = this.tutorialSteps[this.stepIndex];
 
@@ -67,15 +67,17 @@ Trigger.prototype.NextStep = function(deserializing = false)
 	}
 
 	Trigger.prototype.IsDone = step.IsDone || (() => false);
-	const showContinueButton = this.IsDone() || (step.panelData.showContinueButton === undefined ?
+	const isDone = this.IsDone();
+	const isLast = this.stepIndex === this.tutorialSteps.length - 1;
+	const showContinueButton = isDone || isLast || (step.panelData.showContinueButton === undefined ?
 		this.tutorialEvents.every(event => !step[event]) :
 		step.panelData.showContinueButton
 	);
 
-	this.DisplayStep(step, showContinueButton, ++this.stepIndex == this.tutorialSteps.length);
+	this.DisplayStep(step, showContinueButton, isDone, isLast);
 };
 
-Trigger.prototype.DisplayStep = function(step, showContinueButton = false, isLast = false)
+Trigger.prototype.DisplayStep = function(step, showContinueButton = false, isDone = false, isLast = false)
 {
 	const cmpGUIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface);
 	cmpGUIInterface.PushNotification({
@@ -84,9 +86,7 @@ Trigger.prototype.DisplayStep = function(step, showContinueButton = false, isLas
 		"step": {
 			"type": step.type,
 			"panelData": {
-				...step.panelData,
-				"showContinueButton": showContinueButton,
-				"isLast": isLast
+				...step.panelData, showContinueButton, isDone, isLast
 			}
 		}
 	});
@@ -113,7 +113,7 @@ Trigger.prototype.DeserializedAction = function()
 	this.stepIndex = Math.max(0, this.stepIndex - 1);
 
 	// Display messages from already processed steps
-	for (let i = 0; i < this.stepIndex; ++i)
+	for (let i = 0; i <= this.stepIndex; ++i)
 		this.DisplayStep(this.tutorialSteps[i], false, false);
 
 	this.NextStep(true);

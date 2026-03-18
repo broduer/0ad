@@ -35,23 +35,20 @@ class TutorialPanel
 	displayStep(step)
 	{
 		this.text.caption = step.text;
+		this.button.hidden = !step.showContinueButton;
 
-		if (step.showContinueButton)
+		if (step.isLast)
 		{
-			this.button.hidden = false;
-			if (step.isLast)
-			{
-				this.hint.caption = this.HintCaptions.Quit;
-				this.button.caption = this.ButtonCaptions.Quit;
-			}
-			else
-				this.hint.caption = this.HintCaptions.Continue;
+			this.hint.caption = this.HintCaptions.Quit;
+			this.button.caption = this.ButtonCaptions.Quit;
+			return;
 		}
-		else
-		{
-			this.hint.caption = this.HintCaptions.Instruction;
-			this.button.hidden = true;
-		}
+
+		this.hint.caption = step.isDone ?
+			this.HintCaptions.Done :
+			step.showContinueButton ?
+				this.HintCaptions.Continue :
+				this.HintCaptions.Instruction;
 	}
 }
 
@@ -65,5 +62,6 @@ TutorialPanel.prototype.ButtonCaptions = {
 TutorialPanel.prototype.HintCaptions = {
 	"Continue": translate("Click to continue."),
 	"Instruction": translate("Follow the instructions."),
+	"Done": translate("You have already done this."),
 	"Quit": translate("Click to quit this tutorial.")
 };
