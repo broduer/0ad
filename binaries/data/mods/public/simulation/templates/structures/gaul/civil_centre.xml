@@ -2,7 +2,7 @@
 <Entity parent="template_structure_civic_civil_centre">
   <Footprint>
     <Square width="28.0" depth="28.0"/>
-    <Height>8.0</Height>
+    <Height>13.5</Height>
   </Footprint>
   <Health>
     <SpawnEntityOnDeath>decay|rubble/rubble_gaul_cc</SpawnEntityOnDeath>
@@ -23,5 +23,8 @@
   </Trainer>
   <VisualActor>
     <Actor>structures/gauls/civic_centre.xml</Actor>
+    <SelectionShape>
+      <Footprint/>
+    </SelectionShape>
   </VisualActor>
 </Entity>

@@ -2,7 +2,7 @@
 <Entity parent="template_structure_civic_civil_centre">
   <Footprint>
     <Square width="32.0" depth="32"/>
-    <Height>10.0</Height>
+    <Height>12.5</Height>
   </Footprint>
   <Identity>
     <Civ>kush</Civ>
@@ -25,5 +25,8 @@
   </Trainer>
   <VisualActor>
     <Actor>structures/kushites/civic_centre_kush.xml</Actor>
+    <SelectionShape>
+      <Footprint/>
+    </SelectionShape>
   </VisualActor>
 </Entity>

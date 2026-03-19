@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Entity parent="structures/han/civil_centre">
+  <Footprint>
+    <Height>18.0</Height>
+  </Footprint>
   <BuildRestrictions>
     <Category>ImperialCourt</Category>
   </BuildRestrictions>
@@ -42,5 +45,8 @@
   <Upgrade disable=""/>
   <VisualActor>
     <Actor>structures/han/imperial_court.xml</Actor>
+    <SelectionShape>
+      <Footprint/>
+    </SelectionShape>
   </VisualActor>
 </Entity>

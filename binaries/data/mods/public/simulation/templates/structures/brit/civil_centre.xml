@@ -2,7 +2,7 @@
 <Entity parent="template_structure_civic_civil_centre">
   <Footprint replace="">
     <Circle radius="15.0"/>
-    <Height>8.0</Height>
+    <Height>5.0</Height>
   </Footprint>
   <Health>
     <SpawnEntityOnDeath>decay|rubble/rubble_brit_cc</SpawnEntityOnDeath>
@@ -24,5 +24,8 @@
   <VisualActor>
     <Actor>structures/britons/civic_centre.xml</Actor>
     <FoundationActor>structures/fndn_7x8.xml</FoundationActor>
+    <SelectionShape>
+      <Footprint/>
+    </SelectionShape>
   </VisualActor>
 </Entity>

@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Entity parent="template_structure_civic_civil_centre">
+  <Footprint>
+    <Height>10.0</Height>
+  </Footprint>
   <Identity>
     <Civ>skirm</Civ>
   </Identity>
@@ -11,5 +14,8 @@
   <Trainer disable=""/>
   <VisualActor>
     <Actor>structures/athenians/civil_centre.xml</Actor>
+    <SelectionShape>
+      <Footprint/>
+    </SelectionShape>
   </VisualActor>
 </Entity>

@@ -12,7 +12,11 @@
     <Civ>germ</Civ>
     <GenericName>Cimbrian Clubman</GenericName>
     <SpecificName>Kulbawigô</SpecificName>
-    <VisibleClasses datatype="tokens">Champion</VisibleClasses>
+    <VisibleClasses datatype="tokens">
+      Champion
+      -Builder
+      -Worker
+    </VisibleClasses>
     <Requirements>
       <Techs datatype="tokens">phase_village</Techs>
     </Requirements>

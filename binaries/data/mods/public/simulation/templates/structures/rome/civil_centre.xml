@@ -2,7 +2,7 @@
 <Entity parent="template_structure_civic_civil_centre">
   <Footprint>
     <Square width="40.0" depth="40.0"/>
-    <Height>8.0</Height>
+    <Height>15.0</Height>
   </Footprint>
   <Health>
     <SpawnEntityOnDeath>decay|rubble/rubble_rome_cc</SpawnEntityOnDeath>
@@ -25,5 +25,8 @@
   <VisualActor>
     <Actor>structures/romans/civic_centre.xml</Actor>
     <FoundationActor>structures/fndn_9x9.xml</FoundationActor>
+    <SelectionShape>
+      <Footprint/>
+    </SelectionShape>
   </VisualActor>
 </Entity>

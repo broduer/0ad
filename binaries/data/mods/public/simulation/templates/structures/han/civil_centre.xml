@@ -2,7 +2,7 @@
 <Entity parent="template_structure_civic_civil_centre">
   <Footprint>
     <Square depth="35.0" width="43.0"/>
-    <Height>8.0</Height>
+    <Height>18.0</Height>
   </Footprint>
   <GarrisonHolder>
     <List datatype="tokens">Minister</List>
@@ -45,5 +45,8 @@
   <VisualActor>
     <FoundationActor>structures/fndn_8x8.xml</FoundationActor>
     <Actor>structures/han/civil_centre.xml</Actor>
+    <SelectionShape>
+      <Footprint/>
+    </SelectionShape>
   </VisualActor>
 </Entity>

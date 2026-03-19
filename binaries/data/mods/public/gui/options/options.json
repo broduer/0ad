@@ -870,5 +870,57 @@
 				"config": "gui.session.selectformationasone"
 			}
 		]
+	},
+	{
+		"label": "Camera",
+		"tooltip": "Adjust camera behavior and limits.",
+		"options":
+		[
+			{
+				"type": "slider",
+				"label": "Scroll speed",
+				"tooltip": "Camera scrolling speed",
+				"config": "view.scroll.speed",
+				"min": 80,
+				"max": 600,
+				"default": 120.0
+			},
+			{
+				"type": "slider",
+				"label": "Rotation speed",
+				"tooltip": "Camera rotation speed",
+				"config": "view.rotate.y.speed",
+				"min": 0,
+				"max": 10,
+				"default": 1.2
+			},
+			{
+				"type": "slider",
+				"label": "Zoom speed",
+				"tooltip": "Camera zoom speed",
+				"config": "view.zoom.speed",
+				"min": 0,
+				"max": 500,
+				"default": 120
+			},
+			{
+				"type": "slider",
+				"label": "Zoom minimum",
+				"tooltip": "Minimum camera zoom distance.",
+				"config": "view.zoom.min",
+				"min": 50,
+				"max": 500,
+				"default": 50.0
+			},
+			{
+				"type": "slider",
+				"label": "Zoom maximum",
+				"tooltip": "Maximum camera zoom distance.",
+				"config": "view.zoom.max",
+				"min": 0,
+				"max": 900,
+				"default": 200.0
+			}
+		]
 	}
 ]
