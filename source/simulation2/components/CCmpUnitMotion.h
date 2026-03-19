@@ -767,6 +767,34 @@ private:
 	}
 
 	/**
+	 * Handle failure counting and notification
+	 * @param moved - true if the unit managed to move
+	 * @returns true if failure was notified, false otherwise
+	 */
+	bool HandleFailureCounting(bool moved)
+	{
+		// Don't count failures or send messages on the first failure
+		// (to avoid being too noisy), unless we didn't move at all
+		if (!moved || m_FailedMovements < 2)
+		{
+			if (!IncrementFailedMovementsAndMaybeNotify() && m_FailedMovements >= 2)
+			{
+				MoveObstructed();
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Try to recover from obstruction by adjusting paths or waypoints
+	 * @param pos - current position
+	 * @param goal - current goal
+	 * @returns true if recovery was attempted, false otherwise
+	 */
+	bool TryRecoverFromObstruction(const CFixedVector2D& pos, const PathGoal& goal);
+
+	/**
 	 * If path would take us farther away from the goal than pos currently is, return false, else return true.
 	 */
 	bool RejectFartherPaths(const PathGoal& goal, const WaypointPath& path, const CFixedVector2D& pos) const;
@@ -1592,79 +1620,74 @@ bool CCmpUnitMotion::HandleObstructedMove(bool moved)
 	if (!cmpPosition || !cmpPosition->IsInWorld())
 		return false;
 
-	// We failed to move, inform other components as they might handle it.
-	// (don't send messages on the first failure, as that would be too noisy).
-	// Also don't increment above the initial MoveObstructed message if we actually manage to move a little.
-	if (!moved || m_FailedMovements < 2)
-	{
-		if (!IncrementFailedMovementsAndMaybeNotify() && m_FailedMovements >= 2)
-			MoveObstructed();
-	}
+	// Handle failure counting and notification
+	HandleFailureCounting(moved);
 
 	PathGoal goal;
 	if (!ComputeGoal(goal, m_MoveRequest))
 		return false;
 
-	// At this point we have a position in the world since ComputeGoal checked for that.
 	CFixedVector2D pos = cmpPosition->GetPosition2D();
 
-	// Assume that we are merely obstructed and the long path is salvageable, so try going around the obstruction.
-	// This could be a separate function, but it doesn't really make sense to call it outside of here, and I can't find a name.
-	// I use an IIFE to have nice 'return' semantics still.
-	if ([&]() -> bool {
-		// If the goal is close enough, we should ignore any remaining long waypoint and just
-		// short path there directly, as that improves behaviour in general - see D2095).
-		if (InShortPathRange(goal, pos))
-			return false;
-
-		// On rare occasions, when following a short path, we can end up in a position where
-		// the short pathfinder thinks we are inside an obstruction (and can leave)
-		// but the CheckMovement logic doesn't. I believe the cause is a small numerical difference
-		// in their calculation, but haven't been able to pinpoint it precisely.
-		// In those cases, the solution is to back away to prevent the short-pathfinder from being confused.
-		// TODO: this should only be done if we're obstructed by a static entity.
-		if (!m_ShortPath.m_Waypoints.empty() && m_FailedMovements == BACKUP_HACK_DELAY)
-		{
-			Waypoint next = m_ShortPath.m_Waypoints.back();
-			CFixedVector2D backUp(pos.X - next.x, pos.Y - next.z);
-			backUp.Normalize();
-			next.x = pos.X + backUp.X;
-			next.z = pos.Y + backUp.Y;
-			m_ShortPath.m_Waypoints.push_back(next);
-			return true;
-		}
-		// Delete the next waypoint if it's reasonably close,
-		// because it might be blocked by units and thus unreachable.
-		// NB: this number is tricky. Make it too high, and units start going down dead ends, which looks odd (#5795)
-		// Make it too low, and they might get stuck behind other obstructed entities.
-		// It also has performance implications because it calls the short-pathfinder.
-		fixed skipbeyond = std::max(ShortPathSearchRange() / 3, Pathfinding::NAVCELL_SIZE * 8);
-		if (m_LongPath.m_Waypoints.size() > 1 &&
-		    (pos - CFixedVector2D(m_LongPath.m_Waypoints.back().x, m_LongPath.m_Waypoints.back().z)).CompareLength(skipbeyond) < 0)
-		{
-			m_LongPath.m_Waypoints.pop_back();
-		}
-		else if (ShouldAlternatePathfinder())
-		{
-			// Recompute the whole thing occasionally, in case we got stuck in a dead end from removing long waypoints.
-			RequestLongPath(pos, goal);
-			return true;
-		}
-
-		if (m_LongPath.m_Waypoints.empty())
-			return false;
-
-		// Compute a short path in the general vicinity of the next waypoint, to help pathfinding in crowds.
-		// The goal here is to manage to move in the general direction of our target, not to be super accurate.
-		fixed radius = Clamp(skipbeyond/3, Pathfinding::NAVCELL_SIZE * 4, Pathfinding::NAVCELL_SIZE * 12);
-		PathGoal subgoal = { PathGoal::CIRCLE, m_LongPath.m_Waypoints.back().x, m_LongPath.m_Waypoints.back().z, radius };
-		RequestShortPath(pos, subgoal, false);
+	// Try to recover from obstruction
+	if (TryRecoverFromObstruction(pos, goal))
 		return true;
-	}()) return true;
 
 	// If we couldn't use a workaround, try recomputing the entire path.
 	ComputePathToGoal(pos, goal);
+	return true;
+}
 
+bool CCmpUnitMotion::TryRecoverFromObstruction(const CFixedVector2D& pos, const PathGoal& goal)
+{
+	// If the goal is close enough, we should ignore any remaining long waypoint and just
+	// short path there directly, as that improves behaviour in general - see D2095).
+	if (InShortPathRange(goal, pos))
+		return false;
+
+	// On rare occasions, when following a short path, we can end up in a position where
+	// the short pathfinder thinks we are inside an obstruction (and can leave)
+	// but the CheckMovement logic doesn't. I believe the cause is a small numerical difference
+	// in their calculation, but haven't been able to pinpoint it precisely.
+	// In those cases, the solution is to back away to prevent the short-pathfinder from being confused.
+	// TODO: this should only be done if we're obstructed by a static entity.
+	if (!m_ShortPath.m_Waypoints.empty() && m_FailedMovements == BACKUP_HACK_DELAY)
+	{
+		Waypoint next = m_ShortPath.m_Waypoints.back();
+		CFixedVector2D backUp(pos.X - next.x, pos.Y - next.z);
+		backUp.Normalize();
+		next.x = pos.X + backUp.X;
+		next.z = pos.Y + backUp.Y;
+		m_ShortPath.m_Waypoints.push_back(next);
+		return true;
+	}
+
+	// Delete the next waypoint if it's reasonably close,
+	// because it might be blocked by units and thus unreachable.
+	// NB: this number is tricky. Make it too high, and units start going down dead ends, which looks odd (#5795)
+	// Make it too low, and they might get stuck behind other obstructed entities.
+	// It also has performance implications because it calls the short-pathfinder.
+	fixed skipbeyond = std::max(ShortPathSearchRange() / 3, Pathfinding::NAVCELL_SIZE * 8);
+	if (m_LongPath.m_Waypoints.size() > 1 &&
+		(pos - CFixedVector2D(m_LongPath.m_Waypoints.back().x, m_LongPath.m_Waypoints.back().z)).CompareLength(skipbeyond) < 0)
+	{
+		m_LongPath.m_Waypoints.pop_back();
+	}
+	else if (ShouldAlternatePathfinder())
+	{
+		// Recompute the whole thing occasionally, in case we got stuck in a dead end from removing long waypoints.
+		RequestLongPath(pos, goal);
+		return true;
+	}
+
+	if (m_LongPath.m_Waypoints.empty())
+		return false;
+
+	// Compute a short path in the general vicinity of the next waypoint, to help pathfinding in crowds.
+	// The goal here is to manage to move in the general direction of our target, not to be super accurate.
+	fixed radius = Clamp(skipbeyond/3, Pathfinding::NAVCELL_SIZE * 4, Pathfinding::NAVCELL_SIZE * 12);
+	PathGoal subgoal = { PathGoal::CIRCLE, m_LongPath.m_Waypoints.back().x, m_LongPath.m_Waypoints.back().z, radius };
+	RequestShortPath(pos, subgoal, false);
 	return true;
 }
 
