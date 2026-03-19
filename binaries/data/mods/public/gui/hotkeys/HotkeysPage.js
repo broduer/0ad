@@ -193,6 +193,7 @@ function init()
 		// suppress the warning.
 		/* eslint-disable-next-line no-new */
 		new HotkeysPage(new HotkeyMetadata(), closePageCallback);
+		Engine.SetGlobalHotkey("hotkeys", "Press", closePageCallback);
 	});
 }
 

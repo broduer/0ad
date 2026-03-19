@@ -326,3 +326,22 @@ function toPascalCase(str)
 		.map(s => s.charAt(0).toUpperCase() + s.slice(1))
 		.join('');
 }
+/**
+ * Registers global hotkeys for opening GUI pages.
+ *
+ * Each hotkey opens a child page following the naming convention:
+ *   page_${hotkey}.xml
+ */
+function registerGlobalGuiPageHotkeys(hotkeys)
+{
+	for (const key of hotkeys)
+	{
+		const guiPage = `gui/page_${key}.xml`;
+		if (!Engine.FileExists(guiPage))
+		{
+			warn(`Skipping global hotkey '${key}': Missing GUI page '${guiPage}'.`);
+			continue;
+		}
+		Engine.SetGlobalHotkey(key, "Press", () => Engine.OpenChildPage(`page_${key}.xml`));
+	}
+}

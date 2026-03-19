@@ -45,6 +45,7 @@ function init(campaign_template_data)
 {
 	return new Promise(closePageCallback =>
 	{
+		registerGlobalGuiPageHotkeys(["options", "hotkeys", "civinfo", "structree", "catafalque", "mapbrowser", "manual", "tips"]);
 		g_NewCampaignModal = new NewCampaignModal(campaign_template_data, closePageCallback);
 	});
 }

@@ -11,5 +11,6 @@ function init()
 	return new Promise(closePageCallback =>
 	{
 		Engine.GetGUIObjectByName("closeButton").onPress = closePageCallback;
+		Engine.SetGlobalHotkey("manual", "Press", closePageCallback);
 	});
 }

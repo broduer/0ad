@@ -234,7 +234,9 @@ async function init(data, hotloadData)
 	g_Options = Engine.ReadJSONFile("gui/options/options.json");
 	translateObjectKeys(g_Options, ["label", "tooltip"]);
 	deepfreeze(g_Options);
-
+	Engine.SetGlobalHotkey("options", "Press", () =>
+		Engine.GetGUIObjectByName("closeButton").onPress()
+	);
 	placeTabButtons(
 		g_Options,
 		false,

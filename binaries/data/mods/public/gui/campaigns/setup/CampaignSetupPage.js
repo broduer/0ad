@@ -75,6 +75,7 @@ var g_CampaignSetupPage;
 
 function init()
 {
+	registerGlobalGuiPageHotkeys(["options", "hotkeys", "civinfo", "structree", "catafalque", "manual", "tips", "mapbrowser"]);
 	return new Promise(closePageCallback =>
 	{
 		g_CampaignSetupPage = new CampaignSetupPage(closePageCallback);

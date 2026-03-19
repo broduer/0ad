@@ -247,6 +247,7 @@ var g_CampaignMenu;
 
 async function init(initData)
 {
+	registerGlobalGuiPageHotkeys(["options", "hotkeys", "civinfo", "structree", "catafalque", "mapbrowser", "manual", "tips"]);
 	let run = initData?.filename || CampaignRun.getCurrentRunFilename();
 	try
 	{

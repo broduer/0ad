@@ -143,5 +143,6 @@ var g_LoadModal;
 
 function init()
 {
+	registerGlobalGuiPageHotkeys(["options", "hotkeys", "civinfo", "structree", "catafalque", "mapbrowser", "manual", "tips"]);
 	return new Promise(closePageCallback => { g_LoadModal = new LoadModal(closePageCallback); });
 }

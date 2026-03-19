@@ -5,7 +5,8 @@ export const mainMenuItems = [
 		"submenu": [
 			{
 				"caption": translate("Manual"),
-				"tooltip": translate("Open the 0 A.D. Game Manual."),
+				"tooltip": colorizeHotkey(translate("%(hotkey)s: Open the 0 A.D. Game Manual."), "manual"),
+				"hotkey": "manual",
 				"onPress": () =>
 				{
 					Engine.OpenChildPage("page_manual.xml");
@@ -41,7 +42,8 @@ export const mainMenuItems = [
 			},
 			{
 				"caption": translate("Tips and Tricks"),
-				"tooltip": translate("Discover simple tips, tricks, and game mechanics."),
+				"tooltip": colorizeHotkey(translate("%(hotkey)s: Discover simple tips, tricks, and game mechanics."), "tips"),
+				"hotkey": "tips",
 				"onPress": Engine.OpenChildPage.bind(null, "page_tips.xml", {
 					"tipScrolling": true
 				})
@@ -66,7 +68,8 @@ export const mainMenuItems = [
 			},
 			{
 				"caption": translate("Catafalque Overview"),
-				"tooltip": translate("Compare the bonuses of catafalques featured in 0 A.D."),
+				"tooltip": colorizeHotkey(translate("%(hotkey)s: Compare the bonuses of catafalques featured in 0 A.D."), "catafalque"),
+				"hotkey": "catafalque",
 				"onPress": () =>
 				{
 					Engine.OpenChildPage("page_catafalque.xml");
@@ -74,7 +77,8 @@ export const mainMenuItems = [
 			},
 			{
 				"caption": translate("Map Overview"),
-				"tooltip": translate("View the different maps featured in 0 A.D."),
+				"tooltip": colorizeHotkey(translate("%(hotkey)s: View the different maps featured in 0 A.D."), "mapbrowser"),
+				"hotkey": "mapbrowser",
 				"onPress": () =>
 				{
 					Engine.OpenChildPage("page_mapbrowser.xml");
@@ -295,7 +299,8 @@ export const mainMenuItems = [
 		"submenu": [
 			{
 				"caption": translate("Options"),
-				"tooltip": translate("Adjust game settings."),
+				"tooltip": colorizeHotkey(translate("%(hotkey)s: Adjust game settings."), "options"),
+				"hotkey": "options",
 				"onPress": async() =>
 				{
 					fireConfigChangeHandlers(await Engine.OpenChildPage("page_options.xml"));
@@ -303,10 +308,11 @@ export const mainMenuItems = [
 			},
 			{
 				"caption": translate("Hotkeys"),
-				"tooltip": translate("Adjust hotkeys."),
+				"tooltip": colorizeHotkey(translate("%(hotkey)s: Adjust hotkeys."), "hotkeys"),
+				"hotkey": "hotkeys",
 				"onPress": () =>
 				{
-					Engine.OpenChildPage("hotkeys/page_hotkeys.xml");
+					Engine.OpenChildPage("page_hotkeys.xml");
 				}
 			},
 			{

@@ -316,6 +316,20 @@ async function init(initData, hotloadData)
 	updatePlayerData();
 	initializeMusic(); // before changing the perspective
 	Engine.SetBoundingBoxDebugOverlay(false);
+	Engine.SetGlobalHotkey("catafalque", "Press", async() =>
+	{
+		closeOpenDialogs();
+		g_PauseControl.implicitPause();
+		await Engine.OpenChildPage("page_catafalque.xml");
+		resumeGame();
+	});
+	Engine.SetGlobalHotkey("tips", "Press", async() =>
+	{
+		closeOpenDialogs();
+		g_PauseControl.implicitPause();
+		await Engine.OpenChildPage("page_tips.xml");
+		resumeGame();
+	});
 
 	const promise = Promise.race([g_IsNetworked ? handleNetMessages() : new Promise(() => {}),
 		new Promise(closePageCallback =>

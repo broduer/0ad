@@ -39,14 +39,6 @@
 				"name": "Toggle MP lobby",
 				"desc": "Show the multiplayer lobby in a dialog window."
 			},
-			"structree": {
-				"name": "Toggle structure tree",
-				"desc": "Toggle the structure tree."
-			},
-			"civinfo": {
-				"name": "Toggle civ info",
-				"desc": "Toggle the civilization info."
-			},
 			"session.gui.menu.toggle": {
 				"name": "Toggle in-game menu",
 				"desc": "Toggle in-game menu."

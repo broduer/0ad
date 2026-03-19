@@ -10,5 +10,9 @@ function init()
 	const browser = new MapBrowser(cache, filters);
 	browser.openPage(false);
 	browser.controls.MapFiltering.select("default", "skirmish");
-	return new Promise(closePageCallback => { browser.registerClosePageHandler(closePageCallback); });
+	Engine.SetGlobalHotkey("mapbrowser", "Press", () => browser.closePage());
+	return new Promise(closePageCallback =>
+	{
+		browser.registerClosePageHandler(closePageCallback);
+	});
 }

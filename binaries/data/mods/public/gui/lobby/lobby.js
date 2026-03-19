@@ -36,6 +36,7 @@ async function init(attribs)
 	if (g_Settings)
 		return new Promise(closePageCallback =>
 		{
+			registerGlobalGuiPageHotkeys(["options", "hotkeys", "civinfo", "structree", "catafalque", "mapbrowser", "manual", "tips"]);
 			g_LobbyHandler = new LobbyHandler(closePageCallback, attribs && attribs.dialog);
 		});
 

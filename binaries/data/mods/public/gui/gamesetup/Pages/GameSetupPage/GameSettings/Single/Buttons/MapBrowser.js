@@ -11,7 +11,7 @@ GameSettingControls.MapBrowser = class MapBrowser extends GameSettingControlButt
 		}
 
 		this.button.tooltip = colorizeHotkey(this.HotkeyTooltip, this.HotkeyConfig);
-		Engine.SetGlobalHotkey(this.HotkeyConfig, "Press", this.onPress.bind(this));
+		this.button.hotkey = this.HotkeyConfig;
 	}
 
 	onSettingsLoaded()
@@ -31,15 +31,20 @@ GameSettingControls.MapBrowser = class MapBrowser extends GameSettingControlButt
 
 	onPress()
 	{
-		this.setupWindow.pages.MapBrowserPage.openPage(this.enabled);
+		const page = this.setupWindow.pages.MapBrowserPage;
+
+		if (!page.mapBrowserPage.hidden)
+			page.submitMapSelection();
+		else
+			page.openPage(this.enabled);
 	}
 };
 
 GameSettingControls.MapBrowser.prototype.HotkeyConfig =
-	"gamesetup.mapbrowser.open";
+	"mapbrowser";
 
 GameSettingControls.MapBrowser.prototype.Caption =
 	translate("Browse Maps");
 
 GameSettingControls.MapBrowser.prototype.HotkeyTooltip =
-	translate("Press %(hotkey)s to view the list of available maps.");
+	translate("%(hotkey)s: View the list of available maps.");

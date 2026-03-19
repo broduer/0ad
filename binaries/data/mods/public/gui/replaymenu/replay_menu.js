@@ -77,7 +77,7 @@ async function init(data)
 			"page": "page_pregame.xml"
 		} };
 	}
-
+	registerGlobalGuiPageHotkeys(["options", "hotkeys", "civinfo", "structree", "catafalque", "mapbrowser", "manual", "tips"]);
 	initHotkeyTooltips();
 	displayReplayList();
 
