@@ -1015,10 +1015,10 @@ Formation.prototype.UpdateTwinFormationsForMerge = function()
 			continue;
 
 		const otherMembers = cmpOtherFormation.members;
-		// Merge the members from the other formation into this one
-		this.AddMembers(otherMembers, true);
 		// The other formation will get disbanded for having no members
 		cmpOtherFormation.RemoveMembers(otherMembers);
+		// Merge the members from the other formation into this one
+		this.AddMembers(otherMembers, true);
 		// Remove the merged formation from twin formations list
 		this.twinFormations.splice(i, 1);
 
