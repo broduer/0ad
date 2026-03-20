@@ -370,8 +370,7 @@ Trigger.prototype.RemoveSpread = function()
 
 Trigger.prototype.EndGame = function()
 {
-	Engine.QueryInterface(3, IID_Player).SetState("defeated", "trigger");
-	Engine.QueryInterface(4, IID_Player).SetState("won", "trigger");
+	TriggerHelper.SetPlayerWon(3, "trigger", "trigger");
 };
 
 var cmpModifiersManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_ModifiersManager);

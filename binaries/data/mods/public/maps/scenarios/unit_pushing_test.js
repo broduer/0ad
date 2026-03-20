@@ -433,8 +433,7 @@ Trigger.prototype.RunExperiment = function(data)
 
 Trigger.prototype.EndGame = function()
 {
-	Engine.QueryInterface(4, IID_Player).SetState("defeated", "trigger");
-	Engine.QueryInterface(3, IID_Player).SetState("won", "trigger");
+	TriggerHelper.SetPlayerWon(3, "trigger", "trigger");
 };
 
 /*

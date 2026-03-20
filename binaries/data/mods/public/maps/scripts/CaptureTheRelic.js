@@ -119,7 +119,7 @@ Trigger.prototype.StartCaptureTheRelicCountdown = function(winningPlayers)
 	for (let playerID = 1; playerID < TriggerHelper.GetNumberOfPlayers(); ++playerID)
 	{
 		const cmpPlayer = QueryPlayerIDInterface(playerID);
-		if (cmpPlayer.GetState() == "won")
+		if (cmpPlayer.HasWon())
 			return;
 
 		if (winningPlayers.indexOf(playerID) == -1)

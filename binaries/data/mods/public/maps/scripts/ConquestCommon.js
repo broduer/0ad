@@ -23,7 +23,7 @@ Trigger.prototype.ConquestOwnershipChanged = function(msg)
 		{
 			const cmpPlayer = QueryPlayerIDInterface(msg.from);
 			if (cmpPlayer)
-				cmpPlayer.SetState("defeated", query.defeatReason);
+				cmpPlayer.Defeat(query.defeatReason);
 		}
 	}
 };

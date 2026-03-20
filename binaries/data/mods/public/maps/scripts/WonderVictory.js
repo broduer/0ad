@@ -59,7 +59,7 @@ Trigger.prototype.WonderVictoryStartTimer = function(ent, player)
 	for (let playerID = 1; playerID < TriggerHelper.GetNumberOfPlayers(); ++playerID)
 	{
 		const cmpPlayer = QueryPlayerIDInterface(playerID);
-		if (cmpPlayer.GetState() == "won")
+		if (cmpPlayer.HasWon())
 			return;
 		if (allies.indexOf(playerID) == -1 && playerID != player)
 			others.push(playerID);

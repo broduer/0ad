@@ -315,7 +315,7 @@ TriggerHelper.DefeatPlayer = function(playerID, defeatReason)
 {
 	const cmpPlayer = QueryPlayerIDInterface(playerID);
 	if (cmpPlayer)
-		cmpPlayer.SetState("defeated", defeatReason);
+		cmpPlayer.Defeat(defeatReason);
 };
 
 /**

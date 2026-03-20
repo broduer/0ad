@@ -495,7 +495,7 @@ bool CGame::IsGameFinished() const
 	for (const std::pair<entity_id_t, IComponent*>& p : m_Simulation2->GetEntitiesWithInterface(IID_Player))
 	{
 		CmpPtr<ICmpPlayer> cmpPlayer(*m_Simulation2, p.first);
-		if (cmpPlayer && cmpPlayer->GetState() == "won")
+		if (cmpPlayer && cmpPlayer->HasWon())
 			return true;
 	}
 
