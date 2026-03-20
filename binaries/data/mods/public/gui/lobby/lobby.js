@@ -37,6 +37,7 @@ async function init(attribs)
 		return new Promise(closePageCallback =>
 		{
 			registerGlobalGuiPageHotkeys(["options", "hotkeys", "civinfo", "structree", "catafalque", "mapbrowser", "manual", "tips"]);
+			Engine.SetGlobalHotkey("lastsummary", "Press", () => showLastGameSummary());
 			g_LobbyHandler = new LobbyHandler(closePageCallback, attribs && attribs.dialog);
 		});
 

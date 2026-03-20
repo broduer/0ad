@@ -315,6 +315,7 @@ function formatXmppAnnouncement(subject, text)
 
 	return message;
 }
+
 /**
  * Converts underscore-separated identifiers to PascalCase class names
  * for selecting entities by identity class.
@@ -326,6 +327,7 @@ function toPascalCase(str)
 		.map(s => s.charAt(0).toUpperCase() + s.slice(1))
 		.join('');
 }
+
 /**
  * Registers global hotkeys for opening GUI pages.
  *
@@ -344,4 +346,51 @@ function registerGlobalGuiPageHotkeys(hotkeys)
 		}
 		Engine.SetGlobalHotkey(key, "Press", () => Engine.OpenChildPage(`page_${key}.xml`));
 	}
+}
+
+/*
+ * Get metadata of the most recent replay, or null if unavailable.
+ */
+function getLastReplayMetadata()
+{
+	const replays = Engine.GetReplays(false);
+	if (!replays.length)
+		return null;
+
+	const lastReplay = replays.reduce((a, b) =>
+		a.attribs.timestamp > b.attribs.timestamp ? a : b
+	);
+
+	const simData = Engine.GetReplayMetadata(lastReplay.directory);
+	if (!simData)
+		return null;
+
+	return {
+		"simData": simData,
+		"directory": lastReplay.directory
+	};
+}
+
+/*
+ * Show the last game summary using metadata from getLastReplayMetadata()
+ */
+function showLastGameSummary()
+{
+	const data = getLastReplayMetadata();
+
+	if (!data)
+	{
+		messageBox(500, 200, translate("No summary data available."), translate("Error"));
+		return;
+	}
+
+	Engine.OpenChildPage("page_summary.xml", {
+		"sim": data.simData,
+		"gui": {
+			"replayDirectory": data.directory,
+			"isInLobby": true,
+			"ingame": false,
+			"dialog": true
+		}
+	});
 }

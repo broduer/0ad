@@ -44,6 +44,7 @@ var g_SetupWindow;
 function init(initData, hotloadData)
 {
 	registerGlobalGuiPageHotkeys(["options", "hotkeys", "civinfo", "structree", "catafalque", "manual", "tips"]);
+	Engine.SetGlobalHotkey("lastsummary", "Press", () => showLastGameSummary());
 	return Promise.race([new Promise(closePageCallback =>
 	{
 		g_SetupWindow = new SetupWindow(initData, hotloadData, closePageCallback);

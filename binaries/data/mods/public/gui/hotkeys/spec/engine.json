@@ -138,6 +138,10 @@
 			"options": {
 				"name": "Open Options window",
 				"desc": "Open Options window."
+			},
+			"lastsummary": {
+				"name": "Open last game summary",
+				"desc": "Open last game summary."
 			}
 		}
 	}
