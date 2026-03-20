@@ -287,7 +287,6 @@ async function init(initData, hotloadData)
 	g_PlayerViewControl.registerViewedPlayerChangeHandler(g_DiplomacyColors.updateDisplayedPlayerColors.bind(g_DiplomacyColors));
 	g_PlayerViewControl.registerViewedPlayerChangeHandler(resetTemplates);
 	g_DiplomacyColors.registerDiplomacyColorsChangeHandler(g_PlayerViewControl.rebuild.bind(g_PlayerViewControl));
-	g_DiplomacyColors.registerDiplomacyColorsChangeHandler(updateGUIObjects);
 	g_PauseControl = new PauseControl();
 	g_PlayerViewControl.registerPreViewedPlayerChangeHandler(removeStatusBarDisplay);
 	g_Ambient = new Ambient();
@@ -357,6 +356,10 @@ async function init(initData, hotloadData)
 
 	for (const handler of g_HotkeyChangeHandlers)
 		handler();
+
+	registerPlayersFinishedHandler(updatePlayerData);
+	g_DiplomacyColors.registerDiplomacyColorsChangeHandler(updatePlayerData);
+	registerCeasefireEndedHandler(updatePlayerData);
 
 	if (hotloadData)
 	{
@@ -471,6 +474,13 @@ function initializeMusic()
 	if (g_ViewedPlayer != -1 && g_CivData[g_Players[g_ViewedPlayer].civ].Music)
 		global.music.storeTracks(g_CivData[g_Players[g_ViewedPlayer].civ].Music);
 	global.music.setState(global.music.states.PEACE);
+
+	registerPlayersFinishedHandler((players, won) =>
+	{
+		if (players.includes(Engine.GetPlayerID()) && !Engine.IsAtlasRunning())
+			global.music.setState(won ? global.music.states.VICTORY : global.music.states.DEFEAT);
+	});
+
 }
 
 function resetTemplates()
@@ -504,37 +514,6 @@ function controlsPlayer(playerID)
 		Engine.GetPlayerID() == playerID &&
 		!!playerStates[playerID] &&
 		playerStates[playerID].state != "defeated";
-}
-
-/**
- * Called when one or more players have won or were defeated.
- *
- * @param {array} - IDs of the players who have won or were defeated.
- * @param {Object} - a plural string stating the victory reason.
- * @param {boolean} - whether these players have won or lost.
- */
-function playersFinished(players, victoryString, won)
-{
-	addChatMessage({
-		"type": "playerstate",
-		"message": victoryString,
-		"players": players
-	});
-
-	updatePlayerData();
-
-	// TODO: The other calls in this function should move too
-	for (const handler of g_PlayerFinishedHandlers)
-		handler(players, won);
-
-	if (players.indexOf(Engine.GetPlayerID()) == -1 || Engine.IsAtlasRunning())
-		return;
-
-	global.music.setState(
-		won ?
-			global.music.states.VICTORY :
-			global.music.states.DEFEAT
-	);
 }
 
 function resumeGame()

@@ -138,15 +138,14 @@ var g_NotificationsTypes =
 		},
 		"defeat": function(notification, player)
 		{
-			playersFinished(notification.allies, notification.message, false);
+			handlePlayersFinished(notification.allies, notification.message, false);
 		},
 		"won": function(notification, player)
 		{
-			playersFinished(notification.allies, notification.message, true);
+			handlePlayersFinished(notification.allies, notification.message, true);
 		},
 		"diplomacy": function(notification, player)
 		{
-			updatePlayerData();
 			g_DiplomacyColors.onDiplomacyChange();
 
 			addChatMessage({
@@ -158,7 +157,6 @@ var g_NotificationsTypes =
 		},
 		"ceasefire-ended": function(notification, player)
 		{
-			updatePlayerData();
 			for (const handler of g_CeasefireEndedHandlers)
 				handler();
 		},
@@ -413,6 +411,18 @@ function handlePlayerAssignmentsMessage(message)
 
 	// TODO: use subscription instead
 	updateGUIObjects();
+}
+
+function handlePlayersFinished(players, message, won)
+{
+	addChatMessage({
+		"type": "playerstate",
+		"message": message,
+		"players": players
+	});
+
+	for (const handler of g_PlayerFinishedHandlers)
+		handler(players, won);
 }
 
 function onClientJoin(guid)
