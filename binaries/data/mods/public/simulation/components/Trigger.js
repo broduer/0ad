@@ -173,6 +173,13 @@ Trigger.prototype.DisableTrigger = function(event, name)
 	triggerData.enabled = false;
 };
 
+Trigger.prototype.DisableAllTriggers = function()
+{
+	for (const event of this.eventNames)
+		for (const name in this.triggers[event])
+			this.DisableTrigger(event, name);
+};
+
 Trigger.prototype.EnableTrigger = function(event, name)
 {
 	if (!this.triggers[event][name])

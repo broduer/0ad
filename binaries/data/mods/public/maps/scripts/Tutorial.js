@@ -37,7 +37,10 @@ Trigger.prototype.InitTutorial = function(data)
 Trigger.prototype.NextStep = function(deserializing = false)
 {
 	if (++this.stepIndex >= this.tutorialSteps.length)
+	{
+		this.CompleteTutorial();
 		return;
+	}
 	const step = this.tutorialSteps[this.stepIndex];
 
 	Trigger.prototype.Init = step.Init || null;
@@ -68,16 +71,15 @@ Trigger.prototype.NextStep = function(deserializing = false)
 
 	Trigger.prototype.IsDone = step.IsDone || (() => false);
 	const isDone = this.IsDone();
-	const isLast = this.stepIndex === this.tutorialSteps.length - 1;
-	const showContinueButton = isDone || isLast || (step.panelData.showContinueButton === undefined ?
+	const showContinueButton = isDone || (step.panelData.showContinueButton === undefined ?
 		this.tutorialEvents.every(event => !step[event]) :
 		step.panelData.showContinueButton
 	);
 
-	this.DisplayStep(step, showContinueButton, isDone, isLast);
+	this.DisplayStep(step, showContinueButton, isDone);
 };
 
-Trigger.prototype.DisplayStep = function(step, showContinueButton = false, isDone = false, isLast = false)
+Trigger.prototype.DisplayStep = function(step, showContinueButton = false, isDone = false)
 {
 	const cmpGUIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface);
 	cmpGUIInterface.PushNotification({
@@ -86,7 +88,7 @@ Trigger.prototype.DisplayStep = function(step, showContinueButton = false, isDon
 		"step": {
 			"type": step.type,
 			"panelData": {
-				...step.panelData, showContinueButton, isDone, isLast
+				...step.panelData, showContinueButton, isDone
 			}
 		}
 	});
@@ -100,6 +102,31 @@ Trigger.prototype.DisplayWarning = function(warning)
 		"players": [1],
 		"warning": warning
 	});
+};
+
+Trigger.prototype.CompleteTutorial = function(message = markForTranslation("You have successfully completed the tutorial."))
+{
+	// End the tutorial first, before marking the player won, since otherwise the triggers would be invoked
+	// once more when doing so.
+	this.EndTutorial(message);
+	TriggerHelper.SetPlayerWon(this.playerID, () => markForTranslation("%(player)s has completed the tutorial."), () => "", message);
+};
+
+Trigger.prototype.FailTutorial = function(message = markForTranslation("You have failed to complete the tutorial."))
+{
+	// End the tutorial first, before marking the player defeated, since otherwise the triggers would be invoked
+	// once more when doing so.
+	this.EndTutorial(message);
+	TriggerHelper.DefeatPlayer(this.playerID, markForTranslation("%(player)s has failed the tutorial."), message);
+};
+
+Trigger.prototype.EndTutorial = function(message)
+{
+	this.DisableAllTriggers();
+	this.DisplayStep({
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": { "isLast": true, "text": message }
+	}, true, false);
 };
 
 Trigger.prototype.BasePlayerCommandAction = function(msg)

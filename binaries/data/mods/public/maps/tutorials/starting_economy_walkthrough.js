@@ -572,13 +572,7 @@ Trigger.prototype.tutorialSteps = [
 		"OnResearchFinished": function(msg)
 		{
 			if (this.IsDone())
-				this.NextStep();
-		}
-	},
-	{
-		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
-		"panelData": {
-			"text": markForTranslation("This is the end of the walkthrough. This should give you a good idea of the basics of setting up your economy.")
+				this.CompleteTutorial(markForTranslation("This is the end of the walkthrough. This should give you a good idea of the basics of setting up your economy."));
 		}
 	}
 ];

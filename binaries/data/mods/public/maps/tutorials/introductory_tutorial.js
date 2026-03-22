@@ -446,18 +446,7 @@ Trigger.prototype.tutorialSteps = [
 			if (msg.from != this.enemyID)
 				return;
 			if (TriggerHelper.EntityMatchesClassList(msg.entity, "CivilCentre"))
-				this.NextStep();
-		}
-	},
-	{
-		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
-		"panelData": {
-			"text": markForTranslation("The enemy has been defeated. These tutorial tasks are now completed.")
-		},
-		"Init": function()
-		{
-			const cmpEndGameManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_EndGameManager);
-			cmpEndGameManager.MarkPlayerAndAlliesAsWon(1, () => "Tutorial completed", () => "");
+				this.CompleteTutorial(markForTranslation("You have defeated the enemy by destroying or capturing the Civic Center. These tutorial tasks are now completed."));
 		}
 	}
 ];
