@@ -2,7 +2,9 @@ Trigger.prototype.tutorialSteps = [
 	{
 		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
 		"panelData": {
-			"text": markForTranslation("Welcome to the 0\xa0A.D. tutorial.")
+			"text": markForTranslation("Welcome to the 0\xa0A.D. tutorial."),
+			"hint": markForTranslation("Click to start the tutorial."),
+			"continueButton": markForTranslation("Start")
 		}
 	},
 	{
@@ -115,7 +117,8 @@ Trigger.prototype.tutorialSteps = [
 	{
 		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
 		"panelData": {
-			"text": markForTranslation("Let's wait for the Farmstead to be built.")
+			"text": markForTranslation("Let's wait for them to finish building the Farmstead, so they can use it as a dropsite."),
+			"hint": markForTranslation("Wait for the Farmstead to be built.")
 		},
 		"OnTrainingFinished": function(msg)
 		{
@@ -130,7 +133,7 @@ Trigger.prototype.tutorialSteps = [
 	{
 		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
 		"panelData": {
-			"text": markForTranslation("Once the Farmstead is constructed, its builders will automatically begin gathering food if there is any nearby. Select the builders and instead make them construct a Field beside the Farmstead.")
+			"text": markForTranslation("Now its builders will automatically begin gathering food if there is any nearby. Select the builders and instead make them construct a Field beside the Farmstead.")
 		},
 		"Init": function()
 		{
@@ -238,7 +241,8 @@ Trigger.prototype.tutorialSteps = [
 	{
 		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
 		"panelData": {
-			"text": markForTranslation("While waiting for the phasing up, you may reassign your idle workers to gathering the resources you are short of.")
+			"text": markForTranslation("While waiting for the phasing up, you may reassign your idle workers to gathering the resources you are short of."),
+			"hint": markForTranslation("Wait until you reach the Town Phase.")
 		},
 		"IsDone": function()
 		{
@@ -393,7 +397,8 @@ Trigger.prototype.tutorialSteps = [
 	{
 		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
 		"panelData": {
-			"text": markForTranslation("While waiting for the phase change, you may train more soldiers at the Barracks.")
+			"text": markForTranslation("While waiting for the phase change, you may train more soldiers at the Barracks."),
+			"hint": markForTranslation("Wait until you reach the City Phase")
 		},
 		"IsDone": function()
 		{

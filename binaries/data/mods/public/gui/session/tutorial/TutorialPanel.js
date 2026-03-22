@@ -44,11 +44,12 @@ class TutorialPanel
 			return;
 		}
 
+		this.button.caption = step.continueButton || this.ButtonCaptions.Continue;
 		this.hint.caption = step.isDone ?
 			this.HintCaptions.Done :
-			step.showContinueButton ?
+			step.hint || (step.showContinueButton ?
 				this.HintCaptions.Continue :
-				this.HintCaptions.Instruction;
+				this.HintCaptions.Instruction);
 	}
 }
 

@@ -2,7 +2,9 @@ Trigger.prototype.tutorialSteps = [
 	{
 		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
 		"panelData": {
-			"text": markForTranslation("This tutorial will teach the basics of developing your economy. Typically, you will start with a Civic Center and a couple units in Village Phase and ultimately, your goal will be to develop and expand your empire, often by evolving to Town Phase and City Phase afterward.")
+			"text": markForTranslation("This tutorial will teach the basics of developing your economy. Typically, you will start with a Civic Center and a couple units in Village Phase and ultimately, your goal will be to develop and expand your empire, often by evolving to Town Phase and City Phase afterward."),
+			"hint": markForTranslation("Click to start."),
+			"continueButton": markForTranslation("Start")
 		}
 	},
 	{
@@ -22,7 +24,8 @@ Trigger.prototype.tutorialSteps = [
 	{
 		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
 		"panelData": {
-			"text": markForTranslation("To start off, select your building, the Civic Center, by clicking on it. A selection ring in the color of your player will be displayed after clicking.")
+			"text": markForTranslation("To start off, select your building, the Civic Center, by clicking on it. A selection ring in the color of your player will be displayed after clicking."),
+			"hint": markForTranslation("Click to continue when you have selected the Civic Center.")
 		}
 	},
 	{
@@ -180,7 +183,8 @@ Trigger.prototype.tutorialSteps = [
 	{
 		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
 		"panelData": {
-			"text": markForTranslation("Let's wait for the units to be trained.")
+			"text": markForTranslation("Let's wait until the batch of Hoplites has finished training."),
+			"hint": markForTranslation("Wait for the training to finish.")
 		},
 		"IsDone": function()
 		{
@@ -216,7 +220,8 @@ Trigger.prototype.tutorialSteps = [
 	{
 		"type": TUTORIAL_STEP_TYPE.INFO,
 		"panelData": {
-			"text": markForTranslation("The selected Citizens will automatically start constructing the building once you place the foundation.")
+			"text": markForTranslation("The selected Citizens will automatically start constructing the building once you place the foundation."),
+			"hint": markForTranslation("Wait for the storehouse to be built.")
 		},
 		"OnStructureBuilt": function(msg)
 		{
@@ -267,7 +272,8 @@ Trigger.prototype.tutorialSteps = [
 	{
 		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
 		"panelData": {
-			"text": markForTranslation("The units should be ready soon.\nIn the meantime, direct your attention to your population count on the top panel. It is the fifth item from the left, after the resources. It would be prudent to keep an eye on it. It indicates your current population (including those being trained) and the current population limit, which is determined by your built structures.")
+			"text": markForTranslation("The units should be ready soon.\nIn the meantime, direct your attention to your population count on the top panel. It is the fifth item from the left, after the resources. It would be prudent to keep an eye on it. It indicates your current population (including those being trained) and the current population limit, which is determined by your built structures."),
+			"hint": markForTranslation("Wait for the training of the Civilians to finish.")
 		},
 		"OnTrainingFinished": function(msg)
 		{
@@ -364,7 +370,8 @@ Trigger.prototype.tutorialSteps = [
 		"panelData": {
 			"text":
 				markForTranslation("When the Farmstead construction is finished, its builders will automatically look for food, and in this case, they will go after the nearby goats.\n") +
-				markForTranslation("But your House builders will only look for something else to build and, if nothing found, become idle. Let's wait for them to build the Houses.")
+				markForTranslation("But your House builders will only look for something else to build and, if nothing found, become idle."),
+			"hint": markForTranslation("Wait until the houses are built.")
 		},
 		"IsDone": function()
 		{
@@ -381,7 +388,7 @@ Trigger.prototype.tutorialSteps = [
 	{
 		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
 		"panelData": {
-			"text": markForTranslation("When both Houses are built, select your two Civilians and order them to build a Field as close as possible to the Farmstead, which is a dropsite for all types of food.")
+			"text": markForTranslation("Select your two Civilians and order them to build a Field as close as possible to the Farmstead, which is a dropsite for all types of food.")
 		},
 		"OnPlayerCommand": function(msg)
 		{
@@ -497,7 +504,8 @@ Trigger.prototype.tutorialSteps = [
 	{
 		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
 		"panelData": {
-			"text": markForTranslation("Let's wait for the Barracks to be built. As this construction is lengthy, you can add two soldiers to build it faster. To do so, select your Civic Center and set up a rally point on the Barracks foundation by right-clicking on it (you should see a hammer icon). Then produce two more builders by clicking on the Hoplite icon twice.")
+			"text": markForTranslation("As the construction of a Barracks is lengthy, you can add two soldiers to build it faster. To do so, select your Civic Center and set up a rally point on the Barracks foundation by right-clicking on it (you should see a hammer icon). Then produce two more builders by clicking on the Hoplite icon twice."),
+			"hint": markForTranslation("Wait for the Barracks to be built.")
 		},
 		"OnStructureBuilt": function(msg)
 		{
