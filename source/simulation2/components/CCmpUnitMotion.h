@@ -170,6 +170,7 @@ class CCmpUnitMotion final : public ICmpUnitMotion
 public:
 	std::vector<Waypoint> GetCurrentPath() const override;
 	CFixedVector2D GetCurrentDirection() const override;
+	bool GetIsFormationSnaking() const override { return m_UseSnaking; }
 
 	static void ClassInit(CComponentManager& componentManager)
 	{
@@ -191,6 +192,7 @@ public:
 	// Template state:
 
 	bool m_IsFormationController;
+	bool m_UseSnaking;
 
 	fixed m_TemplateWalkSpeed, m_TemplateRunMultiplier, m_TemplateAcceleration, m_TemplateWeight;
 	pass_class_t m_PassClass;
@@ -317,12 +319,21 @@ public:
 				"<element name='DisablePushing'>"
 					"<data type='boolean'/>"
 				"</element>"
+			"</optional>"
+			"<optional>"
+				"<element name='UseSnaking'>"
+					"<data type='boolean'/>"
+				"</element>"
 			"</optional>";
 	}
 
 	void Init(const CParamNode& paramNode) override
 	{
 		m_IsFormationController = paramNode.GetChild("FormationController").ToBool();
+
+		m_UseSnaking = false;
+		if (m_IsFormationController && paramNode.GetChild("UseSnaking").IsOk())
+			m_UseSnaking = paramNode.GetChild("UseSnaking").ToBool();
 
 		m_FacePointAfterMove = true;
 
@@ -391,6 +402,9 @@ public:
 
 		Serializer(serialize, "long path", m_LongPath.m_Waypoints);
 		Serializer(serialize, "short path", m_ShortPath.m_Waypoints);
+
+		if (m_IsFormationController)
+			serialize.Bool("use snaking", m_UseSnaking);
 
 		Serializer(serialize, "path history", m_PathHistory);
 	}
@@ -1749,48 +1763,55 @@ bool CCmpUnitMotion::ComputeTargetPosition(CFixedVector2D& out, const MoveReques
 	entity_angle_t controllerAngle = cmpTargetPosition->GetRotation().Y;
 	CFixedVector2D positionOffset = moveRequest.GetOffset();
 
-	// Try to use the controller's path to give formation a "Snaking" movement
+	bool useSnaking = false;
 	CmpPtr<ICmpUnitMotion> cmpControllerMotion(GetSimContext(), moveRequest.m_Entity);
 	if (cmpControllerMotion)
+		useSnaking = cmpControllerMotion->GetIsFormationSnaking();
+
+	if (useSnaking)
 	{
-		std::vector<Waypoint> controllerPath = cmpControllerMotion->GetCurrentPath();
-
-		if (controllerPath.size() >= 3) // After forming, the path size is 2, so it become 3 if we actually ever moved
+		// Try to use the controller's path to give formation a "Snaking" movement
+		if (cmpControllerMotion)
 		{
-			CFixedVector2D pointOnPath;
-			CFixedVector2D pathDirection;
+			std::vector<Waypoint> controllerPath = cmpControllerMotion->GetCurrentPath();
 
-			// Negative offset (behind controller along path) - use path history
-			if (positionOffset.Y < fixed::Zero())
+			if (controllerPath.size() >= 3) // After forming, the path size is 2, so it become 3 if we actually ever moved
 			{
-				size_t segment;
-				CFixedVector2D closestPoint;
-				entity_pos_t distanceAlong;
+				CFixedVector2D pointOnPath;
+				CFixedVector2D pathDirection;
 
-				if (PathUtils::FindClosestPointOnPath(controllerPath, controllerPos, segment, closestPoint, distanceAlong) &&
-					PathUtils::ProjectBackwardAlongPath(controllerPath, closestPoint, -positionOffset.Y,
-														segment, distanceAlong, pointOnPath, pathDirection))
+				// Negative offset (behind controller along path) - use path history
+				if (positionOffset.Y < fixed::Zero())
 				{
-					CFixedVector2D perpendicularDir(pathDirection.Y, -pathDirection.X);
-					out = pointOnPath + perpendicularDir.Multiply(positionOffset.X);
-					return true;
+					size_t segment;
+					CFixedVector2D closestPoint;
+					entity_pos_t distanceAlong;
+
+					if (PathUtils::FindClosestPointOnPath(controllerPath, controllerPos, segment, closestPoint, distanceAlong) &&
+						PathUtils::ProjectBackwardAlongPath(controllerPath, closestPoint, -positionOffset.Y,
+															segment, distanceAlong, pointOnPath, pathDirection))
+					{
+						CFixedVector2D perpendicularDir(pathDirection.Y, -pathDirection.X);
+						out = pointOnPath + perpendicularDir.Multiply(positionOffset.X);
+						return true;
+					}
 				}
-			}
-			// Positive or zero offset (ahead of controller along path)
-			else
-			{
-				if (PathUtils::FindPointAlongPath(controllerPath, controllerPos,
-												  positionOffset.Y, pointOnPath, pathDirection))
+				// Positive or zero offset (ahead of controller along path)
+				else
 				{
-					CFixedVector2D perpendicularDir(pathDirection.Y, -pathDirection.X);
-					out = pointOnPath + perpendicularDir.Multiply(positionOffset.X);
-					return true;
+					if (PathUtils::FindPointAlongPath(controllerPath, controllerPos,
+													positionOffset.Y, pointOnPath, pathDirection))
+					{
+						CFixedVector2D perpendicularDir(pathDirection.Y, -pathDirection.X);
+						out = pointOnPath + perpendicularDir.Multiply(positionOffset.X);
+						return true;
+					}
 				}
 			}
 		}
 	}
 
-	// Fallback: simple rotation-based offset
+	// Simple rotation-based offset, used when snaking is disabled or path projection fails
 	out = controllerPos + positionOffset.Rotate(controllerAngle);
 	return true;
 }
