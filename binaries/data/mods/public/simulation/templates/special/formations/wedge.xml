@@ -17,4 +17,7 @@
     <Icon>formations/wedge.png</Icon>
     <Tooltip>Triangular Cavalry formation to break through enemy lines.</Tooltip>
   </Identity>
+  <UnitMotion>
+    <UseSnaking>true</UseSnaking>
+  </UnitMotion>
 </Entity>

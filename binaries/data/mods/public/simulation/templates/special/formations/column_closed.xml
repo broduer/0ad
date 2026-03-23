@@ -11,4 +11,7 @@
     <Icon>formations/column_closed.png</Icon>
     <Tooltip>Closed column formation for risky movements.</Tooltip>
   </Identity>
+  <UnitMotion>
+    <UseSnaking>true</UseSnaking>
+  </UnitMotion>
 </Entity>

@@ -11,4 +11,7 @@
     <Icon>formations/column_open.png</Icon>
     <Tooltip>Dispersed formation for open field crossings.</Tooltip>
   </Identity>
+  <UnitMotion>
+    <UseSnaking>true</UseSnaking>
+  </UnitMotion>
 </Entity>
