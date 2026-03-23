@@ -277,11 +277,8 @@ function init(initData, hotloadData)
 			restoreSavedGameData(initData.savedGUIData);
 	}
 
-	const promise = new Promise(closePageCallback =>
-	{
-		if (g_InitAttributes.campaignData)
-			g_CampaignSession = new CampaignSession(g_InitAttributes.campaignData, closePageCallback);
-	});
+	if (g_InitAttributes.campaignData)
+		g_CampaignSession = new CampaignSession(g_InitAttributes.campaignData);
 
 	const mapCache = new MapCache();
 	g_Cheats = new Cheats();
@@ -345,9 +342,7 @@ function init(initData, hotloadData)
 
 	setTimeout(displayGamestateNotifications, 1000);
 
-	if (g_IsNetworked)
-		return Promise.race([promise, handleNetMessages()]);
-	return promise;
+	return g_IsNetworked ? handleNetMessages() : new Promise(() => {});
 }
 
 function registerPlayersInitHandler(handler)

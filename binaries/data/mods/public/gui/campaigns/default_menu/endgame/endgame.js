@@ -8,4 +8,6 @@ function init(endGameData)
 	const run = CampaignRun.getCurrentRun();
 	if (endGameData.won)
 		markLevelComplete(run, endGameData.initData.levelID);
+
+	return Promise.resolve();
 }

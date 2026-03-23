@@ -1,9 +1,9 @@
 class CampaignSession
 {
-	constructor(data, closePageCallback)
+	constructor(data)
 	{
 		this.run = new CampaignRun(data.run).load();
-		registerPlayersFinishedHandler(this.onFinish.bind(this, closePageCallback));
+		registerPlayersFinishedHandler(this.onFinish.bind(this));
 		this.endGameData = {
 			"won": false,
 			"initData": data,
@@ -11,7 +11,7 @@ class CampaignSession
 		};
 	}
 
-	onFinish(closePageCallback, players, won)
+	onFinish(players, won)
 	{
 		const playerID = Engine.GetPlayerID();
 		if (players.indexOf(playerID) === -1)
@@ -24,7 +24,6 @@ class CampaignSession
 
 		// Run the endgame script.
 		Engine.OpenChildPage(this.getEndGame(), this.endGameData);
-		closePageCallback();
 	}
 
 	getMenu()
