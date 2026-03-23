@@ -1561,6 +1561,18 @@ UnitAI.prototype.UnitFsmSpec = {
 			// is done moving. The controller is notified.
 			"MovementUpdate": function(msg)
 			{
+				// We want to align the rotation to the controller's one in some case
+				// like when the formation is initially forming. The rest of the time, we'll
+				// keep the orientation we have from our direction of travel
+				if (this.order.data.rotateToController)
+				{
+					const cmpControllerPos = Engine.QueryInterface(this.formationController, IID_Position);
+					const cmpMyPos = Engine.QueryInterface(this.entity, IID_Position);
+					if (cmpControllerPos && cmpMyPos && cmpControllerPos.IsInWorld() && cmpMyPos.IsInWorld())
+					{
+						cmpMyPos.TurnTo(cmpControllerPos.GetRotation().y);
+					}
+				}
 				// When walking in formation, we'll only get notified in case of failure
 				// if the formation controller has stopped walking.
 				// Formations can start lagging a lot if many entities request short path

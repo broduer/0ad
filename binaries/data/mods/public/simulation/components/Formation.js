@@ -316,12 +316,6 @@ Formation.prototype.GetFormationAnimationVariant = function(entity)
 
 Formation.prototype.SetFinishedEntity = function(ent)
 {
-	// Rotate the entity to the correct angle.
-	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
-	const cmpEntPosition = Engine.QueryInterface(ent, IID_Position);
-	if (cmpEntPosition && cmpEntPosition.IsInWorld() && cmpPosition && cmpPosition.IsInWorld())
-		cmpEntPosition.TurnTo(cmpPosition.GetRotation().y);
-
 	this.finishedEntities.add(ent);
 };
 
@@ -572,7 +566,8 @@ Formation.prototype.ArrangeFormation = function(moveCenter, force, variant)
 				"x": offset.x,
 				"z": offset.y,
 				"offsetsChanged": offsetsChanged,
-				"variant": variant
+				"variant": variant,
+				"rotateToController": moveCenter
 			};
 		cmpUnitAI.AddOrder("FormationWalk", data, !force);
 		xMax = Math.max(xMax, offset.x);
