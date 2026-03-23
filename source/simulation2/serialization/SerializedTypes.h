@@ -1,4 +1,4 @@
-/* Copyright (C) 2020 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -26,6 +26,8 @@
 #include "simulation2/serialization/SerializeTemplates.h"
 
 #include "lib/types.h"
+
+#include "ps/containers/StaticCircularBuffer.h"
 
 #include <array>
 #include <map>
@@ -253,6 +255,31 @@ struct SerializeHelper<StringLike, std::enable_if_t<std::is_base_of_v<std::strin
 	{
 		deserialize.StringASCII(name, value, 0, UINT32_MAX);
 	}
+};
+
+template<typename T, size_t N>
+struct SerializeHelper<PS::StaticCircularBuffer<T, N>>
+{
+    void operator()(ISerializer& serialize, const char* name, PS::StaticCircularBuffer<T, N>& value)
+    {
+        size_t len = value.size();
+        serialize.NumberU32_Unbounded("length", (u32)len);
+        for (size_t i = 0; i < len; ++i)
+            Serializer(serialize, name, value[i]);
+    }
+
+    void operator()(IDeserializer& deserialize, const char* name, PS::StaticCircularBuffer<T, N>& value)
+    {
+        value.clear();
+        u32 len;
+        deserialize.NumberU32_Unbounded("length", len);
+        for (size_t i = 0; i < len; ++i)
+        {
+            T el;
+            Serializer(deserialize, name, el);
+            value.push_back(std::move(el));
+        }
+    }
 };
 
 #endif // INCLUDED_SERIALIZED_TYPES
