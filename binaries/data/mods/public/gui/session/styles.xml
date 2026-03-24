@@ -222,6 +222,19 @@
 		text_valign="center"
 	/>
 
+	<style name="TutorialPanel"
+		buffer_zone="8"
+		font="sans-bold-14"
+		scrollbar="true"
+		scrollbar_style="ModernScrollBar"
+		scroll_bottom="true"
+		textcolor="white"
+		text_align="left"
+		text_valign="top"
+		sprite="ModernDarkBox"
+		sprite_overlay="ModernDarkBoxGoldBorder"
+	/>
+
 	<!-- ================================  ================================ -->
 	<!-- Icon Styles -->
 	<!-- ================================  ================================ -->
