@@ -75,7 +75,12 @@ Formation.prototype.Schema =
 	"</element>" +
 	"<element name='AnimationVariants' a:help='Give a list of animation variants to use for the particular formation members, based on their positions.'>" +
 		"<text a:help='example text: &#x201C;1..1,1..-1:animationVariant1;2..2,1..-1;animationVariant2&#x201D;, this will set animationVariant1 for the first row, and animation2 for the second row. The first part of the numbers (1..1 and 2..2) means the row range. Every row between (and including) those values will switch animationvariants. The second part of the numbers (1..-1) denote the columns inside those rows that will be affected. Note that in both cases, you can use -1 for the last row/column, -2 for the second to last, etc.'/>" +
-	"</element>";
+	"</element>" +
+	"<optional>" +
+		"<element name='ControllerRow' a:help='The row number where the formation controller will be positioned (1-indexed). Defaults to 2.'>" +
+			"<data type='nonNegativeInteger'/>" +
+		"</element>" +
+	"</optional>";
 
 // Distance under which the formation will not try to turn towards the target position.
 var g_RotateDistanceThreshold = 1;
@@ -92,7 +97,9 @@ Formation.prototype.variablesToSerialize = [
 	"depth",
 	"twinFormations",
 	"formationSeparation",
-	"offsets"
+	"offsets",
+	"frontShiftApplied",
+	"controllerRow"
 ];
 
 Formation.prototype.Init = function(deserialized = false)
@@ -115,6 +122,11 @@ Formation.prototype.Init = function(deserialized = false)
 	this.maxColumns = +(this.template.MaxColumns || 0);
 	this.maxRows = +(this.template.MaxRows || 0);
 	this.centerGap = +(this.template.CenterGap || 0);
+
+	// Row where the formation controller should be placed (1‑indexed, default 2)
+	this.controllerRow = +(this.template.ControllerRow || 2);
+	if (this.controllerRow < 1)
+		this.controllerRow = 2; // safety fallback
 
 	if (this.template.AnimationVariants)
 	{
@@ -152,6 +164,7 @@ Formation.prototype.Init = function(deserialized = false)
 	this.twinFormations = [];
 	// Distance from which two twin formations will merge into one.
 	this.formationSeparation = 0;
+	this.frontShiftApplied = false;
 
 	if (deserialized)
 		return;
@@ -342,9 +355,20 @@ Formation.prototype.AreAllMembersFinished = function()
 Formation.prototype.SetMembers = function(ents)
 {
 	this.members = ents;
+	this.frontShiftApplied = false;
+
+	const active = [];
+	const positions = [];
 
 	for (const ent of this.members)
 	{
+		const cmpPosition = Engine.QueryInterface(ent, IID_Position);
+		if (!cmpPosition || !cmpPosition.IsInWorld())
+			continue;
+
+		active.push(ent);
+		positions.push(cmpPosition.GetPosition2D());
+
 		const cmpUnitAI = Engine.QueryInterface(ent, IID_UnitAI);
 		cmpUnitAI.SetFormationController(this.entity);
 
@@ -358,12 +382,63 @@ Formation.prototype.SetMembers = function(ents)
 	// Note: We don't add the members to this.memberClassCombinationCache right away,
 	// it is filled lazily in ComputeFormationOffsets.
 
-	this.offsets = undefined;
-	// Locate this formation controller in the middle of its members.
-	this.MoveToMembersCenter();
+	// Compute offsets – these will be relative to the controller’s local origin.
+	// The chosen controller row will become the origin (0,0) after shifting.
+	this.offsets = this.ComputeFormationOffsets(active, positions, true, true);
+
+	// Place the controller so that the average member position is preserved.
+	this.PositionControllerAtFrontCenter(positions);
 
 	// Compute the speed etc. of the formation.
 	this.ComputeMotionParameters();
+};
+
+/**
+ * Position the formation controller so that the average of all member positions
+ * stays the same after they move to their offsets.
+ * This uses the average offset (which is in controller‑local coordinates)
+ * transformed by the average member rotation.
+ */
+Formation.prototype.PositionControllerAtFrontCenter = function(memberPositions)
+{
+	if (!memberPositions || !memberPositions.length)
+	{
+		warn("[Formation] PositionControllerAtFrontCenter: No member positions!");
+		return;
+	}
+
+	// Compute the average of all member positions
+	const avgMemberPos = Vector2D.average(memberPositions);
+
+	// Compute the average rotation of the members
+	let rotations = 0;
+	let rotationCount = 0;
+	for (const ent of this.members)
+	{
+		const cmpPosition = Engine.QueryInterface(ent, IID_Position);
+		if (cmpPosition && cmpPosition.IsInWorld())
+		{
+			rotations += cmpPosition.GetRotation().y;
+			rotationCount++;
+		}
+	}
+	const avgRot = rotationCount ? rotations / rotationCount : 0;
+
+	// Calculate the average offset in controller's local space
+	const avgOffsetLocal = Vector2D.average(this.offsets);
+
+	// Transform the average offset to world space using the average rotation
+	const sin = Math.sin(avgRot);
+	const cos = Math.cos(avgRot);
+	const worldOffsetX = avgOffsetLocal.y * sin + avgOffsetLocal.x * cos;
+	const worldOffsetY = avgOffsetLocal.y * cos - avgOffsetLocal.x * sin;
+
+	// Controller position = avgMemberPos - worldOffset
+	const targetX = avgMemberPos.x - worldOffsetX;
+	const targetY = avgMemberPos.y - worldOffsetY;
+
+	this.SetupPositionAndHandleRotation(targetX, targetY, avgRot, true);
+	this.frontShiftApplied = true;
 };
 
 /**
@@ -514,31 +589,46 @@ Formation.prototype.ArrangeFormation = function(moveCenter, force, variant)
 
 	const cmpFormationUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
 	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
-	// Reposition the formation if we're told to or if we don't already have a position.
-	if (cmpPosition && (moveCenter || !cmpPosition.IsInWorld()))
+
+	let offsetsChanged = false;
+	let needControllerReposition = false;
+
+	// Determine if we need to recompute offsets
+	if (!this.offsets)
 	{
-		const avgpos = Vector2D.average(positions);
+		// During updates, we do NOT shift again (isInitialSetup = false)
+		this.offsets = this.ComputeFormationOffsets(active, positions, false, false);
+		offsetsChanged = true;
+		needControllerReposition = false; // Keep controller where it is, just update offsets
+	}
+
+	// Only reposition the controller if explicitly told to moveCenter AND we're not in combat
+	// AND we either haven't been positioned yet or are out of world
+	if (moveCenter && (!this.frontShiftApplied || !cmpPosition.IsInWorld()))
+	{
+		needControllerReposition = true;
+	}
+
+	if (needControllerReposition)
+	{
+		// Get the target position from the UnitAI (if any)
 		const targetPosition = cmpFormationUnitAI.GetTargetPositions()[0];
+		const oldRotation = cmpPosition.IsInWorld() ? cmpPosition.GetRotation().y : 0;
 
-		const oldRotation = cmpPosition.GetRotation().y;
-		const newRotation = targetPosition !== undefined && avgpos.distanceToSquared(targetPosition) > g_RotateDistanceThreshold ? avgpos.angleTo(targetPosition) : oldRotation;
+		// Compute average member position
+		const avgPos = Vector2D.average(positions);
+		const newRotation = targetPosition !== undefined && avgPos.distanceToSquared(targetPosition) > g_RotateDistanceThreshold ?
+			avgPos.angleTo(targetPosition) : oldRotation;
 
-		// When we are out of world or the angle difference is big, trigger repositioning.
-		// Do this before setting up the position, because then we will always be in world.
-		if (!cmpPosition.IsInWorld() || !this.DoesAngleDifferenceAllowTurning(newRotation, oldRotation))
-			this.offsets = undefined;
+		// Compute the geometric centre of the offsets (already shifted)
+		const offsetGeo = Vector2D.average(this.offsets);
 
-		this.SetupPositionAndHandleRotation(avgpos.x, avgpos.y, newRotation, true);
+		// Position controller at the chosen row centre relative to members
+		this.SetupPositionAndHandleRotation(avgPos.x - offsetGeo.x, avgPos.y - offsetGeo.y, newRotation, true);
+		this.frontShiftApplied = true;
 	}
 
 	this.lastOrderVariant = variant;
-
-	let offsetsChanged = false;
-	if (!this.offsets)
-	{
-		this.offsets = this.ComputeFormationOffsets(active, positions);
-		offsetsChanged = true;
-	}
 
 	let xMax = 0;
 	let yMax = 0;
@@ -577,25 +667,6 @@ Formation.prototype.ArrangeFormation = function(moveCenter, force, variant)
 	}
 	this.width = xMax - xMin;
 	this.depth = yMax - yMin;
-};
-
-Formation.prototype.MoveToMembersCenter = function()
-{
-	const positions = [];
-	let rotations = 0;
-
-	for (const ent of this.members)
-	{
-		const cmpPosition = Engine.QueryInterface(ent, IID_Position);
-		if (!cmpPosition || !cmpPosition.IsInWorld())
-			continue;
-
-		positions.push(cmpPosition.GetPosition2D());
-		rotations += cmpPosition.GetRotation().y;
-	}
-
-	const avgpos = Vector2D.average(positions);
-	this.SetupPositionAndHandleRotation(avgpos.x, avgpos.y, rotations / positions.length, false);
 };
 
 /**
@@ -715,7 +786,7 @@ Formation.prototype.GetMemberClassCombinations = function(ent)
 	return matchedClassCombination;
 };
 
-Formation.prototype.ComputeFormationOffsets = function(active, positions)
+Formation.prototype.ComputeFormationOffsets = function(active, positions, isInitialSetup, forceOffsetCalculation = false)
 {
 	const separation = this.GetAvgFootprint(active);
 	separation.width *= this.separationMultiplier.width;
@@ -813,9 +884,10 @@ Formation.prototype.ComputeFormationOffsets = function(active, positions)
 				const r1 = randFloat(-1, 1) * this.sloppiness;
 				const r2 = randFloat(-1, 1) * this.sloppiness;
 
-				offsets.push(new Vector2D(x + r1, z + r2));
-				offsets[offsets.length - 1].row = r + 1;
-				offsets[offsets.length - 1].column = column;
+				const offset = new Vector2D(x + r1, z + r2);
+				offset.row = r + 1;
+				offset.column = column;
+				offsets.push(offset);
 				left--;
 			}
 			++r;
@@ -824,11 +896,22 @@ Formation.prototype.ComputeFormationOffsets = function(active, positions)
 		this.maxRowsUsed = r;
 	}
 
-	// Make sure the average offset is zero, as the formation is centered around that
-	// calculating offset distances without a zero average makes no sense, as the formation
-	// will jump to a different position any time.
-	const avgoffset = Vector2D.average(offsets);
-	offsets.forEach(function(o) {o.sub(avgoffset);});
+	// Shift the entire formation so that the chosen controller row's centre becomes the origin (0,0).
+	if (isInitialSetup && this.maxRowsUsed >= 1)
+	{
+		// Determine the actual row to use (clamp to valid range)
+		let targetRow = this.controllerRow;
+		if (targetRow < 1)
+			targetRow = 1;
+		if (targetRow > this.maxRowsUsed)
+			targetRow = this.maxRowsUsed;
+
+		// Before shift, row r has y = -(r-1)*separation.depth
+		// To make row targetRow have y=0, add (targetRow-1)*separation.depth
+		const shiftZ = (targetRow - 1) * separation.depth;
+		for (const offset of offsets)
+			offset.y += shiftZ;
+	}
 
 	// Sort the available places in certain ways.
 	// The places first in the list will contain the heaviest units as defined by the order
@@ -841,11 +924,18 @@ Formation.prototype.ComputeFormationOffsets = function(active, positions)
 			return Math.max(Math.abs(o1.x), Math.abs(o1.y)) < Math.max(Math.abs(o2.x), Math.abs(o2.y));
 		});
 
-	// Query the 2D position of the formation.
-	const realPositions = this.GetRealOffsetPositions(offsets);
+	// Get real positions only if we need them for member assignment and the controller is in world
+	let realPositions;
+	if (!forceOffsetCalculation && this.offsets && !isInitialSetup)
+	{
+		// During updates, we use dummy positions because we don't want to query the controller
+		realPositions = offsets.map((o, idx) => new Vector2D(o.x, o.y));
+	}
+	else
+	{
+		realPositions = this.GetRealOffsetPositions(offsets);
+	}
 
-	// Use realistic place assignment,
-	// every soldier searches the closest available place in the formation.
 	const newOffsets = [];
 	for (const i of [...this.allMatchingClassCombinations].reverse())
 	{
@@ -897,6 +987,9 @@ Formation.prototype.TakeClosestOffset = function(entPos, realPositions, offsets)
 Formation.prototype.GetRealOffsetPositions = function(offsets)
 {
 	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
+	if (!cmpPosition || !cmpPosition.IsInWorld())
+		return offsets.map(o => new Vector2D(o.x, o.y));
+
 	const pos = cmpPosition.GetPosition2D();
 	const rot = cmpPosition.GetRotation().y;
 	const sin = Math.sin(rot);
