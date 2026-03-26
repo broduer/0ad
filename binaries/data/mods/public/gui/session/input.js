@@ -1434,6 +1434,7 @@ function positionUnitsFreehandSelectionMouseUp(ev)
 	for (let i = 1; i < inputLine.length; ++i)
 		lengthOfLine += inputLine[i].distanceTo(inputLine[i - 1]);
 
+	// Filter units that can move
 	const selection = g_Selection.filter(ent => !!GetEntityState(ent).unitAI).sort((a, b) => a - b);
 
 	// Checking the line for a minimum length to save performance.
@@ -1443,39 +1444,43 @@ function positionUnitsFreehandSelectionMouseUp(ev)
 		return !!action && doAction(action, ev);
 	}
 
-	// Even distribution of the units on the line.
-	let p0 = inputLine[0];
-	let entityDistribution = [p0];
-	const distanceBetweenEnts = lengthOfLine / (selection.length - 1);
-	let freeDist = -distanceBetweenEnts;
+	// Sort units by their projection onto the line direction (parallel sorting)
+	const sortedSelection = sortEntitiesAlongLine(selection, inputLine[0], inputLine[inputLine.length - 1], true);
 
-	for (let i = 1; i < inputLine.length; ++i)
+	const selectionCount = sortedSelection.length;
+	const targetPositions = [];
+
+	// Distribute units evenly along the polyline
+	for (let i = 0; i < selectionCount; ++i)
 	{
-		const p1 = inputLine[i];
-		freeDist += inputLine[i - 1].distanceTo(p1);
+		const t = i / (selectionCount - 1);
+		const targetDistance = t * lengthOfLine;
 
-		while (freeDist >= 0)
+		let accumulated = 0;
+		let targetPoint = inputLine[0];
+		for (let j = 1; j < inputLine.length; ++j)
 		{
-			p0 = Vector2D.sub(p0, p1).normalize().mult(freeDist).add(p1);
-			entityDistribution.push(p0);
-			freeDist -= distanceBetweenEnts;
+			const segStart = inputLine[j - 1];
+			const segEnd = inputLine[j];
+			const segLength = segEnd.distanceTo(segStart);
+
+			if (accumulated + segLength >= targetDistance)
+			{
+				// Interpolate within this segment
+				const remaining = targetDistance - accumulated;
+				const frac = remaining / segLength;
+				targetPoint = segStart.lerp(segEnd, frac);
+				break;
+			}
+			accumulated += segLength;
 		}
+		targetPositions.push(targetPoint);
 	}
-
-	// Rounding errors can lead to missing or too many points.
-	entityDistribution = entityDistribution.slice(0, selection.length);
-	entityDistribution = entityDistribution.concat(new Array(selection.length - entityDistribution.length).fill(inputLine[inputLine.length - 1]));
-
-	if (Vector2D.from3D(GetEntityState(selection[0]).position).distanceTo(entityDistribution[0]) +
-	    Vector2D.from3D(GetEntityState(selection[selection.length - 1]).position).distanceTo(entityDistribution[selection.length - 1]) >
-	    Vector2D.from3D(GetEntityState(selection[0]).position).distanceTo(entityDistribution[selection.length - 1]) +
-	    Vector2D.from3D(GetEntityState(selection[selection.length - 1]).position).distanceTo(entityDistribution[0]))
-		entityDistribution.reverse();
 
 	Engine.PostNetworkCommand({
 		"type": isAttackMovePressed() ? "attack-walk-custom" : "walk-custom",
-		"entities": selection,
-		"targetPositions": entityDistribution.map(pos => pos.toFixed(2)),
+		"entities": sortedSelection,
+		"targetPositions": targetPositions.map(pos => pos.toFixed(2)),
 		"targetClasses": Engine.HotkeyIsPressed("session.attackmoveUnit") ? { "attack": ["Unit"] } : { "attack": ["Unit", "Structure"] },
 		"queued": Engine.HotkeyIsPressed("session.queue"),
 		"pushFront": Engine.HotkeyIsPressed("session.pushorderfront"),
@@ -1483,9 +1488,10 @@ function positionUnitsFreehandSelectionMouseUp(ev)
 	});
 
 	// Add target markers with a minimum distance of 5 to each other.
-	const entitiesBetweenMarker = Math.ceil(5 / distanceBetweenEnts);
-	for (let i = 0; i < entityDistribution.length; i += entitiesBetweenMarker)
-		DrawTargetMarker({ "x": entityDistribution[i].x, "z": entityDistribution[i].y });
+	const stepDistance = lengthOfLine / (selectionCount - 1);
+	const entitiesBetweenMarker = Math.max(1, Math.ceil(5 / stepDistance));
+	for (let i = 0; i < targetPositions.length; i += entitiesBetweenMarker)
+		DrawTargetMarker({ "x": targetPositions[i].x, "z": targetPositions[i].y });
 
 	Engine.GuiInterfaceCall("PlaySound", {
 		"name": "order_walk",

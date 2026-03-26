@@ -442,3 +442,17 @@ Vector3D.div = function(v, f)
 {
 	return new Vector3D(v.x / f, v.y / f, v.z / f);
 };
+
+/**
+ * Linear interpolation between this vector and another.
+ * @param {Vector2D} v - The target vector.
+ * @param {number} t - Interpolation factor (0 = this, 1 = v).
+ * @returns {Vector2D} A new vector at the interpolated position.
+ */
+Vector2D.prototype.lerp = function(v, t)
+{
+	return new Vector2D(
+		this.x + (v.x - this.x) * t,
+		this.y + (v.y - this.y) * t
+	);
+};
