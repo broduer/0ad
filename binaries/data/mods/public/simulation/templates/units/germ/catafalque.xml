@@ -6,6 +6,7 @@
   </Auras>
   <Identity>
     <Civ>germ</Civ>
+    <GenericName>German Catafalque</GenericName>
     <SpecificName>Ganna the Seeress</SpecificName>
   </Identity>
 </Entity>
