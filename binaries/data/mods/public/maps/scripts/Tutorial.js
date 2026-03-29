@@ -1,7 +1,8 @@
 // Needs to be kept in sync with the one in gui/session/tutorial/Tutorial.js
 var TUTORIAL_STEP_TYPE = deepfreeze({
 	"INSTRUCTION": 1,
-	"INFO": 2
+	"INFO": 2,
+	"GUI_EXPLANATION": 3
 });
 
 Engine.RegisterGlobal("TUTORIAL_STEP_TYPE", TUTORIAL_STEP_TYPE);

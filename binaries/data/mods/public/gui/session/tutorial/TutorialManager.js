@@ -1,7 +1,8 @@
 // Needs to be kept in sync with the one in maps/scripts/Tutorial.js
 const TUTORIAL_STEP_TYPE = deepfreeze({
 	"INSTRUCTION": 1,
-	"INFO": 2
+	"INFO": 2,
+	"GUI_EXPLANATION": 3
 });
 
 /**
@@ -15,7 +16,8 @@ class TutorialManager
 
 	panels = new Map([
 		[TUTORIAL_STEP_TYPE.INSTRUCTION, new InstructionPanel(this.continue.bind(this))],
-		[TUTORIAL_STEP_TYPE.INFO, new InfoPanel(this.continue.bind(this))]
+		[TUTORIAL_STEP_TYPE.INFO, new InfoPanel(this.continue.bind(this))],
+		[TUTORIAL_STEP_TYPE.GUI_EXPLANATION, new GuiExplanationPanel(this.continue.bind(this))]
 	]);
 
 	displayedSteps = []; // All steps that have already been displayed, in the form of [stepType, panelData]
@@ -117,8 +119,18 @@ class TutorialManager
 		if (!this.panels.has(stepType))
 			throw new Error("Failed to display tutorial step: Unkown step type: " + stepType);
 
-		this.panels.forEach((panel, type) => panel.setVisible(type == stepType));
+		// Explicitly don't hide the previously active panel if the new step is a GUI explanation. It's displayed
+		// "on top" of everything else.
+		if (stepType == TUTORIAL_STEP_TYPE.GUI_EXPLANATION)
+		{
+			this.panels.get(TUTORIAL_STEP_TYPE.GUI_EXPLANATION).setVisible(true);
+			this.activePanel.setEnabled(false);
+		}
+		else
+			this.panels.forEach((panel, type) => panel.setVisible(type == stepType));
+
 		this.activePanel = this.panels.get(stepType);
+		this.activePanel.setEnabled(true);
 		this.activePanel.displayStep(panelData);
 
 		this.displayedSteps.push([stepType, panelData]);

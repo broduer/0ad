@@ -18,7 +18,7 @@
 		<object name="gameStateNotifications"
 			type="text"
 			ghost="true"
-			z="199"
+			z="200"
 			size="100%-110 40 100%-110 40"
 			font="mono-stroke-10"
 			textcolor="255 219 77"
@@ -36,7 +36,7 @@
 		<object name="dataCounter"
 			type="text"
 			ghost="true"
-			z="199"
+			z="200"
 			size="100%-100 40 100%-5 54"
 			font="mono-10"
 			textcolor="white"
@@ -58,7 +58,7 @@
 		<object name="glbWaterMark"
 			hidden="true"
 			hotkey="screenshot.watermark"
-			z="200"
+			z="300"
 		>
 			<action on="Press">
 				this.hidden = !this.hidden;

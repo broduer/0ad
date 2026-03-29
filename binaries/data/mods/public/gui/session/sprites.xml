@@ -533,6 +533,49 @@
 	</sprite>
 
 	<!-- ================================  ================================ -->
+	<!-- Tutorial -->
+	<!-- ================================  ================================ -->
+	<sprite name="GuiExplanationPanel">
+		<image texture="session/hud_panels.png"/>
+
+		<!-- top edge -->
+		<image backcolor="41 32 11" size="0 0 100% 4"/>
+		<image backcolor="164 133 57" size="2 2 100%-2 3"/>
+		<image backcolor="221 180 87" size="1 1 100%-1 2"/>
+
+		<!-- bottom edge -->
+		<image backcolor="41 32 11" size="0 100%-4 100% 100%"/>
+		<image backcolor="164 133 57" size="2 100%-3 100%-2 100%-2"/>
+		<image backcolor="221 180 87" size="1 100%-2 100%-1 100%-1"/>
+
+		<!-- left edge -->
+		<image backcolor="41 32 11" size="0 4 4 100%-4"/>
+		<image backcolor="164 133 57" size="2 3 3 100%-3"/>
+		<image backcolor="221 180 87" size="1 2 2 100%-2"/>
+
+		<!-- right edge -->
+		<image backcolor="41 32 11" size="100%-4 4 100% 100%-4"/>
+		<image backcolor="164 133 57" size="100%-3 3 100%-2 100%-3"/>
+		<image backcolor="221 180 87" size="100%-2 2 100%-1 100%-2"/>
+	</sprite>
+
+	<sprite name="GoldenArrowDown">
+		<image texture="session/golden-arrow_down.png"/>
+	</sprite>
+
+	<sprite name="GoldenArrowUp">
+		<image texture="session/golden-arrow_down.png" texture_size="0 100% 100% 0"/>
+	</sprite>
+
+	<sprite name="GoldenArrowLeft">
+		<image texture="session/golden-arrow_left.png"/>
+	</sprite>
+
+	<sprite name="GoldernArrowRight">
+		<image texture="session/golden-arrow_left.png" texture_size="100% 0 0 100%"/>
+	</sprite>
+
+	<!-- ================================  ================================ -->
 	<!-- Misc -->
 	<!-- ================================  ================================ -->
 	<sprite name="bandbox">

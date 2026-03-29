@@ -27,6 +27,11 @@ class TutorialPanel
 		this.panel.hidden = !visible;
 	}
 
+	setEnabled(enabled)
+	{
+		this.button.enabled = enabled;
+	}
+
 	displayWarning(warning)
 	{
 		this.hint.caption = coloredText(warning, this.WarningColor);

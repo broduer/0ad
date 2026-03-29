@@ -29,9 +29,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"type": TUTORIAL_STEP_TYPE.INFO,
+		"type": TUTORIAL_STEP_TYPE.GUI_EXPLANATION,
 		"panelData": {
-			"appendable": true,
+			"targetObject": "unitCommands",
+			"side": "top",
 			"title": markForTranslation("Production Panel"),
 			"texts": [
 				markForTranslation("Now that the Civic Center is selected, you will notice that a production panel will appear on the lower right of your screen detailing the actions that the buildings supports. For the production panel, available actions are not masked in any color, while an icon masked in gray indicates that the action has not been unlocked and a red mask indicates that you do not have sufficient resources to perform that action. Additionally, you can hover the cursor over any icon to show a tooltip with more details."),
@@ -167,12 +168,24 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
+
+		"type": TUTORIAL_STEP_TYPE.GUI_EXPLANATION,
+		"panelData": {
+			"targetObject": "resourceCounts",
+			"side": "bottom",
+			"title": markForTranslation("Resource Supply"),
+			"text": markForTranslation("Direct your attention to the panel at the top of your screen. On the upper left, you will see your current resource supply (food, wood, stone, and metal). As each worker brings resources back to the Civic Center (or another dropsite), you will see the amount of the corresponding resource increase."),
+			"showContinueButton": true
+		},
+		"OnTrainingFinished": function(msg)
+		{
+			this.trainingFinished = true;
+		}
+	},
+	{
 		"type": TUTORIAL_STEP_TYPE.INFO,
 		"panelData": {
-			"texts": [
-				markForTranslation("While waiting, direct your attention to the panel at the top of your screen. On the upper left, you will see your current resource supply (food, wood, stone, and metal). As each worker brings resources back to the Civic Center (or another dropsite), you will see the amount of the corresponding resource increase."),
-				markForTranslation("This is a very important concept to keep in mind: gathered resources have to be brought back to a dropsite to be accounted, and you should always try to minimize the distance between resource and nearest dropsite to improve your gathering efficiency.")
-			],
+			"text": markForTranslation("This is a very important concept to keep in mind: gathered resources have to be brought back to a dropsite to be accounted, and you should always try to minimize the distance between resource and nearest dropsite to improve your gathering efficiency."),
 			"showContinueButton": true
 		},
 		"OnTrainingFinished": function(msg)
@@ -270,8 +283,10 @@ Trigger.prototype.tutorialSteps = [
 		}
 	},
 	{
-		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"type": TUTORIAL_STEP_TYPE.GUI_EXPLANATION,
 		"panelData": {
+			"targetObject": "resourceCounts",
+			"side": "bottom",
 			"text": markForTranslation("The units should be ready soon.\nIn the meantime, direct your attention to your population count on the top panel. It is the fifth item from the left, after the resources. It would be prudent to keep an eye on it. It indicates your current population (including those being trained) and the current population limit, which is determined by your built structures."),
 			"hint": markForTranslation("Wait for the training of the Civilians to finish.")
 		},

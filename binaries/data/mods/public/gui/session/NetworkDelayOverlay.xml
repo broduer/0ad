@@ -4,7 +4,7 @@
 	type="text"
 	hidden="true"
 	ghost="true"
-	z="199"
+	z="160"
 	size="100%-300 60 100%-110 80"
 	font="mono-10"
 	textcolor="white"

@@ -254,6 +254,25 @@
 		text_valign="center"
 	/>
 
+	<style name="TutorialExplanationTitle"
+		buffer_zone="10"
+		font="sans-bold-18"
+		textcolor="gold"
+		text_align="center"
+		text_valign="top"
+	/>
+
+	<style name="TutorialExplanationText"
+		buffer_zone="10"
+		font="sans-16"
+		sprite="ModernFade"
+		textcolor="white"
+		scrollbar="true"
+		scrollbar_style="ModernScrollBar"
+		text_align="center"
+		text_valign="top"
+	/>
+
 	<!-- ================================  ================================ -->
 	<!-- Icon Styles -->
 	<!-- ================================  ================================ -->
