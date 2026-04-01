@@ -35,6 +35,7 @@ GuiInterface.prototype.Init = function()
 	this.timeNotifications = [];
 	this.entsRallyPointsDisplayed = [];
 	this.entsWithAuraAndStatusBars = new Set();
+	this.entWithSpeechIndicator = INVALID_ENTITY;
 	this.enabledVisualRangeOverlayTypes = {};
 	this.templateModified = {};
 	this.selectionDirty = {};
@@ -1016,6 +1017,19 @@ GuiInterface.prototype.SetStatusBars = function(player, cmd)
 		if (cmpStatusBars)
 			cmpStatusBars.RegenerateSprites();
 	}
+};
+
+/**
+ * Move the speech indicator to an entity, or hide it if it's INVALID_ENTITY.
+ */
+GuiInterface.prototype.SetSpeechIndicator = function(player, ent)
+{
+	if (ent == this.entWithSpeechIndicator)
+		return;
+
+	Engine.QueryInterface(this.entWithSpeechIndicator, IID_StatusBars)?.SetSpeechIndicatorVisible(false);
+	Engine.QueryInterface(ent, IID_StatusBars)?.SetSpeechIndicatorVisible(true);
+	this.entWithSpeechIndicator = ent;
 };
 
 GuiInterface.prototype.SetRangeOverlays = function(player, cmd)
@@ -2129,6 +2143,7 @@ GuiInterface.prototype.exposedFunctions = {
 	"SetSelectionHighlight": 1,
 	"GetAllBuildableEntities": 1,
 	"SetStatusBars": 1,
+	"SetSpeechIndicator": 1,
 	"GetPlayerEntities": 1,
 	"GetNonGaiaEntities": 1,
 	"DisplayRallyPoint": 1,

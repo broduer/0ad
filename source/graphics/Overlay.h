@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -153,6 +153,7 @@ struct SOverlaySprite
 	CColor m_Color;
 	CVector3D m_Position; // base position
 	float m_X0, m_Y0, m_X1, m_Y1; // billboard corner coordinates, relative to base position
+	bool m_ShowInCutsceneMode; // whether to render it while cutscene mode is enabled
 };
 
 /**

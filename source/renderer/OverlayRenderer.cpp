@@ -714,6 +714,9 @@ void OverlayRenderer::RenderForegroundOverlays(
 	for (size_t i = 0; i < m->sprites.size(); ++i)
 	{
 		SOverlaySprite* sprite = m->sprites[i];
+		if (!sprite->m_ShowInCutsceneMode && g_RenderingOptions.GetCutsceneMode())
+			continue;
+
 		if (!i || sprite->m_Texture != m->sprites[i - 1]->m_Texture)
 		{
 			sprite->m_Texture->UploadBackendTextureIfNeeded(deviceCommandContext);

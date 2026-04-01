@@ -51,8 +51,10 @@ public:
 	 *        relative to the sprite position.
 	 * @param offset world-space offset of sprite position from the entity's base position.
 	 * @param color multiply color of texture
+	 * @param showInCutsceneMode whether to render the sprite while in cutscene mode
 	 */
-	virtual void AddSprite(const VfsPath& textureName, const CFixedVector2D& corner0, const CFixedVector2D& corner1, const CFixedVector3D& offset, const std::string& color = "255 255 255 255") = 0;
+	virtual void AddSprite(const VfsPath& textureName, const CFixedVector2D& corner0, const CFixedVector2D& corner1,
+		const CFixedVector3D& position, const std::string& color = "255 255 255 255", bool showInCutsceneMode = false) = 0;
 
 	DECLARE_INTERFACE_TYPE(OverlayRenderer)
 };

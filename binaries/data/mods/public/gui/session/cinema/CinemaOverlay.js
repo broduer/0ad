@@ -238,6 +238,8 @@ class CinemaOverlay
 
 		this.speakingUnitDisplay.hidden = false;
 		this.textContainer.size.left = this.speakingUnitDisplay.size.right - this.textContainer.size.right;
+
+		Engine.GuiInterfaceCall("SetSpeechIndicator", entityID);
 	}
 
 	displayText(text)
@@ -291,6 +293,8 @@ class CinemaOverlay
 		this.speechSegments = [];
 		this.activeSegmentIndex = -1;
 		this.activeLineIndex = -1;
+
+		Engine.GuiInterfaceCall("SetSpeechIndicator", INVALID_ENTITY);
 	}
 
 	getHotloadData()

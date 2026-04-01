@@ -1226,10 +1226,11 @@ void CSceneRenderer::RenderSceneOverlays(
 			RenderSilhouettes(deviceCommandContext);
 
 		m->silhouetteRenderer.RenderDebugOverlays(deviceCommandContext);
-
-		// Render overlays that should appear on top of all other objects.
-		m->overlayRenderer.RenderForegroundOverlays(deviceCommandContext, m_ViewCamera);
 	}
+
+	// Render overlays that should appear on top of all other objects.
+	// Some of them are still visible in cutscene mode.
+	m->overlayRenderer.RenderForegroundOverlays(deviceCommandContext, m_ViewCamera);
 
 	m_CurrentScene = nullptr;
 }

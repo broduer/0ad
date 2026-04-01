@@ -141,7 +141,8 @@ public:
 		UpdateMessageSubscriptions();
 	}
 
-	void AddSprite(const VfsPath &textureName, const CFixedVector2D &corner0, const CFixedVector2D &corner1, const CFixedVector3D &position, const std::string &color) override
+	void AddSprite(const VfsPath& textureName, const CFixedVector2D& corner0, const CFixedVector2D& corner1,
+		const CFixedVector3D& position, const std::string& color, bool showInCutsceneMode) override
 	{
 		CColor colorObj(1.0f, 1.0f, 1.0f, 1.0f);
 		if (!colorObj.ParseString(color, 1))
@@ -156,6 +157,7 @@ public:
 		sprite.m_X1 = corner1.X.ToFloat();
 		sprite.m_Y1 = corner1.Y.ToFloat();
 		sprite.m_Color = colorObj;
+		sprite.m_ShowInCutsceneMode = showInCutsceneMode;
 
 		m_Sprites.push_back(sprite);
 		m_SpriteOffsets.push_back(CVector3D(position));

@@ -34,6 +34,7 @@ StatusBars.prototype.Sprites = [
 StatusBars.prototype.Init = function()
 {
 	this.enabled = false;
+	this.showSpeechIndicator = false;
 	this.showRank = false;
 	this.showExperience = false;
 
@@ -135,15 +136,37 @@ StatusBars.prototype.OnPlayerColorChanged = function(msg)
 		this.RegenerateSprites();
 };
 
+StatusBars.prototype.SetSpeechIndicatorVisible = function(visible)
+{
+	if (this.showSpeechIndicator == visible)
+		return;
+
+	this.showSpeechIndicator = visible;
+	this.RegenerateSprites();
+};
+
 StatusBars.prototype.RegenerateSprites = function()
 {
 	const cmpOverlayRenderer = Engine.QueryInterface(this.entity, IID_OverlayRenderer);
 	cmpOverlayRenderer.Reset();
 
+	// The speech indicator can't simply be added above (vertically) the other sprites, because in cutscene mode
+	// it would still be visible, unlike all the others, which would result in quite a misalignment.
+	// The problem is that we don't have any information here about whether cutscene mode is enabled, so we can't adapt
+	// to it; for now we simpliy leave out the other sprites instead.
+	if (this.showSpeechIndicator)
+	{
+		this.AddSpeechIndicator(cmpOverlayRenderer);
+		return;
+	}
+
+
 	let yoffset = 0;
 	for (const sprite of this.Sprites)
 		yoffset += this["Add" + sprite](cmpOverlayRenderer, yoffset);
 };
+
+
 
 // Internal helper functions
 /**
@@ -164,7 +187,8 @@ StatusBars.prototype.AddBar = function(cmpOverlayRenderer, yoffset, type, amount
 		{ "x": -width / 2, "y": yoffset },
 		{ "x": width / 2, "y": height + yoffset },
 		offset,
-		g_NaturalColor
+		g_NaturalColor,
+		false // Hide in cutscene mode.
 	);
 
 	// foreground
@@ -173,7 +197,8 @@ StatusBars.prototype.AddBar = function(cmpOverlayRenderer, yoffset, type, amount
 		{ "x": -width / 2, "y": yoffset },
 		{ "x": width * (amount - 0.5), "y": height + yoffset },
 		offset,
-		g_NaturalColor
+		g_NaturalColor,
+		false // Hide in cutscene mode.
 	);
 
 	return height * 1.2;
@@ -322,7 +347,8 @@ StatusBars.prototype.AddAuraIcons = function(cmpOverlayRenderer, yoffset)
 			{ "x": xoffset - iconSize / 2, "y": yoffset },
 			{ "x": xoffset + iconSize / 2, "y": iconSize + yoffset },
 			offset,
-			g_NaturalColor
+			g_NaturalColor,
+			false // Hide in cutscene mode.
 		);
 		xoffset += iconSize * 1.2;
 	}
@@ -345,9 +371,30 @@ StatusBars.prototype.AddRankIcon = function(cmpOverlayRenderer, yoffset)
 		{ "x": -iconSize / 2, "y": yoffset },
 		{ "x": iconSize / 2, "y": iconSize + yoffset },
 		{ "x": 0, "y": +this.template.HeightOffset + 0.1, "z": 0 },
-		g_NaturalColor);
+		g_NaturalColor,
+		false // Hide in cutscene mode.
+	);
 
 	return iconSize + this.template.BarHeight / 2;
 };
+
+
+/**
+ * Add a sprite above the entity indicating that it is speaking.
+ * This method does not take a dynamic y offset, because showing the speech indicator and the other status sprites at
+ * once is neither supported nor intended at the moment.
+ */
+StatusBars.prototype.AddSpeechIndicator = function(cmpOverlayRenderer)
+{
+	cmpOverlayRenderer.AddSprite(
+		"art/textures/ui/session/icons/exclamation_mark.png",
+		{ "x": -1.4, "y": 0 },
+		{ "x": 1.4, "y": 5 },
+		{ "x": 0, "y": +this.template.HeightOffset + 0.06, "z": 0 },
+		g_NaturalColor,
+		true // Show it in cutscene mode too.
+	);
+};
+
 
 Engine.RegisterComponentType(IID_StatusBars, "StatusBars", StatusBars);
