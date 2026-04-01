@@ -29,8 +29,7 @@
 				<object>
 					<object name="icon2" type="image" sprite="stretched:pregame/icons/lag.png"/>
 					<object name="text2" type="text" textcolor="white" font="sans-16">
-						<translatableAttribute id="caption">The game is fully playable. But at times it can have performance problems with large maps and a great number of units, especially on weaker hardware.
-</translatableAttribute>
+						<translatableAttribute id="caption">The game is fully playable. But at times it can have performance problems with large maps and a great number of units, especially on weaker hardware.</translatableAttribute>
 					</object>
 				</object>
 				<object>
