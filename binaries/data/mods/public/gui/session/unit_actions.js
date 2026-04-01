@@ -13,6 +13,11 @@ var g_TargetMarker = {
 var g_FlareSound = "audio/interface/alarm/alarmally_1.ogg";
 
 /**
+ * Sound we play when setting a waypoint or rally point.
+ */
+var g_RallySound = "audio/interface/ui/rally_click_01.ogg";
+
+/**
  * Which enemy entity types will be attacked on sight when patroling.
  */
 var g_PatrolTargets = ["Unit"];
@@ -1126,6 +1131,8 @@ var g_UnitActions =
 					"data": action.data,
 					"queued": queued
 				});
+
+				Engine.PlayUISound(g_RallySound, false);
 
 				// Display rally point at the new coordinates, to avoid display lag
 				Engine.GuiInterfaceCall("DisplayRallyPoint", {
