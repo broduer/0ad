@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -54,19 +54,7 @@ public:
 	 */
 	virtual void AddSprite(const VfsPath& textureName, const CFixedVector2D& corner0, const CFixedVector2D& corner1, const CFixedVector3D& offset, const std::string& color = "255 255 255 255") = 0;
 
-	/**
-	* Enables or disables rendering of all sprites.
-	* @param visible Whether the selectable should be visible.
-	*/
-	static void SetOverrideVisibility(bool visible)
-	{
-		ICmpOverlayRenderer::m_OverrideVisible = visible;
-	}
-
 	DECLARE_INTERFACE_TYPE(OverlayRenderer)
-
-protected:
-	static bool m_OverrideVisible;
 };
 
 #endif // INCLUDED_ICMPOVERLAYRENDERER

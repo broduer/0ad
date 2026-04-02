@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -29,4 +29,3 @@ DEFINE_INTERFACE_METHOD("UpdateColor", ICmpSelectable, UpdateColor)
 END_INTERFACE_WRAPPER(Selectable)
 
 bool ICmpSelectable::ms_EnableDebugOverlays = false;
-bool ICmpSelectable::m_OverrideVisible = true;

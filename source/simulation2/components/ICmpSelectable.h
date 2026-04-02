@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -48,15 +48,6 @@ public:
 	virtual void SetVisibility(bool visible) = 0;
 
 	/**
-	* Enables or disables rendering of all entities selectable.
-	* @param visible Whether the selectable should be visible.
-	*/
-	static void SetOverrideVisibility(bool visible)
-	{
-		ICmpSelectable::m_OverrideVisible = visible;
-	}
-
-	/**
 	 * Updates the selection color to match the current owner.
 	 */
 	virtual void UpdateColor() = 0;
@@ -72,9 +63,6 @@ public:
 	// and methods, where we can keep settings like these. Note that any such data store would need to be per-component-manager
 	// and not entirely global, to support multiple simulation instances.
 	static bool ms_EnableDebugOverlays; // ms for member static
-
-protected:
-	static bool m_OverrideVisible;
 };
 
 #endif // INCLUDED_ICMPSELECTABLE
