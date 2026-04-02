@@ -25,6 +25,11 @@ option(without-nvtt "Disable use of NVTT")
 option(without-pch "Disable generation and usage of precompiled headers")
 option(without-tests "Disable generation of test projects")
 
+# Windows specific options
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+	option(fetch-prebuild-libs "Fetch prebuild libraries from SVN. Defaults to ON." ON)
+endif()
+
 # OS X specific options
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	option(macosx-version-min "Set minimum required version of the OS X API, the build will possibly fail if an older SDK is used, while newer API functions will be weakly linked (i.e. resolved at runtime)")
@@ -134,3 +139,8 @@ endif()
 
 # Include the BuildFlags target only once after all setup is finished
 include(0ad-BuildFlags)
+
+# +++++++++++++++++++++ Windows specific ++++++++++++++++++++
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+	include(SetupWindowsLibs)
+endif()
