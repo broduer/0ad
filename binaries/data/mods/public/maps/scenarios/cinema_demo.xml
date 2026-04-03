@@ -14063,7 +14063,7 @@
 		</Entity>
 	</Entities>
 	<Paths>
-		<Path name="test" timescale="1" orientation="target" mode="ease_inout" style="default">
+		<Path name="test" timescale="0.85" orientation="target" mode="ease_inout" style="default">
 			<Node deltatime="0">
 				<Target x="450.11701" y="15" z="910.41565"/>
 				<Position x="467.2" y="40.87" z="887.26"/>

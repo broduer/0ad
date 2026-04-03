@@ -76,6 +76,12 @@ CCinemaPath::CCinemaPath(const CCinemaData& data, const TNSpline& spline, const 
 		LOGWARNING("Cinematic style not found for '%s'", data.m_Style.ToUTF8().c_str());
 		DistStylePtr = &CCinemaPath::EaseDefault;
 	}
+
+	if (m_Timescale <= fixed::FromInt(0))
+	{
+		LOGWARNING("Invalid cinema path timescale specified: %f. It must be greater than 0.", m_Timescale.ToFloat());
+		m_Timescale = fixed::FromInt(1);
+	}
 }
 
 CVector3D CCinemaPath::GetNodePosition(const int index) const
@@ -85,17 +91,17 @@ CVector3D CCinemaPath::GetNodePosition(const int index) const
 
 fixed CCinemaPath::GetNodeDuration(const int index) const
 {
-	return m_Nodes[index].Distance;
+	return m_Nodes[index].Distance.Multiply(m_Timescale);
 }
 
 fixed CCinemaPath::GetDuration() const
 {
-	return GetMaxDistance();
+	return GetMaxDistance().Multiply(m_Timescale);
 }
 
 float CCinemaPath::GetNodeFraction() const
 {
-	return (m_TimeElapsed - m_PreviousNodeTime) / m_Nodes[m_CurrentNode].Distance.ToFloat();
+	return (m_TimeElapsed - m_PreviousNodeTime) / GetNodeDuration(m_CurrentNode).ToFloat();
 }
 
 float CCinemaPath::GetElapsedTime() const
@@ -110,7 +116,10 @@ const CStrW& CCinemaPath::GetName() const
 
 void CCinemaPath::SetTimescale(fixed scale)
 {
-	m_Timescale = scale;
+	if (scale <= fixed::FromInt(0))
+		LOGWARNING("Invalid cinema path timescale specified: %f. It must be greater than 0.", scale.ToFloat());
+	else
+		m_Timescale = scale;
 }
 
 void CCinemaPath::MoveToPointAt(float t, float nodet, const CVector3D& startRotation, CCamera& camera) const
@@ -121,8 +130,9 @@ void CCinemaPath::MoveToPointAt(float t, float nodet, const CVector3D& startRota
 
 	if (m_LookAtTarget)
 	{
-		if (m_TimeElapsed <= m_TargetSpline.GetMaxDistance().ToFloat())
-			camera.LookAt(pos, m_TargetSpline.GetPosition(m_TimeElapsed / m_TargetSpline.GetMaxDistance().ToFloat()), CVector3D(0, 1, 0));
+		float targetDuration = m_TargetSpline.GetMaxDistance().Multiply(m_Timescale).ToFloat();
+		if (m_TimeElapsed <= targetDuration)
+			camera.LookAt(pos, m_TargetSpline.GetPosition(m_TimeElapsed / targetDuration), CVector3D(0, 1, 0));
 		else
 			camera.LookAt(pos, m_TargetSpline.GetAllNodes().back().Position, CVector3D(0, 1, 0));
 	}
@@ -222,7 +232,7 @@ bool CCinemaPath::Validate()
 	// Ignore the last node, since it is a blank (node time values are shifted down one from interface)
 	for (size_t i = 0; i < m_Nodes.size() - 1; ++i)
 	{
-		cumulation += m_Nodes[i].Distance.ToFloat();
+		cumulation += GetNodeDuration(i).ToFloat();
 		if (m_TimeElapsed <= cumulation)
 		{
 			m_PreviousNodeTime = previousTime;
@@ -230,7 +240,7 @@ bool CCinemaPath::Validate()
 			m_CurrentNode = i; // We're moving toward this next node, so use its rotation
 			return true;
 		}
-		previousTime += m_Nodes[i].Distance.ToFloat();
+		previousTime += GetNodeDuration(i).ToFloat();
 	}
 	debug_warn("validation of cinema path is wrong\n");
 	return false;
@@ -238,7 +248,7 @@ bool CCinemaPath::Validate()
 
 bool CCinemaPath::Play(const float deltaRealTime, CCamera& camera)
 {
-	m_TimeElapsed += m_Timescale.ToFloat() * deltaRealTime;
+	m_TimeElapsed += deltaRealTime;
 	if (!Validate())
 		return false;
 
