@@ -63,9 +63,6 @@
       <walk>actor/singlesteps/steps_grass.xml</walk>
     </SoundGroups>
   </Sound>
-  <Trainer>
-    <BatchTimeModifier>0.7</BatchTimeModifier>
-  </Trainer>
   <UnitAI>
     <CanPatrol>false</CanPatrol>
     <Formations disable=""/>
