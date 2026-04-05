@@ -80,30 +80,14 @@ static const size_t g_SubTextureAlignment = 4;
 CLOSTexture::CLOSTexture(CSimulation2& simulation)
 	: m_Simulation(simulation)
 {
-	if (CRenderer::IsInitialised() && g_RenderingOptions.GetSmoothLOS())
-		CreateShader();
-}
-
-CLOSTexture::~CLOSTexture()
-{
-	m_SmoothFramebuffers[0].reset();
-	m_SmoothFramebuffers[1].reset();
-
-	if (m_Texture)
-		DeleteTexture();
-}
-
-// Create the LOS texture engine. Should be ran only once.
-bool CLOSTexture::CreateShader()
-{
+	if (!CRenderer::IsInitialised())
+		return;
 	m_SmoothTech = g_Renderer.GetShaderManager().LoadEffect(str_los_interp);
-	m_ShaderInitialized = m_SmoothTech && m_SmoothTech->GetShader();
 
-	if (!m_ShaderInitialized)
+	if (!m_SmoothTech || !m_SmoothTech->GetShader())
 	{
 		LOGERROR("Failed to load SmoothLOS shader, disabling.");
 		g_RenderingOptions.SetSmoothLOS(false);
-		return false;
 	}
 
 	const std::array<Renderer::Backend::SVertexAttributeFormat, 2> attributes{{
@@ -115,8 +99,15 @@ bool CLOSTexture::CreateShader()
 			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 1}
 	}};
 	m_VertexInputLayout = g_Renderer.GetVertexInputLayout(attributes);
+}
 
-	return true;
+CLOSTexture::~CLOSTexture()
+{
+	m_SmoothFramebuffers[0].reset();
+	m_SmoothFramebuffers[1].reset();
+
+	if (m_Texture)
+		DeleteTexture();
 }
 
 void CLOSTexture::DeleteTexture()
@@ -141,19 +132,6 @@ Renderer::Backend::ITexture* CLOSTexture::GetTextureSmooth()
 
 void CLOSTexture::InterpolateLOS(Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
-	const bool skipSmoothLOS = CRenderer::IsInitialised() && !g_RenderingOptions.GetSmoothLOS();
-	if (!skipSmoothLOS && !m_ShaderInitialized)
-	{
-		if (!CreateShader())
-			return;
-
-		// RecomputeTexture will not cause the ConstructTexture to run.
-		// Force the textures to be created.
-		DeleteTexture();
-		ConstructTexture(deviceCommandContext);
-		m_Dirty = true;
-	}
-
 	if (m_Dirty)
 	{
 		RecomputeTexture(deviceCommandContext);
@@ -164,7 +142,7 @@ void CLOSTexture::InterpolateLOS(Renderer::Backend::IDeviceCommandContext* devic
 		m_Dirty = false;
 	}
 
-	if (skipSmoothLOS)
+	if (CRenderer::IsInitialised() && !g_RenderingOptions.GetSmoothLOS())
 		return;
 
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render LOS texture");
@@ -287,7 +265,7 @@ void CLOSTexture::ConstructTexture(Renderer::Backend::IDeviceCommandContext* dev
 	std::unique_ptr<std::uint8_t[]> texData = std::make_unique<std::uint8_t[]>(textureDataSize);
 	memset(texData.get(), 0x00, textureDataSize);
 
-	if (CRenderer::IsInitialised() && g_RenderingOptions.GetSmoothLOS())
+	if (CRenderer::IsInitialised())
 	{
 		const uint32_t usage =
 			Renderer::Backend::ITexture::Usage::TRANSFER_DST |
@@ -402,7 +380,7 @@ void CLOSTexture::RecomputeTexture(Renderer::Backend::IDeviceCommandContext* dev
 		}
 	}
 
-	if (CRenderer::IsInitialised() && g_RenderingOptions.GetSmoothLOS() && recreated)
+	if (recreated)
 	{
 		deviceCommandContext->UploadTextureRegion(
 			m_SmoothTextures[0].get(), m_TextureFormat, losData.get(),

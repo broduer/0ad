@@ -78,7 +78,6 @@ public:
 
 private:
 	void DeleteTexture();
-	bool CreateShader();
 	void ConstructTexture(Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
 	void RecomputeTexture(Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
 
@@ -88,8 +87,6 @@ private:
 	CSimulation2& m_Simulation;
 
 	bool m_Dirty = true;
-
-	bool m_ShaderInitialized = false;
 
 	// We need to choose the smallest format. We always use the red channel but
 	// R8_UNORM might be unavailable on some platforms. So we fallback to
