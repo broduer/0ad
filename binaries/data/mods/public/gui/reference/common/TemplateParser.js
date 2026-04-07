@@ -118,15 +118,30 @@ class TemplateParser
 			parsed.resistance = struct.resistance;
 			parsed.auras = struct.auras;
 
-			// For technology cost multiplier, we need to use the tower
-			struct = this.getEntity(parsed.wallSet.templates.tower, civCode);
-			parsed.techCostMultiplier = struct.techCostMultiplier;
+			// If multiple tower variants exist, use the highest multiplier per resource
+			// so the reference view doesn't understate technology costs.
+			parsed.techCostMultiplier = {};
+			parsed.wallset.towers = [];
+			for (const tower of parsed.wallSet.templates.towers)
+			{
+				struct = this.getEntity(tower, civCode);
+				parsed.wallset.towers.push(struct);
+
+				for (const research of struct.production.techs)
+					parsed.production.techs.push(research);
+
+				if (struct.upgrades)
+					Array.prototype.push.apply(parsed.upgrades, struct.upgrades);
+
+				for (const res in struct.techCostMultiplier)
+					parsed.techCostMultiplier[res] = Math.max(parsed.techCostMultiplier[res] || 0, struct.techCostMultiplier[res]);
+			}
 
 			let health;
 
 			for (const wSegm in parsed.wallSet.templates)
 			{
-				if (wSegm == "fort" || wSegm == "curves")
+				if (wSegm == "fort" || wSegm == "curves" || wSegm == "towers")
 					continue;
 
 				const wPart = this.getEntity(parsed.wallSet.templates[wSegm], civCode);
@@ -138,7 +153,7 @@ class TemplateParser
 				if (wPart.upgrades)
 					Array.prototype.push.apply(parsed.upgrades, wPart.upgrades);
 
-				if (["gate", "tower"].indexOf(wSegm) != -1)
+				if (wSegm == "gate")
 					continue;
 
 				if (!health)

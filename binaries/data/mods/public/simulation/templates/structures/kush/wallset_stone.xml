@@ -6,7 +6,7 @@
   </Identity>
   <WallSet>
     <Templates>
-      <Tower>structures/kush/wall_tower</Tower>
+      <Towers datatype="tokens">structures/kush/wall_tower</Towers>
       <Gate>structures/kush/wall_gate</Gate>
       <WallLong>structures/kush/wall_long</WallLong>
       <WallMedium>structures/kush/wall_medium</WallMedium>

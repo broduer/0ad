@@ -942,13 +942,16 @@ function getEntityCostTooltip(template, player, entity, buildingsCountToTrainFul
 		const templateLong = GetTemplateData(template.wallSet.templates.long, player);
 		const templateMedium = GetTemplateData(template.wallSet.templates.medium, player);
 		const templateShort = GetTemplateData(template.wallSet.templates.short, player);
-		const templateTower = GetTemplateData(template.wallSet.templates.tower, player);
+		const towers = template.wallSet.templates.towers;
 
 		const wallCosts = getWallPieceTooltip([templateShort, templateMedium, templateLong]);
-		const towerCosts = getEntityCostComponentsTooltipString(templateTower);
+		const towerCosts = [...new Set(towers.map(templateName =>
+			getEntityCostComponentsTooltipString(GetTemplateData(templateName, player)).join("  ")
+		).filter(Boolean))];
+		const towerLabel = towerCosts.length > 1 ? translate("Tower options:  %(costs)s") : translate("Towers:  %(costs)s");
 
 		return sprintf(translate("Walls:  %(costs)s"), { "costs": wallCosts.join("  ") }) + "\n" +
-		       sprintf(translate("Towers:  %(costs)s"), { "costs": towerCosts.join("  ") });
+		       sprintf(towerLabel, { "costs": towerCosts.join(" / ") });
 	}
 
 	if (template.cost)

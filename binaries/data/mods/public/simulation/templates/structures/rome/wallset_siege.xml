@@ -14,7 +14,7 @@
   </Identity>
   <WallSet>
     <Templates>
-      <Tower>structures/rome/siege_wall_tower</Tower>
+      <Towers datatype="tokens">structures/rome/siege_wall_tower</Towers>
       <Gate>structures/rome/siege_wall_gate</Gate>
       <Fort>structures/rome/army_camp</Fort>
       <WallLong>structures/rome/siege_wall_long</WallLong>

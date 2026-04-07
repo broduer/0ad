@@ -6,7 +6,7 @@
   </Identity>
   <WallSet>
     <Templates>
-      <Tower>structures/germ/wall_tower</Tower>
+      <Towers datatype="tokens">structures/germ/wall_tower</Towers>
       <Gate>structures/germ/wall_gate</Gate>
       <WallLong>structures/germ/wall_long</WallLong>
       <WallMedium>structures/germ/wall_medium</WallMedium>

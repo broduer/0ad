@@ -524,9 +524,12 @@ function GetTemplateDataHelper(template, player, auraTemplates, resources, modif
 
 	if (template.WallSet)
 	{
+		const towers = template.WallSet.Templates.Towers._string
+			.split(/\s+/);
+
 		ret.wallSet = {
 			"templates": {
-				"tower": template.WallSet.Templates.Tower,
+				"towers": towers,
 				"gate": template.WallSet.Templates.Gate,
 				"fort": template.WallSet.Templates.Fort || "structures/" + template.Identity.Civ + "/fortress",
 				"long": template.WallSet.Templates.WallLong,

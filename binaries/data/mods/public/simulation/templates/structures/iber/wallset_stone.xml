@@ -6,7 +6,7 @@
   </Identity>
   <WallSet>
     <Templates>
-      <Tower>structures/iber/wall_tower</Tower>
+      <Towers datatype="tokens">structures/iber/wall_tower</Towers>
       <Gate>structures/iber/wall_gate</Gate>
       <WallLong>structures/iber/wall_long</WallLong>
       <WallMedium>structures/iber/wall_medium</WallMedium>

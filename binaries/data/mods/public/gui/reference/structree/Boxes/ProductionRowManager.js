@@ -61,7 +61,8 @@ class ProductionRowManager
 			}
 
 		if (template.wallset)
-			this.productionRows[0].drawIcon(template.wallset.tower, civCode);
+			for (const tower of template.wallset.towers)
+				this.productionRows[0].drawIcon(tower, civCode);
 
 		let r = 0;
 

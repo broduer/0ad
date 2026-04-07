@@ -20,12 +20,19 @@
  */
 function GetWallPlacement(placementData, wallSet, start, end)
 {
+	const towerTemplates = wallSet.templates.towers;
+	const towerTemplate = towerTemplates.reduce((widestTemplate, candidateTemplate) =>
+		placementData[candidateTemplate].templateData.wallPiece.length >
+			placementData[widestTemplate].templateData.wallPiece.length ?
+			candidateTemplate :
+			widestTemplate
+	);
 	const candidateSegments = ["long", "medium", "short"].map(size => ({
 		"template": wallSet.templates[size],
 		"len": placementData[wallSet.templates[size]].templateData.wallPiece.length
 	}));
 
-	const towerWidth = placementData[wallSet.templates.tower].templateData.wallPiece.length;
+	const towerWidth = placementData[towerTemplate].templateData.wallPiece.length;
 
 	const dir = {
 		"x": end.pos.x - start.pos.x,
@@ -90,7 +97,7 @@ function GetWallPlacement(placementData, wallSet, start, end)
 		if (i < placedEntities.length - 1)
 		{
 			result.push({
-				"template": wallSet.templates.tower,
+				"template": towerTemplate,
 				"pos": {
 					"x": start.pos.x + (progress + placedEntity.len + 2 * spacing) * dirNormalized.x,
 					"z": start.pos.z + (progress + placedEntity.len + 2 * spacing) * dirNormalized.z

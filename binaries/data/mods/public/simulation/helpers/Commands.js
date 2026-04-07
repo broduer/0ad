@@ -1322,7 +1322,7 @@ function TryConstructWall(player, cmpPlayer, controlAllUnits, cmd)
 	//   ],
 	//   "wallSet": {
 	//      "templates": {
-	//        "tower":                // tower template name
+	//        "towers":               // tower template names
 	//        "long":                 // long wall segment template name
 	//        ...                     // etc.
 	//      },
@@ -1339,15 +1339,18 @@ function TryConstructWall(player, cmpPlayer, controlAllUnits, cmd)
 	if (cmd.pieces.length <= 0)
 		return;
 
-	if (cmd.startSnappedEntity && cmd.pieces[0].template == cmd.wallSet.templates.tower)
+	const towerTemplates = cmd.wallSet.templates.towers;
+	const isTowerTemplate = templateName => towerTemplates.includes(templateName);
+
+	if (cmd.startSnappedEntity && isTowerTemplate(cmd.pieces[0].template))
 	{
-		error("[TryConstructWall] Starting wall piece cannot be a tower (" + cmd.wallSet.templates.tower + ") when snapping at the starting side");
+		error("[TryConstructWall] Starting wall piece cannot be a tower (" + cmd.pieces[0].template + ") when snapping at the starting side");
 		return;
 	}
 
-	if (cmd.endSnappedEntity && cmd.pieces[cmd.pieces.length - 1].template == cmd.wallSet.templates.tower)
+	if (cmd.endSnappedEntity && isTowerTemplate(cmd.pieces[cmd.pieces.length - 1].template))
 	{
-		error("[TryConstructWall] Ending wall piece cannot be a tower (" + cmd.wallSet.templates.tower + ") when snapping at the ending side");
+		error("[TryConstructWall] Ending wall piece cannot be a tower (" + cmd.pieces[cmd.pieces.length - 1].template + ") when snapping at the ending side");
 		return;
 	}
 
@@ -1414,7 +1417,7 @@ function TryConstructWall(player, cmpPlayer, controlAllUnits, cmd)
 		// start position snapping (implying that the first entity we build must be a tower)
 		if (lastTowerControlGroup === null || lastTowerControlGroup == INVALID_ENTITY)
 		{
-			if (!(i == 0 && piece.template == cmd.wallSet.templates.tower && !cmd.startSnappedEntity))
+			if (!(i == 0 && isTowerTemplate(piece.template) && !cmd.startSnappedEntity))
 			{
 				error("[TryConstructWall] Expected last tower control group to be available, none found (1st pass, iteration " + i + ")");
 				break;
@@ -1453,7 +1456,7 @@ function TryConstructWall(player, cmpPlayer, controlAllUnits, cmd)
 			piece.ent = pieceEntityId;
 
 			// if we built a tower, do the control group dance (see outline above) and update lastTowerControlGroup and lastTowerIndex
-			if (piece.template == cmd.wallSet.templates.tower)
+			if (isTowerTemplate(piece.template))
 			{
 				var cmpTowerObstruction = Engine.QueryInterface(pieceEntityId, IID_Obstruction);
 				var newTowerControlGroup = pieceEntityId;
@@ -1517,7 +1520,7 @@ function TryConstructWall(player, cmpPlayer, controlAllUnits, cmd)
 			continue;
 		}
 
-		if (piece.template == cmd.wallSet.templates.tower)
+		if (isTowerTemplate(piece.template))
 		{
 			// encountered a tower entity, update the last tower control group
 			lastTowerControlGroup = cmpPieceObstruction.GetControlGroup();

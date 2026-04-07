@@ -10,7 +10,7 @@
   </Identity>
   <WallSet>
     <Templates>
-      <Tower>structures/cart/s_wall_tower</Tower>
+      <Towers datatype="tokens">structures/cart/s_wall_tower</Towers>
       <Gate>structures/cart/s_wall_gate</Gate>
       <WallLong>structures/cart/s_wall_long</WallLong>
       <WallMedium>structures/cart/s_wall_medium</WallMedium>

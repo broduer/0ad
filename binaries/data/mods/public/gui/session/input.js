@@ -229,12 +229,17 @@ function updateBuildingPlacementPreview()
 	else if (placementSupport.mode === "wall" &&
 		placementSupport.wallSet && placementSupport.position)
 	{
-		placementSupport.wallSnapEntities = Engine.PickSimilarPlayerEntities(
-			placementSupport.wallSet.templates.tower,
-			placementSupport.wallSnapEntitiesIncludeOffscreen,
-			true, // require exact template match
-			true  // include foundations
-		);
+		placementSupport.wallSnapEntities = [];
+		for (const towerTemplate of placementSupport.wallSet.templates.towers)
+			Array.prototype.push.apply(
+				placementSupport.wallSnapEntities,
+				Engine.PickSimilarPlayerEntities(
+					towerTemplate,
+					placementSupport.wallSnapEntitiesIncludeOffscreen,
+					true, // require exact template match
+					true  // include foundations
+				)
+			);
 
 		return Engine.GuiInterfaceCall("SetWallPlacementPreview", {
 			"wallSet": placementSupport.wallSet,
@@ -415,7 +420,7 @@ function tryPlaceWall(queued)
 	let hasWallSegment = false;
 	for (const piece of cmd.pieces)
 	{
-		if (piece.template != cmd.wallSet.templates.tower) // TODO: hardcode-ish :(
+		if (!cmd.wallSet.templates.towers.includes(piece.template)) // TODO: hardcode-ish :(
 		{
 			hasWallSegment = true;
 			break;

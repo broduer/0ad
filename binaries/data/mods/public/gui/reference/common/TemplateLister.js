@@ -129,11 +129,18 @@ class TemplateLister
 		if (template.WallSet)
 		{
 			templateLists.wallsetPieces = [];
-			for (let segment in template.WallSet.Templates)
+			for (const segment in template.WallSet.Templates)
 			{
-				segment = template.WallSet.Templates[segment].replace(/\{(civ|native)\}/g, civCode);
-				if (Engine.TemplateExists(segment))
-					templateLists.wallsetPieces.push(segment);
+				const wallsetTemplateNames = template.WallSet.Templates[segment]._string || template.WallSet.Templates[segment];
+				for (const wallsetTemplateName of wallsetTemplateNames.split(/\s+/))
+				{
+					if (!wallsetTemplateName)
+						continue;
+
+					const resolvedTemplate = wallsetTemplateName.replace(/\{(civ|native)\}/g, civCode);
+					if (Engine.TemplateExists(resolvedTemplate))
+						templateLists.wallsetPieces.push(resolvedTemplate);
+				}
 			}
 		}
 

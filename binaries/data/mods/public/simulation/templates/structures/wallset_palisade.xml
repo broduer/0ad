@@ -11,7 +11,7 @@
   </Identity>
   <WallSet>
     <Templates>
-      <Tower>structures/palisades_tower</Tower>
+      <Towers datatype="tokens">structures/palisades_tower</Towers>
       <Gate>structures/palisades_gate</Gate>
       <Fort>structures/palisades_fort</Fort>
       <WallLong>structures/palisades_long</WallLong>

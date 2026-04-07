@@ -172,3 +172,28 @@ TS_ASSERT_UNEVAL_EQUALS(cmpUpgrade.GetUpgrades()[0].cost, { "stone": 100, "wood"
 // T7: ...but with the upgrade cancelled, it now uses the modified value.
 cmpUpgrade.CancelUpgrade(playerID);
 TS_ASSERT_UNEVAL_EQUALS(cmpUpgrade.GetUpgrades()[0].cost, { "stone": 160, "wood": 25, "time": 90 });
+
+const wallsetTemplate = {
+	"Identity": {
+		"Civ": civCode,
+		"Classes": { '@datatype': "tokens", "_string": "Structure" },
+		"VisibleClasses": { '@datatype': "tokens", "_string": "" }
+	},
+	"WallSet": {
+		"Templates": {
+			"Towers": { "@datatype": "tokens", "_string": "structures/{civ}/wall_tower_a structures/{civ}/wall_tower_b" },
+			"Gate": "structures/{civ}/wall_gate",
+			"WallLong": "structures/{civ}/wall_long",
+			"WallMedium": "structures/{civ}/wall_medium",
+			"WallShort": "structures/{civ}/wall_short"
+		},
+		"MinTowerOverlap": "0.1",
+		"MaxTowerOverlap": "0.9"
+	}
+};
+
+parsed_template = GetTemplateDataHelper(wallsetTemplate, null, {}, Resources);
+TS_ASSERT_UNEVAL_EQUALS(parsed_template.wallSet.templates.towers, [
+	"structures/{civ}/wall_tower_a",
+	"structures/{civ}/wall_tower_b"
+]);

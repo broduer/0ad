@@ -1263,6 +1263,13 @@ GuiInterface.prototype.SetBuildingPlacementPreview = function(player, cmd)
 GuiInterface.prototype.SetWallPlacementPreview = function(player, cmd)
 {
 	const wallSet = cmd.wallSet;
+	const towerTemplates = wallSet && wallSet.templates.towers || [];
+	const getDefaultTowerTemplate = () => towerTemplates.reduce((widestTemplate, candidateTemplate) =>
+		this.placementWallEntities[candidateTemplate].templateData.wallPiece.length >
+			this.placementWallEntities[widestTemplate].templateData.wallPiece.length ?
+			candidateTemplate :
+			widestTemplate
+	);
 
 	// Did the start position snap to anything?
 	// If we snapped, was it to an entity? If yes, hold that entity's ID.
@@ -1322,19 +1329,22 @@ GuiInterface.prototype.SetWallPlacementPreview = function(player, cmd)
 		if (type == "curves")
 			continue;
 
-		const tpl = wallSet.templates[type];
-		if (!(tpl in this.placementWallEntities))
+		const templates = Array.isArray(wallSet.templates[type]) ? wallSet.templates[type] : [wallSet.templates[type]];
+		for (const tpl of templates)
 		{
-			this.placementWallEntities[tpl] = {
-				"numUsed": 0,
-				"entities": [],
-				"templateData": this.GetTemplateData(player, { "templateName": tpl }),
-			};
-
-			if (!this.placementWallEntities[tpl].templateData.wallPiece)
+			if (!(tpl in this.placementWallEntities))
 			{
-				error("[SetWallPlacementPreview] No WallPiece component found for wall set template '" + tpl + "'");
-				return false;
+				this.placementWallEntities[tpl] = {
+					"numUsed": 0,
+					"entities": [],
+					"templateData": this.GetTemplateData(player, { "templateName": tpl }),
+				};
+
+				if (!this.placementWallEntities[tpl].templateData.wallPiece)
+				{
+					error("[SetWallPlacementPreview] No WallPiece component found for wall set template '" + tpl + "'");
+					return false;
+				}
 			}
 		}
 	}
@@ -1348,15 +1358,34 @@ GuiInterface.prototype.SetWallPlacementPreview = function(player, cmd)
 	// data to determine whether it snapped to an entity (if any), and to which one (see GetFoundationSnapData).
 	if (cmd.snapEntities)
 	{
-		// Value of 0.5 was determined through trial and error.
-		const snapRadius = this.placementWallEntities[wallSet.templates.tower].templateData.wallPiece.length * 0.5;
-		const startSnapData = this.GetFoundationSnapData(player, {
-			"x": start.pos.x,
-			"z": start.pos.z,
-			"template": wallSet.templates.tower,
-			"snapEntities": cmd.snapEntities,
-			"snapRadius": snapRadius,
-		});
+		const getClosestSnapData = pos =>
+		{
+			let closestSnapData;
+			let closestDistance = Infinity;
+			for (const towerTemplate of towerTemplates)
+			{
+				const snapData = this.GetFoundationSnapData(player, {
+					"x": pos.x,
+					"z": pos.z,
+					"template": towerTemplate,
+					"snapEntities": cmd.snapEntities,
+					"snapRadius": this.placementWallEntities[towerTemplate].templateData.wallPiece.length * 0.5,
+				});
+
+				if (!snapData)
+					continue;
+
+				const distance = Math.square(snapData.x - pos.x) + Math.square(snapData.z - pos.z);
+				if (distance < closestDistance)
+				{
+					closestSnapData = snapData;
+					closestDistance = distance;
+				}
+			}
+			return closestSnapData;
+		};
+
+		const startSnapData = getClosestSnapData(start.pos);
 
 		if (startSnapData)
 		{
@@ -1371,13 +1400,7 @@ GuiInterface.prototype.SetWallPlacementPreview = function(player, cmd)
 
 		if (end.pos)
 		{
-			const endSnapData = this.GetFoundationSnapData(player, {
-				"x": end.pos.x,
-				"z": end.pos.z,
-				"template": wallSet.templates.tower,
-				"snapEntities": cmd.snapEntities,
-				"snapRadius": snapRadius,
-			});
+			const endSnapData = getClosestSnapData(end.pos);
 
 			if (endSnapData)
 			{
@@ -1439,9 +1462,10 @@ GuiInterface.prototype.SetWallPlacementPreview = function(player, cmd)
 		if (startEntState.foundation)
 		{
 			const cmpPosition = Engine.QueryInterface(start.snappedEnt, IID_Position);
+			const startTowerTemplate = towerTemplates.includes(startEntState.template) ? startEntState.template : getDefaultTowerTemplate();
 			if (cmpPosition)
 				previewEntities.unshift({
-					"template": wallSet.templates.tower,
+					"template": startTowerTemplate,
 					"pos": start.pos,
 					"angle": cmpPosition.GetRotation().y,
 					"controlGroups": [startEntObstruction ? startEntObstruction.GetControlGroup() : undefined],
@@ -1467,7 +1491,7 @@ GuiInterface.prototype.SetWallPlacementPreview = function(player, cmd)
 		// The result is a noticeable rotation to 0 and back, which is undesirable. So, for a split second there until
 		// the simulation updates, we fake it by reusing the last angle and hope the player doesn't notice.
 		previewEntities.unshift({
-			"template": wallSet.templates.tower,
+			"template": getDefaultTowerTemplate(),
 			"pos": start.pos,
 			"angle": previewEntities.length ? previewEntities[0].angle : this.placementWallLastAngle
 		});
@@ -1496,9 +1520,10 @@ GuiInterface.prototype.SetWallPlacementPreview = function(player, cmd)
 			if (endEntState.foundation)
 			{
 				const cmpPosition = Engine.QueryInterface(end.snappedEnt, IID_Position);
+				const endTowerTemplate = towerTemplates.includes(endEntState.template) ? endEntState.template : getDefaultTowerTemplate();
 				if (cmpPosition)
 					previewEntities.push({
-						"template": wallSet.templates.tower,
+						"template": endTowerTemplate,
 						"pos": end.pos,
 						"angle": cmpPosition.GetRotation().y,
 						"controlGroups": [endEntObstruction ? endEntObstruction.GetControlGroup() : undefined],
@@ -1508,7 +1533,7 @@ GuiInterface.prototype.SetWallPlacementPreview = function(player, cmd)
 		}
 		else
 			previewEntities.push({
-				"template": wallSet.templates.tower,
+				"template": getDefaultTowerTemplate(),
 				"pos": end.pos,
 				"angle": previewEntities.length ? previewEntities[previewEntities.length - 1].angle : this.placementWallLastAngle
 			});
@@ -1568,7 +1593,7 @@ GuiInterface.prototype.SetWallPlacementPreview = function(player, cmd)
 			cmpPosition.SetYRotation(entInfo.angle);
 
 			// If this piece is a tower, then it should have a Y position that is at least as high as its surrounding pieces.
-			if (tpl === wallSet.templates.tower)
+			if (towerTemplates.includes(tpl))
 			{
 				let terrainGroundPrev = null;
 				let terrainGroundNext = null;

@@ -14,7 +14,7 @@
     <MaxTowerOverlap>0.95</MaxTowerOverlap>
     <MinTowerOverlap>0.05</MinTowerOverlap>
     <Templates>
-      <Tower>structures/han/palisades_tower</Tower>
+      <Towers datatype="tokens">structures/han/palisades_tower</Towers>
       <Gate>structures/han/palisades_gate</Gate>
       <Fort>structures/han/palisades_tower</Fort>
       <WallLong>structures/han/palisades_long</WallLong>

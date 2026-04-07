@@ -6,7 +6,10 @@ WallSet.prototype.Schema =
 	"</a:example>" +
 	"<element name='Templates'>" +
 		"<interleave>" +
-			"<element name='Tower' a:help='Template name of the tower piece'>" +
+			"<element name='Towers' a:help='Space-separated list of tower piece template names. The first entry is used as the default tower piece for placement and snapping'>" +
+				"<attribute name='datatype'>" +
+					"<value>tokens</value>" +
+				"</attribute>" +
 				"<text/>" +
 			"</element>" +
 			"<element name='Gate' a:help='Template name of the gate piece'>" +

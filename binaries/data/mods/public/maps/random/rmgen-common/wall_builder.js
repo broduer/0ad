@@ -54,6 +54,13 @@ function loadWallset(wallsetPath, civ)
 		if (element == "curves")
 			for (const filename of wallsetData.templates.curves)
 				newWallset.curves.push(readyWallElement(filename, civ));
+		else if (element == "towers")
+		{
+			newWallset.towers = wallsetData.templates.towers.map(template => readyWallElement(template, civ));
+			newWallset.tower = newWallset.towers.reduce((widestTower, candidateTower) =>
+				candidateTower.length > widestTower.length ? candidateTower : widestTower
+			);
+		}
 		else
 			newWallset[element] = readyWallElement(wallsetData.templates[element], civ);
 
