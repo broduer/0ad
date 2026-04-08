@@ -46,5 +46,23 @@ public:
 		TS_ASSERT_EQUALS(fnv_hash("collisions", 10), fnv_hash("silage_formism", 14));
 		TS_ASSERT_EQUALS(fnv_hash("2018-04-13 06:10", 16), fnv_hash("1984-05-01 06:20", 16));
 		TS_ASSERT_EQUALS(fnv_hash("etude", 5), fnv_hash("nonassister", 11));
+
+		// FNV1-A 64bits collisions
+		TS_ASSERT_EQUALS(fnv_hash64("gggghpkjrphnupik", 16), fnv_hash64("gggggggggoltvvpr", 16));
+		TS_ASSERT_EQUALS(fnv_hash64("gggghpkjrphnupio", 16), fnv_hash64("gggggggggoltvvpv", 16));
+		TS_ASSERT_EQUALS(fnv_hash64("gggghpkjrphnupip", 16), fnv_hash64("gggggggggoltvvpi", 16));
+		TS_ASSERT_EQUALS(fnv_hash64("gggghpkjrphnupiq", 16), fnv_hash64("gggggggggoltvvph", 16));
+		TS_ASSERT_EQUALS(fnv_hash64("gggghpkjrphnupir", 16), fnv_hash64("gggggggggoltvvpk", 16));
+		TS_ASSERT_EQUALS(fnv_hash64("gggghpkjrphnupis", 16), fnv_hash64("gggggggggoltvvpj", 16));
+		TS_ASSERT_EQUALS(fnv_hash64("gggghpkjrphnupit", 16), fnv_hash64("gggggggggoltvvpm", 16));
+		TS_ASSERT_EQUALS(fnv_hash64("gggghpkjrphnupiu", 16), fnv_hash64("gggggggggoltvvpl", 16));
+		TS_ASSERT_EQUALS(fnv_hash64("gggghpkjrphnupiv", 16), fnv_hash64("gggggggggoltvvpo", 16));
+		TS_ASSERT_EQUALS(fnv_hash64("gggghpkjrphnupjl", 16), fnv_hash64("gggggggggoltvvug", 16));
+		TS_ASSERT_EQUALS(fnv_hash64("gggghpkjrphnupqn", 16), fnv_hash64("gggggggggoltvvhg", 16));
+		TS_ASSERT_EQUALS(fnv_hash64("gggghpkjrphnuprk", 16), fnv_hash64("gggggggggoltvvmp", 16));
+		TS_ASSERT_EQUALS(fnv_hash64("gggghpkjrphnupti", 16), fnv_hash64("gggggggggoltvvsn", 16));
+		TS_ASSERT_EQUALS(fnv_hash64("gggghpkjrphnupts", 16), fnv_hash64("gggggggggoltvvst", 16));
+		TS_ASSERT_EQUALS(fnv_hash64("gggghpkjrphnupvg", 16), fnv_hash64("gggggggggoltvvql", 16));
+		TS_ASSERT_EQUALS(fnv_hash64("gggghpkjrphnupvl", 16), fnv_hash64("gggggggggoltvvqg", 16));
 	}
 };
