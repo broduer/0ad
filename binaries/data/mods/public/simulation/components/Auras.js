@@ -84,9 +84,14 @@ Auras.prototype.GetRangeOverlays = function()
 {
 	const rangeOverlays = [];
 
+	// Check if this is a preview entity
+	const cmpVisibility = Engine.QueryInterface(this.entity, IID_Visibility);
+	const isPreview = cmpVisibility && cmpVisibility.GetPreview && cmpVisibility.GetPreview();
+
 	for (const name of this.GetAuraNames())
 	{
-		if (!this.IsRangeAura(name) || !this[name].isApplied)
+		// For preview entities, show auras even if isApplied is false
+		if (!this.IsRangeAura(name) || (!isPreview && !this[name].isApplied))
 			continue;
 
 		const rangeOverlay = AuraTemplates.Get(name).rangeOverlay;
@@ -141,6 +146,12 @@ Auras.prototype.CalculateAffectedPlayers = function(name)
 
 Auras.prototype.CanApply = function(name)
 {
+	// Check if this is a preview entity via Visibility component
+	// If it is, then we don't apply the aura
+	const cmpVisibility = Engine.QueryInterface(this.entity, IID_Visibility);
+	if (cmpVisibility && cmpVisibility.GetPreview && cmpVisibility.GetPreview())
+		return false;
+
 	if (!AuraTemplates.Get(name).requiredTechnology)
 		return true;
 

@@ -5,6 +5,7 @@
        to this list should be carefully considered -->
   <!-- Attack is needed for the Actor Viewer and attack range overlay -->
   <Attack merge=""/>
+  <Auras merge=""/>
   <BuildRestrictions merge=""/>
   <Decay merge=""/>
   <Footprint merge=""/>
