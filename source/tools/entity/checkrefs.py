@@ -432,12 +432,13 @@ class CheckRefs:
                 cmp_auras = entity.find("Auras")
                 if cmp_auras is not None:
                     aura_string = cmp_auras.text
-                    for aura in aura_string.split():
-                        if not aura:
-                            continue
-                        if aura.startswith("-"):
-                            continue
-                        self.deps.append((fp, Path(f"simulation/data/auras/{aura}.json")))
+                    if aura_string:
+                        for aura in aura_string.split():
+                            if not aura:
+                                continue
+                            if aura.startswith("-"):
+                                continue
+                            self.deps.append((fp, Path(f"simulation/data/auras/{aura}.json")))
 
                 cmp_identity = entity.find("Identity")
                 if cmp_identity is not None:

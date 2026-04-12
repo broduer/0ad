@@ -84,14 +84,9 @@ Auras.prototype.GetRangeOverlays = function()
 {
 	const rangeOverlays = [];
 
-	// Check if this is a preview entity
-	const cmpVisibility = Engine.QueryInterface(this.entity, IID_Visibility);
-	const isPreview = cmpVisibility && cmpVisibility.GetPreview && cmpVisibility.GetPreview();
-
 	for (const name of this.GetAuraNames())
 	{
-		// For preview entities, show auras even if isApplied is false
-		if (!this.IsRangeAura(name) || (!isPreview && !this[name].isApplied))
+		if (!this.IsRangeAura(name) || !this.AreTechnologyRequirementsMet(name))
 			continue;
 
 		const rangeOverlay = AuraTemplates.Get(name).rangeOverlay;
@@ -144,22 +139,27 @@ Auras.prototype.CalculateAffectedPlayers = function(name)
 	}
 };
 
-Auras.prototype.CanApply = function(name)
+Auras.prototype.AreTechnologyRequirementsMet = function(name)
 {
-	// Check if this is a preview entity via Visibility component
-	// If it is, then we don't apply the aura
-	const cmpVisibility = Engine.QueryInterface(this.entity, IID_Visibility);
-	if (cmpVisibility && cmpVisibility.GetPreview && cmpVisibility.GetPreview())
-		return false;
-
-	if (!AuraTemplates.Get(name).requiredTechnology)
+	const aura = AuraTemplates.Get(name);
+	if (!aura || !aura.requiredTechnology)
 		return true;
 
 	const cmpTechnologyManager = QueryOwnerInterface(this.entity, IID_TechnologyManager);
 	if (!cmpTechnologyManager)
 		return false;
 
-	return cmpTechnologyManager.IsTechnologyResearched(AuraTemplates.Get(name).requiredTechnology);
+	return cmpTechnologyManager.IsTechnologyResearched(aura.requiredTechnology);
+};
+
+Auras.prototype.CanApply = function(name)
+{
+	// Check if this is a preview entity
+	const cmpVisibility = Engine.QueryInterface(this.entity, IID_Visibility);
+	if (cmpVisibility && cmpVisibility.GetPreview && cmpVisibility.GetPreview())
+		return false;
+
+	return this.AreTechnologyRequirementsMet(name);
 };
 
 Auras.prototype.HasFormationAura = function()
