@@ -187,46 +187,90 @@
 				"name": "Select Control Group 10",
 				"desc": "Change the current selection to Control Group 10."
 			},
-			"selection.group.add.1": {
+			"selection.group.addToSelection.1": {
 				"name": "Add Control Group 1",
 				"desc": "Add Control Group 1 to the current selection."
 			},
-			"selection.group.add.2": {
+			"selection.group.addToSelection.2": {
 				"name": "Add Control Group 2",
 				"desc": "Add Control Group 2 to the current selection."
 			},
-			"selection.group.add.3": {
+			"selection.group.addToSelection.3": {
 				"name": "Add Control Group 3",
 				"desc": "Add Control Group 3 to the current selection."
 			},
-			"selection.group.add.4": {
+			"selection.group.addToSelection.4": {
 				"name": "Add Control Group 4",
 				"desc": "Add Control Group 4 to the current selection."
 			},
-			"selection.group.add.5": {
+			"selection.group.addToSelection.5": {
 				"name": "Add Control Group 5",
 				"desc": "Add Control Group 5 to the current selection."
 			},
-			"selection.group.add.6": {
+			"selection.group.addToSelection.6": {
 				"name": "Add Control Group 6",
 				"desc": "Add Control Group 6 to the current selection."
 			},
-			"selection.group.add.7": {
+			"selection.group.addToSelection.7": {
 				"name": "Add Control Group 7",
 				"desc": "Add Control Group 7 to the current selection."
 			},
-			"selection.group.add.8": {
+			"selection.group.addToSelection.8": {
 				"name": "Add Control Group 8",
 				"desc": "Add Control Group 8 to the current selection."
 			},
-			"selection.group.add.9": {
+			"selection.group.addToSelection.9": {
 				"name": "Add Control Group 9",
 				"desc": "Add Control Group 9 to the current selection."
 			},
-			"selection.group.add.10": {
+			"selection.group.addToSelection.10": {
 				"name": "Add Control Group 10",
 				"desc": "Add Control Group 10 to the current selection."
-			}
+			},
+            "selection.group.addToGroup.1": {
+              "name": "Add to Control Group 1",
+              "desc": "Add the current selection to Control Group 1."
+            },
+            "selection.group.addToGroup.2": {
+              "name": "Add to Control Group 2",
+              "desc": "Add the current selection to Control Group 2."
+            },
+            "selection.group.addToGroup.3": {
+              "name": "Add to Control Group 3",
+              "desc": "Add the current selection to Control Group 3."
+            },
+            "selection.group.addToGroup.4": {
+              "name": "Add to Control Group 4",
+              "desc": "Add the current selection to Control Group 4."
+            },
+            "selection.group.addToGroup.5": {
+              "name": "Add to Control Group 5",
+              "desc": "Add the current selection to Control Group 5."
+            },
+            "selection.group.addToGroup.6": {
+              "name": "Add to Control Group 6",
+              "desc": "Add the current selection to Control Group 6."
+            },
+            "selection.group.addToGroup.7": {
+              "name": "Add to Control Group 7",
+              "desc": "Add the current selection to Control Group 7."
+            },
+            "selection.group.addToGroup.8": {
+              "name": "Add to Control Group 8",
+              "desc": "Add the current selection to Control Group 8."
+            },
+            "selection.group.addToGroup.9": {
+              "name": "Add to Control Group 9",
+              "desc": "Add the current selection to Control Group 9."
+            },
+            "selection.group.addToGroup.10": {
+              "name": "Add to Control Group 10",
+              "desc": "Add the current selection to Control Group 10."
+            },
+            "selection.group.removeFromAll": {
+              "name": "Remove from all Control Groups",
+              "desc": "Remove the current selection from all Control Groups."
+            }
 		}
 	}
 }

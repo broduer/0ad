@@ -1813,7 +1813,7 @@ function flushTrainingBatch()
 
 function performGroup(action, groupId)
 {
-	if (g_Groups.groups[groupId] === undefined)
+	if (g_Groups.groups[groupId] === undefined && action !== "removeFromAll")
 	{
 		warn("Invalid groupId " + groupId);
 		return;
@@ -1822,14 +1822,14 @@ function performGroup(action, groupId)
 	{
 	case "snap":
 	case "select":
-	case "add":
+	case "addToSelection":
 	{
 		const toSelect = [];
 		g_Groups.update();
 		for (const ent in g_Groups.groups[groupId].ents)
 			toSelect.push(+ent);
 
-		if (action != "add")
+		if (action != "addToSelection")
 			g_Selection.reset();
 
 		g_Selection.addList(toSelect);
@@ -1843,6 +1843,20 @@ function performGroup(action, groupId)
 		}
 		break;
 	}
+	case "addToGroup":
+	{
+		const toSelect = [];
+		for (const ent in g_Groups.groups[groupId].ents)
+			toSelect.push(+ent);
+		const selection = g_Selection.toList();
+		g_Groups.addEntities(groupId, selection);
+		updateGroups();
+		// Add the group to the selection so that the player now has the entire group selected
+		// This is useful for players trying to efficiently maintain control groups
+		// Chances are very high that a user will want to select the entire group after adding to it
+		g_Selection.addList(toSelect);
+		break;
+	}
 	case "save":
 	case "breakUp":
 		g_Groups.groups[groupId].reset();
@@ -1852,8 +1866,11 @@ function performGroup(action, groupId)
 
 		updateGroups();
 		break;
+	case "removeFromAll":
+		g_Groups.removeEntitiesFromAllGroups(g_Selection.toList());
+		break;
 	default:
-		warn("Unknow action in performGroup: " + action);
+		warn("Unknown action in performGroup: " + action);
 	}
 }
 

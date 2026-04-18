@@ -564,12 +564,22 @@ function EntityGroupsContainer()
 EntityGroupsContainer.prototype.addEntities = function(groupName, ents)
 {
 	if (Engine.ConfigDB_GetValue("user", "gui.session.disjointcontrolgroups") == "true")
-		for (const ent of ents)
-			for (const group of this.groups)
-				if (ent in group.ents)
-					group.removeEnt(ent);
+		this.removeEntitiesFromAllGroups(ents);
 
 	this.groups[groupName].add(ents);
+};
+
+
+/**
+ * Remove entities from all groups.
+ * @param {number[]} ents - The entities to remove from all control groups.
+ */
+EntityGroupsContainer.prototype.removeEntitiesFromAllGroups = function(ents)
+{
+	for (const ent of ents)
+		for (const group of this.groups)
+			if (ent in group.ents)
+				group.removeEnt(ent);
 };
 
 EntityGroupsContainer.prototype.update = function()
