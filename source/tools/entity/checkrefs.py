@@ -711,6 +711,8 @@ class CheckRefs:
                     for script in root_xml.findall("script"):
                         if script.get("file"):
                             self.deps.append((fp, Path(script.get("file"))))
+                        if script.get("module"):
+                            self.deps.append((fp, Path(script.get("module"))))
                         if script.get("directory"):
                             # If including an entire directory, find all the *.js files
                             self.deps.extend(
