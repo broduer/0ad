@@ -251,18 +251,17 @@ var g_NotificationsTypes =
 		},
 		"playercommand": function(notification, player)
 		{
-		// For observers, focus the camera on units commanded by the selected player
+			// For observers, focus the camera on units commanded by the selected player
 			if (!g_FollowPlayer || player != g_ViewedPlayer)
 				return;
 
 			const cmd = notification.cmd;
 
-			// Ignore rallypoint commands of trained animals
-			const entState = cmd.entities && cmd.entities[0] && GetEntityState(cmd.entities[0]);
-			if (g_ViewedPlayer != 0 &&
-		    entState && entState.identity && entState.identity.classes &&
-		    entState.identity.classes.indexOf("Animal") != -1)
+			// Ignore commands executed because of units following rally points
+			if (cmd.fromRallyPoint)
 				return;
+
+			const entState = cmd.entities && cmd.entities[0] && GetEntityState(cmd.entities[0]);
 
 			// Focus the structure to build.
 			if (cmd.type == "repair")

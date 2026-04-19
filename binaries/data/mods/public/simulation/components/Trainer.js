@@ -295,7 +295,11 @@ Trainer.prototype.Item.prototype.Spawn = function()
 
 	if (spawnedEnts.length && cmpRallyPoint)
 		for (const com of GetRallyPointCommands(cmpRallyPoint, spawnedEnts))
+		{
+			// Tag this command as coming from a rally point
+			com.fromRallyPoint = true;
 			ProcessCommand(this.player, com);
+		}
 
 	const cmpPlayer = QueryOwnerInterface(this.trainer);
 	if (createdEnts.length)
