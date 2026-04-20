@@ -7,13 +7,13 @@
 	"requirements": {
 		"all": [
 			{ "tech": "phase_city" },
+			{ "notciv": "achae" },
 			{ "notciv": "brit" },
 			{ "notciv": "germ" },
 			{ "notciv": "gaul" },
 			{ "notciv": "iber" },
 			{ "notciv": "maur" },
-			{ "notciv": "kush" },
-			{ "notciv": "pers" }
+			{ "notciv": "kush" }
 		]
 	},
 	"requirementsTooltip": "Unlocked in City Phase.",

@@ -15591,14 +15591,14 @@
 			<Actor seed="2420"/>
 		</Entity>
 		<Entity uid="2914">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="247.33747" z="474.63874"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="8527"/>
 		</Entity>
 		<Entity uid="2915">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="1104.74573" z="860.54712"/>
 			<Orientation y="2.35621"/>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<variant file="quadraped/horse/props/blanket_achae.xml">
+  <textures>
+    <texture file="props/horse/blanket_achae_02.png" name="baseTex"/>
+  </textures>
+</variant>
+

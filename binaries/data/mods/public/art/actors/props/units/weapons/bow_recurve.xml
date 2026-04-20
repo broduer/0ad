@@ -3,7 +3,7 @@
   <castshadow/>
   <group>
     <variant frequency="100" name="Base">
-      <mesh>props/weapons/bow_recurve_pers.dae</mesh>
+      <mesh>props/weapons/bow_recurve_achae.dae</mesh>
       <textures>
         <texture file="props/spart_sail_a.png" name="baseTex"/>
         <texture file="default_norm.png" name="normTex"/>

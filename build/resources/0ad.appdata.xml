@@ -25,8 +25,8 @@
       The fifteen factions are: Three of the Hellenic States (Athens, Sparta and
       Macedonia), two of the kingdoms of Alexander the Great's successors
       (Seleucids and Ptolemaic Egyptians), two Celtic tribes (Britons and
-      Gauls), the Germans, the Romans, the Persians, the Iberians, the Carthaginians,
-      the Han, the Mauryas and the Kushites.
+      Gauls), the Germans, the Romans, the Achaemenid Persians, the Iberians, the Carthaginians,
+      the Han Chinese, the Maurya Indians, and the Kushites.
       Each civilization is complete with substantially unique artwork,
       technologies and civilization bonuses.
     </p>
@@ -116,6 +116,7 @@
     <keyword>Fortress</keyword>
     <keyword>Celtics</keyword>
     <keyword>Hellenes</keyword>
+    <keyword>Achaemenids</keyword>
     <keyword>Athenians</keyword>
     <keyword>Britons</keyword>
     <keyword>Carthaginians</keyword>
@@ -126,7 +127,6 @@
     <keyword>Kushites</keyword>
     <keyword>Macedonians</keyword>
     <keyword>Mauryas</keyword>
-    <keyword>Persians</keyword>
     <keyword>Ptolemies</keyword>
     <keyword>Romans</keyword>
     <keyword>Seleucids</keyword>

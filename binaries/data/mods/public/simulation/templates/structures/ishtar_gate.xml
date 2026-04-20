@@ -24,7 +24,7 @@
   <Identity>
     <GenericName>Ishtar Gate of Babylon</GenericName>
     <Tooltip>Territory root.</Tooltip>
-    <Icon>structures/pers_gate.png</Icon>
+    <Icon>structures/achae_gate.png</Icon>
   </Identity>
   <Loot>
     <stone>50</stone>
@@ -56,7 +56,7 @@
     <Range>40</Range>
   </Vision>
   <VisualActor>
-    <Actor>special/pers_ishtar_gate.xml</Actor>
+    <Actor>special/achae_ishtar_gate.xml</Actor>
     <FoundationActor>structures/fndn_9x4.xml</FoundationActor>
   </VisualActor>
 </Entity>

@@ -31,7 +31,13 @@
 		"PlayerData":
 		[
 			{
-				"Civ": "han"
+				"Civ": "achae"
+			},
+			{
+				"Civ": "athen"
+			},
+			{
+				"Civ": "brit"
 			},
 			{
 				"Civ": "cart"
@@ -40,19 +46,13 @@
 				"Civ": "gaul"
 			},
 			{
+				"Civ": "germ"
+			},
+			{
+				"Civ": "han"
+			},
+			{
 				"Civ": "iber"
-			},
-			{
-				"Civ": "pers"
-			},
-			{
-				"Civ": "ptol"
-			},
-			{
-				"Civ": "rome"
-			},
-			{
-				"Civ": "spart"
 			}
 		],
 		"CircularMap": true,

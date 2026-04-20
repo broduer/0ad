@@ -36,7 +36,7 @@ Attack.prototype.Schema =
 			"<RepeatTime>1000</RepeatTime>" +
 			"<Bonuses>" +
 				"<Bonus1>" +
-					"<Civ>pers</Civ>" +
+					"<Civ>achae</Civ>" +
 					"<Classes>Infantry</Classes>" +
 					"<Multiplier>1.5</Multiplier>" +
 				"</Bonus1>" +

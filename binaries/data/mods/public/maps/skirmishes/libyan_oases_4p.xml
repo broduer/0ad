@@ -15575,49 +15575,49 @@
 			<Orientation y="-0.84614"/>
 		</Entity>
 		<Entity uid="2964">
-			<Template>gaia/treasure/metal_persian_big</Template>
+			<Template>gaia/treasure/metal_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="969.8996" z="280.95933"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2965">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="975.4853" z="283.98945"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2966">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="286.73484" z="297.35703"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2967">
-			<Template>gaia/treasure/metal_persian_big</Template>
+			<Template>gaia/treasure/metal_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="291.74167" z="300.5012"/>
 			<Orientation y="-0.6981"/>
 		</Entity>
 		<Entity uid="2968">
-			<Template>gaia/treasure/metal_persian_big</Template>
+			<Template>gaia/treasure/metal_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="293.76301" z="946.136"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2969">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="296.66938" z="953.23047"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2970">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="952.75635" z="963.39704"/>
 			<Orientation y="-2.32462"/>
 		</Entity>
 		<Entity uid="2971">
-			<Template>gaia/treasure/metal_persian_big</Template>
+			<Template>gaia/treasure/metal_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="955.91108" z="955.84626"/>
 			<Orientation y="-2.30755"/>

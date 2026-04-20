@@ -17002,7 +17002,7 @@
 			<Actor seed="59616"/>
 		</Entity>
 		<Entity uid="9986">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="160.75544" z="574.5511"/>
 			<Orientation y="2.35621"/>

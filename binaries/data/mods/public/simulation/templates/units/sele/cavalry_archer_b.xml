@@ -6,7 +6,7 @@
     <SelectionGroupName>units/sele/cavalry_archer_b</SelectionGroupName>
     <GenericName>Dahae Horse Archer</GenericName>
     <SpecificName>Hippotoxotès Dahae</SpecificName>
-    <Icon>units/pers/cavalry_archer.png</Icon>
+    <Icon>units/achae/cavalry_archer.png</Icon>
     <Requirements>
       <Techs datatype="tokens">phase_town</Techs>
     </Requirements>
@@ -15,6 +15,6 @@
     <Entity>units/sele/cavalry_archer_a</Entity>
   </Promotion>
   <VisualActor>
-    <Actor>units/persians/cavalry_archer_b_m.xml</Actor>
+    <Actor>units/achaemenids/cavalry_archer_b_m.xml</Actor>
   </VisualActor>
 </Entity>

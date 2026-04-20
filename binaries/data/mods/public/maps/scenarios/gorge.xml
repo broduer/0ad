@@ -34,7 +34,7 @@
   "Name": "Gorge",
   "PlayerData": [
     {
-      "Civ": "pers"
+      "Civ": "achae"
     },
     {
       "Civ": "cart"
@@ -54,7 +54,7 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="12">
-			<Template>structures/pers/civil_centre</Template>
+			<Template>structures/achae/civil_centre</Template>
 			<Player>1</Player>
 			<Position x="354.87638" z="830.6186"/>
 			<Orientation y="2.35621"/>

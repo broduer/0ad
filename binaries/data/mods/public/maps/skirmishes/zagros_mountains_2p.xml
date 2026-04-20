@@ -41,7 +41,7 @@
   "AISeed": 0,
   "AllyView": false,
   "CircularMap": true,
-  "Description": "The mountains buffering the Persian homeland, straddling Persis, Susiana, and Media. This map simulates the many valleys and choke points that criss cross the mountain range. \n\nPlayers start the match nestled in their own province with 1 free Persian temple. Access to untapped resources and territories can be found through the rugged hinterlands, but is also chock full of dangerous animals, such as Asian bears and Caspian tigers.\n\nThe central valley is wide open for expansion, with an unclaimed Civic Center, farms, and Trading Posts. Cliffs along the valley's edge may offer vantage points for defensive or offensive fortifications.",
+  "Description": "The mountains buffering the achaemenid homeland, straddling Persis, Susiana, and Media. This map simulates the many valleys and choke points that criss cross the mountain range. \n\nPlayers start the match nestled in their own province with 1 free achaemenid temple. Access to untapped resources and territories can be found through the rugged hinterlands, but is also chock full of dangerous animals, such as Asian bears and Caspian tigers.\n\nThe central valley is wide open for expansion, with an unclaimed Civic Center, farms, and Trading Posts. Cliffs along the valley's edge may offer vantage points for defensive or offensive fortifications.",
   "Keywords": [],
   "LockTeams": false,
   "Name": "Zagros Mountains (2)",
@@ -9956,7 +9956,7 @@
 			<Actor seed="44623"/>
 		</Entity>
 		<Entity uid="1507">
-			<Template>structures/pers/civil_centre</Template>
+			<Template>structures/achae/civil_centre</Template>
 			<Player>0</Player>
 			<Position x="537.41742" z="499.478"/>
 			<Orientation y="2.35621"/>
@@ -11171,14 +11171,14 @@
 			<Actor seed="31141"/>
 		</Entity>
 		<Entity uid="2409">
-			<Template>structures/pers/ice_house</Template>
+			<Template>structures/achae/ice_house</Template>
 			<Player>0</Player>
 			<Position x="711.11866" z="227.73386"/>
 			<Orientation y="-3.72931"/>
 			<Actor seed="47337"/>
 		</Entity>
 		<Entity uid="2412">
-			<Template>structures/pers/ice_house</Template>
+			<Template>structures/achae/ice_house</Template>
 			<Player>0</Player>
 			<Position x="350.92975" z="746.61951"/>
 			<Orientation y="-2.97693"/>
@@ -12538,14 +12538,14 @@
 			<Actor seed="52245"/>
 		</Entity>
 		<Entity uid="2704">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="206.15537" z="833.76978"/>
 			<Orientation y="2.44053"/>
 			<Actor seed="36667"/>
 		</Entity>
 		<Entity uid="2705">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="814.61689" z="213.176"/>
 			<Orientation y="0.93131"/>
@@ -22950,14 +22950,14 @@
 			<Actor seed="41784"/>
 		</Entity>
 		<Entity uid="4207">
-			<Template>structures/shrine_persian</Template>
+			<Template>structures/shrine_achaemenid</Template>
 			<Player>0</Player>
 			<Position x="508.43833" z="196.37641"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="43559"/>
 		</Entity>
 		<Entity uid="4208">
-			<Template>structures/shrine_persian</Template>
+			<Template>structures/shrine_achaemenid</Template>
 			<Player>0</Player>
 			<Position x="643.43073" z="779.62513"/>
 			<Orientation y="2.35621"/>
@@ -23076,14 +23076,14 @@
 			<Actor seed="27257"/>
 		</Entity>
 		<Entity uid="4225">
-			<Template>structures/pers/sentry_tower</Template>
+			<Template>structures/achae/sentry_tower</Template>
 			<Player>0</Player>
 			<Position x="403.02347" z="371.19513"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="48067"/>
 		</Entity>
 		<Entity uid="4226">
-			<Template>structures/pers/sentry_tower</Template>
+			<Template>structures/achae/sentry_tower</Template>
 			<Player>0</Player>
 			<Position x="664.63929" z="522.2295"/>
 			<Orientation y="2.35621"/>

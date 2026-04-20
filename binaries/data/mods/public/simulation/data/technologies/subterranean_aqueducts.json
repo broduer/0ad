@@ -1,7 +1,7 @@
 {
 	"genericName": "Subterranean Aqueducts",
 	"specificName": {
-		"pers": "Kārēz"
+		"achae": "Kārēz"
 	},
 	"description": "Qanāt or Kārēz, a network of underground aqueducts connected to the yakhchal ice house.",
 	"cost": {
@@ -11,7 +11,7 @@
 	"requirements": {
 		"all": [
 			{ "tech": "phase_city" },
-			{ "civ": "pers" }
+			{ "civ": "achae" }
 		]
 	},
 	"requirementsTooltip": "Unlocked in City Phase.",

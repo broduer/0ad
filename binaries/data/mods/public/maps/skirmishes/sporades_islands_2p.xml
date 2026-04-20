@@ -5322,7 +5322,7 @@
 			<Actor seed="54564"/>
 		</Entity>
 		<Entity uid="856">
-			<Template>gaia/treasure/metal_persian_big</Template>
+			<Template>gaia/treasure/metal_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="316.72092" z="267.29389"/>
 			<Orientation y="2.35621"/>
@@ -13259,7 +13259,7 @@
 			<Actor seed="51667"/>
 		</Entity>
 		<Entity uid="2082">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="335.89518" z="265.33259"/>
 			<Orientation y="2.76102"/>

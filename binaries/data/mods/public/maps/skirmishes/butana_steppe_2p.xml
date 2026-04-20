@@ -14651,28 +14651,28 @@
 			<Actor seed="9052"/>
 		</Entity>
 		<Entity uid="2709">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="266.90098" z="567.57612"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="27084"/>
 		</Entity>
 		<Entity uid="2710">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="861.08893" z="272.75239"/>
 			<Orientation y="-1.34891"/>
 			<Actor seed="63326"/>
 		</Entity>
 		<Entity uid="2711">
-			<Template>gaia/treasure/metal_persian_big</Template>
+			<Template>gaia/treasure/metal_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="462.59308" z="787.56794"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="4672"/>
 		</Entity>
 		<Entity uid="2712">
-			<Template>gaia/treasure/metal_persian_big</Template>
+			<Template>gaia/treasure/metal_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="571.68244" z="86.7671"/>
 			<Orientation y="2.35621"/>

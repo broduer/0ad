@@ -8442,14 +8442,14 @@
 			<Actor seed="39950"/>
 		</Entity>
 		<Entity uid="1401">
-			<Template>gaia/treasure/metal_persian_big</Template>
+			<Template>gaia/treasure/metal_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="642.06684" z="449.28684"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="21882"/>
 		</Entity>
 		<Entity uid="1402">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="147.89106" z="438.21833"/>
 			<Orientation y="2.35621"/>

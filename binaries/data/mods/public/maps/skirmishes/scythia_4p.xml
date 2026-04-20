@@ -39777,14 +39777,14 @@
 			<Actor seed="63266"/>
 		</Entity>
 		<Entity uid="9232">
-			<Template>units/pers/cavalry_axeman_e</Template>
+			<Template>units/achae/cavalry_axeman_e</Template>
 			<Player>0</Player>
 			<Position x="257.36673" z="711.84559"/>
 			<Orientation y="0.35102"/>
 			<Actor seed="27686"/>
 		</Entity>
 		<Entity uid="9233">
-			<Template>units/pers/cavalry_axeman_e</Template>
+			<Template>units/achae/cavalry_axeman_e</Template>
 			<Player>0</Player>
 			<Position x="1674.26465" z="899.42261"/>
 			<Orientation y="-2.11175"/>

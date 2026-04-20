@@ -57,7 +57,7 @@
       "PopulationLimit": 500
     },
     {
-      "Civ": "pers",
+      "Civ": "achae",
       "Color": {
         "b": 0,
         "g": 0,
@@ -117,28 +117,28 @@
 			<Actor seed="40249"/>
 		</Entity>
 		<Entity uid="30">
-			<Template>units/pers/ship_arrow</Template>
+			<Template>units/achae/ship_arrow</Template>
 			<Player>2</Player>
 			<Position x="340.26764" z="230.24787"/>
 			<Orientation y="-0.76932"/>
 			<Actor seed="17214"/>
 		</Entity>
 		<Entity uid="31">
-			<Template>units/pers/ship_arrow</Template>
+			<Template>units/achae/ship_arrow</Template>
 			<Player>2</Player>
 			<Position x="397.6215" z="276.76282"/>
 			<Orientation y="-0.81254"/>
 			<Actor seed="17214"/>
 		</Entity>
 		<Entity uid="32">
-			<Template>units/pers/ship_arrow</Template>
+			<Template>units/achae/ship_arrow</Template>
 			<Player>2</Player>
 			<Position x="365.02887" z="249.67411"/>
 			<Orientation y="-0.86615"/>
 			<Actor seed="28008"/>
 		</Entity>
 		<Entity uid="33">
-			<Template>units/pers/ship_arrow</Template>
+			<Template>units/achae/ship_arrow</Template>
 			<Player>2</Player>
 			<Position x="320.37757" z="217.74009"/>
 			<Orientation y="-0.62998"/>
@@ -614,7 +614,7 @@
 			<Actor seed="61785"/>
 		</Entity>
 		<Entity uid="102">
-			<Template>structures/pers/dock</Template>
+			<Template>structures/achae/dock</Template>
 			<Player>1</Player>
 			<Position x="347.8896" z="1281.41553"/>
 			<Orientation y="2.35621"/>
@@ -712,7 +712,7 @@
 			<Actor seed="54530"/>
 		</Entity>
 		<Entity uid="118">
-			<Template>units/pers/ship_scout</Template>
+			<Template>units/achae/ship_scout</Template>
 			<Player>1</Player>
 			<Position x="304.8335" z="857.66761"/>
 			<Orientation y="2.35621"/>

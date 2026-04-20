@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<actor version="1">
+  <castshadow/>
+  <group>
+    <variant frequency="100" name="base">
+      <mesh>props/shield/taka_front.dae</mesh>
+      <props>
+        <prop actor="props/units/shields/taka_a_back.xml" attachpoint="root"/>
+      </props>
+      <textures>
+        <texture file="default_norm.png" name="normTex"/>
+        <texture file="null_black.dds" name="specTex"/>
+      </textures>
+    </variant>
+  </group>
+  <group>
+    <variant frequency="1" name="achae_pelta_b">
+      <textures>
+        <texture file="props/shield/achae_pelta_b.dds" name="baseTex"/>
+      </textures>
+    </variant>
+    <variant frequency="1" name="achae_pelta_e">
+      <textures>
+        <texture file="props/shield/achae_pelta_e.png" name="baseTex"/>
+      </textures>
+    </variant>
+    <variant frequency="1" name="achae_pelta_f">
+      <textures>
+        <texture file="props/shield/achae_pelta_f.png" name="baseTex"/>
+      </textures>
+    </variant>
+  </group>
+  <material>player_trans_norm_spec.xml</material>
+</actor>

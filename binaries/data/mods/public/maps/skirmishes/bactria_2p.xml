@@ -11971,21 +11971,21 @@
 			<Actor seed="35990"/>
 		</Entity>
 		<Entity uid="1980">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="464.17502" z="816.94178"/>
 			<Orientation y="-2.54097"/>
 			<Actor seed="48824"/>
 		</Entity>
 		<Entity uid="1981">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="829.30567" z="789.10065"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="11110"/>
 		</Entity>
 		<Entity uid="1982">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="763.23505" z="1001.38483"/>
 			<Orientation y="2.35621"/>

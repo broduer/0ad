@@ -454,7 +454,7 @@
 			<Orientation y="0.51355"/>
 		</Entity>
 		<Entity uid="116">
-			<Template>units/pers/champion_cavalry</Template>
+			<Template>units/achae/champion_cavalry</Template>
 			<Player>1</Player>
 			<Position x="339.81162" z="395.43107"/>
 			<Orientation y="-2.06785"/>
@@ -520,13 +520,13 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="130">
-			<Template>units/pers/champion_elephant</Template>
+			<Template>units/achae/champion_elephant</Template>
 			<Player>1</Player>
 			<Position x="235.01026" z="313.00052"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="131">
-			<Template>units/pers/champion_infantry</Template>
+			<Template>units/achae/champion_infantry</Template>
 			<Player>1</Player>
 			<Position x="261.49714" z="287.48682"/>
 			<Orientation y="0.67197"/>

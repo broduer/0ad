@@ -58,6 +58,9 @@ export function Config(difficulty = difficultyLevel.MEDIUM, behavior)
 	this.buildings =
 		{
 			"default": [],
+			"achae": [
+				"structures/{civ}/tachara"
+			],
 			"athen": [
 				"structures/{civ}/gymnasium",
 				"structures/{civ}/prytaneion",
@@ -91,9 +94,6 @@ export function Config(difficulty = difficultyLevel.MEDIUM, behavior)
 			"maur": [
 				"structures/{civ}/palace",
 				"structures/{civ}/pillar_ashoka"
-			],
-			"pers": [
-				"structures/{civ}/tachara"
 			],
 			"ptol": [
 				"structures/{civ}/library",

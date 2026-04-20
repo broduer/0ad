@@ -44,7 +44,7 @@
       "Team": 0
     },
     {
-      "Civ": "pers",
+      "Civ": "achae",
       "Color": {
         "b": 20,
         "g": 20,
@@ -94,13 +94,13 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="15">
-			<Template>structures/pers/civil_centre</Template>
+			<Template>structures/achae/civil_centre</Template>
 			<Player>2</Player>
 			<Position x="744.82508" z="537.00538"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="16">
-			<Template>structures/pers/market</Template>
+			<Template>structures/achae/market</Template>
 			<Player>2</Player>
 			<Position x="775.5876" z="506.4651"/>
 			<Orientation y="2.35621"/>
@@ -136,19 +136,19 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="26">
-			<Template>units/pers/support_trader</Template>
+			<Template>units/achae/support_trader</Template>
 			<Player>1</Player>
 			<Position x="339.16761" z="341.50831"/>
 			<Orientation y="1.10511"/>
 		</Entity>
 		<Entity uid="27">
-			<Template>units/pers/support_trader</Template>
+			<Template>units/achae/support_trader</Template>
 			<Player>1</Player>
 			<Position x="355.53483" z="361.31861"/>
 			<Orientation y="-2.13637"/>
 		</Entity>
 		<Entity uid="28">
-			<Template>units/pers/support_trader</Template>
+			<Template>units/achae/support_trader</Template>
 			<Player>1</Player>
 			<Position x="669.6482" z="210.24886"/>
 			<Orientation y="2.35621"/>
@@ -172,7 +172,7 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="32">
-			<Template>structures/pers/dock</Template>
+			<Template>structures/achae/dock</Template>
 			<Player>2</Player>
 			<Position x="889.62293" z="494.06116"/>
 			<Orientation y="2.09946"/>

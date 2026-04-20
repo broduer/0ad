@@ -167,24 +167,24 @@
 				"Template": "structures/ptol/mercenary_camp"
 			},
 			{
-				"Template": "units/pers/infantry_javelineer_b",
+				"Template": "units/achae/infantry_javelineer_b",
 				"Count": 4
 			},
 			{
-				"Template": "units/pers/cavalry_axeman_e",
+				"Template": "units/achae/cavalry_axeman_e",
 				"Count": 3
 			},
 			{
-				"Template": "units/pers/infantry_archer_a",
+				"Template": "units/achae/infantry_archer_a",
 				"Count": 4
 			},
 			{
-				"Template": "units/pers/champion_infantry",
+				"Template": "units/achae/champion_infantry",
 				"Count": 3
 			}
 		],
 		"farmEntities": {
-			"building": "structures/pers/farmstead",
+			"building": "structures/achae/farmstead",
 			"animal": "gaia/fauna_camel"
 		}
 	},

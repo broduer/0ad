@@ -5,13 +5,13 @@
     <Height>8.0</Height>
   </Footprint>
   <Identity>
-    <Civ>pers</Civ>
+    <Civ>achae</Civ>
     <SpecificName>Desert Bazaar</SpecificName>
   </Identity>
   <Obstruction>
     <Static width="24.0" depth="24.0"/>
   </Obstruction>
   <VisualActor>
-    <Actor>structures/persians/market.xml</Actor>
+    <Actor>structures/achaemenids/market.xml</Actor>
   </VisualActor>
 </Entity>

@@ -94,7 +94,7 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="12">
-			<Template>structures/pers/civil_centre</Template>
+			<Template>structures/achae/civil_centre</Template>
 			<Player>2</Player>
 			<Position x="751.73603" z="789.12446"/>
 			<Orientation y="2.35621"/>
@@ -148,7 +148,7 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="68">
-			<Template>units/pers/infantry_spearman_a</Template>
+			<Template>units/achae/infantry_spearman_a</Template>
 			<Player>1</Player>
 			<Position x="311.45011" z="258.70716"/>
 			<Orientation y="2.35621"/>

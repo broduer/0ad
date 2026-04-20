@@ -10944,28 +10944,28 @@
 			<Actor seed="53092"/>
 		</Entity>
 		<Entity uid="2481">
-			<Template>gaia/treasure/metal_persian_big</Template>
+			<Template>gaia/treasure/metal_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="779.95771" z="334.63785"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="20568"/>
 		</Entity>
 		<Entity uid="2482">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="794.0348" z="349.6843"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="56920"/>
 		</Entity>
 		<Entity uid="2483">
-			<Template>gaia/treasure/metal_persian_big</Template>
+			<Template>gaia/treasure/metal_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="767.67957" z="369.2963"/>
 			<Orientation y="-0.76267"/>
 			<Actor seed="38723"/>
 		</Entity>
 		<Entity uid="2484">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="759.87891" z="354.7302"/>
 			<Orientation y="-2.83504"/>

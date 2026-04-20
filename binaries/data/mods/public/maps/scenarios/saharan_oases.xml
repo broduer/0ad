@@ -62,7 +62,7 @@
       "Team": 0
     },
     {
-      "Civ": "pers",
+      "Civ": "achae",
       "Color": {
         "b": 20,
         "g": 20,
@@ -13522,25 +13522,25 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2703">
-			<Template>structures/pers/civil_centre</Template>
+			<Template>structures/achae/civil_centre</Template>
 			<Player>2</Player>
 			<Position x="636.92768" z="228.12748"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2704">
-			<Template>units/pers/support_civilian</Template>
+			<Template>units/achae/support_civilian</Template>
 			<Player>2</Player>
 			<Position x="644.37616" z="207.76775"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2705">
-			<Template>units/pers/support_civilian</Template>
+			<Template>units/achae/support_civilian</Template>
 			<Player>2</Player>
 			<Position x="647.78138" z="211.27671"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="2706">
-			<Template>units/pers/support_civilian</Template>
+			<Template>units/achae/support_civilian</Template>
 			<Player>2</Player>
 			<Position x="651.38147" z="214.1368"/>
 			<Orientation y="2.35621"/>

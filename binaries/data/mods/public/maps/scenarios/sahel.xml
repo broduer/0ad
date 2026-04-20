@@ -77,7 +77,7 @@
       "Team": 1
     },
     {
-      "Civ": "pers",
+      "Civ": "achae",
       "Color": {
         "b": 5,
         "g": 165,
@@ -129,7 +129,7 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="39">
-			<Template>structures/pers/civil_centre</Template>
+			<Template>structures/achae/civil_centre</Template>
 			<Player>3</Player>
 			<Position x="350.94834" z="907.67676"/>
 			<Orientation y="2.35621"/>
@@ -5633,63 +5633,63 @@
 			<Actor seed="26044"/>
 		</Entity>
 		<Entity uid="892">
-			<Template>units/pers/support_civilian</Template>
+			<Template>units/achae/support_civilian</Template>
 			<Player>3</Player>
 			<Position x="339.63398" z="886.48865"/>
 			<Orientation y="-2.15603"/>
 			<Actor seed="49886"/>
 		</Entity>
 		<Entity uid="893">
-			<Template>units/pers/support_civilian</Template>
+			<Template>units/achae/support_civilian</Template>
 			<Player>3</Player>
 			<Position x="333.70777" z="891.25593"/>
 			<Orientation y="-2.63059"/>
 			<Actor seed="43544"/>
 		</Entity>
 		<Entity uid="894">
-			<Template>units/pers/support_civilian</Template>
+			<Template>units/achae/support_civilian</Template>
 			<Player>3</Player>
 			<Position x="329.62403" z="894.84449"/>
 			<Orientation y="-2.41187"/>
 			<Actor seed="31174"/>
 		</Entity>
 		<Entity uid="895">
-			<Template>units/pers/support_civilian</Template>
+			<Template>units/achae/support_civilian</Template>
 			<Player>3</Player>
 			<Position x="325.20997" z="899.15723"/>
 			<Orientation y="-2.60616"/>
 			<Actor seed="18834"/>
 		</Entity>
 		<Entity uid="896">
-			<Template>units/pers/infantry_javelineer_b</Template>
+			<Template>units/achae/infantry_javelineer_b</Template>
 			<Player>3</Player>
 			<Position x="363.38984" z="886.89228"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="54282"/>
 		</Entity>
 		<Entity uid="897">
-			<Template>units/pers/infantry_javelineer_b</Template>
+			<Template>units/achae/infantry_javelineer_b</Template>
 			<Player>3</Player>
 			<Position x="366.40378" z="889.88074"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="64324"/>
 		</Entity>
 		<Entity uid="898">
-			<Template>units/pers/infantry_spearman_b</Template>
+			<Template>units/achae/infantry_spearman_b</Template>
 			<Player>3</Player>
 			<Position x="371.88962" z="919.42573"/>
 			<Orientation y="0.85892"/>
 			<Actor seed="29392"/>
 		</Entity>
 		<Entity uid="899">
-			<Template>units/pers/infantry_spearman_b</Template>
+			<Template>units/achae/infantry_spearman_b</Template>
 			<Player>3</Player>
 			<Position x="366.11182" z="925.85914"/>
 			<Orientation y="1.20652"/>
 			<Actor seed="19786"/>
 		</Entity>
 		<Entity uid="900">
-			<Template>units/pers/cavalry_javelineer_b</Template>
+			<Template>units/achae/cavalry_javelineer_b</Template>
 			<Player>3</Player>
 			<Position x="327.32337" z="925.31977"/>
 			<Orientation y="-0.99422"/>

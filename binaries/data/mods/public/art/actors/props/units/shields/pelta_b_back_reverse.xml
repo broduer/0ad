@@ -9,7 +9,7 @@
   <group>
     <variant frequency="1" name="back-i">
       <textures>
-        <texture file="props/shield/pers_pelta_c.dds" name="baseTex"/>
+        <texture file="props/shield/achae_pelta_c.dds" name="baseTex"/>
         <texture file="default_norm.png" name="normTex"/>
         <texture file="null_black.dds" name="specTex"/>
       </textures>

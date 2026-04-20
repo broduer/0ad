@@ -54,7 +54,7 @@
       "Team": 0
     },
     {
-      "Civ": "pers",
+      "Civ": "achae",
       "Color": {
         "b": 128,
         "g": 128,
@@ -64,13 +64,13 @@
       "Team": 1
     },
     {
-      "Civ": "pers",
+      "Civ": "achae",
       "Color": {
         "b": 147,
         "g": 40,
         "r": 99
       },
-      "Name": "Persians",
+      "Name": "achaemenids",
       "Team": 1
     }
   ],
@@ -83,13 +83,13 @@
 ]]></ScriptSettings>
 	<Entities>
 		<Entity uid="125">
-			<Template>structures/pers/civil_centre</Template>
+			<Template>structures/achae/civil_centre</Template>
 			<Player>3</Player>
 			<Position x="1213.8069" z="884.74054"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="126">
-			<Template>structures/pers/civil_centre</Template>
+			<Template>structures/achae/civil_centre</Template>
 			<Player>4</Player>
 			<Position x="1220.26026" z="624.84003"/>
 			<Orientation y="2.35621"/>
@@ -305,13 +305,13 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="246">
-			<Template>structures/pers/outpost</Template>
+			<Template>structures/achae/outpost</Template>
 			<Player>3</Player>
 			<Position x="797.8346" z="846.00818"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="247">
-			<Template>structures/pers/outpost</Template>
+			<Template>structures/achae/outpost</Template>
 			<Player>4</Player>
 			<Position x="775.00403" z="393.36677"/>
 			<Orientation y="2.35621"/>
@@ -6281,163 +6281,163 @@
 			<Orientation y="2.98491"/>
 		</Entity>
 		<Entity uid="1243">
-			<Template>units/pers/infantry_archer_b</Template>
+			<Template>units/achae/infantry_archer_b</Template>
 			<Player>3</Player>
 			<Position x="1224.57581" z="861.45704"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1244">
-			<Template>units/pers/infantry_archer_b</Template>
+			<Template>units/achae/infantry_archer_b</Template>
 			<Player>3</Player>
 			<Position x="1226.59266" z="864.32673"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1245">
-			<Template>units/pers/infantry_archer_b</Template>
+			<Template>units/achae/infantry_archer_b</Template>
 			<Player>3</Player>
 			<Position x="1229.1167" z="866.96277"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1246">
-			<Template>units/pers/infantry_archer_b</Template>
+			<Template>units/achae/infantry_archer_b</Template>
 			<Player>3</Player>
 			<Position x="1231.54261" z="869.2743"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1247">
-			<Template>units/pers/infantry_archer_b</Template>
+			<Template>units/achae/infantry_archer_b</Template>
 			<Player>3</Player>
 			<Position x="1234.64307" z="872.45533"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1248">
-			<Template>units/pers/infantry_archer_b</Template>
+			<Template>units/achae/infantry_archer_b</Template>
 			<Player>3</Player>
 			<Position x="1237.2798" z="875.16541"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1249">
-			<Template>units/pers/champion_cavalry</Template>
+			<Template>units/achae/champion_cavalry</Template>
 			<Player>4</Player>
 			<Position x="1230.90857" z="599.86304"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1250">
-			<Template>units/pers/champion_cavalry</Template>
+			<Template>units/achae/champion_cavalry</Template>
 			<Player>4</Player>
 			<Position x="1234.33436" z="602.97925"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1251">
-			<Template>units/pers/champion_cavalry</Template>
+			<Template>units/achae/champion_cavalry</Template>
 			<Player>4</Player>
 			<Position x="1236.98694" z="606.4109"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1252">
-			<Template>units/pers/champion_cavalry</Template>
+			<Template>units/achae/champion_cavalry</Template>
 			<Player>4</Player>
 			<Position x="1239.9253" z="608.49836"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1253">
-			<Template>units/pers/champion_cavalry</Template>
+			<Template>units/achae/champion_cavalry</Template>
 			<Player>4</Player>
 			<Position x="1242.91871" z="610.83869"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1254">
-			<Template>units/pers/champion_cavalry</Template>
+			<Template>units/achae/champion_cavalry</Template>
 			<Player>4</Player>
 			<Position x="1245.88135" z="613.74244"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1255">
-			<Template>units/pers/champion_cavalry</Template>
+			<Template>units/achae/champion_cavalry</Template>
 			<Player>4</Player>
 			<Position x="1235.72889" z="595.65455"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1256">
-			<Template>units/pers/champion_cavalry</Template>
+			<Template>units/achae/champion_cavalry</Template>
 			<Player>4</Player>
 			<Position x="1239.22876" z="598.47205"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1257">
-			<Template>units/pers/champion_cavalry</Template>
+			<Template>units/achae/champion_cavalry</Template>
 			<Player>4</Player>
 			<Position x="1240.96473" z="600.53644"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1258">
-			<Template>units/pers/champion_cavalry</Template>
+			<Template>units/achae/champion_cavalry</Template>
 			<Player>4</Player>
 			<Position x="1243.36182" z="602.55549"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1259">
-			<Template>units/pers/champion_cavalry</Template>
+			<Template>units/achae/champion_cavalry</Template>
 			<Player>4</Player>
 			<Position x="1246.14905" z="604.80433"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1260">
-			<Template>units/pers/champion_cavalry</Template>
+			<Template>units/achae/champion_cavalry</Template>
 			<Player>4</Player>
 			<Position x="1249.03077" z="607.91645"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1261">
-			<Template>units/pers/cavalry_archer_b</Template>
+			<Template>units/achae/cavalry_archer_b</Template>
 			<Player>3</Player>
 			<Position x="1234.49842" z="855.36536"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1262">
-			<Template>units/pers/cavalry_archer_b</Template>
+			<Template>units/achae/cavalry_archer_b</Template>
 			<Player>3</Player>
 			<Position x="1240.68091" z="861.6236"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1263">
-			<Template>units/pers/cavalry_archer_b</Template>
+			<Template>units/achae/cavalry_archer_b</Template>
 			<Player>3</Player>
 			<Position x="1246.40638" z="867.59614"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1264">
-			<Template>units/pers/infantry_javelineer_b</Template>
+			<Template>units/achae/infantry_javelineer_b</Template>
 			<Player>3</Player>
 			<Position x="1221.98865" z="864.34736"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1265">
-			<Template>units/pers/infantry_javelineer_b</Template>
+			<Template>units/achae/infantry_javelineer_b</Template>
 			<Player>3</Player>
 			<Position x="1223.86902" z="866.64551"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1266">
-			<Template>units/pers/infantry_javelineer_b</Template>
+			<Template>units/achae/infantry_javelineer_b</Template>
 			<Player>3</Player>
 			<Position x="1225.6985" z="868.82044"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1267">
-			<Template>units/pers/infantry_javelineer_b</Template>
+			<Template>units/achae/infantry_javelineer_b</Template>
 			<Player>3</Player>
 			<Position x="1228.69678" z="872.1385"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1268">
-			<Template>units/pers/infantry_javelineer_b</Template>
+			<Template>units/achae/infantry_javelineer_b</Template>
 			<Player>3</Player>
 			<Position x="1232.6532" z="875.10438"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1269">
-			<Template>units/pers/infantry_javelineer_b</Template>
+			<Template>units/achae/infantry_javelineer_b</Template>
 			<Player>3</Player>
 			<Position x="1235.26636" z="878.42725"/>
 			<Orientation y="2.35621"/>

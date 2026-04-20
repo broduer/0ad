@@ -15,12 +15,12 @@
   <group>
     <variant frequency="1" name="face-a">
       <textures>
-        <texture file="props/head/pers_fem_a.dds" name="baseTex"/>
+        <texture file="props/head/achae_fem_a.dds" name="baseTex"/>
       </textures>
     </variant>
     <variant frequency="1" name="face-b">
       <textures>
-        <texture file="props/head/pers_fem_b.dds" name="baseTex"/>
+        <texture file="props/head/achae_fem_b.dds" name="baseTex"/>
       </textures>
     </variant>
     <variant frequency="1" name="face-cin-kart">

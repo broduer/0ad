@@ -46,7 +46,7 @@
     <variant frequency="1" name="rome-gladiator-1-eastern">
       <mesh>skeletal/new/m_naked.dae</mesh>
       <props>
-        <prop actor="props/units/heads/new/head_pers_b.xml" attachpoint="head"/>
+        <prop actor="props/units/heads/new/head_achae_b.xml" attachpoint="head"/>
       </props>
       <textures>
         <texture file="skeletal/rome/gladiator_01_eastern.png" name="baseTex"/>
@@ -71,7 +71,7 @@
     </variant>
     <variant frequency="1" name="rome-gladiator-2-eastern">
       <props>
-        <prop actor="props/units/heads/new/head_pers_b.xml" attachpoint="head"/>
+        <prop actor="props/units/heads/new/head_achae_b.xml" attachpoint="head"/>
         <prop attachpoint="leg_R"/>
       </props>
       <textures>

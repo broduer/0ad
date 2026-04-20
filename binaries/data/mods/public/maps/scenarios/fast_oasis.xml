@@ -63,7 +63,7 @@
       "Team": -1
     },
     {
-      "Civ": "pers",
+      "Civ": "achae",
       "Color": {
         "b": 5,
         "g": 165,
@@ -6616,7 +6616,7 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="8689">
-			<Template>structures/pers/civil_centre</Template>
+			<Template>structures/achae/civil_centre</Template>
 			<Player>3</Player>
 			<Position x="112.22886" z="403.89072"/>
 			<Orientation y="2.35621"/>

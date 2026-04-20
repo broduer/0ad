@@ -3,7 +3,7 @@
   <castshadow/>
   <float/>
   <group>
-    <variant frequency="1" file="others/ships/kart_trireme_oars.xml" name="Pirate Trireme">
+    <variant frequency="1" file="others/ships/kart_trireme_oars.xml" name="Pirate Arrow Ship">
       <mesh>structural/kart_ship_trireme.dae</mesh>
       <props>
         <prop actor="props/structures/pirates/trireme_fore_sail.xml" attachpoint="fore_sail"/>

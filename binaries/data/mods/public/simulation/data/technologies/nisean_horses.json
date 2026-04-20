@@ -14,7 +14,7 @@
 			{ "tech": "unlock_champion_cavalry" },
 			{
 				"any": [
-					{ "civ": "pers" },
+					{ "civ": "achae" },
 					{ "civ": "sele" }
 				]
 			}

@@ -20070,14 +20070,14 @@
 			<Actor seed="30104"/>
 		</Entity>
 		<Entity uid="9181">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="947.21448" z="200.31424"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="62098"/>
 		</Entity>
 		<Entity uid="9182">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="962.71894" z="876.00379"/>
 			<Orientation y="-2.05533"/>

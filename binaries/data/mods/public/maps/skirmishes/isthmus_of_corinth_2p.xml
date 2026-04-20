@@ -11159,14 +11159,14 @@
 			<Actor seed="10908"/>
 		</Entity>
 		<Entity uid="1726">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="208.1894" z="751.59711"/>
 			<Orientation y="-3.48035"/>
 			<Actor seed="47778"/>
 		</Entity>
 		<Entity uid="1729">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="1098.261" z="500.67469"/>
 			<Orientation y="-3.48035"/>

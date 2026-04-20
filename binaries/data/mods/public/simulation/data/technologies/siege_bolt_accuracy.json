@@ -8,13 +8,13 @@
 	"requirements": {
 		"all": [
 			{ "tech": "phase_city" },
+			{ "notciv": "achae" },
 			{ "notciv": "brit" },
 			{ "notciv": "germ" },
 			{ "notciv": "gaul" },
 			{ "notciv": "iber" },
 			{ "notciv": "kush" },
 			{ "notciv": "maur" },
-			{ "notciv": "pers" },
 			{ "notciv": "sele" }
 		]
 	},

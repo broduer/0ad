@@ -7,25 +7,21 @@
       <props>
         <prop actor="props/units/shields/gerron_a_back.xml" attachpoint="back"/>
       </props>
+      <textures>
+        <texture file="default_norm.png" name="normTex"/>
+        <texture file="null_black.dds" name="specTex"/>
+      </textures>
     </variant>
   </group>
   <group>
     <variant frequency="1" name="shield-gerron-f">
       <textures>
-        <texture file="props/shield/pers_gerron_f.dds" name="baseTex"/>
+        <texture file="props/shield/achae_gerron_f.dds" name="baseTex"/>
       </textures>
     </variant>
     <variant frequency="1" name="shield-gerron-g">
       <textures>
-        <texture file="props/shield/pers_gerron_g.dds" name="baseTex"/>
-      </textures>
-    </variant>
-  </group>
-  <group>
-    <variant>
-      <textures>
-        <texture file="default_norm.png" name="normTex"/>
-        <texture file="null_black.dds" name="specTex"/>
+        <texture file="props/shield/achae_gerron_g.dds" name="baseTex"/>
       </textures>
     </variant>
   </group>

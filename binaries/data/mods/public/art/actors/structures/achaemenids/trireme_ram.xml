@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<actor version="1">
+  <castshadow/>
+  <float/>
+  <group>
+    <variant frequency="1" file="others/ships/achae_trireme_oars.xml" name="Achaemenid Ramming Trireme">
+      <mesh>structural/achae_ship_trireme.dae</mesh>
+      <textures>
+        <texture file="structural/achae_trireme.png" name="baseTex"/>
+        <texture file="structural/achae_trireme_spec.png" name="specTex"/>
+        <texture file="structural/achae_trireme_norm.png" name="normTex"/>
+        <texture file="structural/ao/achae_trireme.png" name="aoTex"/>
+      </textures>
+    </variant>
+  </group>
+  <group>
+    <variant file="others/ships/achae_trireme_shields.xml" name="Achaemenid Trireme Shields"/>
+  </group>
+  <material>player_trans_ao_parallax_spec.xml</material>
+</actor>

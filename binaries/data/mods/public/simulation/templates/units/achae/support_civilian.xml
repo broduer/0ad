@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity parent="template_unit_support_civilian">
+  <Identity>
+    <Civ>achae</Civ>
+    <Lang>persian</Lang>
+    <GenericName>Persian Laborer</GenericName>
+    <SpecificName>Martiyā</SpecificName>
+    <Icon>units/achae/support_civilian.png</Icon>
+  </Identity>
+  <VisualActor>
+    <Actor>units/achaemenids/citizen_{phenotype}.xml</Actor>
+  </VisualActor>
+</Entity>

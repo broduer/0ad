@@ -12188,14 +12188,14 @@
 			<Actor seed="45114"/>
 		</Entity>
 		<Entity uid="2232">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="690.03089" z="490.34974"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="35156"/>
 		</Entity>
 		<Entity uid="2233">
-			<Template>gaia/treasure/food_persian_small</Template>
+			<Template>gaia/treasure/food_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="692.88703" z="500.44495"/>
 			<Orientation y="3.10402"/>

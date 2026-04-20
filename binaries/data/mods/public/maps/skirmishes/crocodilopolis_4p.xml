@@ -3420,7 +3420,7 @@
 			<Actor seed="982"/>
 		</Entity>
 		<Entity uid="694">
-			<Template>gaia/treasure/food_persian_small</Template>
+			<Template>gaia/treasure/food_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="760.5641" z="1268.16041"/>
 			<Orientation y="2.35621"/>
@@ -13759,7 +13759,7 @@
 			<Actor seed="14676"/>
 		</Entity>
 		<Entity uid="2613">
-			<Template>gaia/treasure/food_persian_small</Template>
+			<Template>gaia/treasure/food_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="479.28855" z="669.57203"/>
 			<Orientation y="2.35622"/>
@@ -33974,7 +33974,7 @@
 			<Actor seed="7600"/>
 		</Entity>
 		<Entity uid="6128">
-			<Template>gaia/treasure/food_persian_small</Template>
+			<Template>gaia/treasure/food_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="1038.99903" z="1358.29358"/>
 			<Orientation y="1.99407"/>

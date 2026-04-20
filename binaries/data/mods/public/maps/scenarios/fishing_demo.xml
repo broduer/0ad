@@ -70,7 +70,7 @@
 			<Orientation y="2.65847"/>
 		</Entity>
 		<Entity uid="29">
-			<Template>units/pers/ship_fishing</Template>
+			<Template>units/achae/ship_fishing</Template>
 			<Player>1</Player>
 			<Position x="192.14934" z="165.32908"/>
 			<Orientation y="2.11207"/>

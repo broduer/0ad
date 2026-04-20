@@ -14004,7 +14004,7 @@
 			<Actor seed="39222"/>
 		</Entity>
 		<Entity uid="2580">
-			<Template>gaia/treasure/metal_persian_big</Template>
+			<Template>gaia/treasure/metal_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="538.47297" z="449.12345"/>
 			<Orientation y="2.35621"/>

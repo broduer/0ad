@@ -29783,43 +29783,43 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="5801">
-			<Template>gaia/treasure/food_persian_big</Template>
+			<Template>gaia/treasure/food_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="546.4245" z="789.35438"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="5802">
-			<Template>gaia/treasure/food_persian_small</Template>
+			<Template>gaia/treasure/food_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="548.16407" z="796.58014"/>
 			<Orientation y="-2.90923"/>
 		</Entity>
 		<Entity uid="5803">
-			<Template>gaia/treasure/food_persian_small</Template>
+			<Template>gaia/treasure/food_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="536.04981" z="795.67371"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="5804">
-			<Template>gaia/treasure/metal_persian_big</Template>
+			<Template>gaia/treasure/metal_achaemenid_big</Template>
 			<Player>0</Player>
 			<Position x="625.36158" z="1084.30091"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="5805">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="619.89991" z="429.66742"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="5806">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="900.20002" z="174.75136"/>
 			<Orientation y="-2.5337"/>
 		</Entity>
 		<Entity uid="5807">
-			<Template>gaia/treasure/metal_persian_small</Template>
+			<Template>gaia/treasure/metal_achaemenid_small</Template>
 			<Player>0</Player>
 			<Position x="697.87354" z="116.76444"/>
 			<Orientation y="2.35621"/>

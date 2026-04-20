@@ -5,12 +5,12 @@
 		"DefaultParameter": 1,
 		"isNumeric": true,
 		"Templates": [
+			"units/achae/hero_cyrus_ii",
+			"units/achae/hero_darius_i",
+			"units/achae/hero_xerxes_i",
 			"units/cart/hero_hamilcar",
 			"units/cart/hero_hannibal",
 			"units/cart/hero_maharbal",
-			"units/pers/hero_cyrus_ii",
-			"units/pers/hero_darius_i",
-			"units/pers/hero_xerxes_i",
 			"units/rome/hero_marcellus",
 			"units/rome/hero_maximus",
 			"units/rome/hero_scipio"

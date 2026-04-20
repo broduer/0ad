@@ -4,7 +4,7 @@
   <float/>
   <group>
     <variant file="others/ships/main_sail_base.xml" name="Pirate Ship Sail">
-      <mesh>props/pers_bireme_sail.dae</mesh>
+      <mesh>props/achae_bireme_sail.dae</mesh>
       <textures>
         <texture file="props/ptol_sail_norm.png" name="normTex"/>
         <texture file="props/sail_spec_1.png" name="specTex"/>

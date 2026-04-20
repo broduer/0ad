@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2025 Wildfire Games.
+# Copyright (C) 2026 Wildfire Games.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -50,16 +50,17 @@ LOAD_TEMPLATES_IF_PARENT = [
 # The script will load all entities that derive (to the nth degree) from one of
 # the above templates.
 CIVS = [
+    "achae",
     "athen",
     "brit",
     "cart",
     "gaul",
+    "germ",
     "iber",
     "kush",
     "han",
     "mace",
     "maur",
-    "pers",
     "ptol",
     "rome",
     "sele",

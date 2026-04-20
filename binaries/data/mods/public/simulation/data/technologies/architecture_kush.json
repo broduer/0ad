@@ -10,7 +10,7 @@
 		]
 	},
 	"requirementsTooltip": "Unlocked in Town Phase.",
-	"icon": "pers_hundred_columns.png",
+	"icon": "stone_blocks.png",
 	"researchTime": 60,
 	"tooltip": "Civic Structures +20% build time, +20% health, and +20% capture points.",
 	"modifications": [

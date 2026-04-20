@@ -3,7 +3,7 @@
   <castshadow/>
   <group>
     <variant>
-        <mesh>props/horse/armor_pers_winged_03.dae</mesh>
+        <mesh>props/horse/armor_achae_winged_03.dae</mesh>
         <textures>
           <texture file="props/horse/winged_armor_03.png" name="baseTex"/>
           <texture file="props/horse/winged_armor_03_norm.png" name="normTex"/>

@@ -49,7 +49,7 @@
 ]]></ScriptSettings>
 	<Entities>
 		<Entity uid="11">
-			<Template>units/pers/ship_arrow</Template>
+			<Template>units/achae/ship_arrow</Template>
 			<Player>1</Player>
 			<Position x="654.27369" z="217.47564"/>
 			<Orientation y="0.01796"/>
@@ -127,13 +127,13 @@
 			<Orientation y="-3.06238"/>
 		</Entity>
 		<Entity uid="29">
-			<Template>units/pers/ship_arrow</Template>
+			<Template>units/achae/ship_arrow</Template>
 			<Player>2</Player>
 			<Position x="358.91327" z="587.59266"/>
 			<Orientation y="3.10068"/>
 		</Entity>
 		<Entity uid="30">
-			<Template>units/pers/ship_arrow</Template>
+			<Template>units/achae/ship_arrow</Template>
 			<Player>2</Player>
 			<Position x="496.75922" z="576.06684"/>
 			<Orientation y="3.084"/>
@@ -157,7 +157,7 @@
 			<Orientation y="-0.04952"/>
 		</Entity>
 		<Entity uid="35">
-			<Template>units/pers/ship_scout</Template>
+			<Template>units/achae/ship_scout</Template>
 			<Player>1</Player>
 			<Position x="623.9704" z="218.14034"/>
 			<Orientation y="-0.0106"/>
@@ -175,7 +175,7 @@
 			<Orientation y="-0.09922"/>
 		</Entity>
 		<Entity uid="38">
-			<Template>units/pers/ship_fishing</Template>
+			<Template>units/achae/ship_fishing</Template>
 			<Player>1</Player>
 			<Position x="600.52717" z="228.30991"/>
 			<Orientation y="0.01967"/>

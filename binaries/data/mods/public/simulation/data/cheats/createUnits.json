@@ -5,6 +5,7 @@
 		"DefaultParameter": 13,
 		"isNumeric": true,
 		"Templates": [
+			"units/achae/infantry_spearman_b",
 			"units/athen/infantry_spearman_b",
 			"units/brit/infantry_spearman_b",
 			"units/cart/infantry_spearman_b",
@@ -13,7 +14,6 @@
 			"units/kush/infantry_spearman_b",
 			"units/mace/infantry_pikeman_b",
 			"units/maur/infantry_spearman_b",
-			"units/pers/infantry_spearman_b",
 			"units/ptol/infantry_pikeman_b",
 			"units/rome/infantry_spearman_b",
 			"units/sele/infantry_spearman_b",

@@ -125,7 +125,7 @@
         "imageFiles": [
           "temple_gaul.png",
           "temple_greek.png",
-          "temple_pers.png"
+          "temple_achae.png"
         ]
       },
       {
@@ -212,7 +212,7 @@
       {
         "textFile": "experience.txt",
         "imageFiles": [
-          "ranks_pers.png",
+          "ranks_achae.png",
           "ranks_han.png"
         ]
       },
@@ -423,9 +423,9 @@
         ]
       },
       {
-        "textFile": "persian_architecture.txt",
+        "textFile": "achaemenid_architecture.txt",
         "imageFiles": [
-          "persian_architecture.png"
+          "achaemenid_architecture.png"
         ]
       },
       {

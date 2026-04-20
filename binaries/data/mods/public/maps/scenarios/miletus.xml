@@ -5608,7 +5608,7 @@
 			<Orientation y="-2.5016"/>
 		</Entity>
 		<Entity uid="1282">
-			<Template>units/pers/ship_arrow</Template>
+			<Template>units/achae/ship_arrow</Template>
 			<Player>2</Player>
 			<Position x="731.64252" z="52.8734"/>
 			<Orientation y="-1.59856"/>

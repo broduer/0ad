@@ -8,6 +8,7 @@
 	"requirements": {
 		"all": [
 			{ "tech": "phase_city" },
+			{ "notciv": "achae" },
 			{ "notciv": "athen" },
 			{ "notciv": "brit" },
 			{ "notciv": "gaul" },
@@ -16,7 +17,6 @@
 			{ "notciv": "kush" },
 			{ "notciv": "mace" },
 			{ "notciv": "maur" },
-			{ "notciv": "pers" },
 			{ "notciv": "spart" },
 			{ "notciv": "germ" }
 		]

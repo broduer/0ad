@@ -36,12 +36,12 @@
   <group>
     <variant frequency="1" name="Helmet Eastern a">
       <props>
-        <prop actor="props/units/helmets/pers_conical_a1.xml" attachpoint="helmet"/>
+        <prop actor="props/units/helmets/achae_conical_a1.xml" attachpoint="helmet"/>
       </props>
     </variant>
     <variant frequency="1" name="Helmet Eastern b">
       <props>
-        <prop actor="props/units/helmets/pers_conical_b1.xml" attachpoint="helmet"/>
+        <prop actor="props/units/helmets/achae_conical_b1.xml" attachpoint="helmet"/>
       </props>
     </variant>
     <variant frequency="1" name="Helmet Hellenic a">
