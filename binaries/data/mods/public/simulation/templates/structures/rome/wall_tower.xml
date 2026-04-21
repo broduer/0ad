@@ -14,6 +14,30 @@
   <StatusBars>
     <HeightOffset>21</HeightOffset>
   </StatusBars>
+  <TurretHolder>
+    <TurretPoints>
+      <One>
+        <X>2.8</X>
+        <Y>15.1</Y>
+        <Z>2.8</Z>
+      </One>
+      <Two>
+        <X>-2.8</X>
+        <Y>15.1</Y>
+        <Z>2.8</Z>
+      </Two>
+      <Three>
+        <X>2.8</X>
+        <Y>15.1</Y>
+        <Z>-2.8</Z>
+      </Three>
+      <Four>
+        <X>-2.8</X>
+        <Y>15.1</Y>
+        <Z>-2.8</Z>
+      </Four>
+    </TurretPoints>
+  </TurretHolder>
   <VisualActor>
     <Actor>structures/romans/wall_tower.xml</Actor>
   </VisualActor>

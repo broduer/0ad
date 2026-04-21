@@ -14,6 +14,30 @@
   <StatusBars>
     <HeightOffset>20</HeightOffset>
   </StatusBars>
+  <TurretHolder>
+    <TurretPoints>
+      <One>
+        <X>1.5</X>
+        <Y>12</Y>
+        <Z>1.5</Z>
+      </One>
+      <Two>
+        <X>-1.5</X>
+        <Y>12</Y>
+        <Z>1.5</Z>
+      </Two>
+      <Three>
+        <X>1.5</X>
+        <Y>12</Y>
+        <Z>-1.5</Z>
+      </Three>
+      <Four>
+        <X>-1.5</X>
+        <Y>12</Y>
+        <Z>-1.5</Z>
+      </Four>
+    </TurretPoints>
+  </TurretHolder>
   <VisualActor>
     <Actor>structures/hellenes/wall_tower.xml</Actor>
   </VisualActor>

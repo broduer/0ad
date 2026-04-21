@@ -17,6 +17,30 @@
   <VisualActor>
     <Actor>structures/ptolemies/wall_tower.xml</Actor>
   </VisualActor>
+  <TurretHolder>
+    <TurretPoints>
+      <One>
+        <X>1</X>
+        <Y>15.1</Y>
+        <Z>1</Z>
+      </One>
+      <Two>
+        <X>-1</X>
+        <Y>15.1</Y>
+        <Z>1</Z>
+      </Two>
+      <Three>
+        <X>1</X>
+        <Y>15.1</Y>
+        <Z>-1</Z>
+      </Three>
+      <Four>
+        <X>-1</X>
+        <Y>15.1</Y>
+        <Z>-1</Z>
+      </Four>
+    </TurretPoints>
+  </TurretHolder>
   <WallPiece>
     <Length>9</Length>
   </WallPiece>
