@@ -44,6 +44,15 @@
   </StatusBars>
   <TerritoryDecay disable=""/>
   <TerritoryInfluence disable=""/>
+  <TurretHolder>
+    <TurretPoints>
+      <One>
+        <X>0</X>
+        <Y>5.7</Y>
+        <Z>0</Z>
+      </One>
+    </TurretPoints>
+  </TurretHolder>
   <VisualActor>
     <Actor>structures/romans/siege_wall_short.xml</Actor>
     <FoundationActor>structures/fndn_3x2.xml</FoundationActor>

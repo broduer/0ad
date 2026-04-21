@@ -14,6 +14,20 @@
   <StatusBars>
     <HeightOffset>13.6</HeightOffset>
   </StatusBars>
+  <TurretHolder>
+    <TurretPoints>
+      <One>
+        <X>0</X>
+        <Y>11.6</Y>
+        <Z>1</Z>
+      </One>
+      <Two>
+        <X>0</X>
+        <Y>11.6</Y>
+        <Z>-1</Z>
+      </Two>
+    </TurretPoints>
+  </TurretHolder>
   <VisualActor>
     <Actor>structures/kushites/wall_short.xml</Actor>
   </VisualActor>

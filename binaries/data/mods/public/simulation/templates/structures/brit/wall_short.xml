@@ -14,6 +14,20 @@
   <StatusBars>
     <HeightOffset>11.3</HeightOffset>
   </StatusBars>
+  <TurretHolder>
+    <TurretPoints>
+      <One>
+        <X>0</X>
+        <Y>9.3</Y>
+        <Z>0.75</Z>
+      </One>
+      <Two>
+        <X>0</X>
+        <Y>9.3</Y>
+        <Z>-0.75</Z>
+      </Two>
+    </TurretPoints>
+  </TurretHolder>
   <VisualActor>
     <Actor>structures/britons/wall_short.xml</Actor>
   </VisualActor>

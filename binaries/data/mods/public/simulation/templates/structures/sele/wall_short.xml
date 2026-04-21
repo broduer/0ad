@@ -17,6 +17,20 @@
   <VisualActor>
     <Actor>structures/seleucids/wall_short.xml</Actor>
   </VisualActor>
+  <TurretHolder>
+    <TurretPoints>
+      <One>
+        <X>0</X>
+        <Y>10.4</Y>
+        <Z>1</Z>
+      </One>
+      <Two>
+        <X>0</X>
+        <Y>10.4</Y>
+        <Z>-1</Z>
+      </Two>
+    </TurretPoints>
+  </TurretHolder>
   <WallPiece>
     <Length>11</Length>
   </WallPiece>
