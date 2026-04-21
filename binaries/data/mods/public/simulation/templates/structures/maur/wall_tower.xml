@@ -2,7 +2,7 @@
 <Entity parent="template_structure_defensive_wall_tower">
   <Cost>
     <Resources>
-      <wood>60</wood>
+      <wood>22</wood> <!--22.5-->
       <stone>0</stone>
     </Resources>
   </Cost>
@@ -18,7 +18,7 @@
     <SpecificName>Puratta</SpecificName>
   </Identity>
   <Loot>
-    <wood>12</wood>
+    <wood>4</wood>
     <stone>0</stone>
   </Loot>
   <Obstruction>
