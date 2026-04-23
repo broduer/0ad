@@ -1408,7 +1408,12 @@ public:
 		if (!cmpTargetPosition || !cmpTargetPosition->IsInWorld())
 			return NEVER_IN_RANGE;
 
-		entity_pos_t heightDifference = cmpSourcePosition->GetHeightOffset() - cmpTargetPosition->GetHeightOffset() + yOrigin;
+		// GetPosition() returns the world height (terrain + water + offset)
+		CFixedVector3D sourcePos = cmpSourcePosition->GetPosition();
+		CFixedVector3D targetPos = cmpTargetPosition->GetPosition();
+
+		entity_pos_t heightDifference = sourcePos.Y - targetPos.Y + yOrigin;
+
 		if (heightDifference < -range / 2)
 			return NEVER_IN_RANGE;
 

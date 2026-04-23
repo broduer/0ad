@@ -63,13 +63,13 @@ public:
 	entity_id_t GetTurretParent() const override {return INVALID_ENTITY;}
 	void UpdateTurretPosition() override {}
 	std::set<entity_id_t>* GetTurrets() override { return nullptr; }
-	bool IsInWorld() const override { return true; }
-	void MoveOutOfWorld() override { }
+	bool IsInWorld() const override { return m_InWorld; }
+	void MoveOutOfWorld() override { m_InWorld = false; }
 	void MoveTo(entity_pos_t /*x*/, entity_pos_t /*z*/) override { }
 	void MoveAndTurnTo(entity_pos_t /*x*/, entity_pos_t /*z*/, entity_angle_t /*a*/) override { }
 	void JumpTo(entity_pos_t /*x*/, entity_pos_t /*z*/) override { }
-	void SetHeightOffset(entity_pos_t /*dy*/) override { }
-	entity_pos_t GetHeightOffset() const override { return entity_pos_t::Zero(); }
+	void SetHeightOffset(entity_pos_t dy) override { m_HeightOffset = dy; }
+	entity_pos_t GetHeightOffset() const override { return m_HeightOffset; }
 	void SetHeightFixed(entity_pos_t /*y*/) override { }
 	entity_pos_t GetHeightFixed() const override { return entity_pos_t::Zero(); }
 	entity_pos_t GetHeightAtFixed(entity_pos_t, entity_pos_t) const override { return entity_pos_t::Zero(); }
@@ -94,6 +94,8 @@ public:
 	CMatrix3D GetInterpolatedTransform(float /*frameOffset*/) const override { return CMatrix3D(); }
 
 	CFixedVector3D m_Pos;
+	entity_pos_t m_HeightOffset = entity_pos_t::Zero();
+	bool m_InWorld = true;
 };
 
 class MockObstructionRgm : public ICmpObstruction
@@ -291,14 +293,15 @@ public:
 
 	}
 
-	void test_IsInTargetParabolicRange()
+	void test_ParabolicRangeBasic()
 	{
 		ComponentTestHelper test(*g_ScriptContext);
 		ICmpRangeManager* cmp = test.Add<ICmpRangeManager>(CID_RangeManager, "", SYSTEM_ENTITY);
+
 		const entity_id_t source = 200;
 		const entity_id_t target = 201;
-		entity_pos_t range = fixed::FromInt(-3);
-		entity_pos_t yOrigin = fixed::FromInt(-20);
+		entity_pos_t range{fixed::FromInt(-3)};
+		entity_pos_t yOrigin{fixed::FromInt(-20)};
 
 		// Invalid range.
 		TS_ASSERT_EQUALS(cmp->GetEffectiveParabolicRange(source, target, range, yOrigin), range);
@@ -323,7 +326,7 @@ public:
 		TS_ASSERT_EQUALS(cmp->GetEffectiveParabolicRange(source, target, range, yOrigin), range);
 		TS_ASSERT_EQUALS(cmp->GetEffectiveParabolicRange(source, target, fixed::Zero(), yOrigin), fixed::Zero());
 
-		// Normal case.
+		// Normal case with yOrigin only (no terrain difference)
 		yOrigin = fixed::FromInt(5);
 		range = fixed::FromInt(10);
 		TS_ASSERT_EQUALS(cmp->GetEffectiveParabolicRange(source, target, range, yOrigin), fixed::FromFloat(14.142136f));
