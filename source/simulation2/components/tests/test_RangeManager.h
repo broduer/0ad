@@ -156,7 +156,7 @@ public:
 	{
 		ComponentTestHelper test(*g_ScriptContext);
 
-		ICmpRangeManager* cmp = test.Add<ICmpRangeManager>(CID_RangeManager, "", SYSTEM_ENTITY);
+		ICmpRangeManager* rangeManager = test.Add<ICmpRangeManager>(CID_RangeManager, "", SYSTEM_ENTITY);
 
 		MockVisionRgm vision;
 		test.AddMock(100, IID_Vision, vision);
@@ -167,41 +167,41 @@ public:
 		// This tests that the incremental computation produces the correct result
 		// in various edge cases
 
-		cmp->SetBounds(entity_pos_t::FromInt(0), entity_pos_t::FromInt(0), entity_pos_t::FromInt(512), entity_pos_t::FromInt(512));
-		cmp->Verify();
-		{ CMessageCreate msg(100); cmp->HandleMessage(msg, false); }
-		cmp->Verify();
-		{ CMessageOwnershipChanged msg(100, -1, 1); cmp->HandleMessage(msg, false); }
-		cmp->Verify();
-		{ CMessagePositionChanged msg(100, true, entity_pos_t::FromInt(247), entity_pos_t::FromDouble(257.95), entity_angle_t::Zero()); cmp->HandleMessage(msg, false); }
-		cmp->Verify();
-		{ CMessagePositionChanged msg(100, true, entity_pos_t::FromInt(247), entity_pos_t::FromInt(253), entity_angle_t::Zero()); cmp->HandleMessage(msg, false); }
-		cmp->Verify();
+		rangeManager->SetBounds(entity_pos_t::FromInt(0), entity_pos_t::FromInt(0), entity_pos_t::FromInt(512), entity_pos_t::FromInt(512));
+		rangeManager->Verify();
+		{ CMessageCreate msg(100); rangeManager->HandleMessage(msg, false); }
+		rangeManager->Verify();
+		{ CMessageOwnershipChanged msg(100, -1, 1); rangeManager->HandleMessage(msg, false); }
+		rangeManager->Verify();
+		{ CMessagePositionChanged msg(100, true, entity_pos_t::FromInt(247), entity_pos_t::FromDouble(257.95), entity_angle_t::Zero()); rangeManager->HandleMessage(msg, false); }
+		rangeManager->Verify();
+		{ CMessagePositionChanged msg(100, true, entity_pos_t::FromInt(247), entity_pos_t::FromInt(253), entity_angle_t::Zero()); rangeManager->HandleMessage(msg, false); }
+		rangeManager->Verify();
 
-		{ CMessagePositionChanged msg(100, true, entity_pos_t::FromInt(256), entity_pos_t::FromInt(256), entity_angle_t::Zero()); cmp->HandleMessage(msg, false); }
-		cmp->Verify();
+		{ CMessagePositionChanged msg(100, true, entity_pos_t::FromInt(256), entity_pos_t::FromInt(256), entity_angle_t::Zero()); rangeManager->HandleMessage(msg, false); }
+		rangeManager->Verify();
 
-		{ CMessagePositionChanged msg(100, true, entity_pos_t::FromInt(256)+entity_pos_t::Epsilon(), entity_pos_t::FromInt(256), entity_angle_t::Zero()); cmp->HandleMessage(msg, false); }
-		cmp->Verify();
-		{ CMessagePositionChanged msg(100, true, entity_pos_t::FromInt(256)-entity_pos_t::Epsilon(), entity_pos_t::FromInt(256), entity_angle_t::Zero()); cmp->HandleMessage(msg, false); }
-		cmp->Verify();
-		{ CMessagePositionChanged msg(100, true, entity_pos_t::FromInt(256), entity_pos_t::FromInt(256)+entity_pos_t::Epsilon(), entity_angle_t::Zero()); cmp->HandleMessage(msg, false); }
-		cmp->Verify();
-		{ CMessagePositionChanged msg(100, true, entity_pos_t::FromInt(256), entity_pos_t::FromInt(256)-entity_pos_t::Epsilon(), entity_angle_t::Zero()); cmp->HandleMessage(msg, false); }
-		cmp->Verify();
+		{ CMessagePositionChanged msg(100, true, entity_pos_t::FromInt(256)+entity_pos_t::Epsilon(), entity_pos_t::FromInt(256), entity_angle_t::Zero()); rangeManager->HandleMessage(msg, false); }
+		rangeManager->Verify();
+		{ CMessagePositionChanged msg(100, true, entity_pos_t::FromInt(256)-entity_pos_t::Epsilon(), entity_pos_t::FromInt(256), entity_angle_t::Zero()); rangeManager->HandleMessage(msg, false); }
+		rangeManager->Verify();
+		{ CMessagePositionChanged msg(100, true, entity_pos_t::FromInt(256), entity_pos_t::FromInt(256)+entity_pos_t::Epsilon(), entity_angle_t::Zero()); rangeManager->HandleMessage(msg, false); }
+		rangeManager->Verify();
+		{ CMessagePositionChanged msg(100, true, entity_pos_t::FromInt(256), entity_pos_t::FromInt(256)-entity_pos_t::Epsilon(), entity_angle_t::Zero()); rangeManager->HandleMessage(msg, false); }
+		rangeManager->Verify();
 
-		{ CMessagePositionChanged msg(100, true, entity_pos_t::FromInt(383), entity_pos_t::FromInt(84), entity_angle_t::Zero()); cmp->HandleMessage(msg, false); }
-		cmp->Verify();
-		{ CMessagePositionChanged msg(100, true, entity_pos_t::FromInt(348), entity_pos_t::FromInt(83), entity_angle_t::Zero()); cmp->HandleMessage(msg, false); }
-		cmp->Verify();
+		{ CMessagePositionChanged msg(100, true, entity_pos_t::FromInt(383), entity_pos_t::FromInt(84), entity_angle_t::Zero()); rangeManager->HandleMessage(msg, false); }
+		rangeManager->Verify();
+		{ CMessagePositionChanged msg(100, true, entity_pos_t::FromInt(348), entity_pos_t::FromInt(83), entity_angle_t::Zero()); rangeManager->HandleMessage(msg, false); }
+		rangeManager->Verify();
 
 		std::mt19937 rng;
 		for (size_t i = 0; i < 1024; ++i)
 		{
 			double x = std::uniform_real_distribution<double>(0.0, 512.0)(rng);
 			double z = std::uniform_real_distribution<double>(0.0, 512.0)(rng);
-			{ CMessagePositionChanged msg(100, true, entity_pos_t::FromDouble(x), entity_pos_t::FromDouble(z), entity_angle_t::Zero()); cmp->HandleMessage(msg, false); }
-			cmp->Verify();
+			{ CMessagePositionChanged msg(100, true, entity_pos_t::FromDouble(x), entity_pos_t::FromDouble(z), entity_angle_t::Zero()); rangeManager->HandleMessage(msg, false); }
+			rangeManager->Verify();
 		}
 
 		// Test OwnershipChange, GetEntitiesByPlayer, GetNonGaiaEntities
@@ -210,12 +210,12 @@ public:
 			for (player_id_t newOwner = 0; newOwner < 8; ++newOwner)
 			{
 				CMessageOwnershipChanged msg(100, previousOwner, newOwner);
-				cmp->HandleMessage(msg, false);
+				rangeManager->HandleMessage(msg, false);
 
 				for (player_id_t i = 0; i < 8; ++i)
-					TS_ASSERT_EQUALS(cmp->GetEntitiesByPlayer(i).size(), i == newOwner ? 1 : 0);
+					TS_ASSERT_EQUALS(rangeManager->GetEntitiesByPlayer(i).size(), i == newOwner ? 1 : 0);
 
-				TS_ASSERT_EQUALS(cmp->GetNonGaiaEntities().size(), newOwner > 0 ? 1 : 0);
+				TS_ASSERT_EQUALS(rangeManager->GetNonGaiaEntities().size(), newOwner > 0 ? 1 : 0);
 				previousOwner = newOwner;
 			}
 		}
@@ -225,7 +225,7 @@ public:
 	{
 		ComponentTestHelper test(*g_ScriptContext);
 
-		ICmpRangeManager* cmp = test.Add<ICmpRangeManager>(CID_RangeManager, "", SYSTEM_ENTITY);
+		ICmpRangeManager* rangeManager = test.Add<ICmpRangeManager>(CID_RangeManager, "", SYSTEM_ENTITY);
 
 		MockVisionRgm vision, vision2;
 		MockPositionRgm position, position2;
@@ -238,57 +238,57 @@ public:
 		test.AddMock(101, IID_Position, position2);
 		test.AddMock(101, IID_Obstruction, obs2);
 
-		cmp->SetBounds(entity_pos_t::FromInt(0), entity_pos_t::FromInt(0), entity_pos_t::FromInt(512), entity_pos_t::FromInt(512));
-		cmp->Verify();
-		{ CMessageCreate msg(100); cmp->HandleMessage(msg, false); }
-		{ CMessageCreate msg(101); cmp->HandleMessage(msg, false); }
+		rangeManager->SetBounds(entity_pos_t::FromInt(0), entity_pos_t::FromInt(0), entity_pos_t::FromInt(512), entity_pos_t::FromInt(512));
+		rangeManager->Verify();
+		{ CMessageCreate msg(100); rangeManager->HandleMessage(msg, false); }
+		{ CMessageCreate msg(101); rangeManager->HandleMessage(msg, false); }
 
-		{ CMessageOwnershipChanged msg(100, -1, 1); cmp->HandleMessage(msg, false); }
-		{ CMessageOwnershipChanged msg(101, -1, 1); cmp->HandleMessage(msg, false); }
+		{ CMessageOwnershipChanged msg(100, -1, 1); rangeManager->HandleMessage(msg, false); }
+		{ CMessageOwnershipChanged msg(101, -1, 1); rangeManager->HandleMessage(msg, false); }
 
-		auto move = [&cmp](entity_id_t ent, MockPositionRgm& pos, fixed x, fixed z) {
+		auto move = [&rangeManager](entity_id_t ent, MockPositionRgm& pos, fixed x, fixed z) {
 			pos.m_Pos = CFixedVector3D(x, fixed::Zero(), z);
-			{ CMessagePositionChanged msg(ent, true, x, z, entity_angle_t::Zero()); cmp->HandleMessage(msg, false); }
+			{ CMessagePositionChanged msg(ent, true, x, z, entity_angle_t::Zero()); rangeManager->HandleMessage(msg, false); }
 		};
 
 		move(100, position, fixed::FromInt(10), fixed::FromInt(10));
 		move(101, position2, fixed::FromInt(10), fixed::FromInt(20));
 
-		std::vector<entity_id_t> nearby = cmp->ExecuteQuery(100, fixed::FromInt(0), fixed::FromInt(4), {1}, 0, true);
+		std::vector<entity_id_t> nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(0), fixed::FromInt(4), {1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{});
-		nearby = cmp->ExecuteQuery(100, fixed::FromInt(4), fixed::FromInt(50), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(4), fixed::FromInt(50), {1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{101});
 
 		move(101, position2, fixed::FromInt(10), fixed::FromInt(10));
-		nearby = cmp->ExecuteQuery(100, fixed::FromInt(0), fixed::FromInt(4), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(0), fixed::FromInt(4), {1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{101});
-		nearby = cmp->ExecuteQuery(100, fixed::FromInt(4), fixed::FromInt(50), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(4), fixed::FromInt(50), {1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{});
 
 		move(101, position2, fixed::FromInt(10), fixed::FromInt(13));
-		nearby = cmp->ExecuteQuery(100, fixed::FromInt(0), fixed::FromInt(4), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(0), fixed::FromInt(4), {1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{101});
-		nearby = cmp->ExecuteQuery(100, fixed::FromInt(4), fixed::FromInt(50), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(4), fixed::FromInt(50), {1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{});
 
 		move(101, position2, fixed::FromInt(10), fixed::FromInt(15));
 		// In range thanks to self obstruction size.
-		nearby = cmp->ExecuteQuery(100, fixed::FromInt(0), fixed::FromInt(4), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(0), fixed::FromInt(4), {1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{101});
 		// In range thanks to target obstruction size.
-		nearby = cmp->ExecuteQuery(101, fixed::FromInt(0), fixed::FromInt(4), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(101, fixed::FromInt(0), fixed::FromInt(4), {1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{100});
 
 		// Trickier: min-range is closest-to-closest, but rotation may change the real distance.
-		nearby = cmp->ExecuteQuery(100, fixed::FromInt(2), fixed::FromInt(50), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(2), fixed::FromInt(50), {1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{101});
-		nearby = cmp->ExecuteQuery(100, fixed::FromInt(5), fixed::FromInt(50), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(5), fixed::FromInt(50), {1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{101});
-		nearby = cmp->ExecuteQuery(100, fixed::FromInt(6), fixed::FromInt(50), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(6), fixed::FromInt(50), {1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{});
-		nearby = cmp->ExecuteQuery(101, fixed::FromInt(5), fixed::FromInt(50), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(101, fixed::FromInt(5), fixed::FromInt(50), {1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{100});
-		nearby = cmp->ExecuteQuery(101, fixed::FromInt(6), fixed::FromInt(50), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(101, fixed::FromInt(6), fixed::FromInt(50), {1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{});
 
 	}
@@ -296,7 +296,7 @@ public:
 	void test_ParabolicRangeBasic()
 	{
 		ComponentTestHelper test(*g_ScriptContext);
-		ICmpRangeManager* cmp = test.Add<ICmpRangeManager>(CID_RangeManager, "", SYSTEM_ENTITY);
+		ICmpRangeManager* rangeManager = test.Add<ICmpRangeManager>(CID_RangeManager, "", SYSTEM_ENTITY);
 
 		const entity_id_t source = 200;
 		const entity_id_t target = 201;
@@ -304,36 +304,36 @@ public:
 		entity_pos_t yOrigin{fixed::FromInt(-20)};
 
 		// Invalid range.
-		TS_ASSERT_EQUALS(cmp->GetEffectiveParabolicRange(source, target, range, yOrigin), range);
+		TS_ASSERT_EQUALS(rangeManager->GetEffectiveParabolicRange(source, target, range, yOrigin), range);
 
 		// No source ICmpPosition.
 		range = fixed::FromInt(10);
-		TS_ASSERT_EQUALS(cmp->GetEffectiveParabolicRange(source, target, range, yOrigin), NEVER_IN_RANGE);
+		TS_ASSERT_EQUALS(rangeManager->GetEffectiveParabolicRange(source, target, range, yOrigin), NEVER_IN_RANGE);
 
 		// No target ICmpPosition.
 		MockPositionRgm cmpSourcePosition;
 		test.AddMock(source, IID_Position, cmpSourcePosition);
-		TS_ASSERT_EQUALS(cmp->GetEffectiveParabolicRange(source, target, range, yOrigin), NEVER_IN_RANGE);
+		TS_ASSERT_EQUALS(rangeManager->GetEffectiveParabolicRange(source, target, range, yOrigin), NEVER_IN_RANGE);
 
 		// Too much height difference.
 		MockPositionRgm cmpTargetPosition;
 		test.AddMock(target, IID_Position, cmpTargetPosition);
-		TS_ASSERT_EQUALS(cmp->GetEffectiveParabolicRange(source, target, range, yOrigin), NEVER_IN_RANGE);
+		TS_ASSERT_EQUALS(rangeManager->GetEffectiveParabolicRange(source, target, range, yOrigin), NEVER_IN_RANGE);
 
 		// If no offset we get the range.
 		range = fixed::FromInt(20);
 		yOrigin = fixed::Zero();
-		TS_ASSERT_EQUALS(cmp->GetEffectiveParabolicRange(source, target, range, yOrigin), range);
-		TS_ASSERT_EQUALS(cmp->GetEffectiveParabolicRange(source, target, fixed::Zero(), yOrigin), fixed::Zero());
+		TS_ASSERT_EQUALS(rangeManager->GetEffectiveParabolicRange(source, target, range, yOrigin), range);
+		TS_ASSERT_EQUALS(rangeManager->GetEffectiveParabolicRange(source, target, fixed::Zero(), yOrigin), fixed::Zero());
 
 		// Normal case with yOrigin only (no terrain difference)
 		yOrigin = fixed::FromInt(5);
 		range = fixed::FromInt(10);
-		TS_ASSERT_EQUALS(cmp->GetEffectiveParabolicRange(source, target, range, yOrigin), fixed::FromFloat(14.142136f));
+		TS_ASSERT_EQUALS(rangeManager->GetEffectiveParabolicRange(source, target, range, yOrigin), fixed::FromFloat(14.142136f));
 
 		// Big range.
 		range = fixed::FromInt(260);
-		TS_ASSERT_EQUALS(cmp->GetEffectiveParabolicRange(source, target, range, yOrigin), fixed::FromFloat(264.952820f));
+		TS_ASSERT_EQUALS(rangeManager->GetEffectiveParabolicRange(source, target, range, yOrigin), fixed::FromFloat(264.952820f));
 	}
 
 	void test_ExploreCircle()
@@ -410,7 +410,7 @@ public:
 	void test_ParabolicRangeTargetTooHigh()
 	{
 		ComponentTestHelper test(*g_ScriptContext);
-		ICmpRangeManager* cmp = test.Add<ICmpRangeManager>(CID_RangeManager, "", SYSTEM_ENTITY);
+		ICmpRangeManager* rangeManager = test.Add<ICmpRangeManager>(CID_RangeManager, "", SYSTEM_ENTITY);
 
 		const entity_id_t source{200};
 		const entity_id_t target{201};
@@ -429,12 +429,12 @@ public:
 
 		// heightDifference = 0 - 30 = -30, range/2 = 25
 		// -30 < -25 → NEVER_IN_RANGE
-		TS_ASSERT_EQUALS(cmp->GetEffectiveParabolicRange(source, target, range, yOrigin), NEVER_IN_RANGE);
+		TS_ASSERT_EQUALS(rangeManager->GetEffectiveParabolicRange(source, target, range, yOrigin), NEVER_IN_RANGE);
 
 		// Target at borderline height (25)
 		targetPos.m_Pos = CFixedVector3D(fixed::Zero(), fixed::FromInt(25), fixed::Zero());
 
-		const entity_pos_t effective = cmp->GetEffectiveParabolicRange(source, target, range, yOrigin);
+		const entity_pos_t effective = rangeManager->GetEffectiveParabolicRange(source, target, range, yOrigin);
 		TS_ASSERT_DIFFERS(effective, NEVER_IN_RANGE);
 		TS_ASSERT_EQUALS(effective, fixed::Zero());
 	}
