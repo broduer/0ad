@@ -370,4 +370,72 @@ public:
 
 		cmp->Verify();
 	}
+
+	void test_ParabolicRangeWithTerrain()
+	{
+		ComponentTestHelper test(*g_ScriptContext);
+		ICmpRangeManager* rangeManager = test.Add<ICmpRangeManager>(CID_RangeManager, "", SYSTEM_ENTITY);
+
+		const entity_id_t source{200};
+		const entity_id_t target{201};
+
+		MockPositionRgm sourcePos;
+		MockPositionRgm targetPos;
+		test.AddMock(source, IID_Position, sourcePos);
+		test.AddMock(target, IID_Position, targetPos);
+
+		const entity_pos_t range{fixed::FromInt(100)};
+		const entity_pos_t yOrigin{fixed::Zero()};
+
+		// Source on high ground (Y=10), target on low ground (Y=0)
+		sourcePos.m_Pos = CFixedVector3D(fixed::Zero(), fixed::FromInt(10), fixed::Zero());
+		targetPos.m_Pos = CFixedVector3D(fixed::Zero(), fixed::Zero(), fixed::FromInt(50));
+		entity_pos_t effective = rangeManager->GetEffectiveParabolicRange(source, target, range, yOrigin);
+		TS_ASSERT_DELTA(effective.ToFloat(), 109.5445f, 0.01f); // ~109.54
+
+		// Source on low ground (Y=0), target on high ground (Y=10)
+		sourcePos.m_Pos = CFixedVector3D(fixed::Zero(), fixed::Zero(), fixed::Zero());
+		targetPos.m_Pos = CFixedVector3D(fixed::Zero(), fixed::FromInt(10), fixed::FromInt(50));
+		effective = rangeManager->GetEffectiveParabolicRange(source, target, range, yOrigin);
+		TS_ASSERT_DELTA(effective.ToFloat(), 89.4427f, 0.01f); // ~89.44
+
+		// Source with height offset (Y=15), target on flat ground (Y=0), with yOrigin
+		sourcePos.m_Pos = CFixedVector3D(fixed::Zero(), fixed::FromInt(15), fixed::Zero());
+		targetPos.m_Pos = CFixedVector3D(fixed::Zero(), fixed::Zero(), fixed::FromInt(50));
+		const entity_pos_t yOrigin2{fixed::FromInt(2)};
+		effective = rangeManager->GetEffectiveParabolicRange(source, target, range, yOrigin2);
+		TS_ASSERT_DELTA(effective.ToFloat(), 115.7583f, 0.01f); // ~115.76
+	}
+
+	void test_ParabolicRangeTargetTooHigh()
+	{
+		ComponentTestHelper test(*g_ScriptContext);
+		ICmpRangeManager* cmp = test.Add<ICmpRangeManager>(CID_RangeManager, "", SYSTEM_ENTITY);
+
+		const entity_id_t source{200};
+		const entity_id_t target{201};
+
+		MockPositionRgm sourcePos;
+		MockPositionRgm targetPos;
+		test.AddMock(source, IID_Position, sourcePos);
+		test.AddMock(target, IID_Position, targetPos);
+
+		// Source on flat ground (height=0), target very high (height=30)
+		sourcePos.m_Pos = CFixedVector3D(fixed::Zero(), fixed::Zero(), fixed::Zero());
+		targetPos.m_Pos = CFixedVector3D(fixed::Zero(), fixed::FromInt(30), fixed::Zero());
+
+		const entity_pos_t range{fixed::FromInt(50)};
+		const entity_pos_t yOrigin{fixed::Zero()};
+
+		// heightDifference = 0 - 30 = -30, range/2 = 25
+		// -30 < -25 → NEVER_IN_RANGE
+		TS_ASSERT_EQUALS(cmp->GetEffectiveParabolicRange(source, target, range, yOrigin), NEVER_IN_RANGE);
+
+		// Target at borderline height (25)
+		targetPos.m_Pos = CFixedVector3D(fixed::Zero(), fixed::FromInt(25), fixed::Zero());
+
+		const entity_pos_t effective = cmp->GetEffectiveParabolicRange(source, target, range, yOrigin);
+		TS_ASSERT_DIFFERS(effective, NEVER_IN_RANGE);
+		TS_ASSERT_EQUALS(effective, fixed::Zero());
+	}
 };
