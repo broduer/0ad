@@ -6,10 +6,11 @@
 		"metal": 200
 	},
 	"icon": "coinage.png",
-	"researchTime": 50,
-	"tooltip": "Fortresses +6 default arrows.",
+	"researchTime": 30,
+	"tooltip": "Double capture points of fortresses and add +6 default arrows",
 	"modifications": [
-		{ "value": "BuildingAI/DefaultArrowCount", "add": 6, "affects": "Fortress" }
+		{ "value": "BuildingAI/DefaultArrowCount", "add": 6 },
+		{ "value": "Capturable/CapturePoints", "multiply": 2 }
 	],
 	"affects": ["Fortress"],
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"

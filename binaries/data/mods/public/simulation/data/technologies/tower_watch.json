@@ -17,9 +17,10 @@
 	"requirementsTooltip": "Unlocked in Village Phase.",
 	"icon": "helmet_corinthian_bronze.png",
 	"researchTime": 40,
-	"tooltip": "Sentry and Stone Towers +50% default arrow count.",
+	"tooltip": "Sentry and Stone Towers +50% default arrow count and capture points.",
 	"modifications": [
-		{ "value": "BuildingAI/DefaultArrowCount", "multiply": 1.5 }
+		{ "value": "BuildingAI/DefaultArrowCount", "multiply": 1.5 },
+		{ "value": "Capturable/CapturePoints", "multiply": 1.5 }
 	],
 	"affects": ["SentryTower", "StoneTower", "GreatTower"],
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
