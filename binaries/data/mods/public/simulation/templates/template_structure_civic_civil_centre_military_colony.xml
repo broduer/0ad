@@ -11,6 +11,10 @@
   <BuildingAI>
     <DefaultArrowCount>1</DefaultArrowCount>
   </BuildingAI>
+  <Capturable>
+    <CapturePoints op="mul">0.75</CapturePoints>
+    <RegenRate op="mul">0.8</RegenRate>
+  </Capturable>
   <Cost>
     <BuildTime>300</BuildTime>
     <Resources>
