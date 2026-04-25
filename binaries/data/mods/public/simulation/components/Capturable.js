@@ -268,8 +268,8 @@ Capturable.prototype.CheckTimer = function()
 };
 
 /**
- * Update all chached values that could be affected by modifications.
-*/
+ * Update all cached values that could be affected by modifications.
+ */
 Capturable.prototype.UpdateCachedValues = function()
 {
 	this.garrisonRegenRate = ApplyValueModificationsToEntity("Capturable/GarrisonRegenRate", +this.template.GarrisonRegenRate, this.entity);
@@ -278,10 +278,10 @@ Capturable.prototype.UpdateCachedValues = function()
 };
 
 /**
- * Update all chached values that could be affected by modifications.
+ * Update all cached values that could be affected by modifications.
  * Check timer and send changed messages when required.
- * @param {boolean} message - Whether not to send a CapturePointsChanged message. When false, caller should take care of sending that message.
-*/
+ * @param {boolean} sendMessage - Whether not to send a CapturePointsChanged message. When false, caller should take care of sending that message.
+ */
 Capturable.prototype.UpdateCachedValuesAndNotify = function(sendMessage = true)
 {
 	const oldMaxCapturePoints = this.maxCapturePoints;
