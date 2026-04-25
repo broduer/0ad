@@ -38,7 +38,7 @@
     <GarrisonArrowClasses>Soldier</GarrisonArrowClasses>
   </BuildingAI>
   <Capturable>
-    <CapturePoints op="mul">8</CapturePoints>
+    <CapturePoints op="mul">10</CapturePoints>
     <RegenRate>45.0</RegenRate>
   </Capturable>
   <Cost>
