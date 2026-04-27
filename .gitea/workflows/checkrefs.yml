@@ -37,8 +37,9 @@ jobs:
         # act_runner sets a per-LFS-endpoint extraheader that conflicts with the token
         # set by actions/checkout. Clear it for origin so LFS uses the server-wide token.
         run: |
-          git config --local \
-            "http.${{ gitea.server_url }}/${{ gitea.repository }}.git/info/lfs/objects/.extraheader" ""
+          REPO="${{ gitea.repository }}"
+          KEY="http.${{ gitea.server_url }}/${REPO}.git/info/lfs/objects/.extraheader"
+          git config --local "$KEY" ""
       - name: Download necessary LFS assets
         shell: sh {0}
         run: |
