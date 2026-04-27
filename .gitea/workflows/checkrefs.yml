@@ -34,31 +34,36 @@ jobs:
           git remote add ${{ gitea.actor }} https://gitea.wildfiregames.com/${PR_REPO}.git
       - name: Workaround for authentication problem with LFS
         # https://gitea.com/gitea/act_runner/issues/164
+        # act_runner sets a per-LFS-endpoint extraheader that conflicts with the token
+        # set by actions/checkout. Clear it for origin so LFS uses the server-wide token.
         run: |
           git config --local \
-          http.${{ gitea.server_url }}/${{ gitea.repository }}.git/info/lfs/objects/.extraheader ''
-
-          PR_REPO="${{ gitea.event.pull_request.head.repo.full_name || gitea.repository }}"
-          EXTRAHEADER="$(git config --get --local http.${{ gitea.server_url }}/.extraheader)"
-          git config --local \
-            http.${{ gitea.server_url }}/${PR_REPO}.git/info/lfs/objects/batch.extraheader \
-            "${EXTRAHEADER}"
-          git config --local \
-            http.${{ gitea.server_url }}/${PR_REPO}.git/info/lfs/objects/.extraheader ''
+            "http.${{ gitea.server_url }}/${{ gitea.repository }}.git/info/lfs/objects/.extraheader" ""
       - name: Download necessary LFS assets
         shell: sh {0}
+        env:
+          GITEA_TOKEN: ${{ gitea.token }}
         run: |
           PR_REPO="${{ gitea.event.pull_request.head.repo.full_name || gitea.repository }}"
 
           git lfs pull -I binaries/data/mods/public/art/meshes,binaries/data/mods/public/maps
           ORIGIN_LFS_PULL_RESULT=$?
 
+          # Override .lfsconfig's hardcoded 0ad/0ad URL with the fork's LFS URL.
+          # Embed the workflow token as Basic auth credentials.
+          # Also clear the server-wide extraheader for the fork URL so it doesn't
+          # conflict: git sends extraheaders after URL credentials, and Gitea rejects
+          # the request if the extraheader carries a token scoped to a different repo.
+          git config --local \
+            "http.${{ gitea.server_url }}/${PR_REPO}.git.extraHeader" ""
           git config --local lfs.url \
-            "https://gitea.wildfiregames.com/${PR_REPO}.git/info/lfs"
+            "https://x:${GITEA_TOKEN}@gitea.wildfiregames.com/${PR_REPO}.git/info/lfs"
           git lfs pull ${{ gitea.actor }} \
             -I binaries/data/mods/public/art/meshes,binaries/data/mods/public/maps
           FORK_LFS_PULL_RESULT=$?
           git config --local --unset lfs.url  # restore .lfsconfig precedence
+          git config --local --unset \
+            "http.${{ gitea.server_url }}/${PR_REPO}.git.extraHeader"
 
           if [ "$ORIGIN_LFS_PULL_RESULT" = "0" ]; then
             echo "SUCCESS: Found all LFS assets in the LFS storage of ${{ gitea.repository }}."
