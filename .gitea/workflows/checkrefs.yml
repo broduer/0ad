@@ -24,16 +24,6 @@ jobs:
     env:
       GIT_LFS_SKIP_SMUDGE: "1"
     steps:
-      - name: Debug full event
-        run: |
-          cat << 'EOF'
-          ${{ toJSON(gitea.event) }}
-          EOF
-      - name: Debug full event
-        run: |
-          cat << 'EOF'
-          ${{ toJSON(github.event) }}
-          EOF
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
@@ -52,26 +42,31 @@ jobs:
           EXTRAHEADER="$(git config --get --local http.${{ gitea.server_url }}/.extraheader)"
           git config --local \
             http.${{ gitea.server_url }}/${PR_REPO}.git/info/lfs/objects/batch.extraheader \
-            '${EXTRAHEADER}'
+            "${EXTRAHEADER}"
           git config --local \
             http.${{ gitea.server_url }}/${PR_REPO}.git/info/lfs/objects/.extraheader ''
       - name: Download necessary LFS assets
         shell: sh {0}
         run: |
+          PR_REPO="${{ gitea.event.pull_request.head.repo.full_name || gitea.repository }}"
+
           git lfs pull -I binaries/data/mods/public/art/meshes,binaries/data/mods/public/maps
           ORIGIN_LFS_PULL_RESULT=$?
+
+          git config --local lfs.url \
+            "https://gitea.wildfiregames.com/${PR_REPO}.git/info/lfs"
           git lfs pull ${{ gitea.actor }} \
             -I binaries/data/mods/public/art/meshes,binaries/data/mods/public/maps
           FORK_LFS_PULL_RESULT=$?
+          git config --local --unset lfs.url  # restore .lfsconfig precedence
 
-          PR_REPO="${{ gitea.event.pull_request.head.repo.full_name || gitea.repository }}"
           if [ "$ORIGIN_LFS_PULL_RESULT" = "0" ]; then
             echo "SUCCESS: Found all LFS assets in the LFS storage of ${{ gitea.repository }}."
           elif [ "$FORK_LFS_PULL_RESULT" = "0" ]; then
             echo "SUCCESS: Found all LFS assets in the LFS storage of ${PR_REPO}."
           else
             echo "ERROR: Couldn't find all LFS assets in either of the LFS storages."
-            false;
+            exit 1
           fi
       - name: Install lxml
         run: pip3 install lxml
