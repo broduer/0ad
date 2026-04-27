@@ -41,8 +41,6 @@ jobs:
             "http.${{ gitea.server_url }}/${{ gitea.repository }}.git/info/lfs/objects/.extraheader" ""
       - name: Download necessary LFS assets
         shell: sh {0}
-        env:
-          GITEA_TOKEN: ${{ gitea.token }}
         run: |
           PR_REPO="${{ gitea.event.pull_request.head.repo.full_name || gitea.repository }}"
 
@@ -50,20 +48,19 @@ jobs:
           ORIGIN_LFS_PULL_RESULT=$?
 
           # Override .lfsconfig's hardcoded 0ad/0ad URL with the fork's LFS URL.
-          # Embed the workflow token as Basic auth credentials.
-          # Also clear the server-wide extraheader for the fork URL so it doesn't
-          # conflict: git sends extraheaders after URL credentials, and Gitea rejects
-          # the request if the extraheader carries a token scoped to a different repo.
-          git config --local \
-            "http.${{ gitea.server_url }}/${PR_REPO}.git.extraHeader" ""
+          # Completely unset all auth extraheaders so the fork LFS request is anonymous:
+          # the GITEA_TOKEN is scoped to this repo and rejected by Gitea for fork LFS.
+          # Public forks allow anonymous LFS reads when no credentials are sent.
+          git config --local --unset-all \
+            "http.${{ gitea.server_url }}/.extraheader" 2>/dev/null || true
+          git config --local --unset-all \
+            "http.${{ gitea.server_url }}.extraheader" 2>/dev/null || true
           git config --local lfs.url \
-            "https://x:${GITEA_TOKEN}@gitea.wildfiregames.com/${PR_REPO}.git/info/lfs"
-          git lfs pull ${{ gitea.actor }} \
+            "https://gitea.wildfiregames.com/${PR_REPO}.git/info/lfs"
+          GIT_TERMINAL_PROMPT=0 git -c "credential.helper=" lfs pull ${{ gitea.actor }} \
             -I binaries/data/mods/public/art/meshes,binaries/data/mods/public/maps
           FORK_LFS_PULL_RESULT=$?
           git config --local --unset lfs.url  # restore .lfsconfig precedence
-          git config --local --unset \
-            "http.${{ gitea.server_url }}/${PR_REPO}.git.extraHeader"
 
           if [ "$ORIGIN_LFS_PULL_RESULT" = "0" ]; then
             echo "SUCCESS: Found all LFS assets in the LFS storage of ${{ gitea.repository }}."
