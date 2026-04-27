@@ -24,6 +24,16 @@ jobs:
     env:
       GIT_LFS_SKIP_SMUDGE: "1"
     steps:
+      - name: Debug full event
+        run: |
+          cat << 'EOF'
+          ${{ toJSON(gitea.event) }}
+          EOF
+      - name: Debug full event
+         run: |
+           cat << 'EOF'
+           ${{ toJSON(github.event) }}
+           EOF
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
