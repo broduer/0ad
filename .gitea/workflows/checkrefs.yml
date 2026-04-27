@@ -30,10 +30,10 @@ jobs:
           ${{ toJSON(gitea.event) }}
           EOF
       - name: Debug full event
-         run: |
-           cat << 'EOF'
-           ${{ toJSON(github.event) }}
-           EOF
+        run: |
+          cat << 'EOF'
+          ${{ toJSON(github.event) }}
+          EOF
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
