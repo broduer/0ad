@@ -4244,10 +4244,20 @@ UnitAI.prototype.SetupAttackRangeQuery = function(enable = true)
 		return;
 
 	const range = this.GetQueryRange(IID_Attack);
-	// Do not compensate for entity sizes: LOS doesn't, and UnitAI relies on that.
-	this.losAttackRangeQuery = cmpRangeManager.CreateActiveQuery(this.entity,
-		range.min, range.max, players, IID_Resistance,
-		cmpRangeManager.GetEntityFlagMask("normal"), false);
+	if (range.parabolic)
+	{
+		const cmpAttack = Engine.QueryInterface(this.entity, IID_Attack);
+		const yOrigin = cmpAttack ? cmpAttack.GetAttackYOrigin("Ranged") : 0;
+		// Do not compensate for entity sizes: LOS doesn't, and UnitAI relies on that.
+		this.losAttackRangeQuery = cmpRangeManager.CreateActiveParabolicQuery(this.entity,
+			range.min, range.max, yOrigin,
+			players, IID_Resistance,
+			cmpRangeManager.GetEntityFlagMask("normal"));
+	}
+	else
+		this.losAttackRangeQuery = cmpRangeManager.CreateActiveQuery(this.entity,
+			range.min, range.max, players, IID_Resistance,
+			cmpRangeManager.GetEntityFlagMask("normal"), false);
 
 	if (enable)
 		cmpRangeManager.EnableActiveQuery(this.losAttackRangeQuery);
@@ -6620,9 +6630,21 @@ UnitAI.prototype.FindWalkAndFightTargets = function()
 	return false;
 };
 
+/**
+ * Returns the detection range for the given interface, adjusted by stance.
+ *
+ * The query range depends on stance because it represents the distance at which
+ * the unit should "notice" an enemy and potentially start moving toward it.
+ *
+ * @param {number} iid - IID_Vision, IID_Heal, or IID_Attack
+ * @returns {{min: number, max: number, parabolic: boolean}}
+ * 'parabolic' indicates that the caller
+ * should use a parabolic range query (accounting for elevation) instead of a
+ * flat 2D one. Generally used for projectile attacks.
+ */
 UnitAI.prototype.GetQueryRange = function(iid)
 {
-	const ret = { "min": 0, "max": 0 };
+	const ret = { "min": 0, "max": 0, "parabolic": false };
 
 	const cmpVision = Engine.QueryInterface(this.entity, IID_Vision);
 	if (!cmpVision)
@@ -6635,18 +6657,32 @@ UnitAI.prototype.GetQueryRange = function(iid)
 		return ret;
 	}
 
+	// The query range depends on stance because it represents the distance at which
+	// the unit should "notice" an enemy and potentially start moving toward it:
 	if (this.GetStance().respondStandGround)
 	{
+		// StandGround: flat attack range only (won't move at all)
 		const range = this.GetRange(iid);
 		if (!range)
 			return ret;
 		ret.min = range.min;
 		ret.max = Math.min(range.max, visionRange);
+		// For StandGround, the 'parabolic' flag is set so that the caller can create a
+		// parabolic query instead of a flat one. This ensures elevation bonuses are
+		// properly accounted for when detecting enemies.
+		// Without this, a unit on a hill could be in parabolic range of an enemy
+		// but never notice them because the flat 2D detection circle is smaller.
+		// Other stances don't need this since they'll chase/approach anyway, and
+		// the attack validation (IsTargetInRange) does a precise parabolic check
+		// before actually attacking.
+		ret.parabolic = range.parabolic;
 	}
 	else if (this.GetStance().respondChase)
+		// Chase stances: use full vision range (unit will chase anything it sees)
 		ret.max = visionRange;
 	else if (this.GetStance().respondHoldGround)
 	{
+		// HoldGround: vision range + half attack range (willing to move a bit)
 		const range = this.GetRange(iid);
 		if (!range)
 			return ret;
