@@ -67,6 +67,11 @@ public:
 		// for entitymap we allocate the buffer right away
 		// with first element in buffer being the Invalid Entity
 		m_Buffer = (value_type*)malloc(sizeof(value_type) * (m_BufferCapacity + 1));
+		if (!m_Buffer)
+		{
+			debug_warn("EntityMap() malloc failed! Out of memory.");
+			throw std::bad_alloc();
+		}
 
 		// create the first element:
 		m_Buffer[0].first = INVALID_ENTITY;
