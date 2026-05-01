@@ -2,11 +2,11 @@
 	"type": "global",
 	"affects": ["Structure"],
 	"modifications": [
-		{ "value": "Researcher/TechCostMultiplier/food", "multiply": 0.9 },
-		{ "value": "Researcher/TechCostMultiplier/wood", "multiply": 0.9 },
-		{ "value": "Researcher/TechCostMultiplier/stone", "multiply": 0.9 },
-		{ "value": "Researcher/TechCostMultiplier/metal", "multiply": 0.9 }
+		{ "value": "Researcher/TechCostMultiplier/food", "multiply": 0.6 },
+		{ "value": "Researcher/TechCostMultiplier/wood", "multiply": 0.6 },
+		{ "value": "Researcher/TechCostMultiplier/stone", "multiply": 0.6 },
+		{ "value": "Researcher/TechCostMultiplier/metal", "multiply": 0.6 }
 	],
 	"auraName": "Great Librarian",
-	"auraDescription": "Continuing his predecessors' work on the Great Library of Alexandria, he seized every book brought to the city, thus leaving to his people a vast amount of hoarded wisdom.\nStructure technologies −10% resource costs."
+	"auraDescription": "Continuing his predecessors' work on the Great Library of Alexandria, he seized every book brought to the city, thus leaving to his people a vast amount of hoarded wisdom.\nTechnologies −40% resource costs."
 }

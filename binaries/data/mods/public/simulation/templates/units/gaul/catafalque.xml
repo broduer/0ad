@@ -2,7 +2,6 @@
 <Entity parent="template_unit_catafalque">
   <Auras datatype="tokens">
     units/catafalques/gaul_catafalque_1
-    units/catafalques/gaul_catafalque_2
   </Auras>
   <Identity>
     <Civ>gaul</Civ>

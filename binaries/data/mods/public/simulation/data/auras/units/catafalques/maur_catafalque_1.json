@@ -2,8 +2,8 @@
 	"type": "global",
 	"affects": ["Structure"],
 	"modifications": [
-		{ "value": "TerritoryInfluence/Radius", "multiply": 1.2 }
+		{ "value": "TerritoryInfluence/Radius", "multiply": 1.25 }
 	],
 	"auraName": "Consolidator of the Empire",
-	"auraDescription": "Son of Chandragupta Maurya, Bindusara consolidated the empire, creating a stable state for his son Ashoka to inherit.\nStructures +20% territory influence radius."
+	"auraDescription": "Son of Chandragupta Maurya, Bindusara consolidated the empire, creating a stable state for his son Ashoka to inherit.\nStructures +25% territory influence radius."
 }
