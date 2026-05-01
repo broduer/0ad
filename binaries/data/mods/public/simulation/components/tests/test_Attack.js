@@ -201,7 +201,7 @@ attackComponentTest(undefined, true, (attacker, cmpAttack, defender) =>
 
 	TS_ASSERT_UNEVAL_EQUALS(cmpAttack.GetPreferredClasses("Melee"), ["Civilian"]);
 	TS_ASSERT_UNEVAL_EQUALS(cmpAttack.GetRestrictedClasses("Melee"), ["Elephant", "Archer"]);
-	TS_ASSERT_UNEVAL_EQUALS(cmpAttack.GetFullAttackRange(), { "min": 0, "max": 80 });
+	TS_ASSERT_UNEVAL_EQUALS(cmpAttack.GetFullAttackRange(), { "min": 0, "max": 80, "parabolic": true });
 	TS_ASSERT_UNEVAL_EQUALS(cmpAttack.GetAttackEffectsData("Capture"), { "Capture": 8 });
 
 	TS_ASSERT_UNEVAL_EQUALS(cmpAttack.GetAttackEffectsData("Ranged"), {

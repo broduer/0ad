@@ -5167,24 +5167,24 @@ UnitAI.prototype.MoveToTargetAttackRange = function(target, type)
 	if (cmpFormation)
 		target = cmpFormation.GetClosestMemberToEntity(this.entity);
 
-	if (type != "Ranged")
-		return this.MoveToTargetRange(target, IID_Attack, type);
-
 	if (!this.CheckTargetVisible(target))
 		return false;
 
 	const cmpAttack = Engine.QueryInterface(this.entity, IID_Attack);
 	if (!cmpAttack)
 		return false;
-	const range = cmpAttack.GetRange(type);
 
-	// In case the range returns negative, we are probably too high compared to the target. Hope we come close enough.
-	const parabolicMaxRange = Math.max(0, Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager).GetEffectiveParabolicRange(this.entity, target, range.max, cmpAttack.GetAttackYOrigin(type)));
+	const flatRange = cmpAttack.GetRange(type);
+	const effectiveRange = cmpAttack.GetEffectiveAttackRange(target, type);
+	if (effectiveRange.max < 0)
+		return false;
 
-	// The parabole changes while walking so be cautious:
-	const guessedMaxRange = parabolicMaxRange > range.max ? (range.max + parabolicMaxRange) / 2 : parabolicMaxRange;
+	// The parabola changes while walking so be cautious:
+	const guessedMaxRange = effectiveRange.max > flatRange.max ?
+		(flatRange.max + effectiveRange.max) / 2 :
+		effectiveRange.max;
 
-	return cmpUnitMotion && cmpUnitMotion.MoveToTargetRange(target, range.min, guessedMaxRange);
+	return cmpUnitMotion && cmpUnitMotion.MoveToTargetRange(target, effectiveRange.min, guessedMaxRange);
 };
 
 UnitAI.prototype.MoveToTargetRangeExplicit = function(target, min, max)

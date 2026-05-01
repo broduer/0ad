@@ -353,12 +353,14 @@ Attack.prototype.GetPreference = function(target)
  */
 Attack.prototype.GetFullAttackRange = function()
 {
-	const ret = { "min": Infinity, "max": 0 };
+	const ret = { "min": Infinity, "max": 0, "parabolic": false };
 	for (const type of this.GetAttackTypes())
 	{
 		const range = this.GetRange(type);
 		ret.min = Math.min(ret.min, range.min);
 		ret.max = Math.max(ret.max, range.max);
+		if (range.parabolic)
+			ret.parabolic = true;
 	}
 	return ret;
 };
@@ -475,7 +477,39 @@ Attack.prototype.GetRange = function(type)
 	let min = +(this.template[type].MinRange || 0);
 	min = ApplyValueModificationsToEntity("Attack/" + type + "/MinRange", min, this.entity);
 
-	return { "max": max, "min": min };
+	return {
+		"max": max,
+		"min": min,
+		"parabolic": type === "Ranged"
+	};
+};
+
+/**
+ * Get the effective range for attacking a specific target, accounting
+ * for elevation and projectile physics where applicable.
+ * @param {number} target - The target entity ID.
+ * @param {string} type - The attack type.
+ * @return {{ min: number, max: number }} - The min and max effective range.
+ */
+Attack.prototype.GetEffectiveAttackRange = function(target, type)
+{
+	const range = this.GetRange(type);
+
+	// Only Parabolic attacks get parabolic elevation adjustment
+	if (!range.parabolic)
+		return range;
+
+	const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
+	if (!cmpRangeManager)
+		return range;
+
+	const effectiveMax = cmpRangeManager.GetEffectiveParabolicRange(
+		this.entity, target, range.max, this.GetAttackYOrigin(type));
+
+	if (effectiveMax < 0)
+		return { "min": Infinity, "max": 0 }; // Out of range
+
+	return { "min": range.min, "max": effectiveMax };
 };
 
 Attack.prototype.GetAttackYOrigin = function(type)
@@ -813,14 +847,9 @@ Attack.prototype.PerformAttack = function(type, target)
  */
 Attack.prototype.IsTargetInRange = function(target, type)
 {
-	const range = this.GetRange(type);
-	return Engine.QueryInterface(SYSTEM_ENTITY, IID_ObstructionManager).IsInTargetParabolicRange(
-		this.entity,
-		target,
-		range.min,
-		range.max,
-		this.GetAttackYOrigin(type),
-		false);
+	const range = this.GetEffectiveAttackRange(target, type);
+	return Engine.QueryInterface(SYSTEM_ENTITY, IID_ObstructionManager).IsInTargetRange(
+		this.entity, target, range.min, range.max, false);
 };
 
 Attack.prototype.OnValueModification = function(msg)
