@@ -603,4 +603,147 @@ TriggerHelper.SpawnAndTurretAtClasses = function(playerID, classes, templates, c
 	return results;
 };
 
+/**
+ * Makes an entity permanently visible to all players by:
+ * - Setting alwaysVisible flag
+ * - Deactivating fogging (no mirages)
+ * - Exploring the surrounding area
+ * - Forcing a visibility update
+ *
+ * @param {number} ent - Entity ID to make permanently visible
+ */
+TriggerHelper.MakeEntityPermanentlyVisible = function(ent)
+{
+	const cmpVisibility = Engine.QueryInterface(ent, IID_Visibility);
+	if (cmpVisibility)
+	{
+		cmpVisibility.alwaysVisible = true;
+		cmpVisibility.SetActivated(true);
+	}
+
+	const cmpFogging = Engine.QueryInterface(ent, IID_Fogging);
+	if (cmpFogging)
+		cmpFogging.PermanentlyReveal("all");
+
+	const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
+	const cmpPosition = Engine.QueryInterface(ent, IID_Position);
+	if (cmpRangeManager && cmpPosition && cmpPosition.IsInWorld())
+	{
+		const pos = cmpPosition.GetPosition2D();
+		const numPlayers = Engine.QueryInterface(SYSTEM_ENTITY, IID_PlayerManager).GetNumPlayers();
+
+		const exploreRadius = TriggerHelper.CalculateExplorationRadius(ent);
+
+		for (let i = 1; i < numPlayers; ++i)
+			cmpRangeManager.ExploreCircle(i, pos.x, pos.y, exploreRadius);
+
+		cmpRangeManager.RequestVisibilityUpdate(ent);
+	}
+};
+
+/**
+ * Calculate a reasonable exploration radius from an entity's footprint.
+ * Calculates the radius as the entity's full extent to reveal the surrounding area.
+ * This is equivalent to (extent/2) * 2, giving a 2x margin around the entity.
+ */
+TriggerHelper.CalculateExplorationRadius = function(ent)
+{
+	const cmpFootprint = Engine.QueryInterface(ent, IID_Footprint);
+	if (!cmpFootprint)
+		return 50;
+
+	const shapeInfo = cmpFootprint.GetShape();
+
+	let halfExtent; // The radius of the entity (half its size)
+	if (shapeInfo && shapeInfo.type === "circle")
+		halfExtent = shapeInfo.radius || shapeInfo.size0;
+	else if (shapeInfo && shapeInfo.type === "square")
+		halfExtent = Math.max(shapeInfo.width || shapeInfo.size0, shapeInfo.depth || shapeInfo.size1) / 2;
+	else
+		return 50;
+
+	// Use 2x the entity's radius to reveal surrounding area
+	// This gives a comfortable margin around the entity
+	const radius = halfExtent * 2;
+	return radius;
+};
+
+/**
+ * Sends a notification to specific players.
+ *
+ * @param {string} message - The message to display (use markForTranslation)
+ * @param {number[]} players - Array of player IDs to send the notification to
+ * @param {number} duration - Duration in milliseconds
+ * @param {Object} parameters - Translation parameters (optional)
+ */
+TriggerHelper.SendNotification = function(message, players, duration = 30000, parameters = {}, translateParameters = [])
+{
+	const cmpGuiInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface);
+	if (!cmpGuiInterface)
+		return;
+
+	// Ensure all parameter values are primitive types
+	const primitiveParameters = {};
+	for (const key in parameters)
+	{
+		const value = parameters[key];
+		if (typeof value === "string" || typeof value === "number" || typeof value === "boolean")
+			primitiveParameters[key] = value;
+		else
+			primitiveParameters[key] = String(value);
+	}
+
+	cmpGuiInterface.AddTimeNotification(
+		{
+			"message": message,
+			"players": players,
+			"parameters": primitiveParameters,
+			"translateMessage": true,
+			"translateParameters": translateParameters
+		},
+		duration
+	);
+};
+
+/**
+ * Sends a notification to a specific player and a different notification to all other active players.
+ *
+ * @param {number} player - The player ID who gets the 'owner' message
+ * @param {string} ownerMessage - Message for the specified player (use markForTranslation)
+ * @param {string} othersMessage - Message for all other active players (use markForTranslation)
+ * @param {number} duration - Duration in milliseconds
+ * @param {Object} parameters - Translation parameters shared by both messages (optional)
+ * @param {Object} ownerParameters - Additional parameters for the owner message (optional)
+ * @param {Object} othersParameters - Additional parameters for the others message (optional)
+ */
+TriggerHelper.SendDualNotification = function(player, ownerMessage, othersMessage, duration = 30000, parameters = {}, ownerParameters = {}, othersParameters = {})
+{
+	const numPlayers = Engine.QueryInterface(SYSTEM_ENTITY, IID_PlayerManager).GetNumPlayers();
+
+	const others = [-1]; // Include observers (player id -1)
+	for (let playerID = 1; playerID < numPlayers; ++playerID)
+	{
+		if (playerID == player)
+			continue;
+		const cmpPlayer = QueryPlayerIDInterface(playerID);
+		if (cmpPlayer && cmpPlayer.GetState() == "defeated")
+			continue;
+		others.push(playerID);
+	}
+
+	const mergedOwnerParams = Object.assign({}, parameters, ownerParameters);
+	const mergedOthersParams = Object.assign({}, parameters, othersParameters);
+
+	// Auto-detect translatable parameters (those starting with "_" or named "player")
+	const translateParameters = Object.keys(mergedOthersParams).filter(key => key.startsWith("_") || key == "player");
+
+	TriggerHelper.SendNotification(ownerMessage, [player], duration, mergedOwnerParams, translateParameters);
+	TriggerHelper.SendNotification(othersMessage, others, duration, mergedOthersParams, translateParameters);
+};
+
+TriggerHelper.SendWonderNotifications = function(owner, othersMessage, ownerMessage)
+{
+	TriggerHelper.SendDualNotification(owner, ownerMessage, othersMessage, 30000, { "_player_": owner });
+};
+
 Engine.RegisterGlobal("TriggerHelper", TriggerHelper);

@@ -29,6 +29,7 @@ Fogging.prototype.Init = function()
 	this.mirages = [];
 	this.miraged = [];
 	this.seen = [];
+	this.revealed = [];
 
 	const numPlayers = Engine.QueryInterface(SYSTEM_ENTITY, IID_PlayerManager).GetNumPlayers();
 	for (let player = 0; player < numPlayers; ++player)
@@ -36,6 +37,7 @@ Fogging.prototype.Init = function()
 		this.mirages.push(INVALID_ENTITY);
 		this.miraged.push(false);
 		this.seen.push(false);
+		this.revealed.push(false);
 	}
 };
 
@@ -169,6 +171,45 @@ Fogging.prototype.WasSeen = function(player)
 	return this.seen[player];
 };
 
+/**
+ * Permanently reveal this entity to one or all players.
+ * Destroys existing mirages and optionally deactivates fogging entirely.
+ * @param {number|string} player - Player ID to reveal to, or "all" for all players.
+ */
+Fogging.prototype.PermanentlyReveal = function(player = "all")
+{
+	const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
+
+	// Validate single player case
+	if (player !== "all" && (player < 0 || player >= this.mirages.length))
+		return;
+
+	// Determine which players to reveal
+	const startPlayer = (player === "all") ? 0 : player;
+	const endPlayer = (player === "all") ? this.mirages.length : player + 1;
+
+	// Reveal each player in the range
+	for (let i = startPlayer; i < endPlayer; ++i)
+	{
+		if (this.mirages[i] != INVALID_ENTITY)
+		{
+			Engine.DestroyEntity(this.mirages[i]);
+			this.mirages[i] = INVALID_ENTITY;
+			this.miraged[i] = false;
+		}
+		this.revealed[i] = true;
+		this.seen[i] = true;
+	}
+
+	// Deactivate fogging if revealing to all players
+	if (player === "all")
+		this.activated = false;
+
+	// Request visibility update
+	if (cmpRangeManager)
+		cmpRangeManager.RequestVisibilityUpdate(this.entity);
+};
+
 Fogging.prototype.OnOwnershipChanged = function(msg)
 {
 	// Always activate fogging for non-Gaia entities.
@@ -209,7 +250,8 @@ Fogging.prototype.OnVisibilityChanged = function(msg)
 		this.seen[msg.player] = true;
 	}
 
-	if (msg.newVisibility == VIS_FOGGED && this.activated)
+	// Only create a mirage if the player hasn’t been permanently revealed
+	if (msg.newVisibility == VIS_FOGGED && this.activated && !this.revealed[msg.player])
 		this.LoadMirage(msg.player);
 };
 
