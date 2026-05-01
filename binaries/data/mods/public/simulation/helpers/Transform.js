@@ -24,6 +24,12 @@ function ChangeEntityTemplate(oldEnt, newTemplate)
 	if (cmpVisual && cmpNewVisual)
 		cmpNewVisual.SetActorSeed(cmpVisual.GetActorSeed());
 
+	// Set ownership so turret checks work properly
+	const cmpOwnership = Engine.QueryInterface(oldEnt, IID_Ownership);
+	const cmpNewOwnership = Engine.QueryInterface(newEnt, IID_Ownership);
+	if (cmpOwnership && cmpNewOwnership)
+		cmpNewOwnership.SetOwner(cmpOwnership.GetOwner());
+
 	const cmpOldTurretable = Engine.QueryInterface(oldEnt, IID_Turretable);
 
 	// If the old entity is turreted, we need to handle it before copying position
@@ -39,9 +45,15 @@ function ChangeEntityTemplate(oldEnt, newTemplate)
 			// Check if it's allowed to occupy the turret point
 			const cmpTurretHolderOfOldEnt = Engine.QueryInterface(cmpOldTurretable.HolderID(), IID_TurretHolder);
 
-			if (cmpTurretHolderOfNewEnt &&
-				!cmpTurretHolderOfOldEnt.AllowedToOccupyTurretPoint(newEnt, cmpOldTurretable.GetTurretPointName(), true))
-				cmpOldTurretable.LeaveTurret(true);
+			if (cmpTurretHolderOfOldEnt)
+			{
+				// Find the actual turret point object using the old entity
+				const turretPoint = cmpTurretHolderOfOldEnt.GetOccupiedTurretPoint(oldEnt);
+
+				if (!turretPoint || !cmpTurretHolderOfOldEnt.AllowedToOccupyTurretPoint(newEnt, turretPoint, true))
+					cmpOldTurretable.LeaveTurret(true);
+				// If allowed, don't leave the turret - OnEntityRenamed will handle the swap
+			}
 		}
 	}
 
@@ -85,11 +97,6 @@ function ChangeEntityTemplate(oldEnt, newTemplate)
 	if (cmpTurretHolder && cmpNewTurretHolder)
 		for (const entity of cmpTurretHolder.GetEntities())
 			cmpNewTurretHolder.SetReservedTurretPoint(cmpTurretHolder.GetOccupiedTurretPointName(entity));
-
-	const cmpOwnership = Engine.QueryInterface(oldEnt, IID_Ownership);
-	const cmpNewOwnership = Engine.QueryInterface(newEnt, IID_Ownership);
-	if (cmpOwnership && cmpNewOwnership)
-		cmpNewOwnership.SetOwner(cmpOwnership.GetOwner());
 
 	CopyControlGroups(oldEnt, newEnt);
 
