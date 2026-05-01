@@ -277,6 +277,35 @@ struct EntityData
 
 static_assert(sizeof(EntityData) == 24);
 
+// Convert world-space circle to tile-space bounds
+struct TileCircle
+{
+	std::int32_t centerX, centerZ;
+	std::int32_t radius;
+	std::int32_t squaredRadius;
+	std::int32_t minX, maxX, minZ, maxZ;
+};
+
+// Apply an action to every tile within the circle
+template<typename Func>
+void ForEachTileInCircle(const TileCircle& circle, Func&& func)
+{
+	for (std::int32_t tileZ = circle.minZ; tileZ <= circle.maxZ; ++tileZ)
+	{
+		const std::int32_t deltaZ{tileZ - circle.centerZ};
+		const std::int32_t squaredDeltaZ{deltaZ * deltaZ};
+
+		for (std::int32_t tileX = circle.minX; tileX <= circle.maxX; ++tileX)
+		{
+			const std::int32_t deltaX{tileX - circle.centerX};
+			if (deltaX * deltaX + squaredDeltaZ > circle.squaredRadius)
+				continue;
+
+			func(tileX, tileZ);
+		}
+	}
+}
+
 /**
  * Functor for sorting entities by distance from a source point.
  * It must only be passed entities that are in 'entities'
@@ -2128,6 +2157,50 @@ public:
 
 		for (player_id_t p = 1; p < MAX_LOS_PLAYER_ID+1; ++p)
 			SeeExploredEntities(p);
+	}
+
+	TileCircle WorldToTileCircle(entity_pos_t worldX, entity_pos_t worldZ, fixed radius)
+	{
+		const std::int32_t centerTileX{(worldX / LOS_TILE_SIZE).ToInt_RoundToNearest()};
+		const std::int32_t centerTileZ{(worldZ / LOS_TILE_SIZE).ToInt_RoundToNearest()};
+		const std::int32_t tileRadius{(radius / LOS_TILE_SIZE).ToInt_RoundToInfinity()};
+
+		return TileCircle{
+			.centerX = centerTileX,
+			.centerZ = centerTileZ,
+			.radius = tileRadius,
+			.squaredRadius = tileRadius * tileRadius,
+			.minX = std::max(centerTileX - tileRadius, 0),
+			.maxX = std::min(centerTileX + tileRadius, m_LosVerticesPerSide - 1),
+			.minZ = std::max(centerTileZ - tileRadius, 0),
+			.maxZ = std::min(centerTileZ + tileRadius, m_LosVerticesPerSide - 1)
+		};
+	}
+
+	void ExploreCircle(player_id_t playerId, entity_pos_t worldX, entity_pos_t worldZ, fixed radius) override
+	{
+		if (playerId <= 0 || playerId > MAX_LOS_PLAYER_ID)
+			return;
+
+		const TileCircle circle{WorldToTileCircle(worldX, worldZ, radius)};
+		const u32 exploredBitMask{static_cast<u32>(LosState::EXPLORED) << (2 * (playerId - 1))};
+		u32& exploredCount = m_ExploredVertices.at(playerId);
+
+		ForEachTileInCircle(circle,
+			[&](std::int32_t tileX, std::int32_t tileZ)
+			{
+				if (LosIsOffWorld(tileX, tileZ))
+					return;
+
+				u32& losState = m_LosState.get(tileX, tileZ);
+				if (losState & exploredBitMask)
+					return;
+
+				losState |= exploredBitMask;
+				++exploredCount;
+				MarkVisibilityDirtyAroundTile(playerId, tileX, tileZ);
+			}
+		);
 	}
 
 	/**
