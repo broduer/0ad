@@ -84,6 +84,10 @@
 #include "lib/types.h"
 #include "ps/ThreadUtil.h"
 
+#if defined(TRACY_ENABLE)
+#include "third_party/tracy/tracy/Tracy.hpp"
+#endif
+
 #include <cstdarg>
 #include <cstring>
 #include <iosfwd>
@@ -440,6 +444,7 @@ private:
 	const char* m_Name;
 };
 
+#if !defined(TRACY_ENABLE)
 /**
  * Starts timing from now until the end of the current scope.
  * @p region is the name to associate with this region (should be
@@ -463,5 +468,11 @@ private:
  * event; otherwise it associates with the currently-active region.)
  */
 #define PROFILE2_ATTR g_Profiler2.RecordAttribute
+#else
+#define PROFILE2(region) ZoneScopedN(region)
+#define PROFILE2_GPU(deviceCommandContext, region) CProfile2GPURegion profile2gpu__(deviceCommandContext, region)
+#define PROFILE2_EVENT(name) g_Profiler2.RecordEvent(name)
+#define PROFILE2_ATTR g_Profiler2.RecordAttribute
+#endif
 
 #endif // INCLUDED_PROFILER2

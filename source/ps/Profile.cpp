@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -28,6 +28,10 @@
 #include "ps/CStr.h"
 #include "ps/ProfileViewer.h"
 #include "ps/ThreadUtil.h"
+
+#if defined(TRACY_ENABLE)
+#include "third_party/tracy/tracy/Tracy.hpp"
+#endif
 
 #include <cstddef>
 #include <numeric>
@@ -447,6 +451,10 @@ void CProfileManager::Frame()
 	}
 
 	root->start = timer_Time();
+
+#if defined(TRACY_ENABLE)
+	FrameMark;
+#endif
 }
 
 void CProfileManager::Turn()
