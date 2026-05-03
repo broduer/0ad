@@ -62,6 +62,7 @@ newoption { category = "Pyrogenesis", trigger = "without-miniupnpc", description
 newoption { category = "Pyrogenesis", trigger = "without-nvtt", description = "Disable use of NVTT" }
 newoption { category = "Pyrogenesis", trigger = "without-pch", description = "Disable generation and usage of precompiled headers" }
 newoption { category = "Pyrogenesis", trigger = "without-tests", description = "Disable generation of test projects" }
+newoption { category = "Pyrogenesis", trigger = "with-tracy", description = "Enable Tracy profiler" }
 
 -- OS X specific options
 newoption { category = "Pyrogenesis", trigger = "macosx-version-min", description = "Set minimum required version of the OS X API, the build will possibly fail if an older SDK is used, while newer API functions will be weakly linked (i.e. resolved at runtime)" }
@@ -290,6 +291,12 @@ function project_set_build_flags()
 
 	if _OPTIONS["without-dap-interface"] then
 		defines { "CONFIG2_DAP_INTERFACE=0" }
+	end
+
+	if _OPTIONS["with-tracy"] then
+		defines { "TRACY_ENABLE=1" }
+		defines { "TRACY_ON_DEMAND=1" }
+		defines { "TRACY_NO_BROADCAST=1" }
 	end
 
 	-- hide warnings caused by library includes
@@ -861,6 +868,7 @@ function setup_all_libs ()
 		"maths/scripting",
 		"i18n",
 		"i18n/scripting",
+		"third_party/tracy"
 	}
 	extern_libs = {
 		"spidermonkey",
