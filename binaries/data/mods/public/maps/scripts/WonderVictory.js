@@ -23,7 +23,7 @@ Trigger.prototype.WonderVictoryEntityRenamed = function(data)
 	// Make the completed wonder permanently visible
 	TriggerHelper.MakeEntityPermanentlyVisible(data.newentity);
 
-	// Send "wonder completed" notifications
+	// Send "wonder completed" notifications (only for non-Gaia wonders)
 	const cmpOwnership = Engine.QueryInterface(data.newentity, IID_Ownership);
 	if (cmpOwnership)
 	{
@@ -206,13 +206,35 @@ Trigger.prototype.WonderStartNotification = function(data)
 	if (owner <= 0)
 		return;
 
-	TriggerHelper.MakeEntityPermanentlyVisible(data.foundation, 50);
+	TriggerHelper.MakeEntityPermanentlyVisible(data.foundation);
 
 	TriggerHelper.SendWonderNotifications(
 		owner,
 		markForTranslation("%(_player_)s has started building a Wonder."),
 		markForTranslation("You have started building a Wonder.")
 	);
+};
+
+Trigger.prototype.RevealGaiaWonders = function()
+{
+	Engine.ProfileStart("RevealGaiaWonders");
+	const cmpEndGameManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_EndGameManager);
+	if (!cmpEndGameManager)
+		return;
+
+	const victoryConditions = cmpEndGameManager.GetVictoryConditions();
+	if (!victoryConditions || !victoryConditions.includes("wonder"))
+		return;
+
+	// Find and reveal all Gaia wonders
+	const gaiaWonders = Engine.GetEntitiesWithInterface(IID_Wonder).filter(
+		ent => TriggerHelper.GetOwner(ent) === 0
+	);
+
+	for (const ent of gaiaWonders)
+		TriggerHelper.MakeEntityPermanentlyVisible(ent);
+
+	Engine.ProfileStop();
 };
 
 {
@@ -222,5 +244,6 @@ Trigger.prototype.WonderStartNotification = function(data)
 	cmpTrigger.RegisterTrigger("OnDiplomacyChanged", "WonderVictoryDiplomacyChanged", { "enabled": true });
 	cmpTrigger.RegisterTrigger("OnPlayerWon", "WonderVictoryPlayerWon", { "enabled": true });
 	cmpTrigger.RegisterTrigger("OnConstructionStarted", "WonderStartNotification", { "enabled": true });
+	cmpTrigger.DoAfterDelay(0, "RevealGaiaWonders", {});
 	cmpTrigger.wonderVictoryMessages = {};
 }
