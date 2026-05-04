@@ -121,6 +121,9 @@ CMiniMap::CMiniMap(CGUI& pGUI) :
 
 void CMiniMap::Tick()
 {
+	if (!g_Game || !g_Game->GetView() || !g_Game->IsGameStarted())
+		return;
+
 	g_Game->GetView()->GetMiniMapTexture().RequestRendering();
 }
 
