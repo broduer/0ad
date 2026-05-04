@@ -93,6 +93,7 @@ that of Atlas depending on commandline parameters.
 #include <SDL_stdinc.h>
 #include <SDL_timer.h>
 #include <SDL_video.h>
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <ctime>
@@ -327,11 +328,17 @@ static int ProgressiveLoad()
 {
 	PROFILE3("progressive load");
 
+	const double budget = 1.0 / std::clamp(
+		g_VideoMode.IsVSyncEnabled() ?
+			static_cast<double>(g_VideoMode.GetDesktopFreq()) :
+			g_ConfigDB.Get("adaptivefps.menu", 60.0),
+		10.0, 360.0);
+
 	std::wstring description;
 	int progressPercent{0};
 	try
 	{
-		const PS::Loader::ProgressiveLoadResult result{PS::Loader::ProgressiveLoad(10e-3)};
+		const PS::Loader::ProgressiveLoadResult result{PS::Loader::ProgressiveLoad(budget)};
 		description = result.nextDescription;
 		progressPercent = result.progressPercent;
 		switch(result.status)
