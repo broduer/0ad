@@ -86,23 +86,10 @@ function ChangeEntityTemplate(oldEnt, newTemplate)
 		for (const entity of cmpTurretHolder.GetEntities())
 			cmpNewTurretHolder.SetReservedTurretPoint(cmpTurretHolder.GetOccupiedTurretPointName(entity));
 
-	let owner;
-	const cmpTerritoryDecay = Engine.QueryInterface(newEnt, IID_TerritoryDecay);
-	if (cmpTerritoryDecay && cmpTerritoryDecay.HasTerritoryOwnership() && cmpNewPosition)
-	{
-		const pos = cmpNewPosition.GetPosition2D();
-		const cmpTerritoryManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TerritoryManager);
-		owner = cmpTerritoryManager.GetOwner(pos.x, pos.y);
-	}
-	else
-	{
-		const cmpOwnership = Engine.QueryInterface(oldEnt, IID_Ownership);
-		if (cmpOwnership)
-			owner = cmpOwnership.GetOwner();
-	}
+	const cmpOwnership = Engine.QueryInterface(oldEnt, IID_Ownership);
 	const cmpNewOwnership = Engine.QueryInterface(newEnt, IID_Ownership);
-	if (cmpNewOwnership)
-		cmpNewOwnership.SetOwner(owner);
+	if (cmpOwnership && cmpNewOwnership)
+		cmpNewOwnership.SetOwner(cmpOwnership.GetOwner());
 
 	CopyControlGroups(oldEnt, newEnt);
 
