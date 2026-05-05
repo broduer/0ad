@@ -37,6 +37,10 @@ Trigger.prototype.tutorialSteps = [
 			"text": markForTranslation("Select the Civic Center building and hold %(hotkey)s while clicking on the Hoplite icon once to begin training a batch of Hoplites."),
 			"hotkeys": ["session.batchtrain"]
 		},
+		"Init": function()
+		{
+			this.trainingDone = false;
+		},
 		"OnTrainingQueued": function(msg)
 		{
 			if (msg.unitTemplate != "units/spart/infantry_spearman_b" || +msg.count == 1)
@@ -57,6 +61,10 @@ Trigger.prototype.tutorialSteps = [
 		"panelData": {
 			"text": markForTranslation("Select the two idle Civilians and build a House nearby by selecting the House icon. Place the House by left-clicking on a piece of land.")
 		},
+		"OnTrainingFinished": function(msg)
+		{
+			this.trainingDone = true;
+		},
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "repair" && TriggerHelper.EntityMatchesClassList(msg.cmd.target, "House"))
@@ -66,7 +74,21 @@ Trigger.prototype.tutorialSteps = [
 	{
 		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
 		"panelData": {
-			"text": markForTranslation("When they are ready, select the newly trained Hoplites and assign them to build a Storehouse beside some nearby trees. They will begin to gather wood when it's constructed.")
+			"text": markForTranslation("Wait for the training of the Hoplites to finish.")
+		},
+		"IsDone": function()
+		{
+			return this.trainingDone;
+		},
+		"OnTrainingFinished": function(msg)
+		{
+			this.NextStep();
+		}
+	},
+	{
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("Select the newly trained Hoplites and assign them to build a Storehouse beside some nearby trees. They will begin to gather wood when it's constructed.")
 		},
 		"OnPlayerCommand": function(msg)
 		{
@@ -215,11 +237,23 @@ Trigger.prototype.tutorialSteps = [
 	{
 		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
 		"panelData": {
-			"text": markForTranslation("Build a Barracks nearby. Whenever your population limit is reached, build an extra House using any available builder units. This will be the fifth Village Phase structure that you have built, allowing you to advance to the Town Phase.")
+			"text": markForTranslation("Build a Barracks nearby. Whenever your population limit is reached, build an extra House using any available builder units.")
 		},
 		"OnPlayerCommand": function(msg)
 		{
 			if (msg.cmd.type == "repair" && TriggerHelper.EntityMatchesClassList(msg.cmd.target, "Barracks"))
+				this.NextStep();
+		}
+	},
+	{
+		"type": TUTORIAL_STEP_TYPE.INSTRUCTION,
+		"panelData": {
+			"text": markForTranslation("The Barracks will be your fifth Village Phase structure, allowing you to advance to the Town Phase."),
+			"hint": markForTranslation("Wait for the Barracks to be built.")
+		},
+		"OnStructureBuilt": function(msg)
+		{
+			if (TriggerHelper.EntityMatchesClassList(msg.building, "Barracks"))
 				this.NextStep();
 		}
 	},
