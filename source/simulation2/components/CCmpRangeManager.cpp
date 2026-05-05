@@ -1394,6 +1394,22 @@ public:
 		}
 	}
 
+	/**
+	 * Compute effective horizontal range given a reference range and height difference.
+	 */
+	static entity_pos_t ComputeParabolicRange(entity_pos_t range, entity_pos_t heightDiff)
+	{
+		if (heightDiff < -range / 2)
+			return NEVER_IN_RANGE;
+
+		entity_pos_t effectiveRange;
+		effectiveRange.SetInternalValue(static_cast<i32>(isqrt64(
+			SQUARE_U64_FIXED(range) +
+			static_cast<i64>(heightDiff.GetInternalValue()) * static_cast<i64>(range.GetInternalValue()) * 2
+		)));
+		return effectiveRange;
+	}
+
 	entity_pos_t GetEffectiveParabolicRange(entity_id_t source, entity_id_t target, entity_pos_t range, entity_pos_t yOrigin) const override
 	{
 		// For non-positive ranges, just return the range.
@@ -1412,14 +1428,28 @@ public:
 		CFixedVector3D sourcePos = cmpSourcePosition->GetPosition();
 		CFixedVector3D targetPos = cmpTargetPosition->GetPosition();
 
-		entity_pos_t heightDifference = sourcePos.Y - targetPos.Y + yOrigin;
+		entity_pos_t heightDiff = sourcePos.Y - targetPos.Y + yOrigin;
+		return ComputeParabolicRange(range, heightDiff);
+	}
 
-		if (heightDifference < -range / 2)
-			return NEVER_IN_RANGE;
+	entity_pos_t GetMaxReachableParabolicHeight(entity_pos_t range, entity_pos_t yOrigin, entity_pos_t horizDistance) const override
+	{
+		// EffectiveRange² = range² + 2 * range * heightDiff
+		// Solve for heightDiff when effectiveRange = horizDistance:
+		//   heightDiff = (horizDistance² - range²) / (2 * range)
+		// Max target height above source = yOrigin - heightDiff
+		//                               = yOrigin + (range² - horizDistance²) / (2 * range)
+		//
+		// If horizDistance > range, the result is less than yOrigin (can be negative),
+		// meaning the source must be above the target to compensate for the extra horizontal distance.
+		// The caller can decide if that's acceptable.
+		i64 rangeSq = SQUARE_U64_FIXED(range);
+		i64 distSq = SQUARE_U64_FIXED(horizDistance);
+		i64 numerator = rangeSq - distSq;
 
-		entity_pos_t effectiveRange;
-		effectiveRange.SetInternalValue(static_cast<i32>(isqrt64(SQUARE_U64_FIXED(range) + static_cast<i64>(heightDifference.GetInternalValue()) * static_cast<i64>(range.GetInternalValue()) * 2)));
-		return effectiveRange;
+		entity_pos_t result;
+		result.SetInternalValue(static_cast<i32>(numerator / static_cast<i64>(range.GetInternalValue() * 2)));
+		return yOrigin + result;
 	}
 
 	entity_pos_t GetElevationAdaptedRange(const CFixedVector3D& pos1, const CFixedVector3D& rot, entity_pos_t range, entity_pos_t yOrigin, entity_pos_t angle) const override

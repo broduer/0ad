@@ -68,6 +68,7 @@ DEFINE_INTERFACE_METHOD("GetLosRevealWholeMap", ICmpRangeManager, GetLosRevealWh
 DEFINE_INTERFACE_METHOD("SetLosRevealWholeMapForAll", ICmpRangeManager, SetLosRevealWholeMapForAll)
 DEFINE_INTERFACE_METHOD("GetLosRevealWholeMapForAll", ICmpRangeManager, GetLosRevealWholeMapForAll)
 DEFINE_INTERFACE_METHOD("GetEffectiveParabolicRange", ICmpRangeManager, GetEffectiveParabolicRange)
+DEFINE_INTERFACE_METHOD("GetMaxReachableParabolicHeight", ICmpRangeManager, GetMaxReachableParabolicHeight)
 DEFINE_INTERFACE_METHOD("GetElevationAdaptedRange", ICmpRangeManager, GetElevationAdaptedRange)
 DEFINE_INTERFACE_METHOD("ActivateScriptedVisibility", ICmpRangeManager, ActivateScriptedVisibility)
 DEFINE_INTERFACE_METHOD("GetLosVisibility", ICmpRangeManager, GetLosVisibility_wrapper)

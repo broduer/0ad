@@ -32,6 +32,8 @@ Engine.LoadComponentScript("interfaces/Formation.js");
 Engine.LoadComponentScript("interfaces/Health.js");
 Engine.LoadComponentScript("interfaces/Resistance.js");
 Engine.LoadComponentScript("interfaces/TechnologyManager.js");
+Engine.LoadComponentScript("interfaces/Turretable.js");
+Engine.LoadComponentScript("interfaces/TurretHolder.js");
 Engine.LoadComponentScript("Attack.js");
 
 let entityID = 903;
@@ -50,6 +52,16 @@ function attackComponentTest(defenderClass, isEnemy, test_function)
 
 	AddMock(playerEnt1, IID_Diplomacy, {
 		"IsEnemy": () => isEnemy
+	});
+
+	AddMock(SYSTEM_ENTITY, IID_ObstructionManager, {
+		"IsInTargetRange": () => true
+	});
+
+	AddMock(SYSTEM_ENTITY, IID_RangeManager, {
+		"GetEffectiveParabolicRange": () => 25,
+		"GetMaxReachableParabolicHeight": () => 15,
+		"GetLosVisibility": (target, owner) => "visible"
 	});
 
 	const attacker = entityID;
@@ -416,3 +428,4 @@ function testAttackPreference()
 	TS_ASSERT_EQUALS(cmpAttack.GetPreference(attacker+4), undefined);
 }
 testAttackPreference();
+

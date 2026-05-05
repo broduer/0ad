@@ -196,6 +196,18 @@ public:
 	virtual entity_pos_t GetEffectiveParabolicRange(entity_id_t source, entity_id_t target, entity_pos_t range, entity_pos_t yOrigin) const = 0;
 
 	/**
+	* Get the max height (relative to the source) a parabolic projectile can reach
+	* at a given horizontal distance.
+	* @param source the entity at the origin.
+	* @param range the maximum parabolic range on flat terrain.
+	* @param yOrigin height bonus for the source.
+	* @param horizDistance the horizontal distance to check.
+	* @return the maximum reachable height difference (target height - source height),
+	*         or a very negative value if the horizontal distance exceeds the range.
+	*/
+	virtual entity_pos_t GetMaxReachableParabolicHeight(entity_pos_t range, entity_pos_t yOrigin, entity_pos_t horizDistance) const = 0;
+
+	/**
 	 * Get the average elevation over 8 points on distance range around the entity
 	 * @param id the entity id to look around
 	 * @param range the distance to compare terrain height with

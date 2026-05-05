@@ -292,11 +292,6 @@ Attack.prototype.CanAttack = function(target, wantedTypes)
 	const cmpCapturable = QueryMiragedInterface(target, IID_Capturable);
 	const cmpDiplomacy = QueryPlayerIDInterface(entityOwner, IID_Diplomacy);
 
-	// Check if the relative height difference is larger than the attack range
-	// If the relative height is bigger, it means they will never be able to
-	// reach each other, no matter how close they come.
-	const heightDiff = Math.abs(cmpThisPosition.GetHeightOffset() - cmpTargetPosition.GetHeightOffset());
-
 	for (const type of types)
 	{
 		if (type != "Capture" && (!cmpDiplomacy?.IsEnemy(targetOwner) || !cmpHealth || !cmpHealth.GetHitpoints()))
@@ -305,7 +300,8 @@ Attack.prototype.CanAttack = function(target, wantedTypes)
 		if (type == "Capture" && (!cmpCapturable || !cmpCapturable.CanCapture(entityOwner)))
 			continue;
 
-		if (heightDiff > this.GetRange(type).max)
+		// Check if the target is currently in range, or could ever be reached
+		if (!this.IsTargetInRange(target, type) && !this.CanEverReachTarget(target, type))
 			continue;
 
 		const restrictedClasses = this.GetRestrictedClasses(type);
@@ -317,6 +313,77 @@ Attack.prototype.CanAttack = function(target, wantedTypes)
 	}
 
 	return false;
+};
+
+/**
+ * Check if the target could potentially ever be reached with the given attack type,
+ * as an optimistic estimate. This assumes the attacker can move to the closest
+ * possible position to the target — ignoring obstructions and terrain features
+ * (e.g., hills) that might help or hinder.
+ *
+ * This is a best-effort guess:
+ *  - It may return true even when the target is actually unreachable (e.g., turreted
+ *    units on walls with a height offset too large for the projectile to overcome).
+ *  - It may return false even when the target is reachable (e.g., a nearby hill could
+ *    provide enough elevation to hit a "too high" target, but we don't check for that).
+ *
+ * Currently these checks are mostly useful to determine if we can reach turreted units
+ * (e.g. on a wall, outpost...).
+ *
+ * @param {number} targetId - The target entity ID.
+ * @param {string} type - The attack type.
+ * @return {boolean} - Whether the target is estimated to be reachable (see caveats above).
+ */
+Attack.prototype.CanEverReachTarget = function(targetId, type)
+{
+	const cmpThisPosition = Engine.QueryInterface(this.entity, IID_Position);
+	const cmpTargetPosition = Engine.QueryInterface(targetId, IID_Position);
+
+	const thisHeightOffset = cmpThisPosition.GetHeightOffset();
+	const targetHeightOffset = cmpTargetPosition.GetHeightOffset();
+
+	const range = this.GetRange(type);
+
+	// Find the closest horizontal distance we could ever get to the target.
+	// We first determine the closest horizontal distance we could ever get to the target,
+	// accounting for turreted units inside buildings:
+	//  - If the building blocks movement, we can only reach its exterior edge.
+	//  - If the building is passable, we can walk right up to the turret point.
+	const cmpTurretable = Engine.QueryInterface(targetId, IID_Turretable);
+	const holderId = cmpTurretable?.HolderID();
+	let closestDistance = 0;
+	if (holderId && holderId != INVALID_ENTITY)
+	{
+		const cmpTurretHolder = Engine.QueryInterface(holderId, IID_TurretHolder);
+		if (cmpTurretHolder)
+		{
+			const turretPoint = cmpTurretHolder.GetOccupiedTurretPoint(targetId);
+			closestDistance = cmpTurretHolder.GetClosestApproachDistanceToTurretPoint(turretPoint);
+		}
+	}
+
+	if (!range.parabolic)
+	{
+		// For non-parabolic attacks (e.g., "Melee" attack type), we check if the height offset
+		// is within max range at the closest possible horizontal distance (simple 3D distance check).
+		const heightDiff = Math.abs(targetHeightOffset - thisHeightOffset);
+		return Math.sqrt(closestDistance * closestDistance + heightDiff * heightDiff) <= range.max;
+	}
+
+	// For parabolic attacks (generally "Ranged" attack type), we use the parabolic formula
+	// to determine if the height offset is surmountable at the closest possible distance.
+	// Typical scenario: units on walls/towers may be unreachable if the attacker's
+	// projectiles can't arc high enough, even at point-blank range.
+	const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
+	if (!cmpRangeManager)
+		return true;
+
+	const yOrigin = this.GetAttackYOrigin(type);
+
+	const maxReachableHeightDiff = cmpRangeManager.GetMaxReachableParabolicHeight(
+		range.max, yOrigin, closestDistance);
+
+	return targetHeightOffset - thisHeightOffset <= maxReachableHeightDiff;
 };
 
 /**

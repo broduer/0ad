@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -103,6 +103,12 @@ public:
 	 * @return "success" if check passes, else a string describing the type of failure.
 	 */
 	virtual std::string CheckFoundation_wrapper(const std::string& className, bool onlyCenterPoint) const;
+
+	/**
+	 * GetObstructionSquare wrapper for script calls.
+	 * @return [hw, hh] half-sizes of the obstruction square, or empty array on failure.
+	 */
+	virtual CFixedVector2D GetObstructionHalfSizes_wrapper() const;
 
 	/**
 	 * Test whether this entity is colliding with any obstructions that share its

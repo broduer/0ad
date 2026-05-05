@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -45,6 +45,14 @@ std::string ICmpObstruction::CheckFoundation_wrapper(const std::string& classNam
 	}
 }
 
+CFixedVector2D ICmpObstruction::GetObstructionHalfSizes_wrapper() const
+{
+	ICmpObstructionManager::ObstructionSquare square;
+	if (!GetObstructionSquare(square))
+		return CFixedVector2D(entity_pos_t::FromInt(-1), entity_pos_t::FromInt(-1));
+	return CFixedVector2D(square.hw, square.hh);
+}
+
 BEGIN_INTERFACE_WRAPPER(Obstruction)
 DEFINE_INTERFACE_METHOD("GetSize", ICmpObstruction, GetSize)
 DEFINE_INTERFACE_METHOD("CheckShorePlacement", ICmpObstruction, CheckShorePlacement)
@@ -55,6 +63,7 @@ DEFINE_INTERFACE_METHOD("GetEntitiesBlockingConstruction", ICmpObstruction, GetE
 DEFINE_INTERFACE_METHOD("GetEntitiesDeletedUponConstruction", ICmpObstruction, GetEntitiesDeletedUponConstruction)
 DEFINE_INTERFACE_METHOD("SetActive", ICmpObstruction, SetActive)
 DEFINE_INTERFACE_METHOD("SetDisableBlockMovementPathfinding", ICmpObstruction, SetDisableBlockMovementPathfinding)
+DEFINE_INTERFACE_METHOD("GetObstructionHalfSizes", ICmpObstruction, GetObstructionHalfSizes_wrapper)
 DEFINE_INTERFACE_METHOD("GetBlockMovementFlag", ICmpObstruction, GetBlockMovementFlag)
 DEFINE_INTERFACE_METHOD("SetControlGroup", ICmpObstruction, SetControlGroup)
 DEFINE_INTERFACE_METHOD("GetControlGroup", ICmpObstruction, GetControlGroup)

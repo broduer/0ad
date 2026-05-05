@@ -241,6 +241,39 @@ class TurretHolder
 	}
 
 	/**
+	 * Calculate the closest horizontal distance an external entity could ever get
+	 * to the specified turret point. If the holder is passable, returns 0.
+	 * Otherwise returns the perpendicular distance from the turret point to the
+	 * nearest edge of the holder's obstruction.
+	 *
+	 * @param {string|Object} turretPoint - The turret point name or object.
+	 * @return {number} - The minimum possible horizontal distance.
+	 */
+	GetClosestApproachDistanceToTurretPoint(turretPoint)
+	{
+		if (typeof turretPoint === "string")
+			turretPoint = this.TurretPointByName(turretPoint);
+		if (!turretPoint)
+			return 0;
+
+		const cmpObstruction = Engine.QueryInterface(this.entity, IID_Obstruction);
+		if (!cmpObstruction || !cmpObstruction.GetBlockMovementFlag(false))
+			return 0;
+
+		const dxLocal = turretPoint.offset.x;
+		const dzLocal = turretPoint.offset.z;
+
+		const halfSizes = cmpObstruction.GetObstructionHalfSizes();
+		const hw = halfSizes.x;
+		const hh = halfSizes.y;
+
+		if (hw == null || hh == null || hw < 0 || hh < 0)
+			return 0;
+
+		return Math.max(0, Math.min(hw - Math.abs(dxLocal), hh - Math.abs(dzLocal)));
+	}
+
+	/**
 	 * @return {number[]} - The turretted entityIDs.
 	 */
 	GetEntities()
