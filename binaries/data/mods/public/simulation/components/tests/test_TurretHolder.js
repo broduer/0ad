@@ -15,6 +15,7 @@ const enemyPlayer = 2;
 const alliedPlayer = 3;
 const turretHolderID = 9;
 const entitiesToTest = [10, 11, 12, 13];
+let entityID = 100;
 
 AddMock(turretHolderID, IID_Ownership, {
 	"GetOwner": () => player
@@ -244,3 +245,80 @@ cmpTurretHolder.OnOwnershipChanged({
 	"from": INVALID_PLAYER
 });
 TS_ASSERT(cmpTurretHolder.OccupiesTurretPoint(spawned));
+
+// Test GetClosestApproachDistanceToTurretPoint
+{
+	const holder = ++entityID;
+
+	// Mock the holder's obstruction
+	AddMock(holder, IID_Obstruction, {
+		"GetBlockMovementFlag": () => true,
+		"GetObstructionHalfSizes": () => ({ "x": 10, "y": 15 })
+	});
+
+	const cmpHolder = ConstructComponent(holder, "TurretHolder", {
+		"TurretPoints": {
+			"center": {
+				"X": "0",
+				"Y": "5.0",
+				"Z": "0"
+			},
+			"edge": {
+				"X": "8.0",
+				"Y": "5.0",
+				"Z": "0"
+			},
+			"corner": {
+				"X": "10.0",
+				"Y": "5.0",
+				"Z": "15.0"
+			},
+			"outside": {
+				"X": "15.0",
+				"Y": "5.0",
+				"Z": "0"
+			}
+		}
+	});
+
+	// Center point (0,0) in 20x30 building → min(10, 15) = 10
+	TS_ASSERT_EQUALS(cmpHolder.GetClosestApproachDistanceToTurretPoint("center"), 10);
+
+	// Edge point (8,0) in 20x30 building → min(10-8, 15-0) = 2
+	TS_ASSERT_EQUALS(cmpHolder.GetClosestApproachDistanceToTurretPoint("edge"), 2);
+
+	// Corner point (10,15) in 20x30 building → min(10-10, 15-15) = 0
+	TS_ASSERT_EQUALS(cmpHolder.GetClosestApproachDistanceToTurretPoint("corner"), 0);
+
+	// Outside point (15,0) in 20x30 building → min(10-15, 15-0) = -5 → clamped to 0
+	TS_ASSERT_EQUALS(cmpHolder.GetClosestApproachDistanceToTurretPoint("outside"), 0);
+
+	// Nonexistent turret point
+	TS_ASSERT_EQUALS(cmpHolder.GetClosestApproachDistanceToTurretPoint("nonexistent"), 0);
+
+	// Pass object directly
+	const turretPoint = cmpHolder.TurretPointByName("center");
+	TS_ASSERT_EQUALS(cmpHolder.GetClosestApproachDistanceToTurretPoint(turretPoint), 10);
+
+	// Passable building (no obstruction or doesn't block movement)
+	const passableHolder = ++entityID;
+	AddMock(passableHolder, IID_Obstruction, {
+		"GetBlockMovementFlag": () => false
+	});
+	const cmpHolderPassable = ConstructComponent(passableHolder, "TurretHolder", {
+		"TurretPoints": {
+			"center": { "X": "0", "Y": "5.0", "Z": "0" }
+		}
+	});
+	TS_ASSERT_EQUALS(cmpHolderPassable.GetClosestApproachDistanceToTurretPoint("center"), 0);
+
+	// No obstruction component at all
+	++entityID;
+	const cmpHolderNoObst = ConstructComponent(entityID, "TurretHolder", {
+		"TurretPoints": {
+			"center": { "X": "0", "Y": "5.0", "Z": "0" }
+		}
+	});
+	TS_ASSERT_EQUALS(cmpHolderNoObst.GetClosestApproachDistanceToTurretPoint("center"), 0);
+}
+

@@ -429,3 +429,100 @@ function testAttackPreference()
 }
 testAttackPreference();
 
+function testCanEverReachTarget()
+{
+	const attacker = ++entityID;
+
+	AddMock(attacker, IID_Position, {
+		"IsInWorld": () => true,
+		"GetHeightOffset": () => 0,
+		"GetPosition2D": () => new Vector2D(1, 2)
+	});
+
+	const cmpAttack = ConstructComponent(attacker, "Attack", {
+		"Melee": {
+			"Damage": { "Hack": 10, "Pierce": 0, "Crush": 0 },
+			"MaxRange": 5
+		},
+		"Ranged": {
+			"Damage": { "Hack": 0, "Pierce": 10, "Crush": 0 },
+			"MaxRange": 30,
+			"Projectile": { "Speed": 50, "Spread": 1, "Gravity": 1, "FriendlyFire": "false" }
+		}
+	});
+
+	// Melee target within 3D range
+	{
+		const defender = ++entityID;
+		AddMock(defender, IID_Position, {
+			"IsInWorld": () => true,
+			"GetHeightOffset": () => 0
+		});
+		TS_ASSERT_EQUALS(cmpAttack.CanEverReachTarget(defender, "Melee"), true);
+	}
+
+	// Melee target too high
+	{
+		const defender = ++entityID;
+		AddMock(defender, IID_Position, {
+			"IsInWorld": () => true,
+			"GetHeightOffset": () => 10
+		});
+		TS_ASSERT_EQUALS(cmpAttack.CanEverReachTarget(defender, "Melee"), false);
+	}
+
+	// Melee target at same height, within range (close distance)
+	{
+		const defender = ++entityID;
+		AddMock(defender, IID_Position, {
+			"IsInWorld": () => true,
+			"GetHeightOffset": () => 4
+		});
+		// sqrt(0² + 4²) = 4 <= 5
+		TS_ASSERT_EQUALS(cmpAttack.CanEverReachTarget(defender, "Melee"), true);
+	}
+
+	// Ranged: target at same height — reachable from current position (check 1)
+	{
+		const defender = ++entityID;
+		AddMock(defender, IID_Position, {
+			"IsInWorld": () => true,
+			"GetHeightOffset": () => 0,
+			"GetPosition": () => new Vector3D(1, 0, 2)
+		});
+		// Need RangeManager mock for IsTargetInRange (check 1) to work
+		AddMock(SYSTEM_ENTITY, IID_RangeManager, {
+			"GetEffectiveParabolicRange": () => 25,
+			"GetMaxReachableParabolicHeight": () => 15
+		});
+		AddMock(SYSTEM_ENTITY, IID_ObstructionManager, {
+			"IsInTargetRange": () => true
+		});
+		TS_ASSERT_EQUALS(cmpAttack.CanEverReachTarget(defender, "Ranged"), true);
+	}
+
+	// Ranged: target too high for parabolic arc even at closest approach (check 2)
+	{
+		const defender = ++entityID;
+		AddMock(defender, IID_Position, {
+			"IsInWorld": () => true,
+			"GetHeightOffset": () => 20,
+			"GetPosition": () => new Vector3D(1, 20, 2)
+		});
+
+		AddMock(SYSTEM_ENTITY, IID_RangeManager, {
+			"GetEffectiveParabolicRange": () => -1, // out of range
+			"GetMaxReachableParabolicHeight": () => 10
+		});
+
+		AddMock(SYSTEM_ENTITY, IID_ObstructionManager, {
+			"IsInTargetRange": () => false
+		});
+
+		// heightDiff = 20 - 0 = 20, maxReachableHeightDiff = 10 → unreachable
+		TS_ASSERT_EQUALS(cmpAttack.CanEverReachTarget(defender, "Ranged"), false);
+	}
+}
+testCanEverReachTarget();
+
+
