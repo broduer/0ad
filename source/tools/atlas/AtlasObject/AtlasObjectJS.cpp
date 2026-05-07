@@ -1,4 +1,4 @@
-/* Copyright (C) 2020 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,21 +18,16 @@
 #include "AtlasObject.h"
 #include "AtlasObjectImpl.h"
 
-#if defined(_MSC_VER)
-# pragma warning(disable:4996)	// deprecated CRT
-# pragma warning(disable: 4459) // global declaration hidden
-#endif
-
-#include "JSONSpiritInclude.h"
-
+#include <nlohmann/json.hpp>
 #include <sstream>
 
-static AtSmartPtr<AtNode> ConvertNode(json_spirit::Value node);
+using json = nlohmann::json;
+
+static AtSmartPtr<AtNode> ConvertNode(json node);
 
 AtObj AtlasObject::LoadFromJSON(const std::string& json)
 {
-	json_spirit::Value rootnode;
-	json_spirit::read_string(json, rootnode);
+	auto rootnode = json::parse(json);
 
 	AtObj obj;
 	obj.m_Node = ConvertNode(rootnode);
@@ -40,63 +35,60 @@ AtObj AtlasObject::LoadFromJSON(const std::string& json)
 }
 
 // Convert from a JSON to an AtNode
-static AtSmartPtr<AtNode> ConvertNode(json_spirit::Value node)
+static AtSmartPtr<AtNode> ConvertNode(json node)
 {
 	AtSmartPtr<AtNode> obj (new AtNode());
 
-	if (node.type() == json_spirit::str_type)
+	if (node.is_string())
 	{
-		obj->m_Value = node.get_str();
+		obj->m_Value = node.dump();
 	}
-	else if (node.type() == json_spirit::int_type || node.type() == json_spirit::real_type)
+	else if (node.is_number_integer() || node.is_number_unsigned())
 	{
 		std::stringstream stream;
-		if (node.type() == json_spirit::int_type)
-			stream << node.get_int();
-		if (node.type() == json_spirit::real_type)
-			stream << node.get_real();
+		if (node.is_number_integer())
+			stream << node.get<int>();
+		if (node.is_number_unsigned())
+			stream << node.get<unsigned int>();
 
 		obj->m_Value = stream.str().c_str();
 		obj->m_Children.insert(AtNode::child_pairtype(
 			"@number", AtSmartPtr<AtNode>(new AtNode())
 		));
 	}
-	else if (node.type() == json_spirit::bool_type)
+	else if (node.is_boolean())
 	{
-		obj->m_Value = node.get_bool() ? "true" : "false";
+		obj->m_Value = node.get<bool>() ? "true" : "false";
 
 		obj->m_Children.insert(AtNode::child_pairtype(
 			"@boolean", AtSmartPtr<AtNode>(new AtNode())
 		));
 	}
-	else if (node.type() == json_spirit::array_type)
+	else if (node.is_array())
 	{
 		obj->m_Children.insert(AtNode::child_pairtype(
 			"@array", AtSmartPtr<AtNode>(new AtNode())
 		));
 
-		json_spirit::Array nodeChildren = node.get_array();
-		json_spirit::Array::iterator itr = nodeChildren.begin();
+		json nodeChildren = node.get<std::vector<json>>();
 
-		for (; itr != nodeChildren.end(); ++itr)
+		for (auto child: nodeChildren)
 		{
 			obj->m_Children.insert(AtNode::child_pairtype(
-				"item", ConvertNode(*itr)
-			));
+				"item", ConvertNode(child)));
 		}
 	}
-	else if (node.type() == json_spirit::obj_type)
+	else if (node.is_object())
 	{
-		json_spirit::Object objectProperties = node.get_obj();
-		json_spirit::Object::iterator itr = objectProperties.begin();
-		for (; itr != objectProperties.end(); ++itr)
+		json objectProperties = node;
+		for (auto& property: objectProperties.items())
 		{
 			obj->m_Children.insert(AtNode::child_pairtype(
-				itr->name_, ConvertNode(itr->value_)
+				property.key(), ConvertNode(property.value())
 			));
 		}
 	}
-	else if (node.type() == json_spirit::null_type)
+	else if (node.is_null())
 	{
 		return obj;
 	}
@@ -109,11 +101,11 @@ static AtSmartPtr<AtNode> ConvertNode(json_spirit::Value node)
 }
 
 
-json_spirit::Value BuildJSONNode(AtNode::Ptr p)
+static json BuildJSONNode(AtNode::Ptr p)
 {
 	if (!p)
 	{
-		json_spirit::Value rval;
+		json rval;
 		return rval;
 	}
 
@@ -124,7 +116,7 @@ json_spirit::Value BuildJSONNode(AtNode::Ptr p)
 		double val = 0;
 		static_cast<std::stringstream>(p->m_Value) >> val;
 
-		json_spirit::Value rval(val);
+		json rval(val);
 		return rval;
 	}
 	else if (p->m_Children.count("@boolean"))
@@ -133,20 +125,20 @@ json_spirit::Value BuildJSONNode(AtNode::Ptr p)
 		if (p->m_Value == "true")
 			val = true;
 
-		json_spirit::Value rval(val);
+		json rval(val);
 		return rval;
 	}
 
 	// If no children, then use the value string instead
 	if (p->m_Children.empty())
 	{
-		json_spirit::Value rval(p->m_Value);
+		json rval(p->m_Value);
 		return rval;
 	}
 
 	if (p->m_Children.find("@array") != p->m_Children.end())
 	{
-		json_spirit::Array rval;
+		auto rval = json::array();
 
 		// Find the <item> children
 		AtNode::child_maptype::const_iterator lower = p->m_Children.lower_bound("item");
@@ -154,7 +146,7 @@ json_spirit::Value BuildJSONNode(AtNode::Ptr p)
 
 		for (AtNode::child_maptype::const_iterator it = lower; it != upper; ++it)
 		{
-			json_spirit::Value child = BuildJSONNode(it->second);
+			json child = BuildJSONNode(it->second);
 			rval.push_back(child);
 		}
 
@@ -162,16 +154,16 @@ json_spirit::Value BuildJSONNode(AtNode::Ptr p)
 	}
 	else
 	{
-		json_spirit::Object rval;
+		auto rval = json::object();
 
 		for (AtNode::child_maptype::const_iterator it = p->m_Children.begin(); it != p->m_Children.end(); ++it)
 		{
-			json_spirit::Value child = BuildJSONNode(it->second);
+			json child = BuildJSONNode(it->second);
 			// We don't serialize childs with null value.
 			// Instead of something like this we omit the whole property: "StartingCamera": null
 			// There's no special reason for that, it's just the same behaviour the previous implementations had.
-			if (child.type() != json_spirit::null_type)
-				rval.push_back(json_spirit::Pair(it->first.c_str(), child));
+			if (!child.is_null())
+				rval.emplace(it->first.c_str(), child);
 		}
 
 		return rval;
@@ -180,6 +172,6 @@ json_spirit::Value BuildJSONNode(AtNode::Ptr p)
 
 std::string AtlasObject::SaveToJSON(AtObj& obj)
 {
-	json_spirit::Value root = BuildJSONNode(obj.m_Node);
-	return json_spirit::write_string(root, json_spirit::raw_utf8);
+	auto root = BuildJSONNode(obj.m_Node);
+	return root.dump();
 }

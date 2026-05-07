@@ -37,6 +37,7 @@ RUN apt-get -qqy update \
         libvorbis-dev \
         libwxgtk3.2-dev \
         libxml2-dev \
+        nlohmann-json3-dev \
         lld-14 \
         llvm \
         llvm-14 \

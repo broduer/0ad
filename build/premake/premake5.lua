@@ -1307,6 +1307,7 @@ function setup_atlas_projects()
 		"sdl",
 		"spidermonkey",
 		"cxxtest",
+		"nlohmann_json",
 	},{	-- extra_params
 		no_pch = 1
 	})

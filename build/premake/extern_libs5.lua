@@ -572,6 +572,15 @@ extern_lib_defs = {
 			end
 		end,
 	},
+	nlohmann_json = {
+		compile_settings = function()
+			if os.istarget("windows") then
+				add_default_include_paths("nlohmann-json")
+			else
+				pkgconfig.add_includes("nlohmann_json")
+			end
+		end,
+	},
 	nvtt = {
 		compile_settings = function()
 			if not _OPTIONS["with-system-nvtt"] then

@@ -50,6 +50,7 @@ SODIUM_VERSION="libsodium-1.0.20"
 FMT_VERSION="7.1.3"
 MOLTENVK_VERSION="1.3.0"
 OPENAL_SOFT_VERSION="1.24.2"
+NLOHMANN_JSON_VERSION="3.12.0"
 # --------------------------------------------------------------
 # Bundled with the game:
 # * SpiderMonkey
@@ -1227,6 +1228,33 @@ echo "Building Molten VK..."
 		already_built
 	fi
 ) || die "Failed to build MoltenVK"
+
+# --------------------------------------------------------------
+echo "Setting up nlohman-json..."
+(
+	LIB_URL="https://github.com/nlohmann/json/archive/refs/tags/"
+	LIB_ARCHIVE="v${NLOHMANN_JSON_VERSION}.tar.gz"
+	mkdir -p nlohmann-json
+	cd nlohmann-json
+
+	if [ $force_rebuild = "true" ] || [ ! -e .already-built ] || [ "$(cat .already-built)" != "$NLOHMANN_JSON_VERSION" ]; then
+		rm -f .already-built
+
+		download_lib $LIB_URL $LIB_ARCHIVE
+		rm -Rf build
+		tar -xf $LIB_ARCHIVE
+
+		# install. We use the single header library, so no need to compile anything. Just install to generate the correct pkg-config file.
+		if cmake -S json-${NLOHMANN_JSON_VERSION} -B build -DJSON_MultipleHeaders=OFF -DCMAKE_INSTALL_PREFIX="$PWD" && cmake --install build; then
+			cp "$PWD"/share/pkgconfig/* "$PC_PATH"
+			echo "${NLOHMANN_JSON_VERSION}" >.already-built
+		else
+			die "Install of nlohmann-json failed..."
+		fi
+	else
+		already_built
+	fi
+) || die "Install of nlohmann-json failed..."
 
 # --------------------------------------------------------------------
 # The following libraries and build tools are shared on different OSes
