@@ -97,7 +97,7 @@ void CText::SetupText()
 			GetScrollBar(0).SetPos(0.0f);
 	}
 
-	if (!m_ScrollBar || !std::ranges::any_of(m_ScrollBars, &IGUIScrollBar::IsVisible))
+	if (!m_ScrollBar || !GetScrollBar(0).IsVisible())
 		CalculateTextPosition(GetActualSize(), m_TextPos, m_GeneratedTexts[0]);
 }
 
@@ -204,7 +204,7 @@ void CText::Draw(CCanvas2D& canvas)
 
 	const CGUIColor& color = m_Enabled ? m_TextColor : m_TextColorDisabled;
 
-	if (m_ScrollBar && std::ranges::any_of(m_ScrollBars, &IGUIScrollBar::IsVisible))
+	if (m_ScrollBar && GetScrollBar(0).IsVisible())
 	{
 		DrawText(canvas, 0, color, GetActualSize().TopLeft() - CVector2D(0.f, scroll), cliparea);
 		// Draw scrollbars on top of the content
