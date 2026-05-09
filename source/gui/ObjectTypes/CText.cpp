@@ -181,6 +181,9 @@ void CText::Draw(CCanvas2D& canvas)
 {
 	m_pGUI.DrawSprite(m_Sprite, canvas, GetActualSize(), m_VisibleArea);
 
+	// Ensure the scrollbars are up-to-date.
+	UpdateText();
+
 	float scroll = 0.f;
 	if (m_ScrollBar)
 		scroll = GetScrollBar(0).GetPos();
