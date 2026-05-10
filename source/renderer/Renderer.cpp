@@ -255,6 +255,58 @@ AbstractProfileTable* CRendererStatsTable::GetChild(size_t /*row*/)
 	return 0;
 }
 
+class CRendererBackendStatsTable : public AbstractProfileTable
+{
+public:
+	CRendererBackendStatsTable(const Renderer::Backend::IDevice& device)
+		: m_Device(device)
+	{
+		m_ColumnDescriptions.push_back(ProfileColumn("Name", 230));
+		m_ColumnDescriptions.push_back(ProfileColumn("Value", 100));
+	}
+
+	CStr GetName() override { return "renderer.backend"; }
+	CStr GetTitle() override { return "Renderer backend statistics"; }
+	size_t GetNumberRows() override { UpdateIfNeeded(); return m_Statistics.size(); }
+	const std::vector<ProfileColumn>& GetColumns() override { return m_ColumnDescriptions; }
+	AbstractProfileTable* GetChild(size_t) override { return nullptr; }
+
+	CStr GetCellText(size_t row, size_t col) override
+	{
+		UpdateIfNeeded();
+		if (row >= m_Statistics.size() || col > 2)
+			return "";
+		if (col == 0)
+			return CStr(m_Statistics[row].name);
+		return std::visit(
+			[]<typename T>(const T& value) -> std::string
+			{
+				return std::to_string(value);
+			},
+			m_Statistics[row].value) + " " + CStr{m_Statistics[row].unit};
+	}
+
+	void MakeOutdated() { m_Outdated = true; }
+
+private:
+	void UpdateIfNeeded()
+	{
+		if (!m_Outdated)
+			return;
+		m_Outdated = false;
+		m_Statistics.clear();
+		m_Device.CollectStatistics(m_Statistics);
+	}
+
+	const Renderer::Backend::IDevice& m_Device;
+
+	std::vector<ProfileColumn> m_ColumnDescriptions;
+	Renderer::Backend::IDevice::StatisticsVector m_Statistics;
+
+	// We need to recalculate statistics only when a new frame happened.
+	bool m_Outdated{true};
+};
+
 } // anonymous namespace
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -280,6 +332,7 @@ public:
 
 	/// Table to display renderer stats in-game via profile system
 	CRendererStatsTable profileTable;
+	CRendererBackendStatsTable backendProfileTable;
 
 	/// Shader manager
 	CShaderManager shaderManager;
@@ -321,6 +374,7 @@ public:
 		device(device),
 		deviceCommandContext(device->CreateCommandContext()),
 		IsOpen(false), ShadersDirty(true), profileTable(g_Renderer.m_Stats, linearAllocator),
+		backendProfileTable(*device),
 		shaderManager(device), textureManager(g_VFS, false, device), vertexBufferManager(device),
 		postprocManager(device), sceneRenderer(device), fontManager(device)
 	{
@@ -351,6 +405,7 @@ CRenderer::CRenderer(Renderer::Backend::IDevice* device)
 	m = std::make_unique<Internals>(device);
 
 	g_ProfileViewer.AddRootTable(&m->profileTable);
+	g_ProfileViewer.AddRootTable(&m->backendProfileTable);
 
 	m_Width = 0;
 	m_Height = 0;
@@ -861,6 +916,8 @@ void CRenderer::EndFrame()
 	m->sceneRenderer.EndFrame();
 
 	m->linearAllocator.Release();
+
+	m->backendProfileTable.MakeOutdated();
 }
 
 void CRenderer::MakeShadersDirty()
