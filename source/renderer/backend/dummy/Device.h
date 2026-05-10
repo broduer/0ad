@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -114,6 +114,8 @@ public:
 	uint64_t GetQueryResult(const uint32_t handle) override;
 
 	const Capabilities& GetCapabilities() const override { return m_Capabilities; }
+
+	void CollectStatistics(StatisticsVector&) const override {}
 
 protected:
 

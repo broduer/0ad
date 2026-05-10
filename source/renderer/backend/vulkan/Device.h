@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -145,6 +145,8 @@ public:
 
 	const Capabilities& GetCapabilities() const override { return m_Capabilities; }
 
+	void CollectStatistics(StatisticsVector& statistics) const override;
+
 	VkDevice GetVkDevice() const { return m_Device; }
 
 	VmaAllocator GetVMAAllocator() { return m_VMAAllocator; }
@@ -187,6 +189,8 @@ public:
 	CTexture* GetOrCreateBackbufferReadbackTexture();
 
 	DeviceObjectUID GenerateNextDeviceObjectUID();
+
+	uint32_t GetFrameID() const { return m_FrameID; }
 
 private:
 	CDevice();

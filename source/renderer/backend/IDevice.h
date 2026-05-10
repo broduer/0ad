@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -28,6 +28,7 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <variant>
 #include <vector>
 
 class CShaderDefines;
@@ -217,6 +218,26 @@ public:
 	virtual uint64_t GetQueryResult(const uint32_t handle) = 0;
 
 	virtual const Capabilities& GetCapabilities() const = 0;
+
+	/**
+	 * Collects backend-specific statistics.
+	 */
+	struct StatisticsItem
+	{
+		std::string_view name;
+		std::string_view unit;
+		std::variant<float, uint32_t> value;
+
+		// clang can't do emplace_back yet because of the aggregate type.
+		StatisticsItem(
+			std::string_view name, std::string_view unit,
+			std::variant<float, uint32_t> value)
+			: name(name), unit(unit), value(value)
+		{
+		}
+	};
+	using StatisticsVector = std::vector<StatisticsItem>;
+	virtual void CollectStatistics(StatisticsVector& statistics) const = 0;
 };
 
 } // namespace Backend

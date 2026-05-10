@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -196,6 +196,11 @@ VkRenderPass CRenderPassManager::GetOrCreateRenderPass(
 	it = m_RenderPassMap.emplace(desc, renderPass).first;
 
 	return renderPass;
+}
+
+void CRenderPassManager::CollectStatistics(IDevice::StatisticsVector& statistics) const
+{
+	statistics.emplace_back("VkRenderPass count", "", static_cast<uint32_t>(m_RenderPassMap.size()));
 }
 
 } // namespace Vulkan

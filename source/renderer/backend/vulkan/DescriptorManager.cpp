@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -462,6 +462,19 @@ void CDescriptorManager::OnDeviceObjectDestroy(const DeviceObjectUID uid)
 		}
 	}
 	m_UIDToSingleTypePoolMap.erase(it);
+}
+
+void CDescriptorManager::CollectStatistics(IDevice::StatisticsVector& statistics) const
+{
+	const uint32_t descriptorPoolCount{std::transform_reduce(
+		m_SingleTypePools.begin(), m_SingleTypePools.end(), 0u, std::plus(),
+		[](const auto& cacheItem)
+		{
+			return static_cast<uint32_t>(cacheItem.second.size());
+		})};
+
+	statistics.emplace_back("Cached VkDescriptorPool count", "", descriptorPoolCount);
+	statistics.emplace_back("Cached VkDescriptorSet count", "", static_cast<uint32_t>(m_SingleTypeSets.size()));
 }
 
 } // namespace Vulkan

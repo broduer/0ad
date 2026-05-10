@@ -981,6 +981,30 @@ uint64_t CDevice::GetQueryResult(const uint32_t handle)
 	return data;
 }
 
+void CDevice::CollectStatistics(StatisticsVector& statistics) const
+{
+	VmaBudget heapBudgets[VK_MAX_MEMORY_HEAPS];
+	vmaGetHeapBudgets(m_VMAAllocator, heapBudgets);
+
+	VmaStatistics totalStatistics{};
+	for (uint32_t index{0}; index < m_ChoosenDevice.memoryProperties.memoryHeapCount; ++index)
+	{
+		totalStatistics.blockCount += heapBudgets[index].statistics.blockCount;
+		totalStatistics.allocationCount += heapBudgets[index].statistics.allocationCount;
+		totalStatistics.blockBytes += heapBudgets[index].statistics.blockBytes;
+		totalStatistics.allocationBytes += heapBudgets[index].statistics.allocationBytes;
+	}
+
+	statistics.emplace_back("VMA total blockCount", "", totalStatistics.blockCount);
+	statistics.emplace_back("VMA total allocationCount", "", totalStatistics.allocationCount);
+	statistics.emplace_back("VMA total blockBytes", "MiB", static_cast<uint32_t>(totalStatistics.blockBytes / MiB));
+	statistics.emplace_back("VMA total allocationBytes", "MiB", static_cast<uint32_t>(totalStatistics.allocationBytes / MiB));
+
+	m_DescriptorManager->CollectStatistics(statistics);
+	m_SamplerManager->CollectStatistics(statistics);
+	m_RenderPassManager->CollectStatistics(statistics);
+}
+
 bool CDevice::IsFormatSupportedForUsage(const Format format, const uint32_t usage) const
 {
 	VkFormatProperties formatProperties{};

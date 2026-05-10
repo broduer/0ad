@@ -137,6 +137,8 @@ public:
 
 	const Capabilities& GetCapabilities() const override { return m_Capabilities; }
 
+	void CollectStatistics(StatisticsVector& statistics) const override;
+
 private:
 	CDevice();
 

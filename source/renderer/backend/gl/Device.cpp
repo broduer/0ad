@@ -1079,6 +1079,11 @@ void CDevice::InsertTimestampQuery(const uint32_t handle)
 #endif
 }
 
+void CDevice::CollectStatistics(StatisticsVector& statistics) const
+{
+	statistics.emplace_back("Backbuffer count", "", static_cast<uint32_t>(m_Backbuffers.size()));
+}
+
 std::unique_ptr<IDevice> CreateDevice(SDL_Window* window)
 {
 	return GL::CDevice::Create(window);

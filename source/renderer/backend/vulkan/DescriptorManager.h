@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -85,6 +85,8 @@ public:
 	const VkDescriptorSet& GetDescriptorIndexingSet() { return m_DescriptorIndexingSet; }
 
 	const std::vector<VkDescriptorSetLayout>& GetDescriptorSetLayouts() const { return m_DescriptorSetLayouts; }
+
+	void CollectStatistics(IDevice::StatisticsVector& statistics) const;
 
 private:
 	struct SingleTypePool
