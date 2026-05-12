@@ -50,6 +50,12 @@
         ]
       },
       {
+        "textFile": "corral.txt",
+        "imageFiles": [
+          "corral.png"
+        ]
+      },
+      {
         "textFile": "defense_tower.txt",
         "imageFiles": [
           "defense_tower.png"
@@ -210,6 +216,12 @@
         ]
       },
       {
+        "textFile": "arsenal.txt",
+        "imageFiles": [
+          "arsenal.png"
+        ]
+      },
+      {
         "textFile": "experience.txt",
         "imageFiles": [
           "ranks_achae.png",
@@ -229,6 +241,12 @@
         ]
       },
       {
+        "textFile": "great_hall.txt",
+        "imageFiles": [
+          "great_hall.png"
+        ]
+      },
+      {
         "textFile": "heroes.txt",
         "imageFiles": [
           "heroes.png"
@@ -241,9 +259,21 @@
         ]
       },
       {
+        "textFile": "library.txt",
+        "imageFiles": [
+          "library.png"
+        ]
+      },
+      {
         "textFile": "map_flare.txt",
         "imageFiles": [
           "map_flare.png"
+        ]
+      },
+      {
+        "textFile": "military_colony.txt",
+        "imageFiles": [
+          "military_colony.png"
         ]
       },
       {
@@ -363,6 +393,12 @@
         ]
       },
       {
+        "textFile": "council_chamber.txt",
+        "imageFiles": [
+          "council_chamber.png"
+        ]
+      },
+      {
         "textFile": "default_formation.txt",
         "imageFiles": [
           "default_formation.png"
@@ -390,6 +426,18 @@
         "textFile": "freehand_position.txt",
         "imageFiles": [
           "freehand_position.png"
+        ]
+      },
+      {
+        "textFile": "gymnasium.txt",
+        "imageFiles": [
+          "gymnasium.png"
+        ]
+      },
+      {
+        "textFile": "hoplite_tradition.txt",
+        "imageFiles": [
+          "hoplite_tradition.png"
         ]
       },
       {
@@ -429,6 +477,18 @@
         ]
       },
       {
+        "textFile": "regicide.txt",
+        "imageFiles": [
+          "regicide.png"
+        ]
+      },
+      {
+        "textFile": "relic.txt",
+        "imageFiles": [
+          "relic.png"
+        ]
+      },
+      {
         "textFile": "resource_lost.txt",
         "imageFiles": [
           "resource_lost.png"
@@ -456,6 +516,12 @@
         "textFile": "syntagma.txt",
         "imageFiles": [
           "syntagma.png"
+        ]
+      },
+      {
+        "textFile": "temple_of_isis.txt",
+        "imageFiles": [
+          "temple_of_isis.png"
         ]
       },
       {

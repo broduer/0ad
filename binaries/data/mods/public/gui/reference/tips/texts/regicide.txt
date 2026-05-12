@@ -1,0 +1,5 @@
+REGICIDE
+Choose the "Regicide" victory condition in the game setup.
+You start the match with a Hero from your civilization.
+Defeat an opponent by killing their Hero.
+Garrison your Hero inside a structure for protection if "Hero Garrison" is enabled.

@@ -1,0 +1,4 @@
+HOPLITE TRADITION
+Hoplites -25% training time, -50% promotion experience, and +10% health.
+Research it at the Civic Center in Town Phase.
+Available only to the Athenians and Spartans.

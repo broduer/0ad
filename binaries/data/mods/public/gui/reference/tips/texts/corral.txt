@@ -1,0 +1,6 @@
+CORRAL
+Train animals for food.
+Garrison up to 8 animals to gain a food trickle.
+Each garrisoned animal adds its full food trickle.
+Research Stockbreeding to breed domestic animals faster.
+Available to all civilizations in Village Phase.

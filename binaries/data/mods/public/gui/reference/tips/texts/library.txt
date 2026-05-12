@@ -1,0 +1,4 @@
+LIBRARY
+Reduces structure costs by 15%.
+Reduces structure build time by 15%.
+Available to the Macedonians, Ptolemies and Seleucids.

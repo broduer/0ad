@@ -1,0 +1,5 @@
+RELICS
+Relics are catafalques that hold the remains of great leaders.
+Each Relic provides a military or economic aura bonus to its owner.
+Enable "Capture the Relic" in the game setup to win by controlling all Relics.
+Use "Relic Count" and "Relic Duration" to set how many Relics spawn and how long they must be held.

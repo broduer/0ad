@@ -1,0 +1,5 @@
+MILITARY COLONY
+Can be built only in own or neutral territory.
+Available only to the Ptolemies and Seleucids in Town Phase.
+Use it to extend your territory without building a full Civic Center.
+Trains civ-specific Mercenary units for expansion and frontier defense.

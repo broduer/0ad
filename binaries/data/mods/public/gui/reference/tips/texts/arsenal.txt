@@ -1,0 +1,6 @@
+ARSENAL
+Construct Siege Engines, train Champion Infantry Crossbowmen.
+Research Siege Engine technologies to improve unit capabilities.
+Garrison Siege Engines to regenerate their health.
+Available to all civilizations in City Phase.
+Available to Macedonians in Town Phase, giving early access to Bolt Shooters.

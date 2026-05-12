@@ -1,0 +1,6 @@
+TEMPLE OF ISIS
+Train Ptolemaic Heroes and Healers.
+Research healing technologies and special cult technologies.
+Research Serapis Cult for a metal trickle.
+Research Pharaonic Cult to improve hero health regeneration.
+Available only to the Ptolemies in City Phase.
