@@ -81,11 +81,11 @@ that of Atlas depending on commandline parameters.
 #include "renderer/Renderer.h"
 #include "rlinterface/RLInterface.h"
 #include "scriptinterface/JSON.h"
-#include "scriptinterface/ScriptContext.h"
+#include "scriptinterface/Context.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptEngine.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Engine.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/system/TurnManager.h"
 #include "soundmanager/ISoundManager.h"
 
@@ -227,7 +227,7 @@ static InReaction MainInputHandler(const SDL_Event_* ev)
 		else
 		{
 			LOGMESSAGE("Installed mod %s", installer.GetInstalledMods().front());
-			ScriptInterface modInterface("Engine", "Mod", g_ScriptContext);
+			Script::Interface modInterface("Engine", "Mod", g_ScriptContext);
 			g_Mods.UpdateAvailableMods(modInterface);
 			RestartEngine();
 		}
@@ -277,7 +277,7 @@ static InReaction MainInputHandler(const SDL_Event_* ev)
 // dispatch all pending events to the various receivers.
 static void PumpEvents()
 {
-	ScriptRequest rq(g_GUI->GetScriptInterface());
+	Script::Request rq(g_GUI->GetScriptInterface());
 
 	PROFILE3("dispatch events");
 
@@ -640,7 +640,7 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 
 	// We need to initialize SpiderMonkey and libxml2 in the main thread before
 	// any thread uses them. So initialize them here before we might run Atlas.
-	ScriptEngine scriptEngine;
+	Script::Engine scriptEngine;
 	CXeromycesEngine xeromycesEngine;
 
 	// Initialise the global task manager at this point (JS & Profiler2 are set up).
@@ -743,7 +743,7 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 
 			installedMods = installer.GetInstalledMods();
 
-			ScriptInterface modInterface("Engine", "Mod", g_ScriptContext);
+			Script::Interface modInterface("Engine", "Mod", g_ScriptContext);
 			g_Mods.UpdateAvailableMods(modInterface);
 		}
 
@@ -751,7 +751,7 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 		std::optional<DAP::Interface> dapInterface{CreateDAPInterface(args)};
 #endif // CONFIG2_DAP_INTERFACE
 
-		std::optional<ScriptInterface> guiScriptInterface;
+		std::optional<Script::Interface> guiScriptInterface;
 
 		if (isVisual)
 		{

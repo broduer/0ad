@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -62,7 +62,7 @@ void CSimContext::SetComponentManager(CComponentManager* man)
 	m_ComponentManager = man;
 }
 
-ScriptInterface& CSimContext::GetScriptInterface() const
+Script::Interface& CSimContext::GetScriptInterface() const
 {
 	return GetComponentManager().GetScriptInterface();
 }

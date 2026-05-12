@@ -22,7 +22,7 @@
 #include "maths/NUSpline.h"
 #include "ps/CStr.h"
 #include "ps/XML/Xeromyces.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/ICmpCinemaManager.h"
 #include "simulation2/helpers/CinemaPath.h"

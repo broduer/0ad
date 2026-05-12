@@ -43,9 +43,9 @@
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpPlayer.h"
 #include "simulation2/components/ICmpPlayerManager.h"
@@ -204,8 +204,8 @@ bool CGame::StartVisualReplay(const OsPath& replayPath)
 	std::string line;
 	std::getline(*m_ReplayStream, line);
 
-	const ScriptInterface& scriptInterface = m_Simulation2->GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	const Script::Interface& scriptInterface = m_Simulation2->GetScriptInterface();
+	Script::Request rq(scriptInterface);
 
 	JS::RootedValue attribs(rq.cx);
 	Script::ParseJSON(rq, line, &attribs);
@@ -221,8 +221,8 @@ bool CGame::StartVisualReplay(const OsPath& replayPath)
  **/
 void CGame::RegisterInit(const JS::HandleValue attribs, const std::string& savedState)
 {
-	const ScriptInterface& scriptInterface = m_Simulation2->GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	const Script::Interface& scriptInterface = m_Simulation2->GetScriptInterface();
+	Script::Request rq(scriptInterface);
 
 	m_IsSavedGame = !savedState.empty();
 
@@ -358,8 +358,8 @@ PSRETURN CGame::ReallyStartGame()
 	// Call the reallyStartGame GUI function, but only if it exists
 	if (g_GUI && g_GUI->GetPageCount())
 	{
-		std::shared_ptr<ScriptInterface> scriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
-		ScriptRequest rq(scriptInterface);
+		std::shared_ptr<Script::Interface> scriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
+		Script::Request rq(scriptInterface);
 
 		JS::RootedValue global(rq.cx, rq.globalValue());
 		if (Script::HasProperty(rq, global, "reallyStartGame"))

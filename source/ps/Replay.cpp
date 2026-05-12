@@ -41,9 +41,9 @@
 #include "ps/VisualReplay.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "scriptinterface/ScriptStats.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpGuiInterface.h"
@@ -62,7 +62,7 @@
  */
 static const int PROFILE_TURN_INTERVAL = 20;
 
-CReplayLogger::CReplayLogger(const ScriptInterface& scriptInterface) :
+CReplayLogger::CReplayLogger(const Script::Interface& scriptInterface) :
 	m_ScriptInterface(scriptInterface), m_Stream(NULL)
 {
 }
@@ -74,7 +74,7 @@ CReplayLogger::~CReplayLogger()
 
 void CReplayLogger::StartGame(JS::MutableHandleValue attribs)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 
 	// Add timestamp, since the file-modification-date can change
 	Script::SetProperty(rq, attribs, "timestamp", (double)std::time(nullptr));
@@ -94,7 +94,7 @@ void CReplayLogger::StartGame(JS::MutableHandleValue attribs)
 
 void CReplayLogger::Turn(u32 n, u32 turnLength, std::vector<SimulationCommand>& commands)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 
 	*m_Stream << "turn " << n << " " << turnLength << "\n";
 
@@ -122,8 +122,8 @@ void CReplayLogger::SaveMetadata(const CSimulation2& simulation)
 		return;
 	}
 
-	ScriptInterface& scriptInterface = simulation.GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	Script::Interface& scriptInterface = simulation.GetScriptInterface();
+	Script::Request rq(scriptInterface);
 
 	JS::RootedValue arg(rq.cx);
 	JS::RootedValue metadata(rq.cx);
@@ -203,7 +203,7 @@ void CReplayPlayer::Replay(const int serializationtestturn, const int rejointest
 
 	const int contextSize = 384 * 1024 * 1024;
 	const int heapGrowthBytesGCTrigger = 12 * 1024 * 1024;
-	g_ScriptContext = std::make_shared<ScriptContext>(contextSize, heapGrowthBytesGCTrigger);
+	g_ScriptContext = std::make_shared<Script::Context>(contextSize, heapGrowthBytesGCTrigger);
 
 	std::vector<SimulationCommand> commands;
 	u32 turn = 0;
@@ -218,8 +218,8 @@ void CReplayPlayer::Replay(const int serializationtestturn, const int rejointest
 		{
 			std::string attribsStr;
 			{
-				ScriptInterface scriptInterface("Engine", "Replay", g_ScriptContext);
-				ScriptRequest rq(scriptInterface);
+				Script::Interface scriptInterface("Engine", "Replay", g_ScriptContext);
+				Script::Request rq(scriptInterface);
 				std::getline(*m_Stream, attribsStr);
 				JS::RootedValue attribs(rq.cx);
 				if (!Script::ParseJSON(rq, attribsStr, &attribs))
@@ -266,7 +266,7 @@ void CReplayPlayer::Replay(const int serializationtestturn, const int rejointest
 
 			g_Game = new CGame(false, debugOption);
 
-			ScriptRequest rq(g_Game->GetSimulation2()->GetScriptInterface());
+			Script::Request rq(g_Game->GetSimulation2()->GetScriptInterface());
 			JS::RootedValue attribs(rq.cx);
 			ENSURE(Script::ParseJSON(rq, attribsStr, &attribs));
 			g_Game->StartGame(&attribs, "");
@@ -289,7 +289,7 @@ void CReplayPlayer::Replay(const int serializationtestturn, const int rejointest
 
 			std::string line;
 			std::getline(*m_Stream, line);
-			ScriptRequest rq(g_Game->GetSimulation2()->GetScriptInterface());
+			Script::Request rq(g_Game->GetSimulation2()->GetScriptInterface());
 			JS::RootedValue data(rq.cx);
 			Script::ParseJSON(rq, line, &data);
 			Script::DeepFreezeObject(rq, data);

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,7 +22,7 @@
 
 #include <vector>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
 #define g_Mods (Mod::Instance())
 
@@ -65,7 +65,7 @@ public:
 	 * TODO: if this did not need the scriptInterface to parse JSON,
 	 * we could run it in different contexts and possibly cleaner.
 	 */
-	void UpdateAvailableMods(const ScriptInterface& scriptInterface);
+	void UpdateAvailableMods(const Script::Interface& scriptInterface);
 
 	/**
 	 * Enables specified mods (& mods required by the engine).

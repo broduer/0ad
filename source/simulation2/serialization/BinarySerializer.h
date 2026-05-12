@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -39,8 +39,8 @@
 #include <string>
 
 class JSTracer;
-class ScriptInterface;
-class ScriptRequest;
+namespace Script { class Interface; }
+namespace Script { class Request; }
 
 /**
  * Wrapper for redirecting ostream writes to CBinarySerializer's impl
@@ -98,22 +98,22 @@ protected:
 class CBinarySerializerScriptImpl
 {
 public:
-	CBinarySerializerScriptImpl(const ScriptInterface& scriptInterface, ISerializer& serializer);
+	CBinarySerializerScriptImpl(const Script::Interface& scriptInterface, ISerializer& serializer);
 	~CBinarySerializerScriptImpl();
 
 	void PutScriptVal(JS::HandleValue val);
 private:
-	void ScriptString(const ScriptRequest& rq, const char* name, JS::HandleString string);
-	void HandleScriptVal(const ScriptRequest& rq, JS::HandleValue val);
+	void ScriptString(const Script::Request& rq, const char* name, JS::HandleString string);
+	void HandleScriptVal(const Script::Request& rq, JS::HandleValue val);
 	static void Trace(JSTracer* trc, void* data);
 
-	const ScriptInterface& m_ScriptInterface;
+	const Script::Interface& m_ScriptInterface;
 	ISerializer& m_Serializer;
 
 	using ObjectTagMap = JS::GCHashMap<JS::Heap<JSObject*>, u32, js::StableCellHasher<JSObject*>, js::SystemAllocPolicy>;
 	ObjectTagMap m_ScriptBackrefTags;
 	u32 m_ScriptBackrefsNext;
-	u32 GetScriptBackrefTag(const ScriptRequest& rq, JS::HandleObject obj);
+	u32 GetScriptBackrefTag(const Script::Request& rq, JS::HandleObject obj);
 
 	JS::PropertyKey m_SerializePropId;
 	JS::PropertyKey m_DeserializePropId;
@@ -129,7 +129,7 @@ class CBinarySerializer : public ISerializer
 {
 	NONCOPYABLE(CBinarySerializer);
 public:
-	CBinarySerializer(const ScriptInterface& scriptInterface) :
+	CBinarySerializer(const Script::Interface& scriptInterface) :
 		m_ScriptImpl(new CBinarySerializerScriptImpl(scriptInterface, *this)),
 		m_RawStreamBuf(m_Impl),
 		m_RawStream(&m_RawStreamBuf)
@@ -137,7 +137,7 @@ public:
 	}
 
 	template <typename A>
-	CBinarySerializer(const ScriptInterface& scriptInterface, A& a) :
+	CBinarySerializer(const Script::Interface& scriptInterface, A& a) :
 		m_ScriptImpl(new CBinarySerializerScriptImpl(scriptInterface, *this)),
 		m_Impl(a),
 		m_RawStreamBuf(m_Impl),

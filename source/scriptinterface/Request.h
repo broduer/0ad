@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,8 +15,8 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef INCLUDED_SCRIPTREQUEST
-#define INCLUDED_SCRIPTREQUEST
+#ifndef INCLUDED_SCRIPT_REQUEST
+#define INCLUDED_SCRIPT_REQUEST
 
 #include "scriptinterface/ScriptForward.h"
 
@@ -24,9 +24,9 @@
 #include <js/TypeDecls.h>
 #include <memory>
 
-class ScriptInterface;
 namespace JS { class Realm; }
 namespace JS { class Value; }
+namespace Script { class Interface; }
 struct JSContext;
 
 /**
@@ -37,53 +37,57 @@ struct JSContext;
  * 'Entering' and 'Leaving' realms must be done in a LIFO manner.
  * SM recommends using JSAutoRealm, which provides an RAII option.
  *
- * ScriptRequest combines both of the above in a single convenient package,
+ * Script::Request combines both of the above in a single convenient package,
  * providing safe access to the JSContext*, the global object, and ensuring that the proper realm has been entered.
- * Most scriptinterface/ functions will take a ScriptRequest, to ensure proper rooting. You may sometimes
- * have to create one from a ScriptInterface.
+ * Most scriptinterface/ functions will take a Script::Request, to ensure proper rooting. You may sometimes
+ * have to create one from a Script::Interface.
  *
  * Be particularly careful when manipulating several script interfaces.
  */
-class ScriptRequest
+namespace Script
 {
-	ScriptRequest() = delete;
-	ScriptRequest(const ScriptRequest& rq) = delete;
-	ScriptRequest& operator=(const ScriptRequest& rq) = delete;
+
+class Request
+{
+	Request() = delete;
+	Request(const Script::Request& rq) = delete;
+	Request& operator=(const Script::Request& rq) = delete;
 public:
 	/**
 	 * NB: the definitions are in scriptinterface.cpp, because these access members of the PImpled
-	 * implementation of ScriptInterface, and that seemed more convenient.
+	 * implementation of Script::Interface, and that seemed more convenient.
 	 */
-	ScriptRequest(const ScriptInterface& scriptInterface);
-	ScriptRequest(const ScriptInterface* scriptInterface) : ScriptRequest(*scriptInterface) {}
-	ScriptRequest(std::shared_ptr<ScriptInterface> scriptInterface) : ScriptRequest(*scriptInterface) {}
-	~ScriptRequest();
+	Request(const Script::Interface& scriptInterface);
+	Request(const Script::Interface* scriptInterface) : Request(*scriptInterface) {}
+	Request(std::shared_ptr<Script::Interface> scriptInterface) : Request(*scriptInterface) {}
+	~Request();
 
 	/**
 	 * Create a script request from a JSContext.
 	 * This can be used to get the script interface in a JSNative function.
 	 * In general, you shouldn't have to rely on this otherwise.
 	 */
-	ScriptRequest(JSContext* cx);
+	Request(JSContext* cx);
 
 	/**
-	 * Return the scriptInterface active when creating this ScriptRequest.
-	 * Note that this is multi-request safe: even if another ScriptRequest is created,
+	 * Return the scriptInterface active when creating this Script::Request.
+	 * Note that this is multi-request safe: even if another Script::Request is created,
 	 * it will point to the original scriptInterface, and thus can be used to re-enter the realm.
 	 */
-	const ScriptInterface& GetScriptInterface() const;
+	const Script::Interface& GetScriptInterface() const;
 
 	JS::Value globalValue() const;
 
-	// Note that JSContext actually changes behind the scenes when creating another ScriptRequest for another realm,
+	// Note that JSContext actually changes behind the scenes when creating another Script::Request for another realm,
 	// so be _very_ careful when juggling between different realms.
 	JSContext* cx;
 	JS::HandleObject glob;
 	JS::HandleObject nativeScope;
 private:
-	const ScriptInterface& m_ScriptInterface;
+	const Script::Interface& m_ScriptInterface;
 	JS::Realm* m_FormerRealm;
 };
 
+}
 
-#endif // INCLUDED_SCRIPTREQUEST
+#endif // INCLUDED_SCRIPT_REQUEST

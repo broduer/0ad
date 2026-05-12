@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,8 +24,8 @@
 
 class CmdLineArgs;
 class Paths;
-class ScriptContext;
-class ScriptInterface;
+namespace Script { class Context; }
+namespace Script { class Interface; }
 
 /**
  * initialize global modules that are be needed before Init.
@@ -76,7 +76,7 @@ extern void InitInput();
  * `ShutdownNetworkAndUI` has to be called later.
  */
 void InitGraphics(const CmdLineArgs& args, int flags, const std::vector<CStr>& installedMods,
-	ScriptContext& scriptContext, ScriptInterface& scriptInterface);
+	Script::Context& scriptContext, Script::Interface& scriptInterface);
 
 /**
  * `ShutdownNetworkAndUI` has to be called later.

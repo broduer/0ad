@@ -31,11 +31,11 @@
 #include <string>
 
 class CGUIString;
-class ScriptRequest;
+namespace Script { class Request; }
 
 // Called for every specialization - adds the common interface.
 template<>
-void JSI_GUIProxy<IGUIObject>::CreateFunctions(const ScriptRequest& rq, GUIProxyProps* cache)
+void JSI_GUIProxy<IGUIObject>::CreateFunctions(const Script::Request& rq, GUIProxyProps* cache)
 {
 	CreateFunction<&IGUIObject::GetName>(rq, cache, "toString");
 	CreateFunction<&IGUIObject::GetName>(rq, cache, "toSource");
@@ -48,7 +48,7 @@ DECLARE_GUIPROXY(IGUIObject);
 // Implement derived types below.
 
 // CButton
-template<> void JSI_GUIProxy<CButton>::CreateFunctions(const ScriptRequest& rq, GUIProxyProps* cache)
+template<> void JSI_GUIProxy<CButton>::CreateFunctions(const Script::Request& rq, GUIProxyProps* cache)
 {
 	CreateFunction<&CButton::GetTextSize>(rq, cache, "getTextSize");
 	CreateFunction<&CButton::GetPreferredTextSize>(rq, cache, "getPreferredTextSize");
@@ -56,7 +56,7 @@ template<> void JSI_GUIProxy<CButton>::CreateFunctions(const ScriptRequest& rq, 
 DECLARE_GUIPROXY(CButton);
 
 // CText
-template<> void JSI_GUIProxy<CText>::CreateFunctions(const ScriptRequest& rq, GUIProxyProps* cache)
+template<> void JSI_GUIProxy<CText>::CreateFunctions(const Script::Request& rq, GUIProxyProps* cache)
 {
 	CreateFunction<&CText::GetTextSize>(rq, cache, "getTextSize");
 	CreateFunction<&CText::GetPreferredTextSize>(rq, cache, "getPreferredTextSize");
@@ -64,28 +64,28 @@ template<> void JSI_GUIProxy<CText>::CreateFunctions(const ScriptRequest& rq, GU
 DECLARE_GUIPROXY(CText);
 
 // CList
-template<> void JSI_GUIProxy<CList>::CreateFunctions(const ScriptRequest& rq, GUIProxyProps* cache)
+template<> void JSI_GUIProxy<CList>::CreateFunctions(const Script::Request& rq, GUIProxyProps* cache)
 {
 	CreateFunction<static_cast<void(CList::*)(const CGUIString&)>(&CList::AddItem)>(rq, cache, "addItem");
 }
 DECLARE_GUIPROXY(CList);
 
 // CDropDown
-template<> void JSI_GUIProxy<CDropDown>::CreateFunctions(const ScriptRequest& rq, GUIProxyProps* cache)
+template<> void JSI_GUIProxy<CDropDown>::CreateFunctions(const Script::Request& rq, GUIProxyProps* cache)
 {
 	CreateFunction<&CDropDown::GetPreferredHeaderTextSize>(rq, cache, "getPreferredHeaderTextSize");
 }
 DECLARE_GUIPROXY(CDropDown);
 
 // CMiniMap
-template<> void JSI_GUIProxy<CMiniMap>::CreateFunctions(const ScriptRequest& rq, GUIProxyProps* cache)
+template<> void JSI_GUIProxy<CMiniMap>::CreateFunctions(const Script::Request& rq, GUIProxyProps* cache)
 {
 	CreateFunction<&CMiniMap::Flare>(rq, cache, "flare");
 }
 DECLARE_GUIPROXY(CMiniMap);
 
 // CScrollPanel
-template<> void JSI_GUIProxy<CScrollPanel>::CreateFunctions(const ScriptRequest& rq, GUIProxyProps* cache)
+template<> void JSI_GUIProxy<CScrollPanel>::CreateFunctions(const Script::Request& rq, GUIProxyProps* cache)
 {
 	CreateFunction<&CScrollPanel::ResetScrollPosition>(rq, cache, "resetScrollPosition");
 }

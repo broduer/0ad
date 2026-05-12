@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -23,7 +23,7 @@
 #include "maths/Matrix3D.h"
 #include "ps/CStr.h"
 #include "ps/XML/Xeromyces.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/ICmpObstruction.h"
 #include "simulation2/components/ICmpObstructionManager.h"

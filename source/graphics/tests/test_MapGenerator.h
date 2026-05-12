@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@
 #include "ps/Filesystem.h"
 #include "ps/Future.h"
 #include "ps/XML/Xeromyces.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "scriptinterface/StructuredClone.h"
 
 #include <atomic>
@@ -66,7 +66,7 @@ public:
 		for (const VfsPath& path : paths)
 		{
 			TestLogger logger;
-			ScriptInterface scriptInterface{"Engine", "MapGenerator", g_ScriptContext,
+			Script::Interface scriptInterface{"Engine", "MapGenerator", g_ScriptContext,
 				[](const VfsPath& path){
 					return path.string().find(RANDOM_MAP_PREFIX) == 0;
 				}};

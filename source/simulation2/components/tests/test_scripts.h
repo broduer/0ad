@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -27,9 +27,9 @@
 #include "ps/Filesystem.h"
 #include "ps/XML/Xeromyces.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/serialization/StdDeserializer.h"
 #include "simulation2/serialization/StdSerializer.h"
 #include "simulation2/system/Component.h"
@@ -57,7 +57,7 @@ public:
 		g_VFS.reset();
 	}
 
-	static void load_script(const ScriptInterface& scriptInterface, const VfsPath& pathname)
+	static void load_script(const Script::Interface& scriptInterface, const VfsPath& pathname)
 	{
 		CVFSFile file;
 		TS_ASSERT_EQUALS(file.Load(g_VFS, pathname), PSRETURN_OK);
@@ -65,23 +65,23 @@ public:
 		TSM_ASSERT(L"Running script "+pathname.string(), scriptInterface.LoadScript(pathname, content));
 	}
 
-	static void Script_LoadComponentScript(const ScriptInterface& scriptInterface, const VfsPath& pathname)
+	static void Script_LoadComponentScript(const Script::Interface& scriptInterface, const VfsPath& pathname)
 	{
-		ScriptRequest rq(scriptInterface);
+		Script::Request rq(scriptInterface);
 		CComponentManager* componentManager = scriptInterface.ObjectFromCBData<CComponentManager>(rq);
 		TS_ASSERT(componentManager->LoadScript(VfsPath(L"simulation/components") / pathname));
 	}
 
-	static void Script_LoadHelperScript(const ScriptInterface& scriptInterface, const VfsPath& pathname)
+	static void Script_LoadHelperScript(const Script::Interface& scriptInterface, const VfsPath& pathname)
 	{
-		ScriptRequest rq(scriptInterface);
+		Script::Request rq(scriptInterface);
 		CComponentManager* componentManager = scriptInterface.ObjectFromCBData<CComponentManager>(rq);
 		TS_ASSERT(componentManager->LoadScript(VfsPath(L"simulation/helpers") / pathname));
 	}
 
-	static JS::Value Script_SerializationRoundTrip(const ScriptInterface& scriptInterface, JS::HandleValue value)
+	static JS::Value Script_SerializationRoundTrip(const Script::Interface& scriptInterface, JS::HandleValue value)
 	{
-		ScriptRequest rq(scriptInterface);
+		Script::Request rq(scriptInterface);
 
 		JS::RootedValue val(rq.cx);
 		val = value;
@@ -110,7 +110,7 @@ public:
 			CComponentManager componentManager(context, *g_ScriptContext, true);
 			ScriptTestSetup(componentManager.GetScriptInterface());
 
-			ScriptRequest rq(componentManager.GetScriptInterface());
+			Script::Request rq(componentManager.GetScriptInterface());
 			ScriptFunction::Register<Script_SerializationRoundTrip>(rq, "SerializationRoundTrip");
 
 			load_script(componentManager.GetScriptInterface(), path);
@@ -139,7 +139,7 @@ public:
 
 			ScriptTestSetup(componentManager.GetScriptInterface());
 
-			ScriptRequest rq(componentManager.GetScriptInterface());
+			Script::Request rq(componentManager.GetScriptInterface());
 			ScriptFunction::Register<Script_LoadComponentScript>(rq, "LoadComponentScript");
 			ScriptFunction::Register<Script_LoadHelperScript>(rq, "LoadHelperScript");
 			ScriptFunction::Register<Script_SerializationRoundTrip>(rq, "SerializationRoundTrip");

@@ -52,8 +52,8 @@
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"
 #include "soundmanager/ISoundManager.h"
 
@@ -115,7 +115,7 @@ namespace
 class Reporter
 {
 public:
-	Reporter(const ScriptRequest& rq)
+	Reporter(const Script::Request& rq)
 		: m_Rq(rq), m_LibrarySettings(rq.cx)
 	{
 		Script::CreateObject(m_Rq, &m_LibrarySettings);
@@ -134,21 +134,21 @@ public:
 	}
 
 private:
-	const ScriptRequest& m_Rq;
+	const Script::Request& m_Rq;
 	JS::RootedValue m_LibrarySettings;
 };
 
 class LibraryReporter : public Reporter
 {
 public:
-	LibraryReporter(const ScriptRequest& rq, const char* name)
+	LibraryReporter(const Script::Request& rq, const char* name)
 		: Reporter(rq)
 	{
 		Add("name", name);
 	}
 };
 
-JS::Value MakeSDLReport(const ScriptRequest& rq)
+JS::Value MakeSDLReport(const Script::Request& rq)
 {
 	LibraryReporter reporter{rq, "sdl"};
 
@@ -175,7 +175,7 @@ JS::Value MakeSDLReport(const ScriptRequest& rq)
 	return reporter.MakeReport();
 }
 
-JS::Value MakeFreeTypeReport(const ScriptRequest& rq)
+JS::Value MakeFreeTypeReport(const Script::Request& rq)
 {
 	FT_Library FTLibrary;
 
@@ -194,7 +194,7 @@ JS::Value MakeFreeTypeReport(const ScriptRequest& rq)
 	return libraryReporter.MakeReport();
 }
 
-void ReportLibraries(const ScriptRequest& rq, JS::HandleValue settings)
+void ReportLibraries(const Script::Request& rq, JS::HandleValue settings)
 {
 	JS::RootedValueVector librariesSettings{rq.cx};
 
@@ -336,9 +336,9 @@ void RunHardwareDetection(bool writeSystemInfoBeforeDetection, Renderer::Backend
 
 	PROFILE2("RunHardwareDetection");
 
-	ScriptInterface scriptInterface("Engine", "HWDetect", g_ScriptContext);
+	Script::Interface scriptInterface("Engine", "HWDetect", g_ScriptContext);
 
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 
 	JSI_Debug::RegisterScriptFunctions(scriptInterface); // Engine.DisplayErrorDialog
 	JSI_ConfigDB::RegisterScriptFunctions(scriptInterface);

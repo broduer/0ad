@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -35,14 +35,14 @@
 #include <string>
 #include <vector>
 
-class ScriptRequest;
+namespace Script { class Request; }
 
 #define DEFAULT_MESSAGE_IMPL(name) \
 	virtual int GetType() const { return MT_##name; } \
 	virtual const char* GetScriptHandlerName() const { return "On" #name; } \
 	virtual const char* GetScriptGlobalHandlerName() const { return "OnGlobal" #name; } \
-	virtual JS::Value ToJSVal(const ScriptRequest& rq) const; \
-	static CMessage* FromJSVal(const ScriptRequest&, JS::HandleValue val);
+	virtual JS::Value ToJSVal(const Script::Request& rq) const; \
+	static CMessage* FromJSVal(const Script::Request&, JS::HandleValue val);
 
 class SceneCollector;
 class CFrustum;

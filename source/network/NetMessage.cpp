@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -93,7 +93,7 @@ CStr CNetMessage::ToString() const
 
 CNetMessage* CNetMessageFactory::CreateMessage(const void* pData,
 											   size_t dataSize,
-											   const ScriptInterface& scriptInterface)
+											   const Script::Interface& scriptInterface)
 {
 	CNetMessage* pNewMessage = NULL;
 	CNetMessage header;

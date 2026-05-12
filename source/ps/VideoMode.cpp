@@ -45,7 +45,7 @@
 #include "renderer/backend/dummy/DeviceForward.h"
 #include "renderer/backend/gl/DeviceForward.h"
 #include "renderer/backend/vulkan/DeviceForward.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 
 #include <SDL.h>
 #include <SDL_error.h>

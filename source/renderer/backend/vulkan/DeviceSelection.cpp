@@ -22,7 +22,7 @@
 #include "ps/CLogger.h"
 #include "renderer/backend/vulkan/Utilities.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 
 #include <algorithm>
 #include <iterator>
@@ -336,7 +336,7 @@ bool IsSurfaceFormatSupported(
 }
 
 void ReportAvailablePhysicalDevice(const SAvailablePhysicalDevice& device,
-	const ScriptRequest& rq, JS::HandleValue settings)
+	const Script::Request& rq, JS::HandleValue settings)
 {
 	Script::SetProperty(rq, settings, "name", device.properties.deviceName);
 	Script::SetProperty(rq, settings, "version",

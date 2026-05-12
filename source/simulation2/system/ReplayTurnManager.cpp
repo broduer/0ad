@@ -24,7 +24,7 @@
 #include "ps/Util.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/system/LocalTurnManager.h"
 
@@ -37,7 +37,7 @@
 #include <utility>
 
 class IReplayLogger;
-class ScriptInterface;
+namespace Script { class Interface; }
 
 const CStr CReplayTurnManager::EventNameReplayFinished = "ReplayFinished";
 const CStr CReplayTurnManager::EventNameReplayOutOfSync = "ReplayOutOfSync";
@@ -101,8 +101,8 @@ void CReplayTurnManager::NotifyFinishedUpdate(u32 turn, const UpdateCallback& se
 	m_HasSyncError = true;
 	LOGERROR("Replay out of sync on turn %d", turn);
 
-	const ScriptInterface& scriptInterface = m_Simulation2.GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	const Script::Interface& scriptInterface = m_Simulation2.GetScriptInterface();
+	Script::Request rq(scriptInterface);
 
 	JS::RootedValueVector paramData(rq.cx);
 
@@ -125,7 +125,7 @@ void CReplayTurnManager::DoTurn(u32 turn, const UpdateCallback& sendEventToAll)
 
 	m_TurnLength = m_ReplayTurnLengths[turn];
 
-	ScriptRequest rq(m_Simulation2.GetScriptInterface());
+	Script::Request rq(m_Simulation2.GetScriptInterface());
 
 	// Simulate commands for that turn
 	for (const std::pair<player_id_t, std::string>& p : m_ReplayCommands[turn])

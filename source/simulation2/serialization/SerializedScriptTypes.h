@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -63,7 +63,7 @@ struct SPrototypeSerialization
 	bool hasNullSerialize = false;
 };
 
-inline SPrototypeSerialization GetPrototypeInfo(const ScriptRequest& rq, JS::HandleObject prototype, JS::PropertyKey ser, JS::PropertyKey deser)
+inline SPrototypeSerialization GetPrototypeInfo(const Script::Request& rq, JS::HandleObject prototype, JS::PropertyKey ser, JS::PropertyKey deser)
 {
 	SPrototypeSerialization ret;
 

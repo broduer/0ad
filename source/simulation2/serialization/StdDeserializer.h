@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -32,14 +32,14 @@
 
 class JSObject;
 class JSTracer;
-class ScriptInterface;
 namespace JS { template <typename T> class Heap; }
+namespace Script { class Interface; }
 
 class CStdDeserializer : public IDeserializer
 {
 	NONCOPYABLE(CStdDeserializer);
 public:
-	CStdDeserializer(const ScriptInterface& scriptInterface, std::istream& stream);
+	CStdDeserializer(const Script::Interface& scriptInterface, std::istream& stream);
 	virtual ~CStdDeserializer();
 
 	virtual void ScriptVal(const char* name, JS::MutableHandleValue out);
@@ -67,7 +67,7 @@ private:
 	JS::PropertyKey m_SerializePropId;
 	JS::PropertyKey m_DeserializePropId;
 
-	const ScriptInterface& m_ScriptInterface;
+	const Script::Interface& m_ScriptInterface;
 
 	std::istream& m_Stream;
 };

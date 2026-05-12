@@ -24,7 +24,7 @@
 #include "lib/types.h"
 #include "ps/Filesystem.h"
 #include "ps/XML/Xeromyces.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpTest.h"

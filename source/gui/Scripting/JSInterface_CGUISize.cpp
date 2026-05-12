@@ -31,8 +31,8 @@
 #include "ps/CStr.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 
 #include <fmt/format.h>
 #include <js/CallArgs.h>
@@ -55,7 +55,7 @@ bool GetCRectField(JSContext* cx, unsigned argc, JS::Value* vp)
 {
 	JS::CallArgs args{JS::CallArgsFromVp(argc, vp)};
 	JS::RootedObject obj{cx, &args.thisv().toObject()};
-	CGUISimpleSetting<CGUISize>* wrapper{JS::GetMaybePtrFromReservedSlot<CGUISimpleSetting<CGUISize>>(obj, ScriptInterface::JSObjectReservedSlots::PRIVATE)};
+	CGUISimpleSetting<CGUISize>* wrapper{JS::GetMaybePtrFromReservedSlot<CGUISimpleSetting<CGUISize>>(obj, Script::Interface::JSObjectReservedSlots::PRIVATE)};
 
 	args.rval().setDouble(wrapper->GetMutable().*RectMember.*Member);
 	return true;
@@ -66,7 +66,7 @@ bool SetCRectField(JSContext* cx, unsigned argc, JS::Value* vp)
 {
 	JS::CallArgs args{JS::CallArgsFromVp(argc, vp)};
 	JS::RootedObject obj{cx, &args.thisv().toObject()};
-	CGUISimpleSetting<CGUISize>* wrapper{JS::GetMaybePtrFromReservedSlot<CGUISimpleSetting<CGUISize>>(obj, ScriptInterface::JSObjectReservedSlots::PRIVATE)};
+	CGUISimpleSetting<CGUISize>* wrapper{JS::GetMaybePtrFromReservedSlot<CGUISimpleSetting<CGUISize>>(obj, Script::Interface::JSObjectReservedSlots::PRIVATE)};
 
 	double val;
 	if (!JS::ToNumber(cx, args.get(0), &val))
@@ -96,7 +96,7 @@ bool toString(JSContext* cx, uint argc, JS::Value* vp)
 {
 	JS::CallArgs args{JS::CallArgsFromVp(argc, vp)};
 	JS::RootedObject obj{cx, &args.thisv().toObject()};
-	CGUISimpleSetting<CGUISize>* wrapper{JS::GetMaybePtrFromReservedSlot<CGUISimpleSetting<CGUISize>>(obj, ScriptInterface::JSObjectReservedSlots::PRIVATE)};
+	CGUISimpleSetting<CGUISize>* wrapper{JS::GetMaybePtrFromReservedSlot<CGUISimpleSetting<CGUISize>>(obj, Script::Interface::JSObjectReservedSlots::PRIVATE)};
 	CStr buffer;
 
 	buffer += ToPercentString(wrapper->GetMutable().pixel.left, wrapper->GetMutable().percent.left) + " ";
@@ -104,7 +104,7 @@ bool toString(JSContext* cx, uint argc, JS::Value* vp)
 	buffer += ToPercentString(wrapper->GetMutable().pixel.right, wrapper->GetMutable().percent.right) + " ";
 	buffer += ToPercentString(wrapper->GetMutable().pixel.bottom, wrapper->GetMutable().percent.bottom);
 
-	ScriptRequest rq{cx};
+	Script::Request rq{cx};
 	Script::ToJSVal(rq, args.rval(), buffer);
 	return true;
 }
@@ -137,19 +137,19 @@ JSPropertySpec JSI_props[] =
 
 
 
-void JSI_CGUISize::RegisterScriptClass(ScriptInterface& scriptInterface)
+void JSI_CGUISize::RegisterScriptClass(Script::Interface& scriptInterface)
 {
 	scriptInterface.DefineCustomObjectType(&JSI_class, nullptr, 0, JSI_props, JSI_methods, nullptr, nullptr);
 }
 
 template class CGUISimpleSetting<CGUISize>;
 template<>
-void CGUISimpleSetting<CGUISize>::ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret)
+void CGUISimpleSetting<CGUISize>::ToJSVal(const Script::Request& rq, JS::MutableHandleValue ret)
 {
-	const ScriptInterface& scriptInterface = rq.GetScriptInterface();
+	const Script::Interface& scriptInterface = rq.GetScriptInterface();
 	JS::RootedObject obj{rq.cx, scriptInterface.CreateCustomObject("CGUISize")};
 
-	JS::SetReservedSlot(obj, ScriptInterface::JSObjectReservedSlots::PRIVATE, JS::PrivateValue(this));
+	JS::SetReservedSlot(obj, Script::Interface::JSObjectReservedSlots::PRIVATE, JS::PrivateValue(this));
 	ret.setObject(*obj);
 };
 
@@ -160,7 +160,7 @@ bool CGUISimpleSetting<CGUISize>::DoFromString(const CStrW& value)
 };
 
 template<>
-bool CGUISimpleSetting<CGUISize>::DoFromJSVal(const ScriptRequest& rq, JS::HandleValue value)
+bool CGUISimpleSetting<CGUISize>::DoFromJSVal(const Script::Request& rq, JS::HandleValue value)
 {
 	if (value.isString())
 	{
@@ -189,7 +189,7 @@ bool CGUISimpleSetting<CGUISize>::DoFromJSVal(const ScriptRequest& rq, JS::Handl
 	JS::RootedObject obj{rq.cx, &value.toObject()};
 	if (JS_InstanceOf(rq.cx, obj, &JSI_class, nullptr))
 	{
-		CGUISimpleSetting<CGUISize>* wrapper = JS::GetMaybePtrFromReservedSlot<CGUISimpleSetting<CGUISize>>(obj, ScriptInterface::JSObjectReservedSlots::PRIVATE);
+		CGUISimpleSetting<CGUISize>* wrapper = JS::GetMaybePtrFromReservedSlot<CGUISimpleSetting<CGUISize>>(obj, Script::Interface::JSObjectReservedSlots::PRIVATE);
 		if (this != wrapper)
 			this->Set(wrapper->m_Setting, false);
 		return true;

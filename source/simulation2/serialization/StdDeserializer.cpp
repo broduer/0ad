@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,8 +25,8 @@
 #include "lib/utf8.h"
 #include "ps/CStr.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/serialization/ISerializer.h"
 #include "simulation2/serialization/SerializedScriptTypes.h"
 #include "simulation2/serialization/StdSerializer.h"
@@ -51,10 +51,10 @@
 
 class JSObject;
 
-CStdDeserializer::CStdDeserializer(const ScriptInterface& scriptInterface, std::istream& stream) :
+CStdDeserializer::CStdDeserializer(const Script::Interface& scriptInterface, std::istream& stream) :
 	m_ScriptInterface(scriptInterface), m_Stream(stream)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 	JS_AddExtraGCRootsTracer(rq.cx, CStdDeserializer::Trace, this);
 	m_SerializePropId = JS::PropertyKey::fromPinnedString(JS_AtomizeAndPinString(rq.cx, "Serialize"));
 	m_DeserializePropId = JS::PropertyKey::fromPinnedString(JS_AtomizeAndPinString(rq.cx, "Deserialize"));
@@ -65,7 +65,7 @@ CStdDeserializer::CStdDeserializer(const ScriptInterface& scriptInterface, std::
 
 CStdDeserializer::~CStdDeserializer()
 {
-	JS_RemoveExtraGCRootsTracer(ScriptRequest(m_ScriptInterface).cx, CStdDeserializer::Trace, this);
+	JS_RemoveExtraGCRootsTracer(Script::Request(m_ScriptInterface).cx, CStdDeserializer::Trace, this);
 }
 
 void CStdDeserializer::Trace(JSTracer *trc, void *data)
@@ -140,7 +140,7 @@ void CStdDeserializer::GetScriptBackref(size_t tag, JS::MutableHandleObject ret)
 
 JS::Value CStdDeserializer::ReadScriptVal(const char* /*name*/, JS::HandleObject preexistingObject)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 
 	uint8_t type;
 	NumberU8_Unbounded("type", type);
@@ -178,7 +178,7 @@ JS::Value CStdDeserializer::ReadScriptVal(const char* /*name*/, JS::HandleObject
 			else
 			{
 				JS::RootedValue constructor(rq.cx);
-				if (!ScriptInterface::GetGlobalProperty(rq, prototypeName.ToUTF8(), &constructor))
+				if (!Script::Interface::GetGlobalProperty(rq, prototypeName.ToUTF8(), &constructor))
 					throw PSERROR_Deserialize_ScriptError("Deserializer failed to get constructor object");
 
 				JS::RootedObject newObj(rq.cx);
@@ -482,7 +482,7 @@ void CStdDeserializer::ScriptString(const char* name, JS::MutableHandleString ou
 #error TODO: probably need to convert JS strings from little-endian
 #endif
 
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 
 	bool isLatin1;
 	Bool("isLatin1", isLatin1);
@@ -513,7 +513,7 @@ void CStdDeserializer::ScriptVal(const char* name, JS::MutableHandleValue out)
 
 void CStdDeserializer::ScriptObjectAssign(const char* name, JS::HandleValue objVal)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 
 	if (!objVal.isObject())
 		throw PSERROR_Deserialize_ScriptError();

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -63,12 +63,12 @@ CGUIMouseEventMask::~CGUIMouseEventMask()
 {
 }
 
-void CGUIMouseEventMask::ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue Value)
+void CGUIMouseEventMask::ToJSVal(const Script::Request& rq, JS::MutableHandleValue Value)
 {
 	Script::ToJSVal(rq, Value, m_Spec);
 }
 
-bool CGUIMouseEventMask::DoFromJSVal(const ScriptRequest& rq, JS::HandleValue value)
+bool CGUIMouseEventMask::DoFromJSVal(const Script::Request& rq, JS::HandleValue value)
 {
 	CStrW spec;
 	if (!Script::FromJSVal(rq, value, spec))

@@ -24,7 +24,7 @@
 #include "lib/status.h"
 #include "ps/CStr.h"
 #include "ps/TemplateLoader.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "scriptinterface/StructuredClone.h"
 
 #include <cstddef>
@@ -39,7 +39,7 @@
 class CCanvas2D;
 class CGUI;
 class CParamNode;
-class ScriptContext;
+namespace Script { class Context; }
 namespace JS { class HandleValueArray; }
 namespace JS { class Value; }
 namespace PS { template <typename T, size_t N> class StaticVector; }
@@ -58,14 +58,14 @@ class CGUIManager
 {
 	NONCOPYABLE(CGUIManager);
 public:
-	CGUIManager(ScriptContext& scriptContext, ScriptInterface& scriptInterface);
+	CGUIManager(Script::Context& scriptContext, Script::Interface& scriptInterface);
 	~CGUIManager();
 
-	ScriptInterface& GetScriptInterface()
+	Script::Interface& GetScriptInterface()
 	{
 		return m_ScriptInterface;
 	}
-	ScriptContext& GetContext() { return m_ScriptContext; }
+	Script::Context& GetContext() { return m_ScriptContext; }
 	std::shared_ptr<CGUI> GetActiveGUI() { return top(); }
 
 	/**
@@ -76,7 +76,7 @@ public:
 	/**
 	 * Load a new GUI page and make it active. All current pages will be destroyed.
 	 */
-	void SwitchPage(const CStrW& name, const ScriptInterface* srcScriptInterface, JS::HandleValue initData);
+	void SwitchPage(const CStrW& name, const Script::Interface* srcScriptInterface, JS::HandleValue initData);
 
 	/**
 	 * Load a new GUI page and make it active. All current pages will be retained,
@@ -151,9 +151,9 @@ private:
 		SGUIPage(const CStrW& pageName, const Script::StructuredClone initData);
 
 		/**
-		 * Create the CGUI with it's own ScriptInterface. Deletes the previous CGUI if it existed.
+		 * Create the CGUI with it's own Script::Interface. Deletes the previous CGUI if it existed.
 		 */
-		void LoadPage(ScriptContext& context);
+		void LoadPage(Script::Context& context);
 
 		/**
 		 * A reference to the promise is returned. The promise will settle when the page is closed.
@@ -207,8 +207,8 @@ private:
 
 	std::shared_ptr<CGUI> top() const;
 
-	ScriptContext& m_ScriptContext;
-	ScriptInterface& m_ScriptInterface;
+	Script::Context& m_ScriptContext;
+	Script::Interface& m_ScriptInterface;
 
 	/**
 	 * The page stack must not move pointers on push/pop, or pushing a page in a page's init method

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -28,34 +28,34 @@
 #include <js/TypeDecls.h>
 #include <string>
 
-class ScriptRequest;
+namespace Script { class Request; }
 
-template<> void Script::ToJSVal<gloox::Presence::PresenceType>(const ScriptRequest& rq, JS::MutableHandleValue ret, const gloox::Presence::PresenceType& val)
+template<> void Script::ToJSVal<gloox::Presence::PresenceType>(const Script::Request& rq, JS::MutableHandleValue ret, const gloox::Presence::PresenceType& val)
 {
 	ToJSVal(rq, ret, GetPresenceString(val));
 }
 
-template<> void Script::ToJSVal<gloox::MUCRoomRole>(const ScriptRequest& rq, JS::MutableHandleValue ret, const gloox::MUCRoomRole& val)
+template<> void Script::ToJSVal<gloox::MUCRoomRole>(const Script::Request& rq, JS::MutableHandleValue ret, const gloox::MUCRoomRole& val)
 {
 	ToJSVal(rq, ret, GetRoleString(val));
 }
 
-template<> void Script::ToJSVal<gloox::StanzaError>(const ScriptRequest& rq, JS::MutableHandleValue ret, const gloox::StanzaError& val)
+template<> void Script::ToJSVal<gloox::StanzaError>(const Script::Request& rq, JS::MutableHandleValue ret, const gloox::StanzaError& val)
 {
 	ToJSVal(rq, ret, wstring_from_utf8(StanzaErrorToString(val)));
 }
 
-template<> void Script::ToJSVal<gloox::ConnectionError>(const ScriptRequest& rq, JS::MutableHandleValue ret, const gloox::ConnectionError& val)
+template<> void Script::ToJSVal<gloox::ConnectionError>(const Script::Request& rq, JS::MutableHandleValue ret, const gloox::ConnectionError& val)
 {
 	ToJSVal(rq, ret, wstring_from_utf8(ConnectionErrorToString(val)));
 }
 
-template<> void Script::ToJSVal<gloox::RegistrationResult>(const ScriptRequest& rq, JS::MutableHandleValue ret, const gloox::RegistrationResult& val)
+template<> void Script::ToJSVal<gloox::RegistrationResult>(const Script::Request& rq, JS::MutableHandleValue ret, const gloox::RegistrationResult& val)
 {
 	ToJSVal(rq, ret, wstring_from_utf8(RegistrationResultToString(val)));
 }
 
-template<> void Script::ToJSVal<gloox::CertStatus>(const ScriptRequest& rq, JS::MutableHandleValue ret, const gloox::CertStatus& val)
+template<> void Script::ToJSVal<gloox::CertStatus>(const Script::Request& rq, JS::MutableHandleValue ret, const gloox::CertStatus& val)
 {
 	ToJSVal(rq, ret, wstring_from_utf8(CertificateErrorToString(val)));
 }

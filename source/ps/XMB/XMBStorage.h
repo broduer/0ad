@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -26,7 +26,7 @@
 #include <memory>
 #include <string>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
 typedef struct _xmlDoc xmlDoc;
 typedef xmlDoc* xmlDocPtr;
@@ -106,7 +106,7 @@ public:
 	 * </a>
 	 * See also tests for some other examples.
 	 */
-	bool LoadJSValue(const ScriptInterface& scriptInterface, JS::HandleValue value, const std::string& rootName);
+	bool LoadJSValue(const Script::Interface& scriptInterface, JS::HandleValue value, const std::string& rootName);
 
 	std::shared_ptr<u8> m_Buffer;
 	size_t m_Size = 0;

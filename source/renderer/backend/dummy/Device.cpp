@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -65,7 +65,7 @@ CDevice::CDevice()
 
 CDevice::~CDevice() = default;
 
-void CDevice::Report(const ScriptRequest& rq, JS::HandleValue settings)
+void CDevice::Report(const Script::Request& rq, JS::HandleValue settings)
 {
 	Script::SetProperty(rq, settings, "name", "dummy");
 }

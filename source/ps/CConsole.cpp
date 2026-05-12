@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -49,8 +49,8 @@
 #include "ps/Profiler2.h"
 #include "ps/VideoMode.h"
 #include "scriptinterface/JSON.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 
 #include <SDL_clipboard.h>
 #include <SDL_events.h>
@@ -612,8 +612,8 @@ void CConsole::ProcessBuffer(const wchar_t* szLine)
 	}
 
 	// Process it as JavaScript
-	std::shared_ptr<ScriptInterface> pScriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
-	ScriptRequest rq(*pScriptInterface);
+	std::shared_ptr<Script::Interface> pScriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
+	Script::Request rq(*pScriptInterface);
 
 	JS::RootedValue rval(rq.cx);
 	pScriptInterface->Eval(CStrW(szLine).ToUTF8().c_str(), &rval);

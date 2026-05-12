@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,8 +22,8 @@
 #include "ps/CStr.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 
 #include <js/CallArgs.h>
 #include <js/Class.h>
@@ -52,7 +52,7 @@ JSFunctionSpec JSI_GUISize::JSI_methods[] =
 	JS_FS_END
 };
 
-void JSI_GUISize::RegisterScriptClass(ScriptInterface& scriptInterface)
+void JSI_GUISize::RegisterScriptClass(Script::Interface& scriptInterface)
 {
 	scriptInterface.DefineCustomObjectType(&JSI_GUISize::JSI_class, JSI_GUISize::construct, 0, nullptr, JSI_GUISize::JSI_methods, nullptr, nullptr);
 }
@@ -60,8 +60,8 @@ void JSI_GUISize::RegisterScriptClass(ScriptInterface& scriptInterface)
 bool JSI_GUISize::construct(JSContext* cx, uint argc, JS::Value* vp)
 {
 	JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-	ScriptRequest rq(cx);
-	const ScriptInterface& scriptInterface = rq.GetScriptInterface();
+	Script::Request rq(cx);
+	const Script::Interface& scriptInterface = rq.GetScriptInterface();
 
 	JS::RootedObject obj(rq.cx, scriptInterface.CreateCustomObject("GUISize"));
 
@@ -119,7 +119,7 @@ bool JSI_GUISize::toString(JSContext* cx, uint argc, JS::Value* vp)
 	JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 	CStr buffer;
 
-	ScriptRequest rq(cx);
+	Script::Request rq(cx);
 	double val, valr;
 
 #define SIDE(side) \

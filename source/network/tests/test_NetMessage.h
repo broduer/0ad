@@ -21,8 +21,8 @@
 #include "network/NetMessage.h"
 #include "ps/CStr.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 
 #include <cstddef>
 #include <js/RootingAPI.h>
@@ -34,8 +34,8 @@ class TestNetMessage : public CxxTest::TestSuite
 public:
 	void test_sim()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
-		ScriptRequest rq(script);
+		Script::Interface script("Test", "Test", g_ScriptContext);
+		Script::Request rq(script);
 
 		JS::RootedValueArray<1> val{rq.cx, JS::ValueArray<1>{JS::NumberValue(4)}};
 		CSimulationMessage msg(script, 1, 2, 3,

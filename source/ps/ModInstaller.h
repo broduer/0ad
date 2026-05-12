@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -26,7 +26,7 @@
 #include <memory>
 #include <vector>
 
-class ScriptContext;
+namespace Script { class Context; }
 
 /**
  * Install a mod into the mods directory.
@@ -63,7 +63,7 @@ public:
 	 */
 	ModInstallationResult Install(
 		const OsPath& mod,
-		const std::shared_ptr<ScriptContext>& scriptContext,
+		const std::shared_ptr<Script::Context>& scriptContext,
 		bool keepFile);
 
 	/**

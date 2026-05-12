@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -36,7 +36,7 @@
 #include "ps/Errors.h"
 #include "ps/Filesystem.h"
 #include "ps/GameSetup/GameSetup.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 
 #include <algorithm>
 #include <cstdint>

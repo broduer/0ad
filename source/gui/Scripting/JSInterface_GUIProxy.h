@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -36,9 +36,9 @@
 
 class JSFunction;
 class JSObject;
-class ScriptInterface;
-class ScriptRequest;
 namespace JS { class CallArgs; }
+namespace Script { class Interface; }
+namespace Script { class Request; }
 
 // See JSI_GuiProxy below
 #if GCC_VERSION
@@ -101,7 +101,7 @@ public:
 	virtual bool has(const std::string& name) const = 0;
 	// @return the JSFunction matching @param name. Must call has() first as it can assume existence.
 	virtual JSObject* get(const std::string& name) const = 0;
-	virtual bool setFunction(const ScriptRequest& rq, const std::string& name, JSFunction* function) = 0;
+	virtual bool setFunction(const Script::Request& rq, const std::string& name, JSFunction* function) = 0;
 	virtual std::vector<std::string_view> getPropsNames() const = 0;
 };
 
@@ -138,10 +138,10 @@ public:
 	static JSI_GUIProxy& Singleton();
 
 	// Call this in CGUI::AddObjectTypes.
-	static std::pair<const js::BaseProxyHandler*, GUIProxyProps*> CreateData(ScriptInterface& scriptInterface);
+	static std::pair<const js::BaseProxyHandler*, GUIProxyProps*> CreateData(Script::Interface& scriptInterface);
 
 	// Create the JS object, the proxy, the data and wrap it in a convenient unique_ptr.
-	static std::unique_ptr<IGUIProxyObject> CreateJSObject(const ScriptRequest& rq, GUIObjectType* ptr, GUIProxyProps* data);
+	static std::unique_ptr<IGUIProxyObject> CreateJSObject(const Script::Request& rq, GUIObjectType* ptr, GUIProxyProps* data);
 protected:
 	// @param family can't be nullptr because that's used for some DOM object and it crashes.
 	JSI_GUIProxy() : BaseProxyHandler(this, false, false) {};
@@ -150,18 +150,18 @@ protected:
 	// This also enforces making proxy handlers dataless static variables.
 	~JSI_GUIProxy() {};
 
-	static GUIObjectType* FromPrivateSlot(const ScriptRequest&, JS::CallArgs& args);
+	static GUIObjectType* FromPrivateSlot(const Script::Request&, JS::CallArgs& args);
 
 	// The default implementations need to know the type of the GUIProxyProps for this proxy type.
 	// This is done by specializing this struct's alias type.
 	struct PropCache;
 
 	// Specialize this to define the custom properties of this type.
-	static void CreateFunctions(const ScriptRequest& rq, GUIProxyProps* cache);
+	static void CreateFunctions(const Script::Request& rq, GUIProxyProps* cache);
 
 	// Convenience helper for the above.
 	template<auto callable>
-	static void CreateFunction(const ScriptRequest& rq, GUIProxyProps* cache, const std::string& name);
+	static void CreateFunction(const Script::Request& rq, GUIProxyProps* cache, const std::string& name);
 
 	// This handles returning custom properties. Specialize this if needed.
 	bool PropGetter(JS::HandleObject proxy, const std::string& propName, JS::MutableHandleValue vp) const;

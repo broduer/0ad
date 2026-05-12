@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -132,7 +132,7 @@ namespace JSI_Sound
 
 #endif
 
-	void RegisterScriptFunctions(const ScriptRequest& rq)
+	void RegisterScriptFunctions(const Script::Request& rq)
 	{
 		ScriptFunction::Register<&StartMusic>(rq, "StartMusic");
 		ScriptFunction::Register<&StopMusic>(rq, "StopMusic");

@@ -29,7 +29,7 @@
 #include "ps/SavedGame.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/system/TurnManager.h"
@@ -40,11 +40,11 @@
 #include <optional>
 #include <string>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
 namespace JSI_SavedGame
 {
-JS::Value GetSavedGames(const ScriptInterface& scriptInterface)
+JS::Value GetSavedGames(const Script::Interface& scriptInterface)
 {
 	return SavedGames::GetSavedGames(scriptInterface);
 }
@@ -54,14 +54,14 @@ bool DeleteSavedGame(const std::wstring& name)
 	return SavedGames::DeleteSavedGame(name);
 }
 
-void SaveGame(const ScriptRequest& rq, const std::wstring& filename, const std::wstring& description, JS::HandleValue GUIMetadata)
+void SaveGame(const Script::Request& rq, const std::wstring& filename, const std::wstring& description, JS::HandleValue GUIMetadata)
 {
 	Script::StructuredClone GUIMetadataClone = Script::WriteStructuredClone(rq, GUIMetadata);
 	if (SavedGames::Save(filename, description, *g_Game->GetSimulation2(), GUIMetadataClone) < 0)
 		LOGERROR("Failed to save game");
 }
 
-void SaveGamePrefix(const ScriptRequest& rq, const std::wstring& prefix, const std::wstring& description, JS::HandleValue GUIMetadata)
+void SaveGamePrefix(const Script::Request& rq, const std::wstring& prefix, const std::wstring& description, JS::HandleValue GUIMetadata)
 {
 	Script::StructuredClone GUIMetadataClone = Script::WriteStructuredClone(rq, GUIMetadata);
 	if (SavedGames::SavePrefix(prefix, description, *g_Game->GetSimulation2(), GUIMetadataClone) < 0)
@@ -96,7 +96,7 @@ void QuickLoad()
 	if (!g_GUI || !maybeMetadata.has_value())
 		return;
 
-	const ScriptRequest rq{g_Game->GetSimulation2()->GetScriptInterface()};
+	const Script::Request rq{g_Game->GetSimulation2()->GetScriptInterface()};
 	JS::RootedValue metadata{rq.cx, maybeMetadata.value()};
 
 	// Provide a copy, so that GUI components don't have to clone to get mutable objects
@@ -109,20 +109,20 @@ void QuickLoad()
 	LOGMESSAGERENDER("Quickloaded game");
 }
 
-JS::Value LoadSavedGameMetadata(const ScriptInterface& scriptInterface, const std::wstring& name)
+JS::Value LoadSavedGameMetadata(const Script::Interface& scriptInterface, const std::wstring& name)
 {
 	std::optional<SavedGames::LoadResult> data{SavedGames::Load(scriptInterface, name)};
 
 	return data ? data->metadata : JS::UndefinedValue();
 }
 
-JS::Value StartSavedGame(const ScriptInterface& scriptInterface, const std::wstring& name)
+JS::Value StartSavedGame(const Script::Interface& scriptInterface, const std::wstring& name)
 {
 	// We need to be careful with different compartments and contexts.
 	// The GUI calls this function from the GUI context and expects the return value in the same context.
 	// The game we start from here creates another context and expects data in this context.
 
-	ScriptRequest rqGui(scriptInterface);
+	Script::Request rqGui(scriptInterface);
 
 	ENSURE(!g_NetServer);
 	ENSURE(!g_NetClient);
@@ -139,7 +139,7 @@ JS::Value StartSavedGame(const ScriptInterface& scriptInterface, const std::wstr
 
 	{
 		CSimulation2* sim = g_Game->GetSimulation2();
-		ScriptRequest rqGame(sim->GetScriptInterface());
+		Script::Request rqGame(sim->GetScriptInterface());
 
 		JS::RootedValue gameContextMetadata(rqGame.cx, Script::CloneValueFromOtherCompartment(sim->GetScriptInterface(), scriptInterface, guiContextMetadata));
 		JS::RootedValue gameInitAttributes(rqGame.cx);
@@ -162,7 +162,7 @@ void ActivateRejoinTest()
 	g_Game->GetSimulation2()->ActivateRejoinTest(g_Game->GetTurnManager()->GetCurrentTurn() + 1);
 }
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
 	ScriptFunction::Register<&GetSavedGames>(rq, "GetSavedGames");
 	ScriptFunction::Register<&DeleteSavedGame>(rq, "DeleteSavedGame");

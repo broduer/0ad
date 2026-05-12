@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,15 +22,15 @@
 
 #include <js/PropertyDescriptor.h>
 
-class ScriptRequest;
+namespace Script { class Request; }
 
 namespace JSI_VFS
 {
-	void RegisterScriptFunctions_ReadWriteAnywhere(const ScriptRequest& rq,
+	void RegisterScriptFunctions_ReadWriteAnywhere(const Script::Request& rq,
 		const u16 flags = JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT);
-	void RegisterScriptFunctions_ReadOnlySimulation(const ScriptRequest& rq,
+	void RegisterScriptFunctions_ReadOnlySimulation(const Script::Request& rq,
 		const u16 flags = JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT);
-	void RegisterScriptFunctions_ReadOnlySimulationMaps(const ScriptRequest& rq,
+	void RegisterScriptFunctions_ReadOnlySimulationMaps(const Script::Request& rq,
 		const u16 flags = JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT);
 }
 

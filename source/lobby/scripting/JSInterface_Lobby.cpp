@@ -41,8 +41,8 @@
 #include <stdexcept>
 #include <string>
 
-class ScriptInterface;
 namespace JS { class CallArgs; }
+namespace Script { class Interface; }
 
 namespace JSI_Lobby
 {
@@ -107,7 +107,7 @@ void StopXmppClient()
 ////////////////////////////////////////////////
 ////////////////////////////////////////////////
 
-XmppClient* XmppGetter(const ScriptRequest&, JS::CallArgs&)
+XmppClient* XmppGetter(const Script::Request&, JS::CallArgs&)
 {
 	if (!g_XmppClient)
 	{
@@ -117,7 +117,7 @@ XmppClient* XmppGetter(const ScriptRequest&, JS::CallArgs&)
 	return g_XmppClient;
 }
 
-void SendRegisterGame(const ScriptInterface& scriptInterface, JS::HandleValue data)
+void SendRegisterGame(const Script::Interface& scriptInterface, JS::HandleValue data)
 {
 	if (!g_XmppClient)
 		throw std::logic_error{"Cannot call SendRegisterGame without an initialized XmppClient!"};
@@ -133,7 +133,7 @@ void SendRegisterGame(const ScriptInterface& scriptInterface, JS::HandleValue da
 }
 
 // Unlike other functions, this one just returns Undefined if XmppClient isn't initialised.
-JS::Value GuiPollNewMessages(const ScriptInterface& scriptInterface)
+JS::Value GuiPollNewMessages(const Script::Interface& scriptInterface)
 {
 	if (!g_XmppClient)
 		return JS::UndefinedValue();
@@ -186,7 +186,7 @@ std::string EncryptPassword(const std::string& password, const std::string& user
 
 #endif
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
 	// Lobby functions
 	ScriptFunction::Register<&HasXmppClient>(rq, "HasXmppClient");

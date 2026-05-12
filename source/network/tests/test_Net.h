@@ -35,8 +35,8 @@
 #include "ps/XML/Xeromyces.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/system/TurnManager.h"
 
 #include <SDL_timer.h>
@@ -152,8 +152,8 @@ public:
 		// This doesn't actually test much, it just runs a very quick multiplayer game
 		// and prints a load of debug output so you can see if anything funny's going on
 
-		ScriptInterface scriptInterface("Engine", "Test", g_ScriptContext);
-		ScriptRequest rq(scriptInterface);
+		Script::Interface scriptInterface("Engine", "Test", g_ScriptContext);
+		Script::Request rq(scriptInterface);
 
 		TestStdoutLogger logger;
 
@@ -229,8 +229,8 @@ public:
 
 	void DISABLED_test_rejoin()
 	{
-		ScriptInterface scriptInterface("Engine", "Test", g_ScriptContext);
-		ScriptRequest rq(scriptInterface);
+		Script::Interface scriptInterface("Engine", "Test", g_ScriptContext);
+		Script::Request rq(scriptInterface);
 
 		TestStdoutLogger logger;
 

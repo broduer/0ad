@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@
 #include "lib/code_annotation.h"
 #include "lib/debug.h"
 #include "lib/types.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/system/Component.h"
 #include "simulation2/system/DynamicSubscription.h"
 #include "simulation2/system/Entity.h"
@@ -41,7 +41,7 @@
 
 class CMessage;
 class JSTracer;
-class ScriptContext;
+namespace Script { class Context; }
 
 class CComponentManager
 {
@@ -83,7 +83,7 @@ private:
 	};
 
 public:
-	CComponentManager(CSimContext&, ScriptContext& cx, bool skipScriptFunctions = false);
+	CComponentManager(CSimContext&, Script::Context& cx, bool skipScriptFunctions = false);
 	~CComponentManager();
 
 	void LoadComponentTypes();
@@ -299,7 +299,7 @@ public:
 
 	std::string GenerateSchema() const;
 
-	ScriptInterface& GetScriptInterface() { return m_ScriptInterface; }
+	Script::Interface& GetScriptInterface() { return m_ScriptInterface; }
 
 private:
 	// Implementations of functions exposed to scripts
@@ -328,7 +328,7 @@ private:
 
 	CEntityHandle AllocateEntityHandle(entity_id_t ent);
 
-	ScriptInterface m_ScriptInterface;
+	Script::Interface m_ScriptInterface;
 	CSimContext& m_SimContext;
 
 	CEntityHandle m_SystemEntity;

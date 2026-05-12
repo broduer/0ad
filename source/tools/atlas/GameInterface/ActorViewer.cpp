@@ -60,7 +60,7 @@
 #include "renderer/backend/IDevice.h"
 #include "renderer/backend/IDeviceCommandContext.h"
 #include "renderer/backend/IFramebuffer.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpAttack.h"
 #include "simulation2/components/ICmpOwnership.h"

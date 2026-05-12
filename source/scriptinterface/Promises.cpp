@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -23,7 +23,7 @@
 #include "ps/CLogger.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 
 #include <js/CallAndConstruct.h>
 #include <js/GlobalObject.h>
@@ -44,7 +44,7 @@ void UnhandledRejectedPromise(JSContext* cx, bool, JS::HandleObject promise,
 	if (state == JS::PromiseRejectionHandlingState::Handled)
 		return;
 
-	const ScriptRequest rq{cx};
+	const Script::Request rq{cx};
 	JS::RootedValue reason(cx, JS::GetPromiseResult(promise));
 
 	std::string asString;
@@ -59,7 +59,7 @@ void JobQueue::runJobs(JSContext*)
 	while (!m_Jobs.empty())
 	{
 		QueueElement& element = m_Jobs.front();
-		ScriptRequest rq{element.scriptInterface};
+		Script::Request rq{element.scriptInterface};
 		JS::RootedObject localJob{rq.cx, element.job};
 		m_Jobs.pop();
 
@@ -79,7 +79,7 @@ bool JobQueue::enqueuePromiseJob(JSContext* cx, JS::HandleObject, JS::HandleObje
 {
 	try
 	{
-		m_Jobs.push({ScriptRequest{cx}.GetScriptInterface(), JS::PersistentRootedObject{cx, job}});
+		m_Jobs.push({Script::Request{cx}.GetScriptInterface(), JS::PersistentRootedObject{cx, job}});
 		return true;
 	}
 	catch (...)

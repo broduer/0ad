@@ -43,10 +43,10 @@
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/ModuleLoader.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptContext.h"
+#include "scriptinterface/Context.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"
 #include "simulation2/components/ICmpAIInterface.h"
 #include "simulation2/components/ICmpCommandQueue.h"
@@ -122,7 +122,7 @@ private:
 		NONCOPYABLE(CAIPlayer);
 	public:
 		CAIPlayer(CAIWorker& worker, const std::wstring& aiName, player_id_t player, u8 difficulty, const std::wstring& behavior,
-			std::shared_ptr<ScriptInterface> scriptInterface) :
+			std::shared_ptr<Script::Interface> scriptInterface) :
 			m_Worker(worker), m_AIName(aiName), m_Player(player), m_Difficulty(difficulty), m_Behavior(behavior),
 			m_ScriptInterface(scriptInterface), m_Obj(scriptInterface->GetGeneralJSContext())
 		{
@@ -130,7 +130,7 @@ private:
 
 		bool Initialise()
 		{
-			ScriptRequest rq(m_ScriptInterface);
+			Script::Request rq(m_ScriptInterface);
 
 			OsPath path = L"simulation/ai/" + m_AIName + L"/data.json";
 			JS::RootedValue metadata(rq.cx);
@@ -206,7 +206,7 @@ private:
 		void Run(JS::HandleValue state, int playerID)
 		{
 			m_Commands.clear();
-			ScriptRequest rq(m_ScriptInterface);
+			Script::Request rq(m_ScriptInterface);
 			ScriptFunction::CallVoid(rq, m_Obj, "HandleMessage", state, playerID);
 		}
 		// overloaded with a sharedAI part.
@@ -214,13 +214,13 @@ private:
 		void Run(JS::HandleValue state, int playerID, JS::HandleValue SharedAI)
 		{
 			m_Commands.clear();
-			ScriptRequest rq(m_ScriptInterface);
+			Script::Request rq(m_ScriptInterface);
 			ScriptFunction::CallVoid(rq, m_Obj, "HandleMessage", state, playerID, SharedAI);
 		}
 		void InitAI(JS::HandleValue state, JS::HandleValue SharedAI)
 		{
 			m_Commands.clear();
-			ScriptRequest rq(m_ScriptInterface);
+			Script::Request rq(m_ScriptInterface);
 			ScriptFunction::CallVoid(rq, m_Obj, "Init", state, m_Player, SharedAI);
 		}
 
@@ -233,7 +233,7 @@ private:
 
 		// Take care to keep this declaration before heap rooted members. Destructors of heap rooted
 		// members have to be called before the context destructor.
-		std::shared_ptr<ScriptInterface> m_ScriptInterface;
+		std::shared_ptr<Script::Interface> m_ScriptInterface;
 
 		JS::PersistentRootedValue m_Obj;
 		std::vector<Script::StructuredClone> m_Commands;
@@ -260,17 +260,17 @@ public:
 		JS_RemoveExtraGCRootsTracer(m_ScriptInterface->GetGeneralJSContext(), Trace, this);
 	}
 
-	void Init(const ScriptInterface& simInterface)
+	void Init(const Script::Interface& simInterface)
 	{
 		// Create the script interface in the same compartment as the simulation interface.
 		// This will allow us to directly share data from the sim to the AI (and vice versa, should the need arise).
-		m_ScriptInterface = std::make_shared<ScriptInterface>("Engine", "AI", simInterface,
+		m_ScriptInterface = std::make_shared<Script::Interface>("Engine", "AI", simInterface,
 			[](const VfsPath& path)
 			{
 				return path.string().find(L"simulation/ai/") == 0;
 			});
 
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 
 		m_EntityTemplates.init(rq.cx);
 		m_SharedAIObj.init(rq.cx);
@@ -285,7 +285,7 @@ public:
 		JS_AddExtraGCRootsTracer(m_ScriptInterface->GetGeneralJSContext(), Trace, this);
 
 		{
-			ScriptRequest simrq(simInterface);
+			Script::Request simrq(simInterface);
 			// Register the sim globals for easy & explicit access. Mark it replaceable for hotloading.
 			JS::RootedValue global(rq.cx, simrq.globalValue());
 			m_ScriptInterface->SetGlobal("Sim", global, true);
@@ -294,7 +294,7 @@ public:
 		}
 
 #define REGISTER_FUNC_NAME(func, name) \
-	ScriptFunction::Register<&CAIWorker::func, ScriptInterface::ObjectFromCBData<CAIWorker>>(rq, name);
+	ScriptFunction::Register<&CAIWorker::func, Script::Interface::ObjectFromCBData<CAIWorker>>(rq, name);
 
 		REGISTER_FUNC_NAME(PostCommand, "PostCommand");
 		ScriptFunction::Register<QuitEngine>(rq, "Exit");
@@ -317,7 +317,7 @@ public:
 
 	void PostCommand(int playerid, JS::HandleValue cmd)
 	{
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 		for (size_t i=0; i<m_Players.size(); i++)
 		{
 			if (m_Players[i]->m_Player == playerid)
@@ -332,7 +332,7 @@ public:
 
 	JS::Value ComputePathScript(JS::HandleValue position, JS::HandleValue goal, pass_class_t passClass)
 	{
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 
 		CFixedVector2D pos, goalPos;
 		std::vector<CFixedVector2D> waypoints;
@@ -409,7 +409,7 @@ public:
 
 	bool TryLoadSharedComponent()
 	{
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 
 		// we don't need to load it.
 		if (!std::exchange(m_HasSharedComponent, true))
@@ -489,7 +489,7 @@ public:
 		// this will be run last by InitGame.js, passing the full game representation.
 		// For now it will run for the shared Component.
 		// This is NOT run during deserialization.
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 
 		JS::RootedValue state(rq.cx);
 		Script::ReadStructuredClone(rq, gameState, &state);
@@ -523,7 +523,7 @@ public:
 	{
 		ENSURE(m_CommandsComputed);
 		m_GameState.reset();
-		m_GameState.init(ScriptRequest(m_ScriptInterface).cx, gameState);
+		m_GameState.init(Script::Request(m_ScriptInterface).cx, gameState);
 	}
 
 	void UpdatePathfinder(const Grid<NavcellData>& passabilityMap, bool globallyDirty, const Grid<u8>& dirtinessGrid, bool justDeserialized,
@@ -544,7 +544,7 @@ public:
 			m_HierarchicalPathfinder.Update(&m_PassabilityMap, dirtinessGrid);
 		}
 
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 		if (dimensionChange || justDeserialized)
 			Script::ToJSVal(rq, &m_PassabilityMapVal, m_PassabilityMap);
 		else
@@ -572,7 +572,7 @@ public:
 
 		m_TerritoryMap = territoryMap;
 
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 		if (dimensionChange)
 			Script::ToJSVal(rq, &m_TerritoryMapVal, m_TerritoryMap);
 		else
@@ -622,7 +622,7 @@ public:
 
 	void LoadEntityTemplates(const std::vector<std::pair<std::string, const CParamNode*> >& templates)
 	{
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 
 		m_HasLoadedEntityTemplates = true;
 
@@ -658,7 +658,7 @@ public:
 		if (m_Players.empty())
 			return;
 
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 
 		std::stringstream rngStream;
 		rngStream << m_RNG;
@@ -704,7 +704,7 @@ public:
 		if (numAis == 0)
 			return;
 
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 
 		ENSURE(m_CommandsComputed); // deserializing while we're still actively computing would be bad
 
@@ -785,7 +785,7 @@ private:
 		if (m_PlayerMetadata.find(path) == m_PlayerMetadata.end())
 		{
 			// Load and cache the AI player metadata
-			Script::ReadJSONFile(ScriptRequest(m_ScriptInterface), path, out);
+			Script::ReadJSONFile(Script::Request(m_ScriptInterface), path, out);
 			m_PlayerMetadata[path] = JS::Heap<JS::Value>(out);
 			return;
 		}
@@ -795,7 +795,7 @@ private:
 	void PerformComputation()
 	{
 		// Deserialize the game state, to pass to the AI's HandleMessage
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 		{
 			PROFILE3("AI compute read state");
 			Script::SetProperty(rq, m_GameState, "passabilityMap", m_PassabilityMapVal, true);
@@ -828,7 +828,7 @@ private:
 		}
 	}
 
-	std::shared_ptr<ScriptInterface> m_ScriptInterface;
+	std::shared_ptr<Script::Interface> m_ScriptInterface;
 	boost::rand48 m_RNG;
 	u32 m_TurnNum;
 
@@ -895,8 +895,8 @@ public:
 	{
 		serialize.NumberU32_Unbounded("num ais", m_Worker.getPlayerSize());
 
-		// Because the AI worker uses its own ScriptInterface, we can't use the
-		// ISerializer (which was initialised with the simulation ScriptInterface)
+		// Because the AI worker uses its own Script::Interface, we can't use the
+		// ISerializer (which was initialised with the simulation Script::Interface)
 		// directly. So we'll just grab the ISerializer's stream and write to it
 		// with an independent serializer.
 
@@ -943,8 +943,8 @@ public:
 
 	void RunGamestateInit() override
 	{
-		const ScriptInterface& scriptInterface = GetSimContext().GetScriptInterface();
-		ScriptRequest rq(scriptInterface);
+		const Script::Interface& scriptInterface = GetSimContext().GetScriptInterface();
+		Script::Request rq(scriptInterface);
 
 		CmpPtr<ICmpAIInterface> cmpAIInterface(GetSystemEntity());
 		ENSURE(cmpAIInterface);
@@ -982,8 +982,8 @@ public:
 	{
 		PROFILE("AI setup");
 
-		const ScriptInterface& scriptInterface = GetSimContext().GetScriptInterface();
-		ScriptRequest rq(scriptInterface);
+		const Script::Interface& scriptInterface = GetSimContext().GetScriptInterface();
+		Script::Request rq(scriptInterface);
 
 		if (m_Worker.getPlayerSize() == 0)
 			return;
@@ -1046,8 +1046,8 @@ public:
 		if (!cmpCommandQueue)
 			return;
 
-		const ScriptInterface& scriptInterface = GetSimContext().GetScriptInterface();
-		ScriptRequest rq(scriptInterface);
+		const Script::Interface& scriptInterface = GetSimContext().GetScriptInterface();
+		Script::Request rq(scriptInterface);
 		JS::RootedValue clonedCommandVal(rq.cx);
 
 		for (size_t i = 0; i < commands.size(); ++i)
@@ -1097,8 +1097,8 @@ private:
 		if (!cmpPathfinder)
 			return;
 
-		const ScriptInterface& scriptInterface = GetSimContext().GetScriptInterface();
-		ScriptRequest rq(scriptInterface);
+		const Script::Interface& scriptInterface = GetSimContext().GetScriptInterface();
+		Script::Request rq(scriptInterface);
 
 		JS::RootedValue classesVal(rq.cx);
 		Script::CreateObject(rq, &classesVal);

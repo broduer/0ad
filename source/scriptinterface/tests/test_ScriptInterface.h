@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,8 +24,8 @@
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"
 
 #include <boost/random/linear_congruential.hpp>
@@ -39,7 +39,7 @@ class TestScriptInterface : public CxxTest::TestSuite
 public:
 	void test_loadscript_basic()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		TestLogger logger;
 		TS_ASSERT(script.LoadScript(L"test.js", "var x = 1+1;"));
 		TS_ASSERT_STR_NOT_CONTAINS(logger.GetOutput(), "JavaScript error");
@@ -48,7 +48,7 @@ public:
 
 	void test_loadscript_error()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		TestLogger logger;
 		TS_ASSERT(!script.LoadScript(L"test.js", "1+"));
 		TS_ASSERT_STR_CONTAINS(logger.GetOutput(), "ERROR: JavaScript error: test.js line 2\nexpected expression, got \'}\'");
@@ -56,7 +56,7 @@ public:
 
 	void test_loadscript_strict_warning()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		TestLogger logger;
 		// in strict mode, this inside a function doesn't point to the global object
 		TS_ASSERT(script.LoadScript(L"test.js", "var isStrict = (function() { return !this; })();warn('isStrict is '+isStrict);"));
@@ -65,7 +65,7 @@ public:
 
 	void test_loadscript_strict_error()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		TestLogger logger;
 		TS_ASSERT(!script.LoadScript(L"test.js", "with(1){}"));
 		TS_ASSERT_STR_CONTAINS(logger.GetOutput(), "ERROR: JavaScript error: test.js line 1\nstrict mode code may not contain \'with\' statements");
@@ -73,15 +73,15 @@ public:
 
 	void test_clone_basic()
 	{
-		ScriptInterface script1("Test", "Test", g_ScriptContext);
-		ScriptInterface script2("Test", "Test", g_ScriptContext);
+		Script::Interface script1("Test", "Test", g_ScriptContext);
+		Script::Interface script2("Test", "Test", g_ScriptContext);
 
-		ScriptRequest rq1(script1);
+		Script::Request rq1(script1);
 		JS::RootedValue obj1(rq1.cx);
 		TS_ASSERT(script1.Eval("({'x': 123, 'y': [1, 1.5, '2', 'test', undefined, null, true, false]})", &obj1));
 
 		{
-			ScriptRequest rq2(script2);
+			Script::Request rq2(script2);
 
 			JS::RootedValue obj2(rq2.cx, Script::CloneValueFromOtherCompartment(script2, script1, obj1));
 
@@ -94,16 +94,16 @@ public:
 	void test_clone_getters()
 	{
 		// The tests should be run with JS_SetGCZeal so this can try to find GC bugs
-		ScriptInterface script1("Test", "Test", g_ScriptContext);
-		ScriptInterface script2("Test", "Test", g_ScriptContext);
+		Script::Interface script1("Test", "Test", g_ScriptContext);
+		Script::Interface script2("Test", "Test", g_ScriptContext);
 
-		ScriptRequest rq1(script1);
+		Script::Request rq1(script1);
 
 		JS::RootedValue obj1(rq1.cx);
 		TS_ASSERT(script1.Eval("var s = '?'; var v = ({get x() { return 123 }, 'y': {'w':{get z() { delete v.y; delete v.n; v = null; s += s; return 4 }}}, 'n': 100}); v", &obj1));
 
 		{
-			ScriptRequest rq2(script2);
+			Script::Request rq2(script2);
 
 			JS::RootedValue obj2(rq2.cx, Script::CloneValueFromOtherCompartment(script2, script1, obj1));
 
@@ -115,16 +115,16 @@ public:
 
 	void test_clone_cyclic()
 	{
-		ScriptInterface script1("Test", "Test", g_ScriptContext);
-		ScriptInterface script2("Test", "Test", g_ScriptContext);
+		Script::Interface script1("Test", "Test", g_ScriptContext);
+		Script::Interface script2("Test", "Test", g_ScriptContext);
 
-		ScriptRequest rq1(script1);
+		Script::Request rq1(script1);
 
 		JS::RootedValue obj1(rq1.cx);
 		TS_ASSERT(script1.Eval("var x = []; x[0] = x; ({'a': x, 'b': x})", &obj1));
 
 		{
-			ScriptRequest rq2(script2);
+			Script::Request rq2(script2);
 			JS::RootedValue obj2(rq2.cx, Script::CloneValueFromOtherCompartment(script2, script1, obj1));
 
 			// Use JSAPI function to check if the values of the properties "a", "b" are equals a.x[0]
@@ -143,7 +143,7 @@ public:
 
 	void test_deepfreeze()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		TestLogger logger;
 
 		TS_ASSERT(!script.LoadScript(L"testFreezeObject.js", "var obj1 = { foo: \"a\"}; deepfreeze(obj1); obj1.bar = \"b\";"));
@@ -165,9 +165,9 @@ public:
 	 */
 	void test_rooted_templates()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 
-		ScriptRequest rq(script);
+		Script::Request rq(script);
 
 		JS::RootedValue val(rq.cx);
 		JS::RootedValue out(rq.cx);
@@ -208,9 +208,9 @@ public:
 		handle_templates_test(script, val, &out, nbrVal);
 	}
 
-	void handle_templates_test(const ScriptInterface& script, JS::HandleValue val, JS::MutableHandleValue out, JS::HandleValue nbrVal)
+	void handle_templates_test(const Script::Interface& script, JS::HandleValue val, JS::MutableHandleValue out, JS::HandleValue nbrVal)
 	{
-		ScriptRequest rq(script);
+		Script::Request rq(script);
 
 		int nbr = 0;
 
@@ -238,7 +238,7 @@ public:
 
 	void test_random()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 
 		double d1, d2;
 		TS_ASSERT(script.Eval("Math.random()", d1));
@@ -258,8 +258,8 @@ public:
 
 	void test_json()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
-		ScriptRequest rq(script);
+		Script::Interface script("Test", "Test", g_ScriptContext);
+		Script::Request rq(script);
 
 		std::string input = "({'x':1,'z':[2,'3\\u263A\\ud800'],\"y\":true})";
 		JS::RootedValue val(rq.cx);
@@ -276,8 +276,8 @@ public:
 	// extends the functionality and is then assigned to the name of the function.
 	void test_function_override()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
-		ScriptRequest rq(script);
+		Script::Interface script("Test", "Test", g_ScriptContext);
+		Script::Request rq(script);
 
 		TS_ASSERT(script.Eval(
 			"function f() { return 1; }"

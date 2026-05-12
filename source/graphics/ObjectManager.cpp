@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -29,7 +29,7 @@
 #include "ps/Filesystem.h"
 #include "ps/Profiler2.h"
 #include "ps/XML/Xeromyces.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpTerrain.h"
 #include "simulation2/components/ICmpVisual.h"

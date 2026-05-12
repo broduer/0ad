@@ -31,7 +31,7 @@
 #include "ps/CLogger.h"
 #include "ps/Profiler2.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "soundmanager/ISoundManager.h"
 
 #include <algorithm>
@@ -321,7 +321,7 @@ float IGUIObject::GetBufferedZ() const
 
 void IGUIObject::RegisterScriptHandler(const CStr& eventName, const CStr& Code, CGUI& pGUI)
 {
-	ScriptRequest rq(pGUI.GetScriptInterface());
+	Script::Request rq(pGUI.GetScriptInterface());
 
 	const int paramCount = 1;
 	const char* paramNames[paramCount] = { "mouse" };
@@ -334,7 +334,7 @@ void IGUIObject::RegisterScriptHandler(const CStr& eventName, const CStr& Code, 
 	char buf[64];
 	sprintf_s(buf, ARRAY_SIZE(buf), "__eventhandler%d (%s)", x++, eventName.c_str());
 
-	// TODO: this is essentially the same code as ScriptInterface::LoadScript (with a tweak for the argument).
+	// TODO: this is essentially the same code as Script::Interface::LoadScript (with a tweak for the argument).
 	JS::CompileOptions options(rq.cx);
 	options.setFileAndLine(CodeName.c_str(), 0);
 	options.setIsRunOnce(false);
@@ -413,7 +413,7 @@ InReaction IGUIObject::SendMouseEvent(EGUIMessageType type, const CStr& eventNam
 		msg.Skip();
 	HandleMessage(msg);
 
-	ScriptRequest rq(m_pGUI.GetScriptInterface());
+	Script::Request rq(m_pGUI.GetScriptInterface());
 
 	// Set up the 'mouse' parameter
 	JS::RootedValue mouse(rq.cx);
@@ -457,7 +457,7 @@ bool IGUIObject::ScriptEvent(const CStr& eventName,
 	if (it == m_ScriptHandlers.end())
 		return false;
 
-	ScriptRequest rq(m_pGUI.GetScriptInterface());
+	Script::Request rq(m_pGUI.GetScriptInterface());
 	JS::RootedObject obj(rq.cx, GetJSObject());
 	JS::RootedValue handlerVal(rq.cx, JS::ObjectValue(*it->second));
 	JS::RootedValue result(rq.cx);

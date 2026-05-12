@@ -43,9 +43,9 @@ class CTerrain;
 class CUnitManager;
 class IComponent;
 class SceneCollector;
-class ScriptContext;
-class ScriptInterface;
+namespace Script { class Context; }
 namespace JS { class Value; }
+namespace Script { class Interface; }
 struct SimulationCommand;
 
 /**
@@ -72,7 +72,7 @@ public:
 	 *	(non-recursively) are loaded, so that they can register new
 	 *	component types and functions.
 	 */
-	CSimulation2(CUnitManager* unitManager, ScriptContext& cx, CTerrain* terrain,
+	CSimulation2(CUnitManager* unitManager, Script::Context& cx, CTerrain* terrain,
 		const std::span<const wchar_t* const> scriptDirectories,
 		const SimulationDebugOptions debugOptions = {});
 	~CSimulation2();
@@ -230,7 +230,7 @@ public:
 	const InterfaceListUnordered& GetEntitiesWithInterfaceUnordered(int iid);
 
 	const CSimContext& GetSimContext() const;
-	ScriptInterface& GetScriptInterface() const;
+	Script::Interface& GetScriptInterface() const;
 
 	bool ComputeStateHash(std::string& outHash, bool quick);
 	bool DumpDebugState(std::ostream& stream);

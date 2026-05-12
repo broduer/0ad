@@ -1,4 +1,4 @@
-/* Copyright (C) 2010 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,8 +18,8 @@
 #ifndef INCLUDED_GUI_SCRIPTFUNCTIONS
 #define INCLUDED_GUI_SCRIPTFUNCTIONS
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
-void GuiScriptingInit(ScriptInterface& scriptInterface);
+void GuiScriptingInit(Script::Interface& scriptInterface);
 
 #endif // INCLUDED_GUI_SCRIPTFUNCTIONS

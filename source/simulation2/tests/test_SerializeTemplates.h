@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@
 #include "lib/self_test.h"
 
 #include "lib/types.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/helpers/Grid.h"
 #include "simulation2/serialization/DebugSerializer.h"
 #include "simulation2/serialization/SerializeTemplates.h"
@@ -36,7 +36,7 @@ class TestSerializeTemplates : public CxxTest::TestSuite
 public:
 	void test_Debug_array()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		std::stringstream stream;
 
 		CDebugSerializer serialize(script, stream);
@@ -49,7 +49,7 @@ public:
 
 	void test_Debug_vector()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		std::stringstream stream;
 
 		CDebugSerializer serialize(script, stream);
@@ -62,7 +62,7 @@ public:
 
 	void test_Debug_set()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		std::stringstream stream;
 
 		CDebugSerializer serialize(script, stream);
@@ -75,7 +75,7 @@ public:
 
 	void test_Debug_grid()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		std::stringstream stream;
 
 		CDebugSerializer serialize(script, stream);

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@
 
 #include "maths/FixedVector3D.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/system/InterfaceScripted.h"
 
 #include <js/PropertyAndElement.h>
@@ -36,7 +36,7 @@ JS::Value ICmpFootprint::GetShape_wrapper() const
 	entity_pos_t size0, size1, height;
 	GetShape(shape, size0, size1, height);
 
-	ScriptRequest rq(GetSimContext().GetScriptInterface());
+	Script::Request rq(GetSimContext().GetScriptInterface());
 
 	JS::RootedObject obj(rq.cx, JS_NewPlainObject(rq.cx));
 	if (!obj)

@@ -36,8 +36,8 @@
 #include "ps/Pyrogenesis.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"
 
 #include <ctime>
@@ -133,7 +133,7 @@ class XmppClient::Impl : public gloox::ConnectionListener, public gloox::MUCRoom
 {
 public:
 	// Basic
-	Impl(const ScriptInterface* scriptInterface, const std::string& sUsername,
+	Impl(const Script::Interface* scriptInterface, const std::string& sUsername,
 		const std::string& sPassword, const std::string& sRoom, const std::string& sNick,
 		const int historyRequestSize, const bool regOpt);
 
@@ -246,8 +246,8 @@ public:
 	std::vector<std::unique_ptr<const gloox::Tag>> m_BoardList;
 	/// Profile data
 	std::vector<std::unique_ptr<const gloox::Tag>> m_Profile;
-	/// ScriptInterface to root the values
-	const ScriptInterface* m_ScriptInterface;
+	/// Script::Interface to root the values
+	const Script::Interface* m_ScriptInterface;
 	/// Queue of messages for the GUI
 	JS::PersistentRootedVector<JS::Value> m_GuiMessageQueue;
 	/// Cache of all GUI messages received since the login
@@ -260,7 +260,7 @@ public:
 /**
  * Construct the XMPP client.
  *
- * @param scriptInterface - ScriptInterface to be used for storing GUI messages.
+ * @param scriptInterface - Script::Interface to be used for storing GUI messages.
  * Can be left blank for non-visual applications.
  * @param sUsername Username to login with of register.
  * @param sPassword Password to login with or register.
@@ -269,14 +269,14 @@ public:
  * @param historyRequestSize Number of stanzas of room history to request.
  * @param regOpt If we are just registering or not.
  */
-XmppClient::XmppClient(const ScriptInterface* scriptInterface, const std::string& username,
+XmppClient::XmppClient(const Script::Interface* scriptInterface, const std::string& username,
 	const std::string& password, const std::string& room, const std::string& nick,
 	const int historyRequestSize, bool regOpt) :
 	m_Impl{std::make_unique<Impl>(scriptInterface, username, password, room, nick, historyRequestSize,
 		regOpt)}
 {}
 
-XmppClient::Impl::Impl(const ScriptInterface* scriptInterface, const std::string& sUsername,
+XmppClient::Impl::Impl(const Script::Interface* scriptInterface, const std::string& sUsername,
 	const std::string& sPassword, const std::string& sRoom, const std::string& sNick,
 	const int historyRequestSize, bool regOpt)
 	: m_server{g_ConfigDB.Get("lobby.server", std::string{})},
@@ -527,7 +527,7 @@ void XmppClient::SendIqGetConnectionData(const std::string& jid, const std::stri
  *
  * @param data A JS array of game statistics
  */
-void XmppClient::SendIqGameReport(const ScriptRequest& rq, JS::HandleValue data)
+void XmppClient::SendIqGameReport(const Script::Request& rq, JS::HandleValue data)
 {
 	gloox::JID echelonJid(m_Impl->m_echelonId);
 
@@ -570,7 +570,7 @@ void XmppClient::SendIqGameReport(const ScriptRequest& rq, JS::HandleValue data)
  *
  * @param data A JS array of game attributes
  */
-void XmppClient::SendIqRegisterGame(const ScriptRequest& rq, JS::HandleValue data)
+void XmppClient::SendIqRegisterGame(const Script::Request& rq, JS::HandleValue data)
 {
 	gloox::JID xpartamuppJid(m_Impl->m_xpartamuppId);
 
@@ -720,7 +720,7 @@ void XmppClient::Impl::handleOOB(const gloox::JID&, const gloox::OOB&)
  *
  * @return A JS array containing all known players and their presences
  */
-JS::Value XmppClient::GUIGetPlayerList(const ScriptRequest& rq)
+JS::Value XmppClient::GUIGetPlayerList(const Script::Request& rq)
 {
 	JS::RootedValueVector players{rq.cx};
 
@@ -747,7 +747,7 @@ JS::Value XmppClient::GUIGetPlayerList(const ScriptRequest& rq)
  *
  * @return A JS array containing all known games
  */
-JS::Value XmppClient::GUIGetGameList(const ScriptRequest& rq)
+JS::Value XmppClient::GUIGetGameList(const Script::Request& rq)
 {
 	JS::RootedValueVector games{rq.cx};
 
@@ -774,7 +774,7 @@ JS::Value XmppClient::GUIGetGameList(const ScriptRequest& rq)
  *
  * @return A JS array containing all known leaderboard data
  */
-JS::Value XmppClient::GUIGetBoardList(const ScriptRequest& rq)
+JS::Value XmppClient::GUIGetBoardList(const Script::Request& rq)
 {
 	JS::RootedValueVector boardList{rq.cx};
 
@@ -799,7 +799,7 @@ JS::Value XmppClient::GUIGetBoardList(const ScriptRequest& rq)
  *
  * @return A JS array containing the specific user's profile data
  */
-JS::Value XmppClient::GUIGetProfile(const ScriptRequest& rq)
+JS::Value XmppClient::GUIGetProfile(const Script::Request& rq)
 {
 	JS::RootedValueVector profileData{rq.cx};
 
@@ -823,12 +823,12 @@ JS::Value XmppClient::GUIGetProfile(const ScriptRequest& rq)
  * Message interfaces                                *
  *****************************************************/
 
-void SetGUIMessageProperty(const ScriptRequest&, JS::HandleObject /*messageObj*/)
+void SetGUIMessageProperty(const Script::Request&, JS::HandleObject /*messageObj*/)
 {
 }
 
 template<typename T, typename... Args>
-void SetGUIMessageProperty(const ScriptRequest& rq, JS::HandleObject messageObj, const std::string& propertyName, const T& propertyValue, Args const&... args)
+void SetGUIMessageProperty(const Script::Request& rq, JS::HandleObject messageObj, const std::string& propertyName, const T& propertyValue, Args const&... args)
 {
 	JS::RootedValue scriptPropertyValue(rq.cx);
 	Script::ToJSVal(rq, &scriptPropertyValue, propertyValue);
@@ -845,7 +845,7 @@ void XmppClient::Impl::CreateGUIMessage(
 {
 	if (!m_ScriptInterface)
 		return;
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 	JS::RootedValue message(rq.cx);
 	Script::CreateObject(
 		rq,
@@ -872,12 +872,12 @@ bool XmppClient::GuiPollHasPlayerListUpdate()
 	return std::exchange(m_Impl->m_PlayerMapUpdate, false);
 }
 
-JS::Value XmppClient::GuiPollNewMessages(const ScriptInterface& guiInterface)
+JS::Value XmppClient::GuiPollNewMessages(const Script::Interface& guiInterface)
 {
 	if ((isConnected() && !m_Impl->m_initialLoadComplete) || m_Impl->m_GuiMessageQueue.empty())
 		return JS::UndefinedValue();
 
-	ScriptRequest rq(m_Impl->m_ScriptInterface);
+	Script::Request rq(m_Impl->m_ScriptInterface);
 
 	// Optimize for batch message processing that is more
 	// performance demanding than processing a lone message.
@@ -919,12 +919,12 @@ JS::Value XmppClient::GuiPollNewMessages(const ScriptInterface& guiInterface)
 		JS::RootedValue{rq.cx, JS::ObjectValue(*JS::NewArrayObject(rq.cx, messages))});
 }
 
-JS::Value XmppClient::GuiPollHistoricMessages(const ScriptInterface& guiInterface)
+JS::Value XmppClient::GuiPollHistoricMessages(const Script::Interface& guiInterface)
 {
 	if (m_Impl->m_HistoricGuiMessages.empty())
 		return JS::UndefinedValue();
 
-	ScriptRequest rq(m_Impl->m_ScriptInterface);
+	Script::Request rq(m_Impl->m_ScriptInterface);
 
 	JS::RootedValueVector messages{rq.cx};
 

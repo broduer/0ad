@@ -34,8 +34,8 @@
 #include "ps/VideoMode.h"
 #include "ps/XML/Xeromyces.h"
 #include "renderer/Renderer.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 
 #include <js/PropertyAndElement.h>
 #include <js/PropertyDescriptor.h>
@@ -140,7 +140,7 @@ public:
 		CGUISimpleSetting<CGUISize>* setting{object.GetSizeSetting()};
 		object.SetSettingFromString("size", L"2 2 20 20", false);
 
-		ScriptRequest rq{gui.GetScriptInterface()};
+		Script::Request rq{gui.GetScriptInterface()};
 		JS::RootedValue val(rq.cx);
 		val.setObject(*object.GetJSObject());
 		JS::RootedObject global(rq.cx, rq.glob);

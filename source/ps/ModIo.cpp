@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -40,9 +40,9 @@
 #include "ps/ModInstaller.h"
 #include "ps/Util.h"
 #include "scriptinterface/JSON.h"
-#include "scriptinterface/ScriptContext.h"
+#include "scriptinterface/Context.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 
 #include <algorithm>
 #include <boost/algorithm/string/classification.hpp>
@@ -57,7 +57,7 @@
 #include <js/TypeDecls.h>
 #include <js/Value.h>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
 ModIo* g_ModIo = nullptr;
 
@@ -410,7 +410,7 @@ void ModIo::CancelRequest()
 	}
 }
 
-bool ModIo::AdvanceRequest(const ScriptInterface& scriptInterface)
+bool ModIo::AdvanceRequest(const Script::Interface& scriptInterface)
 {
 	// If the request was cancelled, stop trying to advance it
 	if (m_DownloadProgressData.status != DownloadProgressStatus::GAMEID &&
@@ -524,7 +524,7 @@ bool ModIo::AdvanceRequest(const ScriptInterface& scriptInterface)
 	return true;
 }
 
-bool ModIo::ParseGameId(const ScriptInterface& scriptInterface, std::string& err)
+bool ModIo::ParseGameId(const Script::Interface& scriptInterface, std::string& err)
 {
 	int id = -1;
 	bool ret = ParseGameIdResponse(scriptInterface, m_ResponseData, id, err);
@@ -536,7 +536,7 @@ bool ModIo::ParseGameId(const ScriptInterface& scriptInterface, std::string& err
 	return true;
 }
 
-bool ModIo::ParseMods(const ScriptInterface& scriptInterface, std::string& err)
+bool ModIo::ParseMods(const Script::Interface& scriptInterface, std::string& err)
 {
 	bool ret = ParseModsResponse(scriptInterface, m_ResponseData, m_ModData, m_pk, err);
 	m_ResponseData.clear();
@@ -614,10 +614,10 @@ bool ModIo::VerifyDownloadedFile(std::string& err)
  *
  * @returns true iff it successfully parsed the id.
  */
-bool ModIo::ParseGameIdResponse(const ScriptInterface& scriptInterface, const std::string& responseData, int& id, std::string& err)
+bool ModIo::ParseGameIdResponse(const Script::Interface& scriptInterface, const std::string& responseData, int& id, std::string& err)
 {
 #define CLEANUP() id = -1;
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 
 	JS::RootedValue gameResponse(rq.cx);
 
@@ -680,12 +680,12 @@ bool ModIo::ParseGameIdResponse(const ScriptInterface& scriptInterface, const st
  * Only the listed properties are of interest to consumers, and we flatten
  * the modfile structure as that simplifies handling and there are no conflicts.
  */
-bool ModIo::ParseModsResponse(const ScriptInterface& scriptInterface, const std::string& responseData, std::vector<ModIoModData>& modData, const PKStruct& pk, std::string& err)
+bool ModIo::ParseModsResponse(const Script::Interface& scriptInterface, const std::string& responseData, std::vector<ModIoModData>& modData, const PKStruct& pk, std::string& err)
 {
 // Make sure we don't end up passing partial results back
 #define CLEANUP() modData.clear();
 
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 
 	JS::RootedValue modResponse(rq.cx);
 

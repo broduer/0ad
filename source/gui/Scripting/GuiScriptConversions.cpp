@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -37,7 +37,7 @@
 #include "ps/Hotkey.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptExceptions.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 
 #include <js/CallArgs.h>
 #include <js/PropertyAndElement.h>
@@ -55,7 +55,7 @@ struct CColor;
 	// ignore JS_SetProperty return value, because errors should be impossible
 	// and we can't do anything useful in the case of errors anyway
 
-template<> void Script::ToJSVal<SDL_Event_>(const ScriptRequest& rq, JS::MutableHandleValue ret, SDL_Event_ const& val)
+template<> void Script::ToJSVal<SDL_Event_>(const Script::Request& rq, JS::MutableHandleValue ret, SDL_Event_ const& val)
 {
 	const char* typeName;
 
@@ -148,7 +148,7 @@ template<> void Script::ToJSVal<SDL_Event_>(const ScriptRequest& rq, JS::Mutable
 	ret.setObject(*obj);
 }
 
-template<> void Script::ToJSVal<IGUIObject*>(const ScriptRequest&, JS::MutableHandleValue ret,
+template<> void Script::ToJSVal<IGUIObject*>(const Script::Request&, JS::MutableHandleValue ret,
 	IGUIObject* const& val)
 {
 	if (val == nullptr)
@@ -157,7 +157,7 @@ template<> void Script::ToJSVal<IGUIObject*>(const ScriptRequest&, JS::MutableHa
 		ret.setObject(*val->GetJSObject());
 }
 
-template<> bool Script::FromJSVal<IGUIObject*>(const ScriptRequest& rq, JS::HandleValue v, IGUIObject*& out)
+template<> bool Script::FromJSVal<IGUIObject*>(const Script::Request& rq, JS::HandleValue v, IGUIObject*& out)
 {
 	if (!v.isObject())
 	{
@@ -173,12 +173,12 @@ template<> bool Script::FromJSVal<IGUIObject*>(const ScriptRequest& rq, JS::Hand
 	return true;
 }
 
-template<> void Script::ToJSVal<CGUIString>(const ScriptRequest& rq, JS::MutableHandleValue ret, const CGUIString& val)
+template<> void Script::ToJSVal<CGUIString>(const Script::Request& rq, JS::MutableHandleValue ret, const CGUIString& val)
 {
 	Script::ToJSVal(rq, ret, val.GetOriginalString());
 }
 
-template<> bool Script::FromJSVal<CGUIString>(const ScriptRequest& rq, JS::HandleValue v, CGUIString& out)
+template<> bool Script::FromJSVal<CGUIString>(const Script::Request& rq, JS::HandleValue v, CGUIString& out)
 {
 	std::wstring val;
 	if (!FromJSVal(rq, v, val))
@@ -191,7 +191,7 @@ JSVAL_VECTOR(CVector2D)
 JSVAL_VECTOR(std::vector<CVector2D>)
 JSVAL_VECTOR(CGUIString)
 
-template<> void Script::ToJSVal<CGUIColor>(const ScriptRequest& rq, JS::MutableHandleValue ret, const CGUIColor& val)
+template<> void Script::ToJSVal<CGUIColor>(const Script::Request& rq, JS::MutableHandleValue ret, const CGUIColor& val)
 {
 	ToJSVal<CColor>(rq, ret, val);
 }
@@ -199,9 +199,9 @@ template<> void Script::ToJSVal<CGUIColor>(const ScriptRequest& rq, JS::MutableH
 /**
  * The color depends on the predefined color database stored in the current GUI page.
  */
-template<> bool Script::FromJSVal<CGUIColor>(const ScriptRequest& rq, JS::HandleValue v, CGUIColor& out) = delete;
+template<> bool Script::FromJSVal<CGUIColor>(const Script::Request& rq, JS::HandleValue v, CGUIColor& out) = delete;
 
-template<> void Script::ToJSVal<CRect>(const ScriptRequest& rq, JS::MutableHandleValue ret, const CRect& val)
+template<> void Script::ToJSVal<CRect>(const Script::Request& rq, JS::MutableHandleValue ret, const CRect& val)
 {
 	Script::CreateObject(
 		rq,
@@ -212,27 +212,27 @@ template<> void Script::ToJSVal<CRect>(const ScriptRequest& rq, JS::MutableHandl
 		"bottom", val.bottom);
 }
 
-template<> void Script::ToJSVal<CGUIList>(const ScriptRequest& rq, JS::MutableHandleValue ret, const CGUIList& val)
+template<> void Script::ToJSVal<CGUIList>(const Script::Request& rq, JS::MutableHandleValue ret, const CGUIList& val)
 {
 	ToJSVal(rq, ret, val.m_Items);
 }
 
-template<> bool Script::FromJSVal<CGUIList>(const ScriptRequest& rq, JS::HandleValue v, CGUIList& out)
+template<> bool Script::FromJSVal<CGUIList>(const Script::Request& rq, JS::HandleValue v, CGUIList& out)
 {
 	return FromJSVal(rq, v, out.m_Items);
 }
 
-template<> void Script::ToJSVal<CGUISeries>(const ScriptRequest& rq, JS::MutableHandleValue ret, const CGUISeries& val)
+template<> void Script::ToJSVal<CGUISeries>(const Script::Request& rq, JS::MutableHandleValue ret, const CGUISeries& val)
 {
 	ToJSVal(rq, ret, val.m_Series);
 }
 
-template<> bool Script::FromJSVal<CGUISeries>(const ScriptRequest& rq, JS::HandleValue v, CGUISeries& out)
+template<> bool Script::FromJSVal<CGUISeries>(const Script::Request& rq, JS::HandleValue v, CGUISeries& out)
 {
 	return FromJSVal(rq, v, out.m_Series);
 }
 
-template<> void Script::ToJSVal<EVAlign>(const ScriptRequest& rq, JS::MutableHandleValue ret, const EVAlign& val)
+template<> void Script::ToJSVal<EVAlign>(const Script::Request& rq, JS::MutableHandleValue ret, const EVAlign& val)
 {
 	std::string word;
 	switch (val)
@@ -257,7 +257,7 @@ template<> void Script::ToJSVal<EVAlign>(const ScriptRequest& rq, JS::MutableHan
 	ToJSVal(rq, ret, word);
 }
 
-template<> bool Script::FromJSVal<EVAlign>(const ScriptRequest& rq, JS::HandleValue v, EVAlign& out)
+template<> bool Script::FromJSVal<EVAlign>(const Script::Request& rq, JS::HandleValue v, EVAlign& out)
 {
 	std::string word;
 	FromJSVal(rq, v, word);
@@ -277,7 +277,7 @@ template<> bool Script::FromJSVal<EVAlign>(const ScriptRequest& rq, JS::HandleVa
 	return true;
 }
 
-template<> void Script::ToJSVal<EAlign>(const ScriptRequest& rq, JS::MutableHandleValue ret, const EAlign& val)
+template<> void Script::ToJSVal<EAlign>(const Script::Request& rq, JS::MutableHandleValue ret, const EAlign& val)
 {
 	std::string word;
 	switch (val)
@@ -299,7 +299,7 @@ template<> void Script::ToJSVal<EAlign>(const ScriptRequest& rq, JS::MutableHand
 	ToJSVal(rq, ret, word);
 }
 
-template<> bool Script::FromJSVal<EAlign>(const ScriptRequest& rq, JS::HandleValue v, EAlign& out)
+template<> bool Script::FromJSVal<EAlign>(const Script::Request& rq, JS::HandleValue v, EAlign& out)
 {
 	std::string word;
 	FromJSVal(rq, v, word);
@@ -319,7 +319,7 @@ template<> bool Script::FromJSVal<EAlign>(const ScriptRequest& rq, JS::HandleVal
 	return true;
 }
 
-template<> void Script::ToJSVal<EScrollOrientation>(const ScriptRequest& rq, JS::MutableHandleValue ret, const EScrollOrientation& val)
+template<> void Script::ToJSVal<EScrollOrientation>(const Script::Request& rq, JS::MutableHandleValue ret, const EScrollOrientation& val)
 {
 	std::string word;
 	switch (val)
@@ -341,7 +341,7 @@ template<> void Script::ToJSVal<EScrollOrientation>(const ScriptRequest& rq, JS:
 	ToJSVal(rq, ret, word);
 }
 
-template <> bool Script::FromJSVal<EScrollOrientation>(const ScriptRequest& rq, JS::HandleValue v, EScrollOrientation& out)
+template <> bool Script::FromJSVal<EScrollOrientation>(const Script::Request& rq, JS::HandleValue v, EScrollOrientation& out)
 {
 	std::string word;
 	FromJSVal(rq, v, word);
@@ -362,12 +362,12 @@ template <> bool Script::FromJSVal<EScrollOrientation>(const ScriptRequest& rq, 
 	return true;
 }
 
-template<> void Script::ToJSVal<CGUISpriteInstance>(const ScriptRequest& rq, JS::MutableHandleValue ret, const CGUISpriteInstance& val)
+template<> void Script::ToJSVal<CGUISpriteInstance>(const Script::Request& rq, JS::MutableHandleValue ret, const CGUISpriteInstance& val)
 {
 	ToJSVal(rq, ret, val.GetName());
 }
 
-template<> bool Script::FromJSVal<CGUISpriteInstance>(const ScriptRequest& rq, JS::HandleValue v, CGUISpriteInstance& out)
+template<> bool Script::FromJSVal<CGUISpriteInstance>(const Script::Request& rq, JS::HandleValue v, CGUISpriteInstance& out)
 {
 	std::string name;
 	if (!FromJSVal(rq, v, name))
@@ -377,12 +377,12 @@ template<> bool Script::FromJSVal<CGUISpriteInstance>(const ScriptRequest& rq, J
 	return true;
 }
 
-template<> void Script::ToJSVal<CSize2D>(const ScriptRequest& rq, JS::MutableHandleValue ret, const CSize2D& val)
+template<> void Script::ToJSVal<CSize2D>(const Script::Request& rq, JS::MutableHandleValue ret, const CSize2D& val)
 {
 	Script::CreateObject(rq, ret, "width", val.Width, "height", val.Height);
 }
 
-template<> bool Script::FromJSVal<CSize2D>(const ScriptRequest& rq, JS::HandleValue v, CSize2D& out)
+template<> bool Script::FromJSVal<CSize2D>(const Script::Request& rq, JS::HandleValue v, CSize2D& out)
 {
 	if (!v.isObject())
 	{
@@ -405,12 +405,12 @@ template<> bool Script::FromJSVal<CSize2D>(const ScriptRequest& rq, JS::HandleVa
 	return true;
 }
 
-template<> void Script::ToJSVal<CVector2D>(const ScriptRequest& rq, JS::MutableHandleValue ret, const CVector2D& val)
+template<> void Script::ToJSVal<CVector2D>(const Script::Request& rq, JS::MutableHandleValue ret, const CVector2D& val)
 {
 	Script::CreateObject(rq, ret, "x", val.X, "y", val.Y);
 }
 
-template<> bool Script::FromJSVal<CVector2D>(const ScriptRequest& rq, JS::HandleValue v, CVector2D& out)
+template<> bool Script::FromJSVal<CVector2D>(const Script::Request& rq, JS::HandleValue v, CVector2D& out)
 {
 	if (!v.isObject())
 	{

@@ -23,13 +23,13 @@
 #include <js/Value.h>
 #include <memory>
 
-class ScriptInterface;
-class ScriptRequest;
+namespace Script { class Interface; }
+namespace Script { class Request; }
 
 class XmppClient
 {
 public:
-	XmppClient(const ScriptInterface* scriptInterface, const std::string& username,
+	XmppClient(const Script::Interface* scriptInterface, const std::string& username,
 		const std::string& password, const std::string& room, const std::string& nick,
 		const int historyRequestSize = 0, bool regOpt = false);
 	~XmppClient();
@@ -40,8 +40,8 @@ public:
 	void recv();
 	void SendIqGetBoardList();
 	void SendIqGetProfile(const std::string& player);
-	void SendIqGameReport(const ScriptRequest& rq, JS::HandleValue data);
-	void SendIqRegisterGame(const ScriptRequest& rq, JS::HandleValue data);
+	void SendIqGameReport(const Script::Request& rq, JS::HandleValue data);
+	void SendIqRegisterGame(const Script::Request& rq, JS::HandleValue data);
 	void SendIqGetConnectionData(const std::string& jid, const std::string& password,
 		const std::string& clientSalt, bool localIP);
 	void SendIqUnregisterGame();
@@ -59,13 +59,13 @@ public:
 	const char* GetRole(const std::string& nickname);
 	std::wstring GetRating(const std::string& nickname);
 	const std::wstring& GetSubject();
-	JS::Value GUIGetPlayerList(const ScriptRequest& rq);
-	JS::Value GUIGetGameList(const ScriptRequest& rq);
-	JS::Value GUIGetBoardList(const ScriptRequest& rq);
-	JS::Value GUIGetProfile(const ScriptRequest& rq);
+	JS::Value GUIGetPlayerList(const Script::Request& rq);
+	JS::Value GUIGetGameList(const Script::Request& rq);
+	JS::Value GUIGetBoardList(const Script::Request& rq);
+	JS::Value GUIGetProfile(const Script::Request& rq);
 
-	JS::Value GuiPollNewMessages(const ScriptInterface& guiInterface);
-	JS::Value GuiPollHistoricMessages(const ScriptInterface& guiInterface);
+	JS::Value GuiPollNewMessages(const Script::Interface& guiInterface);
+	JS::Value GuiPollHistoricMessages(const Script::Interface& guiInterface);
 	bool GuiPollHasPlayerListUpdate();
 
 	void SendMUCMessage(const std::string& message);

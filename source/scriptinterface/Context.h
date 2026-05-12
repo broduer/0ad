@@ -15,8 +15,8 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef INCLUDED_SCRIPTCONTEXT
-#define INCLUDED_SCRIPTCONTEXT
+#ifndef INCLUDED_SCRIPT_CONTEXT
+#define INCLUDED_SCRIPT_CONTEXT
 
 #include <cstdint>
 #include <list>
@@ -37,14 +37,17 @@ class JobQueue;
 /**
  * Abstraction around a SpiderMonkey JSContext.
  *
- * A single ScriptContext, with the associated context,
+ * A single Script::Context, with the associated context,
  * should only be used on a single thread.
  *
  * (One means to share data between threads and contexts is to create
  * a Script::StructuredClone.)
  */
 
-class ScriptContext
+namespace Script
+{
+
+class Context
 {
 public:
 	/**
@@ -54,9 +57,9 @@ public:
 	 * @param contextSize Maximum size in bytes of the new context
 	 * @param heapGrowthBytesGCTrigger Size in bytes of cumulated allocations after which a GC will be triggered
 	 */
-	ScriptContext(int contextSize = DEFAULT_CONTEXT_SIZE,
+	Context(int contextSize = DEFAULT_CONTEXT_SIZE,
 		uint32_t heapGrowthBytesGCTrigger = DEFAULT_HEAP_GROWTH_BYTES_GCTRIGGER);
-	~ScriptContext();
+	~Context();
 
 	/**
 	 * MaybeIncrementalGC checks if running a GC is worth the time that will take.
@@ -95,8 +98,8 @@ public:
 	 * GetGeneralJSContext returns the context without starting a GC request and without
 	 * entering any compartment. It should only be used in specific situations, such as
 	 * creating a new compartment, or when initializing a persistent rooted.
-	 * If you need the compartmented context of a ScriptInterface, you should create a
-	 * ScriptRequest and use the context from that.
+	 * If you need the compartmented context of a Script::Interface, you should create a
+	 * Script::Request and use the context from that.
 	 */
 	JSContext* GetGeneralJSContext() const { return m_cx; }
 
@@ -113,8 +116,10 @@ private:
 	uint32_t m_LastGCBytes{0};
 };
 
+}
+
 // Using a global object for the context is a workaround until Simulation, AI, etc,
 // use their own threads and also their own contexts.
-extern thread_local std::shared_ptr<ScriptContext> g_ScriptContext;
+extern thread_local std::shared_ptr<Script::Context> g_ScriptContext;
 
-#endif // INCLUDED_SCRIPTCONTEXT
+#endif // INCLUDED_SCRIPT_CONTEXT

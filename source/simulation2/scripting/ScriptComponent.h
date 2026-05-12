@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -35,7 +35,7 @@ class CComponentTypeScript
 {
 	NONCOPYABLE(CComponentTypeScript);
 public:
-	CComponentTypeScript(const ScriptInterface& scriptInterface, JS::HandleValue instance);
+	CComponentTypeScript(const Script::Interface& scriptInterface, JS::HandleValue instance);
 
 	JS::HandleValue GetInstance() const { return JS::HandleValue::fromMarkedLocation(m_Instance.address()); }
 	JS::MutableHandleValue GetMutInstance() { return JS::MutableHandleValue::fromMarkedLocation(const_cast<JS::Value*>(m_Instance.address())); }
@@ -53,7 +53,7 @@ public:
 	R Call(const char* funcname, const Ts&... params) const
 	{
 		R ret;
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 		if (ScriptFunction::Call(rq, GetInstance(), funcname, ret, params...))
 			return ret;
 		LOGERROR("Error calling component script function %s", funcname);
@@ -64,7 +64,7 @@ public:
 	template<typename R, typename... Ts>
 	void CallRef(const char* funcname, R ret, const Ts&... params) const
 	{
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 		if (!ScriptFunction::Call(rq, GetInstance(), funcname, ret, params...))
 			LOGERROR("Error calling component script function %s", funcname);
 	}
@@ -72,13 +72,13 @@ public:
 	template<typename... Ts>
 	void CallVoid(const char* funcname, const Ts&... params) const
 	{
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 		if (!ScriptFunction::CallVoid(rq, GetInstance(), funcname, params...))
 			LOGERROR("Error calling component script function %s", funcname);
 	}
 
 private:
-	const ScriptInterface& m_ScriptInterface;
+	const Script::Interface& m_ScriptInterface;
 	JS::Heap<JS::Value> m_Instance;
 };
 
@@ -92,7 +92,7 @@ private:
 
 
 #define DEFAULT_SCRIPT_WRAPPER_BASIC(cname) \
-	static IComponent* Allocate(const ScriptInterface& scriptInterface, JS::HandleValue instance) \
+	static IComponent* Allocate(const Script::Interface& scriptInterface, JS::HandleValue instance) \
 	{ \
 		return new CCmp##cname(scriptInterface, instance); \
 	} \
@@ -100,7 +100,7 @@ private:
 	{ \
 		delete static_cast<CCmp##cname*> (cmp); \
 	} \
-	CCmp##cname(const ScriptInterface& scriptInterface, JS::HandleValue instance) : m_Script(scriptInterface, instance) { } \
+	CCmp##cname(const Script::Interface& scriptInterface, JS::HandleValue instance) : m_Script(scriptInterface, instance) { } \
 	static std::string GetSchema() \
 	{ \
 		return "<a:component type='script-wrapper'/><empty/>"; \

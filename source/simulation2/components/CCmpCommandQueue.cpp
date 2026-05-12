@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,7 +25,7 @@
 #include "ps/Profiler2.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/JSON.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/helpers/Player.h"
 #include "simulation2/helpers/SimulationCommand.h"
 #include "simulation2/system/Component.h"
@@ -38,7 +38,7 @@
 #include <string>
 #include <vector>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
 class CCmpCommandQueue final : public ICmpCommandQueue
 {
@@ -66,7 +66,7 @@ public:
 
 	void Serialize(ISerializer& serialize) override
 	{
-		ScriptRequest rq(GetSimContext().GetScriptInterface());
+		Script::Request rq(GetSimContext().GetScriptInterface());
 
 		serialize.NumberU32_Unbounded("num commands", (u32)m_LocalQueue.size());
 		for (size_t i = 0; i < m_LocalQueue.size(); ++i)
@@ -78,7 +78,7 @@ public:
 
 	void Deserialize(const CParamNode&, IDeserializer& deserialize) override
 	{
-		ScriptRequest rq(GetSimContext().GetScriptInterface());
+		Script::Request rq(GetSimContext().GetScriptInterface());
 
 		u32 numCmds;
 		deserialize.NumberU32_Unbounded("num commands", numCmds);
@@ -94,13 +94,13 @@ public:
 
 	void PushLocalCommand(player_id_t player, JS::HandleValue cmd) override
 	{
-		ScriptRequest rq(GetSimContext().GetScriptInterface());
+		Script::Request rq(GetSimContext().GetScriptInterface());
 		m_LocalQueue.emplace_back(SimulationCommand(player, rq.cx, cmd));
 	}
 
 	void PostNetworkCommand(JS::HandleValue cmd1) override
 	{
-		ScriptRequest rq(GetSimContext().GetScriptInterface());
+		Script::Request rq(GetSimContext().GetScriptInterface());
 
 		// TODO: This is a workaround because we need to pass a MutableHandle to StringifyJSON.
 		JS::RootedValue cmd(rq.cx, cmd1.get());
@@ -115,8 +115,8 @@ public:
 
 	void FlushTurn(const std::vector<SimulationCommand>& commands) override
 	{
-		const ScriptInterface& scriptInterface = GetSimContext().GetScriptInterface();
-		ScriptRequest rq(scriptInterface);
+		const Script::Interface& scriptInterface = GetSimContext().GetScriptInterface();
+		Script::Request rq(scriptInterface);
 
 		JS::RootedValue global(rq.cx, rq.globalValue());
 		std::vector<SimulationCommand> localCommands;

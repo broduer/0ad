@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -26,7 +26,7 @@
 #include "maths/FixedVector3D.h"
 #include "maths/Vector3D.h"
 #include "ps/Errors.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/components/ICmpTerrain.h"
 #include "simulation2/helpers/Position.h"
 #include "simulation2/serialization/DebugSerializer.h"
@@ -42,7 +42,7 @@
 #include <string>
 
 class CMessage;
-class ScriptContext;
+namespace Script { class Context; }
 
 /**
  * @file
@@ -67,13 +67,13 @@ class ComponentTestHelper
 	bool m_isSystemEntityInit = false;
 
 public:
-	ComponentTestHelper(ScriptContext& scriptContext) :
+	ComponentTestHelper(Script::Context& scriptContext) :
 		m_Context(), m_ComponentManager(m_Context, scriptContext), m_Cmp(NULL)
 	{
 		m_ComponentManager.LoadComponentTypes();
 	}
 
-	const ScriptInterface& GetScriptInterface()
+	const Script::Interface& GetScriptInterface()
 	{
 		return m_ComponentManager.GetScriptInterface();
 	}

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -31,7 +31,7 @@ namespace JS { class CallArgs; }
 
 namespace JSI_L10n
 {
-L10n* L10nGetter(const ScriptRequest&, JS::CallArgs&)
+L10n* L10nGetter(const Script::Request&, JS::CallArgs&)
 {
 	if (!g_L10n.IsInitialised())
 	{
@@ -63,7 +63,7 @@ std::string FormatMillisecondsIntoDateStringGMT(UDate milliseconds, const std::s
 	return g_L10n.FormatMillisecondsIntoDateString(milliseconds, formatString, false);
 }
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
 #define REGISTER_L10N(name) \
 	ScriptFunction::Register<&L10n::name, &L10nGetter>(rq, #name);

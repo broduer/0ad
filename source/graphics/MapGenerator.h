@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -27,8 +27,8 @@
 #include <string>
 #include <string_view>
 
-class ScriptInterface;
 class StopToken;
+namespace Script { class Interface; }
 
 constexpr std::wstring_view RANDOM_MAP_PREFIX{L"maps/random/"};
 
@@ -48,7 +48,7 @@ constexpr std::wstring_view RANDOM_MAP_PREFIX{L"maps/random/"};
  *	https://gitea.wildfiregames.com/0ad/0ad/wiki/Random_Map_Generator_Internals#Dataformat
  */
 Script::StructuredClone RunMapGenerationScript(const StopToken stopToken, std::atomic<int>& progress,
-	ScriptInterface& scriptInterface, const VfsPath& script, const std::string& settings,
+	Script::Interface& scriptInterface, const VfsPath& script, const std::string& settings,
 	const u16 flags = JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT);
 
 #endif	//INCLUDED_MAPGENERATOR

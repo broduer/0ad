@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -58,12 +58,12 @@ public:
 	 */
 	bool IsMouseOver(const CVector2D& mousePos, const CRect& objectSize) const;
 
-	void ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue value) override;
+	void ToJSVal(const Script::Request& rq, JS::MutableHandleValue value) override;
 
 	class Impl;
 protected:
 	bool DoFromString(const CStrW& value) override;
-	bool DoFromJSVal(const ScriptRequest& rq, JS::HandleValue value) override;
+	bool DoFromJSVal(const Script::Request& rq, JS::HandleValue value) override;
 
 	std::string m_Spec;
 	std::unique_ptr<Impl> m_Impl;

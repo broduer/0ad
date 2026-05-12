@@ -54,8 +54,8 @@
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptExceptions.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 
 #include <algorithm>
 #include <js/CallAndConstruct.h>
@@ -89,13 +89,13 @@ const CStr CGUI::EventNameMouseLeftRelease = "MouseLeftRelease";
 const CStr CGUI::EventNameMouseRightDoubleClick = "MouseRightDoubleClick";
 const CStr CGUI::EventNameMouseRightRelease = "MouseRightRelease";
 
-CGUI::CGUI(ScriptContext& context)
+CGUI::CGUI(Script::Context& context)
 	: m_BaseObject(std::make_unique<CGUIDummyObject>(*this)),
 	  m_FocusedObject(nullptr),
 	  m_InternalNameNumber(0),
 	  m_MouseButtons(0)
 {
-	m_ScriptInterface = std::make_shared<ScriptInterface>("Engine", "GUIPage", context,
+	m_ScriptInterface = std::make_shared<Script::Interface>("Engine", "GUIPage", context,
 		[](const VfsPath& path){
 			return path.string8().find("gui/") == 0;
 		});
@@ -125,7 +125,7 @@ InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 		{
 			ret = IN_HANDLED;
 
-			ScriptRequest rq(m_ScriptInterface);
+			Script::Request rq(m_ScriptInterface);
 			JS::RootedObject globalObj(rq.cx, rq.glob);
 			JS::RootedValue result(rq.cx);
 			if (!JS_CallFunctionValue(rq.cx, globalObj, m_GlobalHotkeys[hotkey][eventName], JS::HandleValueArray::empty(), &result))
@@ -298,7 +298,7 @@ InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 	return ret;
 }
 
-JS::Value CGUI::GetHotloadData(const ScriptRequest& rq)
+JS::Value CGUI::GetHotloadData(const Script::Request& rq)
 {
 	JS::RootedValue oldNamespace{rq.cx, m_LoadModuleResult.has_value() ?
 		JS::ObjectValue(*m_LoadModuleResult->moduleNamespace) : rq.globalValue()};
@@ -307,7 +307,7 @@ JS::Value CGUI::GetHotloadData(const ScriptRequest& rq)
 	return hotloadDataVal;
 }
 
-JSObject* CGUI::CallPageInit(const ScriptRequest& rq, Script::StructuredClone initData,
+JSObject* CGUI::CallPageInit(const Script::Request& rq, Script::StructuredClone initData,
 	JS::HandleValue hotloadDataVal, const std::string_view scriptName)
 {
 	JS::RootedValue initDataVal{rq.cx};
@@ -336,7 +336,7 @@ JSObject* CGUI::CallPageInit(const ScriptRequest& rq, Script::StructuredClone in
 	return returnObject;
 }
 
-JSObject* CGUI::TickObjects(const ScriptRequest& rq, Script::StructuredClone initData,
+JSObject* CGUI::TickObjects(const Script::Request& rq, Script::StructuredClone initData,
 	const std::string_view scriptName)
 {
 	JS::RootedObject sendingPromise{rq.cx};
@@ -523,7 +523,7 @@ void CGUI::UnsetObjectHotkey(IGUIObject& object, const CStr& hotkeyTag)
 
 void CGUI::SetGlobalHotkey(const CStr& hotkeyTag, const CStr& eventName, JS::HandleValue function)
 {
-	ScriptRequest rq(*m_ScriptInterface);
+	Script::Request rq(*m_ScriptInterface);
 
 	if (hotkeyTag.empty())
 		throw std::invalid_argument{"Cannot assign a function to an empty hotkey identifier!"};
@@ -992,7 +992,7 @@ void CGUI::Xeromyces_ReadScript(const XMBData& xmb, XMBElement element, std::uno
 		if (m_LoadModuleResult.has_value())
 			throw std::logic_error{"There can only be one root module per page."};
 
-		const ScriptRequest rq{m_ScriptInterface};
+		const Script::Request rq{m_ScriptInterface};
 		m_LoadModuleResult.emplace(rq, moduleAttribute);
 	}
 
@@ -1368,7 +1368,7 @@ void CGUI::Xeromyces_ReadColor(const XMBData& xmb, XMBElement element)
 		LOGERROR("GUI: Unable to create custom color '%s'. Invalid color syntax.", name.c_str());
 }
 
-CGUI::ModuleArtifact::ModuleArtifact(const ScriptRequest& rq, VfsPath filename):
+CGUI::ModuleArtifact::ModuleArtifact(const Script::Request& rq, VfsPath filename):
 	result{rq, std::move(filename)},
 	moduleNamespace{rq.cx}
 {}

@@ -52,8 +52,8 @@
 #include "renderer/WaterManager.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpOwnership.h"
 #include "simulation2/components/ICmpPosition.h"
@@ -131,8 +131,8 @@ QUERYHANDLER(GenerateMap)
 		InitGame();
 
 		// Random map
-		const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
-		ScriptRequest rq(scriptInterface);
+		const Script::Interface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+		Script::Request rq(scriptInterface);
 
 		JS::RootedValue settings(rq.cx);
 		Script::ParseJSON(rq, *msg->settings, &settings);
@@ -159,8 +159,8 @@ QUERYHANDLER(GenerateMap)
 
 		InitGame();
 
-		const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
-		ScriptRequest rq(scriptInterface);
+		const Script::Interface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+		Script::Request rq(scriptInterface);
 
 		// Set up 8-element array of empty objects to satisfy init
 		JS::RootedValueArray<8> playerData{rq.cx};
@@ -198,8 +198,8 @@ MESSAGEHANDLER(LoadMap)
 {
 	InitGame();
 
-	const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	const Script::Interface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+	Script::Request rq(scriptInterface);
 
 	// Scenario
 	CStrW map = *msg->filename;

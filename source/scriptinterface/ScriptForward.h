@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -30,8 +30,11 @@ namespace js {
 class BaseProxyHandler;
 }
 
-class ScriptContext;
-class ScriptInterface;
-class ScriptRequest;
+namespace Script
+{
+class Context;
+class Interface;
+class Request;
+}
 
 #endif // INCLUDED_SCRIPTFORWARD

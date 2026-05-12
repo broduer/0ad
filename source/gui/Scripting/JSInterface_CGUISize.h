@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,10 +18,10 @@
 #ifndef INCLUDED_JSI_CGUISIZE
 #define INCLUDED_JSI_CGUISIZE
 
-class ScriptInterface;
+namespace Script { class Interface; }
 namespace JSI_CGUISize
 {
-	void RegisterScriptClass(ScriptInterface& scriptInterface);
+	void RegisterScriptClass(Script::Interface& scriptInterface);
 }
 
 #endif // INCLUDED_JSI_GUISIZE

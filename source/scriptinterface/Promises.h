@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@
 #include <js/UniquePtr.h>
 #include <queue>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 struct JSContext;
 
 namespace Script
@@ -52,7 +52,7 @@ private:
 
 	struct QueueElement
 	{
-		const ScriptInterface& scriptInterface;
+		const Script::Interface& scriptInterface;
 		JS::PersistentRootedObject job;
 	};
 	using QueueType = std::queue<QueueElement>;

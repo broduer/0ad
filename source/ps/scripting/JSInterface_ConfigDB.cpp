@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -208,7 +208,7 @@ void SetGUIScale(float scale)
 	g_VideoMode.Rescale(scale);
 }
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
 	ScriptFunction::Register<&HasChanges>(rq, "ConfigDB_HasChanges");
 	ScriptFunction::Register<&SetChanges>(rq, "ConfigDB_SetChanges");

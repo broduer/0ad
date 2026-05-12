@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@
 #include "lib/sysdep/sysdep.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 
 #include <algorithm>
 #include <js/CallArgs.h>
@@ -127,7 +127,7 @@ std::vector<CStr> CmdLineArgs::GetArgsWithoutName() const
 	return m_ArgsWithoutName;
 }
 
-template<> void Script::ToJSVal<CmdLineArgs>(const ScriptRequest& rq, JS::MutableHandleValue ret, const CmdLineArgs& val)
+template<> void Script::ToJSVal<CmdLineArgs>(const Script::Request& rq, JS::MutableHandleValue ret, const CmdLineArgs& val)
 {
 	if (!Script::CreateObject(rq, ret))
 		return;

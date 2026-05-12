@@ -8,7 +8,7 @@ cppcheckError:./source/lib/file/file_system.cpp
 
 // Ignore SpiderMonkey version compile check
 
-preprocessorErrorDirective:source/scriptinterface/ScriptEngine.h
+preprocessorErrorDirective:source/scriptinterface/Engine.h
 
 // Lists of network/simulation messages are included in other files which define macros
 
@@ -69,3 +69,8 @@ uninitvar:source/ps/Game.cpp:246
 uninitvar:source/ps/scripting/JSInterface_SavedGame.cpp:149
 
 danglingLifetime:source/renderer/backend/gl/Device.cpp
+
+// Pre-existing warnings in files touched by the Script namespace rename
+uninitvar:source/gui/Scripting/JSInterface_GUISize.cpp:130
+nullPointer:source/ps/scripting/JSInterface_Debug.cpp:51
+unknownMacro:source/dapinterface/tests/test_DapInterface.h:55

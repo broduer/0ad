@@ -45,7 +45,7 @@
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"
 #include "simulation2/Simulation2.h"
 
@@ -57,7 +57,7 @@
 #include <sstream>
 #include <utility>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
 // TODO: we ought to check version numbers when loading files
 
@@ -78,7 +78,7 @@ Status SavedGames::SavePrefix(const CStrW& prefix, const CStrW& description, CSi
 
 Status SavedGames::Save(const CStrW& name, const CStrW& description, CSimulation2& simulation, const Script::StructuredClone& guiMetadataClone)
 {
-	ScriptRequest rq(simulation.GetScriptInterface());
+	Script::Request rq(simulation.GetScriptInterface());
 
 	// Determine the filename to save under
 	const VfsPath basenameFormat(L"saves/" + name);
@@ -178,7 +178,7 @@ class CGameLoader
 public:
 
 	/**
-	 * @param scriptInterface the ScriptInterface used for loading metadata.
+	 * @param scriptInterface the Script::Interface used for loading metadata.
 	 * @param[out] savedState serialized simulation state stored as string of bytes,
 	 *	loaded from simulation.dat inside the archive.
 	 *
@@ -187,11 +187,11 @@ public:
 	 * for the metadata because it would be error prone with rooting and the stack-based rooting
 	 * types and confusing (a chain of pointers pointing to other pointers).
 	 */
-	CGameLoader(const ScriptInterface& scriptInterface, std::string* savedState) :
+	CGameLoader(const Script::Interface& scriptInterface, std::string* savedState) :
 		m_ScriptInterface(scriptInterface),
 		m_SavedState(savedState)
 	{
-		ScriptRequest rq(scriptInterface);
+		Script::Request rq(scriptInterface);
 		m_Metadata.init(rq.cx);
 	}
 
@@ -207,7 +207,7 @@ public:
 			std::string buffer;
 			buffer.resize(fileInfo.Size());
 			WARN_IF_ERR(archiveFile->Load("", DummySharedPtr((u8*)buffer.data()), buffer.size()));
-			Script::ParseJSON(ScriptRequest(m_ScriptInterface), buffer, &m_Metadata);
+			Script::ParseJSON(Script::Request(m_ScriptInterface), buffer, &m_Metadata);
 		}
 		else if (pathname == L"simulation.dat" && m_SavedState)
 		{
@@ -223,12 +223,12 @@ public:
 
 private:
 
-	const ScriptInterface& m_ScriptInterface;
+	const Script::Interface& m_ScriptInterface;
 	JS::PersistentRooted<JS::Value> m_Metadata;
 	std::string* m_SavedState;
 };
 
-std::optional<SavedGames::LoadResult> SavedGames::Load(const ScriptInterface& scriptInterface,
+std::optional<SavedGames::LoadResult> SavedGames::Load(const Script::Interface& scriptInterface,
 	const std::wstring& name)
 {
 	// Determine the filename to load
@@ -267,17 +267,17 @@ std::optional<SavedGames::LoadResult> SavedGames::Load(const ScriptInterface& sc
 			return std::nullopt;
 		}
 	}
-	const ScriptRequest rq{scriptInterface};
+	const Script::Request rq{scriptInterface};
 	JS::RootedValue metadata{rq.cx, loader.GetMetadata()};
 
 	// `std::make_optional` can't be used since `LoadResult` doesn't have a constructor.
 	return {{metadata, std::move(savedState)}};
 }
 
-JS::Value SavedGames::GetSavedGames(const ScriptInterface& scriptInterface)
+JS::Value SavedGames::GetSavedGames(const Script::Interface& scriptInterface)
 {
 	PROFILE2("GetSavedGames");
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 
 	JS::RootedValueVector games{rq.cx};
 

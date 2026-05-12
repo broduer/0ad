@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@
 class CComponentManager;
 class CUnitManager;
 class CTerrain;
-class ScriptInterface;
+namespace Script { class Interface; }
 
 /**
  * Contains pointers to various 'global' objects that are needed by the simulation code,
@@ -44,7 +44,7 @@ public:
 
 	CTerrain& GetTerrain() const;
 
-	ScriptInterface& GetScriptInterface() const;
+	Script::Interface& GetScriptInterface() const;
 
 	void SetSystemEntity(CEntityHandle ent) { m_SystemEntity = ent; }
 	CEntityHandle GetSystemEntity() const { ASSERT(m_SystemEntity.GetId() == SYSTEM_ENTITY); return m_SystemEntity; }

@@ -55,9 +55,9 @@
 #include "renderer/WaterManager.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpCinemaManager.h"
@@ -98,7 +98,7 @@ constexpr int MAP_GENERATION_CONTEXT_SIZE{96 * MiB};
 CMapReader::CMapReader() = default;
 
 // LoadMap: try to load the map from given file; reinitialise the scene to new data if successful
-void CMapReader::LoadMap(const VfsPath& pathname, const ScriptContext& cx,  JS::HandleValue settings, CTerrain *pTerrain_,
+void CMapReader::LoadMap(const VfsPath& pathname, const Script::Context& cx,  JS::HandleValue settings, CTerrain *pTerrain_,
 						 WaterManager* pWaterMan_, SkyManager* pSkyMan_,
 						 CLightEnv *pLightEnv_, CGameView *pGameView_, CCinemaManager* pCinema_, CTriggerManager* pTrigMan_, CPostprocManager* pPostproc_,
 						 CSimulation2 *pSimulation2_, const CSimContext* pSimContext_, int playerID_, bool skipEntities)
@@ -207,7 +207,7 @@ void CMapReader::LoadMap(const VfsPath& pathname, const ScriptContext& cx,  JS::
 }
 
 // LoadRandomMap: try to load the map data; reinitialise the scene to new data if successful
-void CMapReader::LoadRandomMap(const CStrW& scriptFile, const ScriptContext& cx, JS::HandleValue settings, CTerrain *pTerrain_,
+void CMapReader::LoadRandomMap(const CStrW& scriptFile, const Script::Context& cx, JS::HandleValue settings, CTerrain *pTerrain_,
 						 WaterManager* pWaterMan_, SkyManager* pSkyMan_,
 						 CLightEnv *pLightEnv_, CGameView *pGameView_, CCinemaManager* pCinema_, CTriggerManager* pTrigMan_, CPostprocManager* pPostproc_,
 						 CSimulation2 *pSimulation2_, int playerID_)
@@ -449,9 +449,9 @@ PSRETURN CMapSummaryReader::LoadMap(const VfsPath& pathname)
 	return PSRETURN_OK;
 }
 
-void CMapSummaryReader::GetMapSettings(const ScriptInterface& scriptInterface, JS::MutableHandleValue ret)
+void CMapSummaryReader::GetMapSettings(const Script::Interface& scriptInterface, JS::MutableHandleValue ret)
 {
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 
 	Script::CreateObject(rq, ret);
 
@@ -1312,7 +1312,7 @@ PS::Loader::Task CMapReader::RunMapGeneration(const CStrW& scriptFile)
 
 	// The settings are stringified to pass them to the task.
 	Future<Script::StructuredClone> task = {g_TaskManager,
-		[&progress, scriptFile, settings = Script::StringifyJSON(ScriptRequest{
+		[&progress, scriptFile, settings = Script::StringifyJSON(Script::Request{
 			pSimulation2->GetScriptInterface()}, &m_ScriptSettings)](const StopToken stopToken)
 		{
 			PROFILE2("Map Generation");
@@ -1320,8 +1320,8 @@ PS::Loader::Task CMapReader::RunMapGeneration(const CStrW& scriptFile)
 			const VfsPath scriptPath{scriptFile.empty() ? L"" :
 				static_cast<std::wstring>(RANDOM_MAP_PREFIX) + scriptFile};
 
-			ScriptContext mapgenContext{MAP_GENERATION_CONTEXT_SIZE};
-			ScriptInterface mapgenInterface{"Engine", "MapGenerator", mapgenContext,
+			Script::Context mapgenContext{MAP_GENERATION_CONTEXT_SIZE};
+			Script::Interface mapgenInterface{"Engine", "MapGenerator", mapgenContext,
 				[](const VfsPath& path){
 					// Only allow to load modules inside the maps folder.
 					return path.string().find(RANDOM_MAP_PREFIX) == 0;
@@ -1347,7 +1347,7 @@ PS::Loader::Task CMapReader::RunMapGeneration(const CStrW& scriptFile)
 		ThrowMapGenerationError();
 
 	// Parse data into simulation context
-	ScriptRequest rq(pSimulation2->GetScriptInterface());
+	Script::Request rq(pSimulation2->GetScriptInterface());
 	JS::RootedValue data{rq.cx};
 	Script::ReadStructuredClone(rq, results, &data);
 
@@ -1363,7 +1363,7 @@ PS::Loader::Task CMapReader::RunMapGeneration(const CStrW& scriptFile)
 int CMapReader::ParseTerrain()
 {
 	PROFILE2("ParseTerrain");
-	ScriptRequest rq(pSimulation2->GetScriptInterface());
+	Script::Request rq(pSimulation2->GetScriptInterface());
 
 	// parse terrain from map data
 	//	an error here should stop the loading process
@@ -1436,7 +1436,7 @@ int CMapReader::ParseTerrain()
 
 struct ParseEntitiesState
 {
-	ScriptRequest rq;
+	Script::Request rq;
 	CmpPtr<ICmpPlayerManager> cmpPlayerManager;
 	std::vector<Entity> entities;
 	size_t currentEntityIndex{0};
@@ -1450,7 +1450,7 @@ PS::Loader::Task CMapReader::ParseEntities()
 	PROFILE2("ParseEntities");
 
 	CSimulation2& sim{*pSimulation2};
-	ScriptRequest rq{sim.GetScriptInterface()};
+	Script::Request rq{sim.GetScriptInterface()};
 	CmpPtr<ICmpPlayerManager> cmpPlayerManager{sim, SYSTEM_ENTITY};
 
 	std::vector<Entity> entities;
@@ -1509,7 +1509,7 @@ PS::Loader::Task CMapReader::ParseEntities()
 int CMapReader::ParseEnvironment()
 {
 	// parse environment settings from map data
-	ScriptRequest rq(pSimulation2->GetScriptInterface());
+	Script::Request rq(pSimulation2->GetScriptInterface());
 
 	const auto getEnvironmentProperty = [&](JS::HandleValue val, const char* prop, auto&& out)
 	{
@@ -1603,7 +1603,7 @@ int CMapReader::ParseEnvironment()
 
 int CMapReader::ParseCamera()
 {
-	ScriptRequest rq(pSimulation2->GetScriptInterface());
+	Script::Request rq(pSimulation2->GetScriptInterface());
 
 	// parse camera settings from map data
 	// defaults if we don't find player starting camera

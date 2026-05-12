@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@
 
 class CSimulation2;
 class CStrW;
-class ScriptInterface;
+namespace Script { class Interface; }
 
 /**
  * @file
@@ -82,15 +82,15 @@ namespace SavedGames
 	 * @param scriptInterface
 	 * @return An empty `std::optional` if an error ocoured.
 	 */
-	std::optional<LoadResult> Load(const ScriptInterface& scriptInterface, const std::wstring& name);
+	std::optional<LoadResult> Load(const Script::Interface& scriptInterface, const std::wstring& name);
 
 	/**
 	 * Get list of saved games for GUI script usage
 	 *
-	 * @param scriptInterface the ScriptInterface in which to create the return data.
+	 * @param scriptInterface the Script::Interface in which to create the return data.
 	 * @return array of objects containing saved game data
 	 */
-	JS::Value GetSavedGames(const ScriptInterface& scriptInterface);
+	JS::Value GetSavedGames(const Script::Interface& scriptInterface);
 
 	/**
 	 * Permanently deletes the saved game archive with the given name

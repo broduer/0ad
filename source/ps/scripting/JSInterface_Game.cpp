@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -35,7 +35,7 @@
 #include "ps/Replay.h"
 #include "ps/World.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/system/TurnManager.h"
@@ -47,11 +47,11 @@
 #include <stdexcept>
 #include <string>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
 namespace JSI_Game
 {
-void StartGame(const ScriptInterface& guiInterface, JS::HandleValue attribs, int playerID, bool storeReplay)
+void StartGame(const Script::Interface& guiInterface, JS::HandleValue attribs, int playerID, bool storeReplay)
 {
 	ENSURE(!g_NetServer);
 	ENSURE(!g_NetClient);
@@ -61,7 +61,7 @@ void StartGame(const ScriptInterface& guiInterface, JS::HandleValue attribs, int
 
 	// Convert from GUI script context to sim script context/
 	CSimulation2* sim = g_Game->GetSimulation2();
-	ScriptRequest rqSim(sim->GetScriptInterface());
+	Script::Request rqSim(sim->GetScriptInterface());
 
 	JS::RootedValue gameAttribs(rqSim.cx, Script::CloneValueFromOtherCompartment(sim->GetScriptInterface(), guiInterface, attribs));
 
@@ -193,7 +193,7 @@ void DumpTerrainMipmap()
 	LOGMESSAGERENDER("Terrain mipmap written to '%s'", realPath.string8());
 }
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
 	ScriptFunction::Register<&StartGame>(rq, "StartGame");
 	ScriptFunction::Register<&Script_EndGame>(rq, "EndGame");

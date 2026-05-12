@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -26,8 +26,8 @@
 #include "ps/Filesystem.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 
 #include <cmath>
 #include <js/RootingAPI.h>
@@ -41,9 +41,9 @@ class TestScriptConversions : public CxxTest::TestSuite
 	template <typename T>
 	void convert_to(const T& value, const std::string& expected)
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		TS_ASSERT(script.LoadGlobalScripts());
-		ScriptRequest rq(script);
+		Script::Request rq(script);
 
 		JS::RootedValue v1(rq.cx);
 		Script::ToJSVal(rq, &v1, value);
@@ -60,9 +60,9 @@ class TestScriptConversions : public CxxTest::TestSuite
 	template <typename T>
 	void roundtrip(const T& value, const char* expected)
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		TS_ASSERT(script.LoadGlobalScripts());
-		ScriptRequest rq(script);
+		Script::Request rq(script);
 
 		JS::RootedValue v1(rq.cx);
 		Script::ToJSVal(rq, &v1, value);
@@ -82,9 +82,9 @@ class TestScriptConversions : public CxxTest::TestSuite
 	template <typename T>
 	void call_prototype_function(const T& u, const T& v, const std::string& func, const std::string& expected)
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		TS_ASSERT(script.LoadGlobalScripts());
-		ScriptRequest rq(script);
+		Script::Request rq(script);
 
 		JS::RootedValue v1(rq.cx);
 		Script::ToJSVal(rq, &v1, v);
@@ -176,8 +176,8 @@ public:
 
 	void test_integers()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
-		ScriptRequest rq(script);
+		Script::Interface script("Test", "Test", g_ScriptContext);
+		Script::Request rq(script);
 
 		// using new uninitialized variables each time to be sure the test doesn't succeeed if ToJSVal doesn't touch the value at all.
 		JS::RootedValue val0(rq.cx), val1(rq.cx), val2(rq.cx), val3(rq.cx), val4(rq.cx), val5(rq.cx), val6(rq.cx), val7(rq.cx), val8(rq.cx);
@@ -208,8 +208,8 @@ public:
 		roundtrip<float>(-std::numeric_limits<float>::infinity(), "-Infinity");
 		convert_to<float>(std::numeric_limits<float>::quiet_NaN(), "NaN"); // can't use roundtrip since nan != nan
 
-		ScriptInterface script("Test", "Test", g_ScriptContext);
-		ScriptRequest rq(script);
+		Script::Interface script("Test", "Test", g_ScriptContext);
+		Script::Request rq(script);
 
 		float f = 0;
 		JS::RootedValue testNANVal(rq.cx);
@@ -258,9 +258,9 @@ public:
 	void test_utf8utf16_conversion()
 	{
 		// Fancier conversion: we store UTF8 and get UTF16 and vice-versa
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 		TS_ASSERT(script.LoadGlobalScripts());
-		ScriptRequest rq(script);
+		Script::Request rq(script);
 
 		std::string in_utf8("éè!§$-aezi134900°°©©¢¢ÇÇ'{¶«¡Ç'[å»ÛÁØ");
 		std::wstring in_utf16(L"éè!§$-aezi134900°°©©¢¢ÇÇ'{¶«¡Ç'[å»ÛÁØ");

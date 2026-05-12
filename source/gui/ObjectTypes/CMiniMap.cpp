@@ -45,7 +45,7 @@
 #include "renderer/WaterManager.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/components/ICmpRangeManager.h"
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"
@@ -262,7 +262,7 @@ CVector2D CMiniMap::WorldSpaceToMiniMapSpace(const CVector3D& worldPosition) con
 
 bool CMiniMap::FireWorldClickEvent(int button, int /*clicks*/)
 {
-	ScriptRequest rq(g_GUI->GetActiveGUI()->GetScriptInterface());
+	Script::Request rq(g_GUI->GetActiveGUI()->GetScriptInterface());
 
 	float x, z;
 	GetMouseWorldCoordinates(x, z);

@@ -37,7 +37,7 @@
 #include "ps/Globals.h"
 #include "ps/Util.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 #include "tools/atlas/GameInterface/GameLoop.h"
 
 #include <js/RootingAPI.h>
@@ -45,7 +45,7 @@
 #include <js/Value.h>
 #include <string>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
 extern void QuitEngine(int exitStatus);
 
@@ -76,9 +76,9 @@ std::wstring GetMatchID()
 	return ps_generate_guid().FromUTF8();
 }
 
-JS::Value LoadMapSettings(const ScriptInterface& scriptInterface, const VfsPath& pathname)
+JS::Value LoadMapSettings(const Script::Interface& scriptInterface, const VfsPath& pathname)
 {
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 
 	CMapSummaryReader reader;
 
@@ -134,7 +134,7 @@ std::string CalculateMD5(const std::string& input)
 	return Hexify(digest, MD5::DIGESTSIZE);
 }
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
 	ScriptFunction::Register<&QuitEngine>(rq, "Exit");
 	ScriptFunction::Register<&AtlasIsAvailable>(rq, "AtlasIsAvailable");

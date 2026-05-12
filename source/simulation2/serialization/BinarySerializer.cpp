@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -23,7 +23,7 @@
 #include "ps/CLogger.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/JSON.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/serialization/SerializedScriptTypes.h"
 
 #include <cmath>
@@ -77,10 +77,10 @@ static u8 GetArrayType(js::Scalar::Type arrayType)
 	}
 }
 
-CBinarySerializerScriptImpl::CBinarySerializerScriptImpl(const ScriptInterface& scriptInterface, ISerializer& serializer) :
+CBinarySerializerScriptImpl::CBinarySerializerScriptImpl(const Script::Interface& scriptInterface, ISerializer& serializer) :
 	m_ScriptInterface(scriptInterface), m_Serializer(serializer), m_ScriptBackrefsNext(0)
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 	JS_AddExtraGCRootsTracer(rq.cx, Trace, this);
 	m_SerializePropId = JS::PropertyKey::fromPinnedString(JS_AtomizeAndPinString(rq.cx, "Serialize"));
 	m_DeserializePropId = JS::PropertyKey::fromPinnedString(JS_AtomizeAndPinString(rq.cx, "Deserialize"));
@@ -88,16 +88,16 @@ CBinarySerializerScriptImpl::CBinarySerializerScriptImpl(const ScriptInterface& 
 
 CBinarySerializerScriptImpl::~CBinarySerializerScriptImpl()
 {
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 	JS_RemoveExtraGCRootsTracer(rq.cx, Trace, this);
 }
 
 void CBinarySerializerScriptImpl::PutScriptVal(JS::HandleValue val)
 {
-	HandleScriptVal(ScriptRequest(m_ScriptInterface), val);
+	HandleScriptVal(Script::Request(m_ScriptInterface), val);
 }
 
-void CBinarySerializerScriptImpl::HandleScriptVal(const ScriptRequest& rq, JS::HandleValue val)
+void CBinarySerializerScriptImpl::HandleScriptVal(const Script::Request& rq, JS::HandleValue val)
 {
 	switch (JS_TypeOfValue(rq.cx, val))
 	{
@@ -450,7 +450,7 @@ void CBinarySerializerScriptImpl::HandleScriptVal(const ScriptRequest& rq, JS::H
 	}
 }
 
-void CBinarySerializerScriptImpl::ScriptString(const ScriptRequest& rq, const char* name, JS::HandleString string)
+void CBinarySerializerScriptImpl::ScriptString(const Script::Request& rq, const char* name, JS::HandleString string)
 {
 #if BYTE_ORDER != LITTLE_ENDIAN
 #error TODO: probably need to convert JS strings to little-endian
@@ -486,7 +486,7 @@ void CBinarySerializerScriptImpl::Trace(JSTracer *trc, void *data)
 	serializer->m_ScriptBackrefTags.trace(trc);
 }
 
-u32 CBinarySerializerScriptImpl::GetScriptBackrefTag(const ScriptRequest& rq, JS::HandleObject obj)
+u32 CBinarySerializerScriptImpl::GetScriptBackrefTag(const Script::Request& rq, JS::HandleObject obj)
 {
 	// To support non-tree structures (e.g. "var x = []; var y = [x, x];"), we need a way
 	// to indicate multiple references to one object(/array). So every time we serialize a

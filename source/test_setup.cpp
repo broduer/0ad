@@ -39,10 +39,10 @@
 #include "ps/TaskManager.h"
 #include "ps/ThreadUtil.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptEngine.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Engine.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 
 #include <fstream>
 #include <iterator>
@@ -84,8 +84,8 @@ class MiscSetup : public CxxTest::GlobalFixture
 		Threading::SetMainThread();
 
 		g_Profiler2.Initialise();
-		m_ScriptEngine = new ScriptEngine;
-		g_ScriptContext = std::make_shared<ScriptContext>();
+		m_ScriptEngine = new Script::Engine;
+		g_ScriptContext = std::make_shared<Script::Context>();
 
 		taskManager.emplace();
 
@@ -112,9 +112,9 @@ class MiscSetup : public CxxTest::GlobalFixture
 
 private:
 
-	// We're doing the initialization and shutdown of the ScriptEngine explicitly here
+	// We're doing the initialization and shutdown of the Script::Engine explicitly here
 	// to make sure it's only initialized when setUpWorld is called.
-	ScriptEngine* m_ScriptEngine;
+	Script::Engine* m_ScriptEngine;
 	std::optional<Threading::TaskManager> taskManager;
 };
 
@@ -152,9 +152,9 @@ namespace
 	}
 }
 
-void ScriptTestSetup(const ScriptInterface& scriptInterface)
+void ScriptTestSetup(const Script::Interface& scriptInterface)
 {
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 	ScriptFunction::Register<script_TS_FAIL>(rq, "TS_FAIL");
 
 	// Load the TS_* function definitions

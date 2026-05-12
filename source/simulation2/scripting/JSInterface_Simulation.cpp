@@ -32,7 +32,7 @@
 #include "ps/Pyrogenesis.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpAIManager.h"
@@ -57,11 +57,11 @@
 #include <string>
 #include <vector>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
 namespace JSI_Simulation
 {
-JS::Value GuiInterfaceCall(const ScriptInterface& scriptInterface, const std::wstring& name, JS::HandleValue data)
+JS::Value GuiInterfaceCall(const Script::Interface& scriptInterface, const std::wstring& name, JS::HandleValue data)
 {
 	if (!g_Game)
 		return JS::UndefinedValue();
@@ -73,7 +73,7 @@ JS::Value GuiInterfaceCall(const ScriptInterface& scriptInterface, const std::ws
 	if (!cmpGuiInterface)
 		return JS::UndefinedValue();
 
-	ScriptRequest rqSim(sim->GetScriptInterface());
+	Script::Request rqSim(sim->GetScriptInterface());
 	JS::RootedValue arg(rqSim.cx, Script::CloneValueFromOtherCompartment(sim->GetScriptInterface(), scriptInterface, data));
 	JS::RootedValue ret(rqSim.cx);
 	cmpGuiInterface->ScriptCall(g_Game->GetViewedPlayerID(), name, arg, &ret);
@@ -81,7 +81,7 @@ JS::Value GuiInterfaceCall(const ScriptInterface& scriptInterface, const std::ws
 	return Script::CloneValueFromOtherCompartment(scriptInterface, sim->GetScriptInterface(), ret);
 }
 
-void PostNetworkCommand(const ScriptInterface& scriptInterface, JS::HandleValue cmd)
+void PostNetworkCommand(const Script::Interface& scriptInterface, JS::HandleValue cmd)
 {
 	if (!g_Game)
 		return;
@@ -93,7 +93,7 @@ void PostNetworkCommand(const ScriptInterface& scriptInterface, JS::HandleValue 
 	if (!cmpCommandQueue)
 		return;
 
-	ScriptRequest rqSim(sim->GetScriptInterface());
+	Script::Request rqSim(sim->GetScriptInterface());
 	JS::RootedValue cmd2(rqSim.cx, Script::CloneValueFromOtherCompartment(sim->GetScriptInterface(), scriptInterface, cmd));
 
 	cmpCommandQueue->PostNetworkCommand(cmd2);
@@ -139,7 +139,7 @@ std::vector<entity_id_t> GetEntitiesWithStaticObstructionOnScreen()
 	return EntitySelection::GetEntitiesWithComponentInRect<StaticObstructionFilter>(*g_Game->GetSimulation2(), IID_Obstruction, *g_Game->GetView()->GetCamera(), 0, 0, g_xres, g_yres);
 }
 
-JS::Value GetEdgesOfStaticObstructionsOnScreenNearTo(const ScriptInterface& scriptInterface, entity_pos_t x, entity_pos_t z)
+JS::Value GetEdgesOfStaticObstructionsOnScreenNearTo(const Script::Interface& scriptInterface, entity_pos_t x, entity_pos_t z)
 {
 	if (!g_Game)
 		return JS::UndefinedValue();
@@ -147,7 +147,7 @@ JS::Value GetEdgesOfStaticObstructionsOnScreenNearTo(const ScriptInterface& scri
 	CSimulation2* sim = g_Game->GetSimulation2();
 	ENSURE(sim);
 
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 	JS::RootedValueVector edgeList{rq.cx};
 
 	const float distanceThreshold{g_ConfigDB.Get("gui.session.snaptoedgesdistancethreshold", 10.0f)};
@@ -212,7 +212,7 @@ std::vector<entity_id_t> PickSimilarPlayerEntities(const std::string& templateNa
 	return EntitySelection::PickSimilarEntities(*g_Game->GetSimulation2(), *g_Game->GetView()->GetCamera(), templateName, g_Game->GetViewedPlayerID(), includeOffScreen, matchRank, false, allowFoundations);
 }
 
-JS::Value GetAIs(const ScriptInterface& scriptInterface)
+JS::Value GetAIs(const Script::Interface& scriptInterface)
 {
 	return ICmpAIManager::GetAIs(scriptInterface);
 }
@@ -222,7 +222,7 @@ void SetBoundingBoxDebugOverlay(bool enabled)
 	ICmpSelectable::ms_EnableDebugOverlays = enabled;
 }
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
 	ScriptFunction::Register<&GuiInterfaceCall>(rq, "GuiInterfaceCall");
 	ScriptFunction::Register<&PostNetworkCommand>(rq, "PostNetworkCommand");

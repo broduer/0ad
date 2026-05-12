@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -28,7 +28,7 @@
 #include "ps/Game.h"
 #include "ps/GameSetup/Config.h"
 #include "renderer/Renderer.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/components/ICmpSoundManager.h"
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"

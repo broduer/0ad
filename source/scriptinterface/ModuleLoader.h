@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -34,10 +34,10 @@
 #include <vector>
 
 class JSObject;
-class ScriptContext;
-class ScriptInterface;
-class ScriptRequest;
 namespace JS { class Value; }
+namespace Script { class Context; }
+namespace Script { class Interface; }
+namespace Script { class Request; }
 struct JSContext;
 
 namespace Script
@@ -45,7 +45,7 @@ namespace Script
 class ModuleLoader
 {
 public:
-	friend ScriptContext;
+	friend Script::Context;
 
 	class Future;
 	class Result;
@@ -55,7 +55,7 @@ public:
 	class CompiledModule
 	{
 	public:
-		CompiledModule(const ScriptRequest& rq, const AllowModuleFunc& allowModule, const VfsPath& filePath);
+		CompiledModule(const Script::Request& rq, const AllowModuleFunc& allowModule, const VfsPath& filePath);
 
 		std::tuple<const std::vector<VfsPath>&,
 			const std::vector<std::reference_wrapper<Result>>&> GetRequesters() const;
@@ -82,17 +82,17 @@ public:
 	/**
 	 * Load the specified module and all module it imports recursively.
 	 *
-	 * @param rq @c globalThis is taken from this @c ScriptRequest.
+	 * @param rq @c globalThis is taken from this @c Script::Request.
 	 * @param modulePath The path to the file which should be loaded as a
 	 *	module.
 	 * @return A range of futures. The compilation of the first future is
 	 *	already started. The evaluation of the subsequent futures start once
 	 *	the module file is edited.
 	 */
-	[[nodiscard]] Result LoadModule(const ScriptRequest& rq, const VfsPath& modulePath);
+	[[nodiscard]] Result LoadModule(const Script::Request& rq, const VfsPath& modulePath);
 
 private:
-	// Functions used by the `ScriptContext`.
+	// Functions used by the `Script::Context`.
 	[[nodiscard]] static bool MetadataHook(JSContext* cx, JS::HandleValue privateValue,
 		JS::HandleObject metaObject) noexcept;
 	[[nodiscard]] static JSObject* ResolveHook(JSContext* cx, JS::HandleValue referencingPrivate,
@@ -131,7 +131,7 @@ public:
 	struct Invalid {};
 	using Status = std::variant<Evaluating, Fulfilled, Rejected, WaitingForFileChange, Invalid>;
 
-	explicit Future(const ScriptRequest& rq, ModuleLoader& reqistry, Result& result, VfsPath modulePath);
+	explicit Future(const Script::Request& rq, ModuleLoader& reqistry, Result& result, VfsPath modulePath);
 	Future() = default;
 	Future(const Future&) = delete;
 	Future& operator=(const Future&) = delete;
@@ -163,7 +163,7 @@ class ModuleLoader::Result
 public:
 	class iterator;
 
-	explicit Result(const ScriptRequest& rq, const VfsPath& modulePath);
+	explicit Result(const Script::Request& rq, const VfsPath& modulePath);
 	Result(const Result&) = delete;
 	Result& operator=(const Result&) = delete;
 	Result(Result&&) = delete;
@@ -176,7 +176,7 @@ public:
 	void Resume();
 
 private:
-	const ScriptInterface& m_Script;
+	const Script::Interface& m_Script;
 	VfsPath m_ModulePath;
 	Future m_Storage;
 };

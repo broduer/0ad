@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -59,9 +59,9 @@ bool IGUISetting::FromString(const CStrW& value, const bool sendMessage)
 }
 
 /**
- * Parses the given JS::Value using ScriptInterface::FromJSVal and assigns it to the setting data.
+ * Parses the given JS::Value using Script::Interface::FromJSVal and assigns it to the setting data.
  */
-bool IGUISetting::FromJSVal(const ScriptRequest& rq, JS::HandleValue value, const bool sendMessage)
+bool IGUISetting::FromJSVal(const Script::Request& rq, JS::HandleValue value, const bool sendMessage)
 {
 	if (!DoFromJSVal(rq, value))
 		return false;
@@ -82,7 +82,7 @@ bool CGUISimpleSetting<T>::DoFromString(const CStrW& value)
 };
 
 template<>
-bool CGUISimpleSetting<CGUIColor>::DoFromJSVal(const ScriptRequest& rq, JS::HandleValue value)
+bool CGUISimpleSetting<CGUIColor>::DoFromJSVal(const Script::Request& rq, JS::HandleValue value)
 {
 	if (value.isString())
 	{
@@ -101,13 +101,13 @@ bool CGUISimpleSetting<CGUIColor>::DoFromJSVal(const ScriptRequest& rq, JS::Hand
 };
 
 template<typename T>
-bool CGUISimpleSetting<T>::DoFromJSVal(const ScriptRequest& rq, JS::HandleValue value)
+bool CGUISimpleSetting<T>::DoFromJSVal(const Script::Request& rq, JS::HandleValue value)
 {
 	return Script::FromJSVal<T>(rq, value, m_Setting);
 };
 
 template<typename T>
-void CGUISimpleSetting<T>::ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue value)
+void CGUISimpleSetting<T>::ToJSVal(const Script::Request& rq, JS::MutableHandleValue value)
 {
 	Script::ToJSVal<T>(rq, value, m_Setting);
 };

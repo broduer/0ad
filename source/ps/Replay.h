@@ -30,7 +30,7 @@
 #include <vector>
 
 class CSimulation2;
-class ScriptInterface;
+namespace Script { class Interface; }
 struct SimulationCommand;
 
 /**
@@ -89,7 +89,7 @@ class CReplayLogger : public IReplayLogger
 {
 	NONCOPYABLE(CReplayLogger);
 public:
-	CReplayLogger(const ScriptInterface& scriptInterface);
+	CReplayLogger(const Script::Interface& scriptInterface);
 	~CReplayLogger();
 
 	virtual void StartGame(JS::MutableHandleValue attribs);
@@ -99,7 +99,7 @@ public:
 	virtual OsPath GetDirectory() const;
 
 private:
-	const ScriptInterface& m_ScriptInterface;
+	const Script::Interface& m_ScriptInterface;
 	std::ostream* m_Stream;
 	OsPath m_Directory;
 };

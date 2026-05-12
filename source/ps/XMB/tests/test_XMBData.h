@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,8 +22,8 @@
 #include "ps/XMB/XMBData.h"
 #include "ps/XMB/XMBStorage.h"
 #include "ps/XML/Xeromyces.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 
 #include <cstring>
 #include <js/RootingAPI.h>
@@ -38,7 +38,7 @@ class TestXMBData : public CxxTest::TestSuite
 private:
 	std::shared_ptr<u8> m_Buffer;
 
-	std::unique_ptr<ScriptInterface> m_ScriptInterface;
+	std::unique_ptr<Script::Interface> m_ScriptInterface;
 
 	CXeromyces parseXML(const char* doc)
 	{
@@ -55,7 +55,7 @@ private:
 
 	CXeromyces parseJS(const std::string rootName, const char* code)
 	{
-		ScriptRequest rq(*m_ScriptInterface);
+		Script::Request rq(*m_ScriptInterface);
 		JS::RootedValue val(rq.cx);
 		m_ScriptInterface->Eval(code, &val);
 		CXeromyces xmb;
@@ -68,7 +68,7 @@ private:
 
 	void setUp()
 	{
-		m_ScriptInterface = std::make_unique<ScriptInterface>("Test", "Test", g_ScriptContext);
+		m_ScriptInterface = std::make_unique<Script::Interface>("Test", "Test", g_ScriptContext);
 	}
 
 	void tearDown()

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -26,7 +26,7 @@
 #include <js/Value.h>
 #include <string>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
 class ICmpAIManager : public IComponent
 {
@@ -57,7 +57,7 @@ public:
 	 * Returns a vector of {"id":"value-for-AddPlayer", "name":"Human readable name"}
 	 * objects, based on all the available AI scripts.
 	 */
-	static JS::Value GetAIs(const ScriptInterface& scriptInterface);
+	static JS::Value GetAIs(const Script::Interface& scriptInterface);
 
 	DECLARE_INTERFACE_TYPE(AIManager)
 };

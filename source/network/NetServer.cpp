@@ -46,9 +46,9 @@
 #include "ps/algorithm.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/system/TurnManager.h"
 
 #include <algorithm>
@@ -373,14 +373,14 @@ void CNetServerWorker::Run(const std::string& initAttributes)
 	// The script context uses the profiler and therefore the thread must be registered before the context is created
 	g_Profiler2.RegisterCurrentThread("Net server");
 
-	// We create a new ScriptContext for this network thread, with a single ScriptInterface.
-	ScriptContext netServerContext;
-	m_ScriptInterface = new ScriptInterface("Engine", "Net server", netServerContext);
+	// We create a new Script::Context for this network thread, with a single Script::Interface.
+	Script::Context netServerContext;
+	m_ScriptInterface = new Script::Interface("Engine", "Net server", netServerContext);
 	m_InitAttributes.init(m_ScriptInterface->GetGeneralJSContext(), JS::UndefinedValue());
 
 	if (!initAttributes.empty())
 	{
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 		JS::RootedValue gameAttributesVal(rq.cx);
 		Script::ParseJSON(rq, std::move(initAttributes), &gameAttributesVal);
 		m_InitAttributes = gameAttributesVal;
@@ -409,7 +409,7 @@ bool CNetServerWorker::RunStep()
 
 	m_ScriptInterface->GetContext().MaybeIncrementalGC();
 
-	ScriptRequest rq(m_ScriptInterface);
+	Script::Request rq(m_ScriptInterface);
 
 	std::vector<bool> newStartGame;
 	std::vector<std::pair<CStr, CStr>> newLobbyAuths;
@@ -846,7 +846,7 @@ void CNetServerWorker::SendPlayerAssignments()
 	Multicast(&message, { NSS_PREGAME, NSS_JOIN_SYNCING, NSS_INGAME });
 }
 
-const ScriptInterface& CNetServerWorker::GetScriptInterface()
+const Script::Interface& CNetServerWorker::GetScriptInterface()
 {
 	return *m_ScriptInterface;
 }
@@ -1136,7 +1136,7 @@ bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent<CNet
 			// started.
 			CJoinSyncStartMessage message;
 			message.m_InitAttributes = Script::StringifyJSON(
-				ScriptRequest{server.GetScriptInterface()}, &server.m_InitAttributes);
+				Script::Request{server.GetScriptInterface()}, &server.m_InitAttributes);
 			(*sessionIt)->SendMessage(&message);
 		});
 
@@ -1155,8 +1155,8 @@ bool CNetServerWorker::OnSimulationCommand(CNetServerSession* session, CFsmEvent
 	// Ignore messages sent by one player on behalf of another player
 	// unless cheating is enabled
 	bool cheatsEnabled = false;
-	const ScriptInterface& scriptInterface = server.GetScriptInterface();
-	ScriptRequest rq(scriptInterface);
+	const Script::Interface& scriptInterface = server.GetScriptInterface();
+	Script::Request rq(scriptInterface);
 	JS::RootedValue settings(rq.cx);
 	Script::GetProperty(rq, server.m_InitAttributes, "settings", &settings);
 	if (Script::HasProperty(rq, settings, "CheatsEnabled"))
@@ -1577,7 +1577,7 @@ void CNetServerWorker::PreStartGame(const CStr& initAttribs)
 	SendPlayerAssignments();
 
 	// Update init attributes. They should no longer change.
-	Script::ParseJSON(ScriptRequest(m_ScriptInterface), initAttribs, &m_InitAttributes);
+	Script::ParseJSON(Script::Request(m_ScriptInterface), initAttribs, &m_InitAttributes);
 }
 
 void CNetServerWorker::StartGame(const CStr& initAttribs)

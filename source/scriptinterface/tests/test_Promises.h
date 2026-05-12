@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,9 +22,9 @@
 #include "ps/CLogger.h"
 #include "ps/Filesystem.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptContext.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Context.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
@@ -37,19 +37,19 @@ class TestPromises : public CxxTest::TestSuite
 public:
 	void test_simple_promises()
 	{
-		ScriptInterface script("Engine", "Test", g_ScriptContext);
+		Script::Interface script("Engine", "Test", g_ScriptContext);
 		ScriptTestSetup(script);
 		TS_ASSERT(script.LoadGlobalScriptFile(L"promises/simple.js"));
 		g_ScriptContext->RunJobs();
 
-		ScriptRequest rq(script);
+		Script::Request rq(script);
 		JS::RootedValue global(rq.cx, rq.globalValue());
 		ScriptFunction::CallVoid(rq, global, "endTest");
 	}
 
 	void test_exception()
 	{
-		ScriptInterface script("Engine", "Test", g_ScriptContext);
+		Script::Interface script("Engine", "Test", g_ScriptContext);
 		TestLogger logger;
 		TS_ASSERT(script.LoadGlobalScriptFile(L"promises/reject.js"));
 		TS_ASSERT_STR_CONTAINS(logger.GetOutput(),

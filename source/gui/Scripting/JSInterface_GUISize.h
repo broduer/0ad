@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -23,8 +23,8 @@
 #include "lib/types.h"
 #include "ps/CStr.h"
 
-class ScriptInterface;
 namespace JS { class Value; }
+namespace Script { class Interface; }
 struct JSClass;
 struct JSClassOps;
 struct JSContext;
@@ -38,7 +38,7 @@ namespace JSI_GUISize
 	extern JSPropertySpec JSI_props[];
 	extern JSFunctionSpec JSI_methods[];
 
-	void RegisterScriptClass(ScriptInterface& scriptInterface);
+	void RegisterScriptClass(Script::Interface& scriptInterface);
 
 	bool construct(JSContext* cx, uint argc, JS::Value* vp);
 	bool toString(JSContext* cx, uint argc, JS::Value* vp);

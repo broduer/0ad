@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -29,8 +29,8 @@
 #include "ps/XMB/XMBData.h"
 #include "ps/XML/Xeromyces.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/system/Component.h"
 
 #include <algorithm>
@@ -388,7 +388,7 @@ void CParamNode::ToXMLString(std::ostream& strm) const
 	}
 }
 
-void CParamNode::ToJSVal(const ScriptRequest& rq, bool cacheValue, JS::MutableHandleValue ret) const
+void CParamNode::ToJSVal(const Script::Request& rq, bool cacheValue, JS::MutableHandleValue ret) const
 {
 	if (cacheValue && m_ScriptVal != NULL)
 	{
@@ -407,7 +407,7 @@ void CParamNode::ToJSVal(const ScriptRequest& rq, bool cacheValue, JS::MutableHa
 	}
 }
 
-void CParamNode::ConstructJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret) const
+void CParamNode::ConstructJSVal(const Script::Request& rq, JS::MutableHandleValue ret) const
 {
 	if (m_Childs.empty())
 	{

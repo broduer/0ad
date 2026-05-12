@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -26,7 +26,7 @@
 #include <string>
 #include <vector>
 
-class ScriptRequest;
+namespace Script { class Request; }
 
 namespace Renderer
 {
@@ -97,7 +97,7 @@ bool IsSurfaceFormatSupported(
  * Report all desired information about the available physical device.
  */
 void ReportAvailablePhysicalDevice(const SAvailablePhysicalDevice& device,
-	const ScriptRequest& rq, JS::HandleValue settings);
+	const Script::Request& rq, JS::HandleValue settings);
 
 } // namespace Vulkan
 

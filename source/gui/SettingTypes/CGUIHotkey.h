@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -39,7 +39,7 @@ public:
 	CGUIHotkey& operator=(CGUIHotkey&&) = delete;
 
 	bool DoFromString(const CStrW& value) override;
-	bool DoFromJSVal(const ScriptRequest& rq, JS::HandleValue value) override;
+	bool DoFromJSVal(const Script::Request& rq, JS::HandleValue value) override;
 	void OnSettingChange(const CStr& setting, bool sendMessage) override;
 };
 

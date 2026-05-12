@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -34,7 +34,7 @@ class CMapReader;
 class CStrW;
 class CTerrain;
 class CUnitManager;
-class ScriptContext;
+namespace Script { class Context; }
 
 #ifndef ERROR_GROUP_GAME_DEFINED
 #define ERROR_GROUP_GAME_DEFINED
@@ -56,12 +56,12 @@ public:
 	/*
 	Initialize the World - load the map and all objects
 	*/
-	void RegisterInit(const CStrW& mapFile, const ScriptContext& cx, JS::HandleValue settings, int playerID);
+	void RegisterInit(const CStrW& mapFile, const Script::Context& cx, JS::HandleValue settings, int playerID);
 
 	/*
 	Initialize the World - generate and load the random map
 	*/
-	void RegisterInitRMS(const CStrW& scriptFile, const ScriptContext& cx, JS::HandleValue settings, int playerID);
+	void RegisterInitRMS(const CStrW& scriptFile, const Script::Context& cx, JS::HandleValue settings, int playerID);
 
 	/**
 	 * Explicitly delete m_MapReader once the map has finished loading.

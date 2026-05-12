@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,8 +25,8 @@
 #include "ps/CLogger.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 
 #include <algorithm>
 #include <js/Array.h>
@@ -155,7 +155,7 @@ void XMBStorageWriter::OutputNames(WriteBuffer& writeBuffer, const std::unordere
 class JSNodeData
 {
 public:
-	JSNodeData(const ScriptInterface& s) : scriptInterface(s), rq(s) {}
+	JSNodeData(const Script::Interface& s) : scriptInterface(s), rq(s) {}
 
 	bool Setup(XMBStorageWriter& xmb, JS::HandleValue value);
 	bool Output(WriteBuffer& writeBuffer, JS::HandleValue value) const;
@@ -163,8 +163,8 @@ public:
 	std::vector<std::pair<u32, std::string>> m_Attributes;
 	std::vector<std::pair<u32, JS::Heap<JS::Value>>> m_Children;
 
-	const ScriptInterface& scriptInterface;
-	const ScriptRequest rq;
+	const Script::Interface& scriptInterface;
+	const Script::Request rq;
 };
 
 template<>
@@ -470,7 +470,7 @@ bool XMBStorage::LoadXMLDoc(const xmlDocPtr doc)
 	return true;
 }
 
-bool XMBStorage::LoadJSValue(const ScriptInterface& scriptInterface, JS::HandleValue value, const std::string& rootName)
+bool XMBStorage::LoadJSValue(const Script::Interface& scriptInterface, JS::HandleValue value, const std::string& rootName)
 {
 	WriteBuffer writeBuffer;
 

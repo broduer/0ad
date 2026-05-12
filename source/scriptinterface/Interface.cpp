@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,7 +17,7 @@
 
 #include "precompiled.h"
 
-#include "ScriptInterface.h"
+#include "Interface.h"
 
 #include "lib/debug.h"
 #include "lib/file/vfs/vfs_path.h"
@@ -32,7 +32,7 @@
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/ModuleLoader.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptContext.h"
+#include "scriptinterface/Context.h"
 #include "scriptinterface/ScriptStats.h"
 #include "scriptinterface/StructuredClone.h"
 
@@ -76,15 +76,15 @@ namespace mozilla { union Utf8Unit; }
 
 struct ScriptInterface_impl
 {
-	ScriptInterface_impl(const char* nativeScopeName, ScriptContext& context,
+	ScriptInterface_impl(const char* nativeScopeName, Script::Context& context,
 		JS::Compartment* compartment, std::function<bool(const VfsPath&)> allowModule);
 	~ScriptInterface_impl();
 
 	// Take care to keep this declaration before heap rooted members. Destructors of heap rooted
 	// members have to be called before the context destructor.
-	ScriptContext& m_context;
+	Script::Context& m_context;
 
-	friend ScriptRequest;
+	friend Script::Request;
 	private:
 		JSContext* m_cx;
 		JS::PersistentRootedObject m_glob; // global scope object
@@ -96,9 +96,9 @@ struct ScriptInterface_impl
 };
 
 /**
- * Constructor for ScriptRequest - here because it needs access into ScriptInterface_impl.
+ * Constructor for Script::Request - here because it needs access into ScriptInterface_impl.
  */
-ScriptRequest::ScriptRequest(const ScriptInterface& scriptInterface) :
+Script::Request::Request(const Script::Interface& scriptInterface) :
 	cx(scriptInterface.m->m_cx),
 	glob(scriptInterface.m->m_glob),
 	nativeScope(scriptInterface.m->m_nativeScope),
@@ -107,21 +107,21 @@ ScriptRequest::ScriptRequest(const ScriptInterface& scriptInterface) :
 	m_FormerRealm = JS::EnterRealm(cx, scriptInterface.m->m_glob);
 }
 
-ScriptRequest::~ScriptRequest()
+Script::Request::~Request()
 {
 	JS::LeaveRealm(cx, m_FormerRealm);
 }
 
-ScriptRequest::ScriptRequest(JSContext* cx) : ScriptRequest(ScriptInterface::CmptPrivate::GetScriptInterface(cx))
+Script::Request::Request(JSContext* cx) : Script::Request(Script::Interface::CmptPrivate::GetScriptInterface(cx))
 {
 }
 
-JS::Value ScriptRequest::globalValue() const
+JS::Value Script::Request::globalValue() const
 {
 	return JS::ObjectValue(*glob);
 }
 
-const ScriptInterface& ScriptRequest::GetScriptInterface() const
+const Script::Interface& Script::Request::GetScriptInterface() const
 {
 	return m_ScriptInterface;
 }
@@ -146,7 +146,7 @@ JSClass global_class = {
 bool print(JSContext* cx, uint argc, JS::Value* vp)
 {
 	JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
-	ScriptRequest rq(cx);
+	Script::Request rq(cx);
 
 	for (uint i = 0; i < args.length(); ++i)
 	{
@@ -169,7 +169,7 @@ bool logmsg(JSContext* cx, uint argc, JS::Value* vp)
 		return true;
 	}
 
-	ScriptRequest rq(cx);
+	Script::Request rq(cx);
 	std::wstring str;
 	if (!Script::FromJSVal(rq, args[0], str))
 		return false;
@@ -187,7 +187,7 @@ bool warn(JSContext* cx, uint argc, JS::Value* vp)
 		return true;
 	}
 
-	ScriptRequest rq(cx);
+	Script::Request rq(cx);
 	std::wstring str;
 	if (!Script::FromJSVal(rq, args[0], str))
 		return false;
@@ -205,7 +205,7 @@ bool error(JSContext* cx, uint argc, JS::Value* vp)
 		return true;
 	}
 
-	ScriptRequest rq(cx);
+	Script::Request rq(cx);
 	std::wstring str;
 	if (!Script::FromJSVal(rq, args[0], str))
 		return false;
@@ -214,7 +214,7 @@ bool error(JSContext* cx, uint argc, JS::Value* vp)
 	return true;
 }
 
-JS::Value deepcopy(const ScriptRequest& rq, JS::HandleValue val)
+JS::Value deepcopy(const Script::Request& rq, JS::HandleValue val)
 {
 	if (val.isNullOrUndefined())
 	{
@@ -231,9 +231,9 @@ JS::Value deepcopy(const ScriptRequest& rq, JS::HandleValue val)
 	return ret;
 }
 
-JS::Value deepfreeze(const ScriptInterface& scriptInterface, JS::HandleValue val)
+JS::Value deepfreeze(const Script::Interface& scriptInterface, JS::HandleValue val)
 {
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 	if (!val.isObject())
 	{
 		ScriptException::Raise(rq, "deepfreeze requires exactly one object as an argument.");
@@ -307,7 +307,7 @@ static double generate_uniform_real(boost::rand48& rng, double min, double max)
 
 } // anonymous namespace
 
-bool ScriptInterface::MathRandom(double& nbr) const
+bool Script::Interface::MathRandom(double& nbr) const
 {
 	if (m->m_rng == nullptr)
 		return false;
@@ -315,18 +315,18 @@ bool ScriptInterface::MathRandom(double& nbr) const
 	return true;
 }
 
-bool ScriptInterface::Math_random(JSContext* cx, uint argc, JS::Value* vp)
+bool Script::Interface::Math_random(JSContext* cx, uint argc, JS::Value* vp)
 {
 	JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 	double r;
-	if (!ScriptInterface::CmptPrivate::GetScriptInterface(cx).MathRandom(r))
+	if (!Script::Interface::CmptPrivate::GetScriptInterface(cx).MathRandom(r))
 		return false;
 
 	args.rval().setNumber(r);
 	return true;
 }
 
-ScriptInterface_impl::ScriptInterface_impl(const char* nativeScopeName, ScriptContext& context,
+ScriptInterface_impl::ScriptInterface_impl(const char* nativeScopeName, Script::Context& context,
 	JS::Compartment* compartment, std::function<bool(const VfsPath&)> allowModule) :
 	m_context(context), m_cx(context.GetGeneralJSContext()), m_glob(context.GetGeneralJSContext()),
 	m_nativeScope(context.GetGeneralJSContext()),
@@ -376,7 +376,7 @@ ScriptInterface_impl::~ScriptInterface_impl()
 	m_context.UnRegisterRealm(JS::GetObjectRealmOrNull(m_glob));
 }
 
-ScriptInterface::ScriptInterface(const char* nativeScopeName, const char* debugName, ScriptContext& context,
+Script::Interface::Interface(const char* nativeScopeName, const char* debugName, Script::Context& context,
 	std::function<bool(const VfsPath&)> allowModule) :
 	m{std::make_unique<ScriptInterface_impl>(nativeScopeName, context, nullptr,
 		std::move(allowModule))}
@@ -388,15 +388,15 @@ ScriptInterface::ScriptInterface(const char* nativeScopeName, const char* debugN
 			g_ScriptStatsTable->Add(this, debugName);
 	}
 
-	ScriptRequest rq(this);
+	Script::Request rq(this);
 	m_CmptPrivate.pScriptInterface = this;
 	JS::SetRealmPrivate(JS::GetObjectRealmOrNull(rq.glob), (void*)&m_CmptPrivate);
 }
 
-ScriptInterface::ScriptInterface(const char* nativeScopeName, const char* debugName,
-	const ScriptInterface& neighbor, std::function<bool(const VfsPath& path)> allowModule)
+Script::Interface::Interface(const char* nativeScopeName, const char* debugName,
+	const Script::Interface& neighbor, std::function<bool(const VfsPath& path)> allowModule)
 {
-	ScriptRequest nrq(neighbor);
+	Script::Request nrq(neighbor);
 	JS::Compartment* comp = JS::GetCompartmentForRealm(JS::GetCurrentRealmOrNull(nrq.cx));
 	m = std::make_unique<ScriptInterface_impl>(nativeScopeName, neighbor.GetContext(), comp,
 		std::move(allowModule));
@@ -408,12 +408,12 @@ ScriptInterface::ScriptInterface(const char* nativeScopeName, const char* debugN
 			g_ScriptStatsTable->Add(this, debugName);
 	}
 
-	ScriptRequest rq(this);
+	Script::Request rq(this);
 	m_CmptPrivate.pScriptInterface = this;
 	JS::SetRealmPrivate(JS::GetObjectRealmOrNull(rq.glob), (void*)&m_CmptPrivate);
 }
 
-ScriptInterface::~ScriptInterface()
+Script::Interface::~Interface()
 {
 	m->m_context.RunJobs();
 	if (Threading::IsMainThread())
@@ -423,31 +423,31 @@ ScriptInterface::~ScriptInterface()
 	}
 }
 
-const ScriptInterface& ScriptInterface::CmptPrivate::GetScriptInterface(JSContext *cx)
+const Script::Interface& Script::Interface::CmptPrivate::GetScriptInterface(JSContext *cx)
 {
 	CmptPrivate* pCmptPrivate = (CmptPrivate*)JS::GetRealmPrivate(JS::GetCurrentRealmOrNull(cx));
 	ENSURE(pCmptPrivate);
 	return *pCmptPrivate->pScriptInterface;
 }
 
-void* ScriptInterface::CmptPrivate::GetCBData(JSContext *cx)
+void* Script::Interface::CmptPrivate::GetCBData(JSContext *cx)
 {
 	CmptPrivate* pCmptPrivate = (CmptPrivate*)JS::GetRealmPrivate(JS::GetCurrentRealmOrNull(cx));
 	return pCmptPrivate ? pCmptPrivate->pCBData : nullptr;
 }
 
-void ScriptInterface::SetCallbackData(void* pCBData)
+void Script::Interface::SetCallbackData(void* pCBData)
 {
 	m_CmptPrivate.pCBData = pCBData;
 }
 
 template <>
-void* ScriptInterface::ObjectFromCBData<void>(const ScriptRequest& rq)
+void* Script::Interface::ObjectFromCBData<void>(const Script::Request& rq)
 {
-	return ScriptInterface::CmptPrivate::GetCBData(rq.cx);
+	return Script::Interface::CmptPrivate::GetCBData(rq.cx);
 }
 
-bool ScriptInterface::LoadGlobalScripts()
+bool Script::Interface::LoadGlobalScripts()
 {
 	// Ignore this failure in tests
 	if (!g_VFS)
@@ -466,9 +466,9 @@ bool ScriptInterface::LoadGlobalScripts()
 	return true;
 }
 
-bool ScriptInterface::ReplaceNondeterministicRNG(boost::rand48& rng)
+bool Script::Interface::ReplaceNondeterministicRNG(boost::rand48& rng)
 {
-	ScriptRequest rq(this);
+	Script::Request rq(this);
 	JS::RootedValue math(rq.cx);
 	JS::RootedObject global(rq.cx, rq.glob);
 	if (JS_GetProperty(rq.cx, global, "Math", &math) && math.isObject())
@@ -488,24 +488,24 @@ bool ScriptInterface::ReplaceNondeterministicRNG(boost::rand48& rng)
 	return false;
 }
 
-JSContext* ScriptInterface::GetGeneralJSContext() const
+JSContext* Script::Interface::GetGeneralJSContext() const
 {
 	return m->m_context.GetGeneralJSContext();
 }
 
-ScriptContext& ScriptInterface::GetContext() const
+Script::Context& Script::Interface::GetContext() const
 {
 	return m->m_context;
 }
 
-Script::ModuleLoader& ScriptInterface::GetModuleLoader() const
+Script::ModuleLoader& Script::Interface::GetModuleLoader() const
 {
 	return m->m_ModuleLoader;
 }
 
-void ScriptInterface::CallConstructor(JS::HandleValue ctor, JS::HandleValueArray argv, JS::MutableHandleValue out) const
+void Script::Interface::CallConstructor(JS::HandleValue ctor, JS::HandleValueArray argv, JS::MutableHandleValue out) const
 {
-	ScriptRequest rq(this);
+	Script::Request rq(this);
 	if (!ctor.isObject())
 	{
 		LOGERROR("CallConstructor: ctor is not an object");
@@ -520,9 +520,9 @@ void ScriptInterface::CallConstructor(JS::HandleValue ctor, JS::HandleValueArray
 		out.setObjectOrNull(objOut);
 }
 
-void ScriptInterface::DefineCustomObjectType(JSClass *clasp, JSNative constructor, uint minArgs, JSPropertySpec *ps, JSFunctionSpec *fs, JSPropertySpec *static_ps, JSFunctionSpec *static_fs)
+void Script::Interface::DefineCustomObjectType(JSClass *clasp, JSNative constructor, uint minArgs, JSPropertySpec *ps, JSFunctionSpec *fs, JSPropertySpec *static_ps, JSFunctionSpec *static_fs)
 {
-	ScriptRequest rq(this);
+	Script::Request rq(this);
 	std::string typeName = clasp->name;
 
 	if (m_CustomObjectTypes.find(typeName) != m_CustomObjectTypes.end())
@@ -551,21 +551,21 @@ void ScriptInterface::DefineCustomObjectType(JSClass *clasp, JSNative constructo
 	type.m_Constructor = constructor;
 }
 
-JSObject* ScriptInterface::CreateCustomObject(const std::string& typeName) const
+JSObject* Script::Interface::CreateCustomObject(const std::string& typeName) const
 {
 	std::unordered_map<std::string, CustomType>::const_iterator it = m_CustomObjectTypes.find(typeName);
 
 	if (it == m_CustomObjectTypes.end())
 		throw PSERROR_Scripting_TypeDoesNotExist();
 
-	ScriptRequest rq(this);
+	Script::Request rq(this);
 	JS::RootedObject prototype(rq.cx, it->second.m_Prototype.get());
 	return JS_NewObjectWithGivenProto(rq.cx, it->second.m_Class, prototype);
 }
 
-bool ScriptInterface::SetGlobal_(const char* name, JS::HandleValue value, bool replace, bool constant, bool enumerate)
+bool Script::Interface::SetGlobal_(const char* name, JS::HandleValue value, bool replace, bool constant, bool enumerate)
 {
-	ScriptRequest rq(this);
+	Script::Request rq(this);
 	JS::RootedObject global(rq.cx, rq.glob);
 
 	bool found;
@@ -607,7 +607,7 @@ bool ScriptInterface::SetGlobal_(const char* name, JS::HandleValue value, bool r
 	return JS_DefineProperty(rq.cx, global, name, value, attrs);
 }
 
-bool ScriptInterface::GetGlobalProperty(const ScriptRequest& rq, const std::string& name, JS::MutableHandleValue out)
+bool Script::Interface::GetGlobalProperty(const Script::Request& rq, const std::string& name, JS::MutableHandleValue out)
 {
 	// Try to get the object as a property of the global object.
 	JS::RootedObject global(rq.cx, rq.glob);
@@ -637,9 +637,9 @@ bool ScriptInterface::GetGlobalProperty(const ScriptRequest& rq, const std::stri
 	return false;
 }
 
-bool ScriptInterface::SetPrototype(JS::HandleValue objVal, JS::HandleValue protoVal)
+bool Script::Interface::SetPrototype(JS::HandleValue objVal, JS::HandleValue protoVal)
 {
-	ScriptRequest rq(this);
+	Script::Request rq(this);
 	if (!objVal.isObject() || !protoVal.isObject())
 		return false;
 	JS::RootedObject obj(rq.cx, &objVal.toObject());
@@ -647,9 +647,9 @@ bool ScriptInterface::SetPrototype(JS::HandleValue objVal, JS::HandleValue proto
 	return JS_SetPrototype(rq.cx, obj, proto);
 }
 
-bool ScriptInterface::LoadScript(const VfsPath& filename, const std::string& code) const
+bool Script::Interface::LoadScript(const VfsPath& filename, const std::string& code) const
 {
-	ScriptRequest rq(this);
+	Script::Request rq(this);
 	JS::RootedObject global(rq.cx, rq.glob);
 
 	// CompileOptions does not copy the contents of the filename string pointer.
@@ -682,9 +682,9 @@ bool ScriptInterface::LoadScript(const VfsPath& filename, const std::string& cod
 	return false;
 }
 
-bool ScriptInterface::LoadGlobalScript(const VfsPath& filename, const std::string& code) const
+bool Script::Interface::LoadGlobalScript(const VfsPath& filename, const std::string& code) const
 {
-	ScriptRequest rq(this);
+	Script::Request rq(this);
 	// CompileOptions does not copy the contents of the filename string pointer.
 	// Passing a temporary string there will cause undefined behaviour, so we create a separate string to avoid the temporary.
 	std::string filenameStr = filename.string8();
@@ -703,7 +703,7 @@ bool ScriptInterface::LoadGlobalScript(const VfsPath& filename, const std::strin
 	return false;
 }
 
-bool ScriptInterface::LoadGlobalScriptFile(const VfsPath& path) const
+bool Script::Interface::LoadGlobalScriptFile(const VfsPath& path) const
 {
 	if (!VfsFileExists(path))
 	{
@@ -726,9 +726,9 @@ bool ScriptInterface::LoadGlobalScriptFile(const VfsPath& path) const
 	return LoadGlobalScript(path, code);
 }
 
-bool ScriptInterface::Eval(const char* code) const
+bool Script::Interface::Eval(const char* code) const
 {
-	ScriptRequest rq(this);
+	Script::Request rq(this);
 	JS::RootedValue rval(rq.cx);
 
 	JS::CompileOptions opts(rq.cx);
@@ -743,9 +743,9 @@ bool ScriptInterface::Eval(const char* code) const
 	return false;
 }
 
-bool ScriptInterface::Eval(const char* code, JS::MutableHandleValue rval) const
+bool Script::Interface::Eval(const char* code, JS::MutableHandleValue rval) const
 {
-	ScriptRequest rq(this);
+	Script::Request rq(this);
 
 	JS::CompileOptions opts(rq.cx);
 	opts.setFileAndLine("(eval)", 1);

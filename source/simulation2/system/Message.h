@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,7 +25,7 @@
 #include <js/Value.h>
 #include <memory>
 
-class ScriptRequest;
+namespace Script { class Request; }
 
 class CMessage
 {
@@ -37,14 +37,14 @@ public:
 	virtual int GetType() const = 0;
 	virtual const char* GetScriptHandlerName() const = 0;
 	virtual const char* GetScriptGlobalHandlerName() const = 0;
-	virtual JS::Value ToJSVal(const ScriptRequest&) const = 0;
-	JS::Value ToJSValCached(const ScriptRequest&) const;
+	virtual JS::Value ToJSVal(const Script::Request&) const = 0;
+	JS::Value ToJSValCached(const Script::Request&) const;
 private:
 	mutable std::unique_ptr<JS::PersistentRootedValue> m_Cached;
 };
 // TODO: GetType could be replaced with a plain member variable to avoid some
 // virtual calls, if that turns out to be worthwhile
 
-CMessage* CMessageFromJSVal(int mtid, const ScriptRequest&, JS::HandleValue);
+CMessage* CMessageFromJSVal(int mtid, const Script::Request&, JS::HandleValue);
 
 #endif // INCLUDED_MESSAGE

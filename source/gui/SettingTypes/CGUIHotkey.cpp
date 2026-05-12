@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -33,7 +33,7 @@ bool CGUIHotkey::DoFromString(const CStrW& value)
 	return true;
 }
 
-bool CGUIHotkey::DoFromJSVal(const ScriptRequest& rq, JS::HandleValue value)
+bool CGUIHotkey::DoFromJSVal(const Script::Request& rq, JS::HandleValue value)
 {
 	m_Object.GetGUI().UnsetObjectHotkey(m_Object, m_Setting);
 	if (!Script::FromJSVal(rq, value, m_Setting))

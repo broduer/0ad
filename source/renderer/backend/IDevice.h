@@ -33,7 +33,6 @@
 
 class CShaderDefines;
 class CStr;
-class ScriptRequest;
 namespace Renderer::Backend { class IComputePipelineState; }
 namespace Renderer::Backend { class IDeviceCommandContext; }
 namespace Renderer::Backend { class IFramebuffer; }
@@ -50,12 +49,13 @@ namespace Renderer::Backend { struct SDepthStencilAttachment; }
 namespace Renderer::Backend { struct SGraphicsPipelineStateDesc; }
 namespace Renderer::Backend { struct SVertexAttributeFormat; }
 namespace Renderer::Backend::Sampler { struct Desc; }
+namespace Script { class Request; }
 
 namespace Renderer
 {
 
-namespace Backend
-{
+	namespace Backend
+	{
 
 class IDevice
 {
@@ -86,7 +86,7 @@ public:
 	virtual const std::string& GetDriverInformation() const = 0;
 	virtual const std::vector<std::string>& GetExtensions() const = 0;
 
-	virtual void Report(const ScriptRequest& rq, JS::HandleValue settings) = 0;
+	virtual void Report(const Script::Request& rq, JS::HandleValue settings) = 0;
 
 	virtual std::unique_ptr<IDeviceCommandContext> CreateCommandContext() = 0;
 

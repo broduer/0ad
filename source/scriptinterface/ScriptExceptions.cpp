@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@
 #include "ps/CStr.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 
 #include <cstdarg>
 #include <js/CharacterEncoding.h>
@@ -39,12 +39,12 @@
 #include <sstream>
 #include <string>
 
-bool ScriptException::IsPending(const ScriptRequest& rq)
+bool ScriptException::IsPending(const Script::Request& rq)
 {
 	return JS_IsExceptionPending(rq.cx);
 }
 
-bool ScriptException::CatchPending(const ScriptRequest& rq)
+bool ScriptException::CatchPending(const Script::Request& rq)
 {
 	if (!JS_IsExceptionPending(rq.cx))
 		return false;
@@ -106,7 +106,7 @@ bool ScriptException::CatchPending(const ScriptRequest& rq)
 	return true;
 }
 
-void ScriptException::Raise(const ScriptRequest& rq, const char* format, ...)
+void ScriptException::Raise(const Script::Request& rq, const char* format, ...)
 {
 	va_list ap;
 	va_start(ap, format);

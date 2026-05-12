@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -35,7 +35,7 @@
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
 #include "renderer/backend/IDevice.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "tools/atlas/GameInterface/ActorViewer.h"
 #include "tools/atlas/GameInterface/CommandProc.h"
 #include "tools/atlas/GameInterface/GameLoop.h"
@@ -73,7 +73,7 @@ const int g_InitFlags = INIT_HAVE_VMODE | INIT_NO_GUI;
 // This isn't used directly. When it's emplaced and when it's reset it does mutate `g_Logger`.
 std::optional<FileLogger> g_FileLogger;
 
-std::optional<ScriptInterface> g_ScriptInterface;
+std::optional<Script::Interface> g_ScriptInterface;
 }
 
 MESSAGEHANDLER(Init)

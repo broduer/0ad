@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -27,8 +27,8 @@
 #include "ps/Filesystem.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/system/InterfaceScripted.h"
 
 #include <filesystem>
@@ -53,11 +53,11 @@ struct GetAIsHelper
 {
 	NONCOPYABLE(GetAIsHelper);
 public:
-	GetAIsHelper(const ScriptInterface& scriptInterface) :
+	GetAIsHelper(const Script::Interface& scriptInterface) :
 		m_ScriptInterface(scriptInterface),
 		m_AIs(scriptInterface.GetGeneralJSContext())
 	{
-		ScriptRequest rq(m_ScriptInterface);
+		Script::Request rq(m_ScriptInterface);
 		m_AIs = JS::NewArrayObject(rq.cx, 0);
 	}
 
@@ -69,7 +69,7 @@ public:
 	static Status Callback(const VfsPath& pathname, const CFileInfo&, const uintptr_t cbData)
 	{
 		GetAIsHelper* self = (GetAIsHelper*)cbData;
-		ScriptRequest rq(self->m_ScriptInterface);
+		Script::Request rq(self->m_ScriptInterface);
 
 		// Extract the 3rd component of the path (i.e. the directory after simulation/ai/)
 		std::filesystem::path components = pathname.string();
@@ -92,10 +92,10 @@ public:
 	}
 
 	JS::PersistentRootedObject m_AIs;
-	const ScriptInterface& m_ScriptInterface;
+	const Script::Interface& m_ScriptInterface;
 };
 
-JS::Value ICmpAIManager::GetAIs(const ScriptInterface& scriptInterface)
+JS::Value ICmpAIManager::GetAIs(const Script::Interface& scriptInterface)
 {
 	GetAIsHelper helper(scriptInterface);
 	helper.Run();

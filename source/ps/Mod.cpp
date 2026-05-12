@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -33,7 +33,7 @@
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 
 #include <algorithm>
 #include <boost/algorithm/string/classification.hpp>
@@ -55,7 +55,7 @@
 #include "lib/os_path.h"
 #endif
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
 namespace
 {
@@ -112,7 +112,7 @@ bool LoadModJSON(const PIVFS& vfs, OsPath modsPath, OsPath mod, std::string& tex
 	}
 }
 
-bool ParseModJSON(const ScriptRequest& rq, const PIVFS& vfs, OsPath modsPath, OsPath mod, Mod::ModData& data)
+bool ParseModJSON(const Script::Request& rq, const PIVFS& vfs, OsPath modsPath, OsPath mod, Mod::ModData& data)
 {
 	std::string text;
 	if (!LoadModJSON(vfs, modsPath, mod, text))
@@ -245,7 +245,7 @@ bool Mod::AreModsPlayCompatible(const std::vector<const Mod::ModData*>& modsA, c
 	return true;
 }
 
-void Mod::UpdateAvailableMods(const ScriptInterface& scriptInterface)
+void Mod::UpdateAvailableMods(const Script::Interface& scriptInterface)
 {
 	PROFILE2("UpdateAvailableMods");
 
@@ -265,7 +265,7 @@ void Mod::UpdateAvailableMods(const ScriptInterface& scriptInterface)
 
 	PIVFS vfs = CreateVfs();
 
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 	for (DirectoryNames::iterator iter = modDirs.begin(); iter != modDirs.end(); ++iter)
 	{
 		ModData data;

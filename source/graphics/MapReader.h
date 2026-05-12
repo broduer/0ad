@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -47,10 +47,10 @@ class CTerrain;
 class CTerrainTextureEntry;
 class CTriggerManager;
 class CXMLReader;
-class ScriptContext;
-class ScriptInterface;
 class SkyManager;
 class WaterManager;
+namespace Script { class Context; }
+namespace Script { class Interface; }
 
 class CMapReader : public CMapIO
 {
@@ -66,11 +66,11 @@ public:
 	~CMapReader();
 
 	// LoadMap: try to load the map from given file; reinitialise the scene to new data if successful
-	void LoadMap(const VfsPath& pathname, const ScriptContext& cx, JS::HandleValue settings, CTerrain*, WaterManager*, SkyManager*, CLightEnv*, CGameView*,
+	void LoadMap(const VfsPath& pathname, const Script::Context& cx, JS::HandleValue settings, CTerrain*, WaterManager*, SkyManager*, CLightEnv*, CGameView*,
 		CCinemaManager*, CTriggerManager*, CPostprocManager* pPostproc, CSimulation2*, const CSimContext*,
 	        int playerID, bool skipEntities);
 
-	void LoadRandomMap(const CStrW& scriptFile, const ScriptContext& cx, JS::HandleValue settings, CTerrain*, WaterManager*, SkyManager*, CLightEnv*, CGameView*, CCinemaManager*, CTriggerManager*, CPostprocManager* pPostproc_, CSimulation2*, int playerID);
+	void LoadRandomMap(const CStrW& scriptFile, const Script::Context& cx, JS::HandleValue settings, CTerrain*, WaterManager*, SkyManager*, CLightEnv*, CGameView*, CCinemaManager*, CTriggerManager*, CPostprocManager* pPostproc_, CSimulation2*, int playerID);
 
 private:
 	// Load script settings for use by scripts
@@ -176,7 +176,7 @@ public:
 	 * }
 	 * @endcode
 	 */
-	void GetMapSettings(const ScriptInterface& scriptInterface, JS::MutableHandleValue);
+	void GetMapSettings(const Script::Interface& scriptInterface, JS::MutableHandleValue);
 
 private:
 	CStr m_ScriptSettings;

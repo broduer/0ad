@@ -50,7 +50,7 @@
 #include "ps/VideoMode.h"
 #include "ps/XML/Xeromyces.h"
 #include "renderer/Renderer.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/system/Entity.h"
 

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,14 +18,14 @@
 #ifndef INCLUDED_SCRIPTINTERFACE_STRUCTUREDCLONE
 #define INCLUDED_SCRIPTINTERFACE_STRUCTUREDCLONE
 
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 
 #include <js/TypeDecls.h>
 #include <memory>
 
 class JSStructuredCloneData;
-class ScriptInterface;
 namespace JS { class Value; }
+namespace Script { class Interface; }
 
 namespace Script
 {
@@ -38,8 +38,8 @@ namespace Script
  */
 using StructuredClone = std::shared_ptr<JSStructuredCloneData>;
 
-StructuredClone WriteStructuredClone(const ScriptRequest& rq, JS::HandleValue v);
-void ReadStructuredClone(const ScriptRequest& rq, const StructuredClone& ptr, JS::MutableHandleValue ret);
+StructuredClone WriteStructuredClone(const Script::Request& rq, JS::HandleValue v);
+void ReadStructuredClone(const Script::Request& rq, const StructuredClone& ptr, JS::MutableHandleValue ret);
 
 /**
  * Construct a new value by cloning a value (possibly from a different Compartment).
@@ -47,17 +47,17 @@ void ReadStructuredClone(const ScriptRequest& rq, const StructuredClone& ptr, JS
  * types and cyclic references should be fine.
  * Takes ScriptInterfaces to enter the correct realm.
  * Caller beware - manipulating several compartments in the same function is tricky.
- * @param to - ScriptInterface of the target. Should match the rooting context of the result.
- * @param from - ScriptInterface of @a val.
+ * @param to - Script::Interface of the target. Should match the rooting context of the result.
+ * @param from - Script::Interface of @a val.
  */
-JS::Value CloneValueFromOtherCompartment(const ScriptInterface& to, const ScriptInterface& from, JS::HandleValue val);
+JS::Value CloneValueFromOtherCompartment(const Script::Interface& to, const Script::Interface& from, JS::HandleValue val);
 
 /**
  * Clone a JS value, ensuring that changes to the result
  * won't affect the original value.
  * Works by cloning, so the same restrictions as CloneValueFromOtherCompartment apply.
  */
-JS::Value DeepCopy(const ScriptRequest& rq, JS::HandleValue val);
+JS::Value DeepCopy(const Script::Request& rq, JS::HandleValue val);
 
 } // namespace Script
 

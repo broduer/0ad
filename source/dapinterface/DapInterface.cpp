@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -29,10 +29,10 @@
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/ModuleLoader.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptContext.h"
+#include "scriptinterface/Context.h"
 #include "scriptinterface/ScriptExceptions.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 
 #include <cstddef>
 #include <fmt/format.h>
@@ -286,7 +286,7 @@ namespace DAP
 		bool m_Running{true};
 	};
 
-	Interface::Interface(const std::string serverAddress, int port, ScriptContext& scriptContext)
+	Interface::Interface(const std::string serverAddress, int port, Script::Context& scriptContext)
 		: m_SocketImpl{std::make_unique<SocketHandler>(this)},
 		m_ModuleValue{scriptContext.GetGeneralJSContext()}
 	{
@@ -299,12 +299,12 @@ namespace DAP
 		if (!VfsFileExists(fntPath))
 			throw DapInterfaceNoJSDebuggerException{ fmt::format("DAP entry script not found at {}", fntPath.string8().c_str())};
 
-		m_ScriptInterface = std::make_unique<ScriptInterface>("Engine", "Debugger", scriptContext, [](const VfsPath& path) {
+		m_ScriptInterface = std::make_unique<Script::Interface>("Engine", "Debugger", scriptContext, [](const VfsPath& path) {
 			return path.string8().find("tools/dap/") == 0;
 		});
 		m_ScriptInterface->SetCallbackData(this);
 
-		ScriptRequest rq(m_ScriptInterface.get());
+		Script::Request rq(m_ScriptInterface.get());
 		if (!JS_DefineDebuggerObject(rq.cx, rq.glob))
 		{
 			ScriptException::CatchPending(rq);
@@ -312,7 +312,7 @@ namespace DAP
 		}
 
 		// Register methods.
-		constexpr ScriptFunction::ObjectGetter<DAP::Interface> Getter{&ScriptInterface::ObjectFromCBData<DAP::Interface>};
+		constexpr ScriptFunction::ObjectGetter<DAP::Interface> Getter{&Script::Interface::ObjectFromCBData<DAP::Interface>};
 		ScriptFunction::Register<&DAP::Interface::WaitForMessage, Getter>(rq, "WaitForMessage");
 		ScriptFunction::Register<&DAP::Interface::EndWaitingForMessage, Getter>(rq, "EndWaitingForMessage");
 
@@ -336,7 +336,7 @@ namespace DAP
 
 	bool Interface::isJSHandlerDefined()
 	{
-		ScriptRequest rq{m_ScriptInterface.get()};
+		Script::Request rq{m_ScriptInterface.get()};
 		JS::RootedValue handler{rq.cx};
 
 		if (!Script::GetProperty(rq, m_ModuleValue, "handleMessage", &handler))
@@ -365,7 +365,7 @@ namespace DAP
 
 	std::string Interface::OnMessage(const std::string& message)
 	{
-		ScriptRequest rq{m_ScriptInterface.get()};
+		Script::Request rq{m_ScriptInterface.get()};
 
 		JS::RootedValue msg{rq.cx};
 		if (!Script::ParseJSON(rq, message, &msg))
@@ -386,7 +386,7 @@ namespace DAP
 
 	void Interface::SendEventToClient()
 	{
-		ScriptRequest rq{m_ScriptInterface.get()};
+		Script::Request rq{m_ScriptInterface.get()};
 		JS::RootedValue global{rq.cx, rq.globalValue()};
 		JS::RootedValue rval{rq.cx};
 

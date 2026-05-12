@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -33,7 +33,7 @@ class IComponent
 {
 public:
 	// Component allocation types
-	using AllocFunc = IComponent* (*)(const ScriptInterface& scriptInterface, JS::HandleValue ctor);
+	using AllocFunc = IComponent* (*)(const Script::Interface& scriptInterface, JS::HandleValue ctor);
 	using DeallocFunc = void (*)(IComponent*);
 	using ClassInitFunc = void (*)(CComponentManager& componentManager);
 
@@ -76,7 +76,7 @@ private:
 	 * @Returns whether a scripted wrapper of this IComponent is not supported.
 	 * Derrived classes should return true if they implement such a wrapper.
 	 */
-	virtual bool NewJSObject(const ScriptInterface& scriptInterface, JS::MutableHandleObject out) const = 0;
+	virtual bool NewJSObject(const Script::Interface& scriptInterface, JS::MutableHandleObject out) const = 0;
 
 	CEntityHandle m_EntityHandle;
 	const CSimContext* m_SimContext;

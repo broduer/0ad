@@ -80,7 +80,7 @@ public:
 	const std::string& GetDriverInformation() const override { return m_DriverInformation; }
 	const std::vector<std::string>& GetExtensions() const override { return m_Extensions; }
 
-	void Report(const ScriptRequest& rq, JS::HandleValue settings) override;
+	void Report(const Script::Request& rq, JS::HandleValue settings) override;
 
 	std::unique_ptr<IDeviceCommandContext> CreateCommandContext() override;
 

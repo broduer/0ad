@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -24,8 +24,8 @@
 
 #include "ps/CStr.h"
 #include "ps/Mod.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
@@ -91,9 +91,9 @@ public:
 
 	void test_compatible()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 
-		ScriptRequest rq(script);
+		Script::Request rq(script);
 		JS::RootedObject obj(rq.cx, JS_NewPlainObject(rq.cx));
 
 		m_Mods.m_AvailableMods = {
@@ -141,9 +141,9 @@ public:
 
 	void test_different_name_and_path()
 	{
-		ScriptInterface script("Test", "Test", g_ScriptContext);
+		Script::Interface script("Test", "Test", g_ScriptContext);
 
-		ScriptRequest rq(script);
+		Script::Request rq(script);
 		JS::RootedObject obj(rq.cx, JS_NewPlainObject(rq.cx));
 
 		m_Mods.m_AvailableMods = {

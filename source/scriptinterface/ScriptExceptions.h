@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,14 +18,14 @@
 #ifndef INCLUDED_SCRIPTEXCEPTIONS
 #define INCLUDED_SCRIPTEXCEPTIONS
 
-class ScriptRequest;
+namespace Script { class Request; }
 
 namespace ScriptException
 {
 /**
  * @return Whether there is a JS exception pending.
  */
-bool IsPending(const ScriptRequest& rq);
+bool IsPending(const Script::Request& rq);
 
 /**
  * Log and then clear the current pending exception. This function should always be called after calling a
@@ -35,7 +35,7 @@ bool IsPending(const ScriptRequest& rq);
  * Note that JS code that wants to throw errors should throw new Error(...), otherwise the stack cannot be used.
  * @return Whether there was a pending exception.
  */
-bool CatchPending(const ScriptRequest& rq);
+bool CatchPending(const Script::Request& rq);
 
 /**
  * Raise a JS exception from C++ code.
@@ -43,7 +43,7 @@ bool CatchPending(const ScriptRequest& rq);
  * as the latter overwrites the pending exception.
  * Prefer either simply logging an error if you know a stack-trace will be raised elsewhere.
  */
-void Raise(const ScriptRequest& rq, const char* format, ...);
+void Raise(const Script::Request& rq, const char* format, ...);
 }
 
 #endif // INCLUDED_SCRIPTEXCEPTIONS

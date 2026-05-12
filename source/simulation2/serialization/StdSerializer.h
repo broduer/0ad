@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,7 +25,7 @@
 #include <cstring>
 #include <ostream>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
 #define DEBUG_SERIALIZER_ANNOTATE 0 // annotate the stream to help debugging if you're reading the output in a hex editor
 
@@ -62,7 +62,7 @@ private:
 class CStdSerializer : public CBinarySerializer<CStdSerializerImpl>
 {
 public:
-	CStdSerializer(const ScriptInterface& scriptInterface, std::ostream& stream);
+	CStdSerializer(const Script::Interface& scriptInterface, std::ostream& stream);
 
 	virtual std::ostream& GetStream();
 };

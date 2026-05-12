@@ -1,4 +1,4 @@
-/* Copyright (C) 2018 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,11 +18,11 @@
 #ifndef INCLUDED_JSI_MAIN
 #define INCLUDED_JSI_MAIN
 
-class ScriptRequest;
+namespace Script { class Request; }
 
 namespace JSI_Main
 {
-	void RegisterScriptFunctions(const ScriptRequest& rq);
+	void RegisterScriptFunctions(const Script::Request& rq);
 }
 
 #endif // INCLUDED_JSI_MAIN

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -66,7 +66,7 @@ CWorld::~CWorld() = default;
 /**
  * Initializes the game world with the attributes provided.
  **/
-void CWorld::RegisterInit(const CStrW& mapFile, const ScriptContext& cx, JS::HandleValue settings, int playerID)
+void CWorld::RegisterInit(const CStrW& mapFile, const Script::Context& cx, JS::HandleValue settings, int playerID)
 {
 	// Load the map, if one was specified
 	if (mapFile.length())
@@ -100,7 +100,7 @@ void CWorld::RegisterInit(const CStrW& mapFile, const ScriptContext& cx, JS::Han
 	}
 }
 
-void CWorld::RegisterInitRMS(const CStrW& scriptFile, const ScriptContext& cx, JS::HandleValue settings, int playerID)
+void CWorld::RegisterInitRMS(const CStrW& scriptFile, const Script::Context& cx, JS::HandleValue settings, int playerID)
 {
 	// If scriptFile is empty, a blank map will be generated using settings (no RMS run)
 	CTriggerManager* pTriggerManager = nullptr;

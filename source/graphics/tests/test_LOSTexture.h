@@ -22,7 +22,7 @@
 #include "lib/posix/posix_types.h"
 #include "lib/timer.h"
 #include "lib/types.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/helpers/Grid.h"
 #include "simulation2/helpers/Los.h"

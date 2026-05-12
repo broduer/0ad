@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -23,7 +23,7 @@
 #include "lib/path.h"
 #include "ps/CStr.h"
 #include "scriptinterface/ScriptExceptions.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 
 #include <cstddef>
 #include <js/Conversions.h>
@@ -42,14 +42,14 @@
 	return false; \
 })
 
-template<> bool Script::FromJSVal<bool>(const ScriptRequest& rq, JS::HandleValue v, bool& out)
+template<> bool Script::FromJSVal<bool>(const Script::Request& rq, JS::HandleValue v, bool& out)
 {
 	FAIL_IF_NOT(v.isBoolean(), v);
 	out = JS::ToBoolean(v);
 	return true;
 }
 
-template<> bool Script::FromJSVal<float>(const ScriptRequest& rq, JS::HandleValue v, float& out)
+template<> bool Script::FromJSVal<float>(const Script::Request& rq, JS::HandleValue v, float& out)
 {
 	double tmp;
 	FAIL_IF_NOT(v.isNumber(), v);
@@ -59,7 +59,7 @@ template<> bool Script::FromJSVal<float>(const ScriptRequest& rq, JS::HandleValu
 	return true;
 }
 
-template<> bool Script::FromJSVal<double>(const ScriptRequest& rq,  JS::HandleValue v, double& out)
+template<> bool Script::FromJSVal<double>(const Script::Request& rq,  JS::HandleValue v, double& out)
 {
 	FAIL_IF_NOT(v.isNumber(), v);
 	if (!JS::ToNumber(rq.cx, v, &out))
@@ -67,7 +67,7 @@ template<> bool Script::FromJSVal<double>(const ScriptRequest& rq,  JS::HandleVa
 	return true;
 }
 
-template<> bool Script::FromJSVal<i32>(const ScriptRequest& rq,  JS::HandleValue v, i32& out)
+template<> bool Script::FromJSVal<i32>(const Script::Request& rq,  JS::HandleValue v, i32& out)
 {
 	FAIL_IF_NOT(v.isNumber(), v);
 	if (!JS::ToInt32(rq.cx, v, &out))
@@ -75,7 +75,7 @@ template<> bool Script::FromJSVal<i32>(const ScriptRequest& rq,  JS::HandleValue
 	return true;
 }
 
-template<> bool Script::FromJSVal<u32>(const ScriptRequest& rq,  JS::HandleValue v, u32& out)
+template<> bool Script::FromJSVal<u32>(const Script::Request& rq,  JS::HandleValue v, u32& out)
 {
 	FAIL_IF_NOT(v.isNumber(), v);
 	if (!JS::ToUint32(rq.cx, v, &out))
@@ -83,7 +83,7 @@ template<> bool Script::FromJSVal<u32>(const ScriptRequest& rq,  JS::HandleValue
 	return true;
 }
 
-template<> bool Script::FromJSVal<u16>(const ScriptRequest& rq,  JS::HandleValue v, u16& out)
+template<> bool Script::FromJSVal<u16>(const Script::Request& rq,  JS::HandleValue v, u16& out)
 {
 	FAIL_IF_NOT(v.isNumber(), v);
 	if (!JS::ToUint16(rq.cx, v, &out))
@@ -91,7 +91,7 @@ template<> bool Script::FromJSVal<u16>(const ScriptRequest& rq,  JS::HandleValue
 	return true;
 }
 
-template<> bool Script::FromJSVal<u8>(const ScriptRequest& rq,  JS::HandleValue v, u8& out)
+template<> bool Script::FromJSVal<u8>(const Script::Request& rq,  JS::HandleValue v, u8& out)
 {
 	u16 tmp;
 	FAIL_IF_NOT(v.isNumber(), v);
@@ -101,7 +101,7 @@ template<> bool Script::FromJSVal<u8>(const ScriptRequest& rq,  JS::HandleValue 
 	return true;
 }
 
-template<> bool Script::FromJSVal<std::wstring>(const ScriptRequest& rq,  JS::HandleValue v, std::wstring& out)
+template<> bool Script::FromJSVal<std::wstring>(const Script::Request& rq,  JS::HandleValue v, std::wstring& out)
 {
 	FAIL_IF_NOT(v.isString() || v.isNumber() || v.isBoolean(), v); // allow implicit boolean/number conversions
 	JS::RootedString str(rq.cx, JS::ToString(rq.cx, v));
@@ -131,7 +131,7 @@ template<> bool Script::FromJSVal<std::wstring>(const ScriptRequest& rq,  JS::Ha
 	return true;
 }
 
-template<> bool Script::FromJSVal<Path>(const ScriptRequest& rq,  JS::HandleValue v, Path& out)
+template<> bool Script::FromJSVal<Path>(const Script::Request& rq,  JS::HandleValue v, Path& out)
 {
 	std::wstring string;
 	if (!FromJSVal(rq, v, string))
@@ -140,7 +140,7 @@ template<> bool Script::FromJSVal<Path>(const ScriptRequest& rq,  JS::HandleValu
 	return true;
 }
 
-template<> bool Script::FromJSVal<std::string>(const ScriptRequest& rq,  JS::HandleValue v, std::string& out)
+template<> bool Script::FromJSVal<std::string>(const Script::Request& rq,  JS::HandleValue v, std::string& out)
 {
 	std::wstring wideout;
 	if (!FromJSVal(rq, v, wideout))
@@ -149,17 +149,17 @@ template<> bool Script::FromJSVal<std::string>(const ScriptRequest& rq,  JS::Han
 	return true;
 }
 
-template<> bool Script::FromJSVal<CStr8>(const ScriptRequest& rq,  JS::HandleValue v, CStr8& out)
+template<> bool Script::FromJSVal<CStr8>(const Script::Request& rq,  JS::HandleValue v, CStr8& out)
 {
 	return Script::FromJSVal(rq, v, static_cast<std::string&>(out));
 }
 
-template<> bool Script::FromJSVal<CStrW>(const ScriptRequest& rq,  JS::HandleValue v, CStrW& out)
+template<> bool Script::FromJSVal<CStrW>(const Script::Request& rq,  JS::HandleValue v, CStrW& out)
 {
 	return Script::FromJSVal(rq, v, static_cast<std::wstring&>(out));
 }
 
-template<> bool Script::FromJSVal<Entity>(const ScriptRequest& rq,  JS::HandleValue v, Entity& out)
+template<> bool Script::FromJSVal<Entity>(const Script::Request& rq,  JS::HandleValue v, Entity& out)
 {
 	if (!v.isObject())
 		FAIL("Argument must be an object");
@@ -189,42 +189,42 @@ template<> bool Script::FromJSVal<Entity>(const ScriptRequest& rq,  JS::HandleVa
 ////////////////////////////////////////////////////////////////
 // Primitive types:
 
-template<> void Script::ToJSVal<bool>(const ScriptRequest&, JS::MutableHandleValue ret, const bool& val)
+template<> void Script::ToJSVal<bool>(const Script::Request&, JS::MutableHandleValue ret, const bool& val)
 {
 	ret.setBoolean(val);
 }
 
-template<> void Script::ToJSVal<float>(const ScriptRequest&, JS::MutableHandleValue ret, const float& val)
+template<> void Script::ToJSVal<float>(const Script::Request&, JS::MutableHandleValue ret, const float& val)
 {
 	ret.set(JS::NumberValue(val));
 }
 
-template<> void Script::ToJSVal<double>(const ScriptRequest&, JS::MutableHandleValue ret, const double& val)
+template<> void Script::ToJSVal<double>(const Script::Request&, JS::MutableHandleValue ret, const double& val)
 {
 	ret.set(JS::NumberValue(val));
 }
 
-template<> void Script::ToJSVal<i32>(const ScriptRequest&, JS::MutableHandleValue ret, const i32& val)
+template<> void Script::ToJSVal<i32>(const Script::Request&, JS::MutableHandleValue ret, const i32& val)
 {
 	ret.set(JS::NumberValue(val));
 }
 
-template<> void Script::ToJSVal<u16>(const ScriptRequest&, JS::MutableHandleValue ret, const u16& val)
+template<> void Script::ToJSVal<u16>(const Script::Request&, JS::MutableHandleValue ret, const u16& val)
 {
 	ret.set(JS::NumberValue(val));
 }
 
-template<> void Script::ToJSVal<u8>(const ScriptRequest&, JS::MutableHandleValue ret, const u8& val)
+template<> void Script::ToJSVal<u8>(const Script::Request&, JS::MutableHandleValue ret, const u8& val)
 {
 	ret.set(JS::NumberValue(val));
 }
 
-template<> void Script::ToJSVal<u32>(const ScriptRequest&, JS::MutableHandleValue ret, const u32& val)
+template<> void Script::ToJSVal<u32>(const Script::Request&, JS::MutableHandleValue ret, const u32& val)
 {
 	ret.set(JS::NumberValue(val));
 }
 
-template<> void Script::ToJSVal<std::wstring>(const ScriptRequest& rq,  JS::MutableHandleValue ret, const std::wstring& val)
+template<> void Script::ToJSVal<std::wstring>(const Script::Request& rq,  JS::MutableHandleValue ret, const std::wstring& val)
 {
 	std::u16string utf16(val.begin(), val.end());
 	JS::RootedString str(rq.cx, JS_NewUCStringCopyN(rq.cx, utf16.c_str(), utf16.length()));
@@ -234,22 +234,22 @@ template<> void Script::ToJSVal<std::wstring>(const ScriptRequest& rq,  JS::Muta
 		ret.setUndefined();
 }
 
-template<> void Script::ToJSVal<Path>(const ScriptRequest& rq,  JS::MutableHandleValue ret, const Path& val)
+template<> void Script::ToJSVal<Path>(const Script::Request& rq,  JS::MutableHandleValue ret, const Path& val)
 {
 	ToJSVal(rq, ret, val.string());
 }
 
-template<> void Script::ToJSVal<std::string>(const ScriptRequest& rq,  JS::MutableHandleValue ret, const std::string& val)
+template<> void Script::ToJSVal<std::string>(const Script::Request& rq,  JS::MutableHandleValue ret, const std::string& val)
 {
 	ToJSVal(rq, ret, static_cast<const std::wstring>(CStr(val).FromUTF8()));
 }
 
-template<> void Script::ToJSVal<const wchar_t*>(const ScriptRequest& rq,  JS::MutableHandleValue ret, const wchar_t* const& val)
+template<> void Script::ToJSVal<const wchar_t*>(const Script::Request& rq,  JS::MutableHandleValue ret, const wchar_t* const& val)
 {
 	ToJSVal(rq, ret, std::wstring(val));
 }
 
-template<> void Script::ToJSVal<const char*>(const ScriptRequest& rq,  JS::MutableHandleValue ret, const char* const& val)
+template<> void Script::ToJSVal<const char*>(const Script::Request& rq,  JS::MutableHandleValue ret, const char* const& val)
 {
 	JS::RootedString str(rq.cx, JS_NewStringCopyZ(rq.cx, val));
 	if (str)
@@ -258,12 +258,12 @@ template<> void Script::ToJSVal<const char*>(const ScriptRequest& rq,  JS::Mutab
 		ret.setUndefined();
 }
 
-template<> void Script::ToJSVal<CStrW>(const ScriptRequest& rq,  JS::MutableHandleValue ret, const CStrW& val)
+template<> void Script::ToJSVal<CStrW>(const Script::Request& rq,  JS::MutableHandleValue ret, const CStrW& val)
 {
 	ToJSVal(rq, ret, static_cast<const std::wstring&>(val));
 }
 
-template<> void Script::ToJSVal<CStr8>(const ScriptRequest& rq,  JS::MutableHandleValue ret, const CStr8& val)
+template<> void Script::ToJSVal<CStr8>(const Script::Request& rq,  JS::MutableHandleValue ret, const CStr8& val)
 {
 	ToJSVal(rq, ret, static_cast<const std::string&>(val));
 }
@@ -285,12 +285,12 @@ JSVAL_VECTOR(std::vector<std::string>)
 
 
 class IComponent;
-template<> void Script::ToJSVal<std::vector<IComponent*>>(const ScriptRequest& rq,  JS::MutableHandleValue ret, const std::vector<IComponent*>& val)
+template<> void Script::ToJSVal<std::vector<IComponent*>>(const Script::Request& rq,  JS::MutableHandleValue ret, const std::vector<IComponent*>& val)
 {
 	ToJSVal_vector(rq, ret, val);
 }
 
-template<> bool Script::FromJSVal<std::vector<Entity>>(const ScriptRequest& rq,  JS::HandleValue v, std::vector<Entity>& out)
+template<> bool Script::FromJSVal<std::vector<Entity>>(const Script::Request& rq,  JS::HandleValue v, std::vector<Entity>& out)
 {
 	return FromJSVal_vector(rq, v, out);
 }

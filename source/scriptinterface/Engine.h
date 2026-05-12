@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,8 +15,8 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef INCLUDED_SCRIPTENGINE
-#define INCLUDED_SCRIPTENGINE
+#ifndef INCLUDED_SCRIPT_ENGINE
+#define INCLUDED_SCRIPT_ENGINE
 
 #include "lib/debug.h"
 #include "ps/Singleton.h"
@@ -41,16 +41,19 @@ struct JSContext;
  *  2. JS_Shutdown must be called after all ScriptContexts have been destroyed
  */
 
-class ScriptEngine : public Singleton<ScriptEngine>
+namespace Script
+{
+
+class Engine : public Singleton<Engine>
 {
 public:
-	ScriptEngine()
+	Engine()
 	{
 		ENSURE(m_Contexts.empty() && "JS_Init must be called before any contexts are created!");
 		JS_Init();
 	}
 
-	~ScriptEngine()
+	~Engine()
 	{
 		ENSURE(m_Contexts.empty() && "All contexts must be destroyed before calling JS_ShutDown!");
 		JS_ShutDown();
@@ -63,4 +66,6 @@ private:
 	std::list<const JSContext*> m_Contexts;
 };
 
-#endif // INCLUDED_SCRIPTENGINE
+}
+
+#endif // INCLUDED_SCRIPT_ENGINE

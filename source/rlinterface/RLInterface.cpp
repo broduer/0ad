@@ -34,8 +34,8 @@
 #include "scriptinterface/JSON.h"
 #include "ps/TaskManager.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpAIInterface.h"
 #include "simulation2/components/ICmpTemplateManager.h"
@@ -287,8 +287,8 @@ void Interface::ApplyMessage(const GameMessage& msg)
 				EndGame();
 
 			g_Game = new CGame(m_ScenarioConfig.saveReplay);
-			ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
-			ScriptRequest rq(scriptInterface);
+			Script::Interface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+			Script::Request rq(scriptInterface);
 			JS::RootedValue attrs(rq.cx);
 			Script::ParseJSON(rq, m_ScenarioConfig.content, &attrs);
 
@@ -328,12 +328,12 @@ void Interface::ApplyMessage(const GameMessage& msg)
 				m_MsgLock.unlock();
 				return;
 			}
-			const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+			const Script::Interface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
 			CLocalTurnManager* turnMgr = static_cast<CLocalTurnManager*>(g_Game->GetTurnManager());
 
 			for (const GameCommand& command : msg.commands)
 			{
-				ScriptRequest rq(scriptInterface);
+				Script::Request rq(scriptInterface);
 				JS::RootedValue commandJSON(rq.cx);
 				Script::ParseJSON(rq, command.json_cmd, &commandJSON);
 				turnMgr->PostCommand(command.playerID, commandJSON);
@@ -364,8 +364,8 @@ void Interface::ApplyMessage(const GameMessage& msg)
 				m_MsgLock.unlock();
 				return;
 			}
-			const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
-			ScriptRequest rq(scriptInterface);
+			const Script::Interface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+			Script::Request rq(scriptInterface);
 			JS::RootedValue ret(rq.cx);
 			scriptInterface.Eval(m_Code.c_str(), &ret);
 			m_ReturnValue = Script::StringifyJSON(rq, &ret, false);
@@ -380,10 +380,10 @@ void Interface::ApplyMessage(const GameMessage& msg)
 
 std::string Interface::GetGameState() const
 {
-	const ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+	const Script::Interface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
 	const CSimContext simContext = g_Game->GetSimulation2()->GetSimContext();
 	CmpPtr<ICmpAIInterface> cmpAIInterface(simContext.GetSystemEntity());
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 	JS::RootedValue state(rq.cx);
 	cmpAIInterface->GetFullRepresentation(&state, true);
 	return Script::StringifyJSON(rq, &state, false);

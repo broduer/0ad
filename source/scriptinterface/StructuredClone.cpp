@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,15 +22,15 @@
 #include "lib/debug.h"
 #include "ps/Profile.h"
 #include "scriptinterface/ScriptExceptions.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 
 #include <js/CallArgs.h>
 #include <js/RootingAPI.h>
 #include <js/StructuredClone.h>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
-Script::StructuredClone Script::WriteStructuredClone(const ScriptRequest& rq, JS::HandleValue v)
+Script::StructuredClone Script::WriteStructuredClone(const Script::Request& rq, JS::HandleValue v)
 {
 	Script::StructuredClone ret(new JSStructuredCloneData(JS::StructuredCloneScope::SameProcess));
 	JS::CloneDataPolicy policy;
@@ -44,28 +44,28 @@ Script::StructuredClone Script::WriteStructuredClone(const ScriptRequest& rq, JS
 	return ret;
 }
 
-void Script::ReadStructuredClone(const ScriptRequest& rq, const Script::StructuredClone& ptr, JS::MutableHandleValue ret)
+void Script::ReadStructuredClone(const Script::Request& rq, const Script::StructuredClone& ptr, JS::MutableHandleValue ret)
 {
 	JS::CloneDataPolicy policy;
 	if (!JS_ReadStructuredClone(rq.cx, *ptr, JS_STRUCTURED_CLONE_VERSION, ptr->scope(), ret, policy, nullptr, nullptr))
 		ScriptException::CatchPending(rq);
 }
 
-JS::Value Script::CloneValueFromOtherCompartment(const ScriptInterface& to, const ScriptInterface& from, JS::HandleValue val)
+JS::Value Script::CloneValueFromOtherCompartment(const Script::Interface& to, const Script::Interface& from, JS::HandleValue val)
 {
 	PROFILE("CloneValueFromOtherCompartment");
 	Script::StructuredClone structuredClone;
 	{
-		ScriptRequest fromRq(from);
+		Script::Request fromRq(from);
 		structuredClone = WriteStructuredClone(fromRq, val);
 	}
-	ScriptRequest toRq(to);
+	Script::Request toRq(to);
 	JS::RootedValue out(toRq.cx);
 	ReadStructuredClone(toRq, structuredClone, &out);
 	return out.get();
 }
 
-JS::Value Script::DeepCopy(const ScriptRequest& rq, JS::HandleValue val)
+JS::Value Script::DeepCopy(const Script::Request& rq, JS::HandleValue val)
 {
 	JS::RootedValue out(rq.cx);
 	ReadStructuredClone(rq, WriteStructuredClone(rq, val), &out);

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@
 
 #include "ScriptStats.h"
 
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 
 #include <cstdint>
 #include <js/GCAPI.h>
@@ -38,12 +38,12 @@ CScriptStatsTable::CScriptStatsTable()
 {
 }
 
-void CScriptStatsTable::Add(const ScriptInterface* scriptInterface, const std::string& title)
+void CScriptStatsTable::Add(const Script::Interface* scriptInterface, const std::string& title)
 {
 	m_ScriptInterfaces.emplace_back(scriptInterface, title);
 }
 
-void CScriptStatsTable::Remove(const ScriptInterface* scriptInterface)
+void CScriptStatsTable::Remove(const Script::Interface* scriptInterface)
 {
 	for (size_t i = 0; i < m_ScriptInterfaces.size(); )
 	{

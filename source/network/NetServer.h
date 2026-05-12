@@ -42,8 +42,8 @@ class CNetServerTurnManager;
 class CNetStatsTable;
 class CPlayerAssignmentMessage;
 class CSimulationMessage;
-class ScriptInterface;
-class ScriptRequest;
+namespace Script { class Interface; }
+namespace Script { class Request; }
 template <typename MessageType> class CFsmEvent;
 
 enum NetServerState
@@ -176,7 +176,7 @@ private:
 	/**
 	 * Get the script context used for init attributes.
 	 */
-	const ScriptInterface& GetScriptInterface();
+	const Script::Interface& GetScriptInterface();
 
 	/**
 	 * Set the turn length to a fixed value.
@@ -242,7 +242,7 @@ private:
 	 * (TODO: we shouldn't bother deserializing (except for debug printing of messages),
 	 * we should just forward messages blindly and efficiently.)
 	 */
-	ScriptInterface* m_ScriptInterface{nullptr};
+	Script::Interface* m_ScriptInterface{nullptr};
 
 	PlayerAssignmentMap m_PlayerAssignments;
 

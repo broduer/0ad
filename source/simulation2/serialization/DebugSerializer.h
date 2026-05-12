@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -31,7 +31,7 @@
 #include <iosfwd>
 #include <string>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
 /**
  * Serialize to a human-readable YAML-like format.
@@ -45,7 +45,7 @@ public:
 	 * @param stream Stream to receive UTF-8 encoded output
 	 * @param includeDebugInfo If true then additional non-deterministic data will be included in the output
 	 */
-	CDebugSerializer(const ScriptInterface& scriptInterface, std::ostream& stream, bool includeDebugInfo = true);
+	CDebugSerializer(const Script::Interface& scriptInterface, std::ostream& stream, bool includeDebugInfo = true);
 
 	void Comment(const std::string& comment);
 	void TextLine(const std::string& text);
@@ -71,7 +71,7 @@ protected:
 	virtual void PutRaw(const char* name, const u8* data, size_t len);
 
 private:
-	const ScriptInterface& m_ScriptInterface;
+	const Script::Interface& m_ScriptInterface;
 	std::ostream& m_Stream;
 	bool m_IsDebug;
 	int m_Indent;

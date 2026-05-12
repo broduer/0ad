@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -39,7 +39,7 @@
 #include "ps/scripting/JSInterface_VFS.h"
 #include "ps/scripting/JSInterface_VisualReplay.h"
 #include "renderer/scripting/JSInterface_Renderer.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/scripting/JSInterface_Simulation.h"
 #include "soundmanager/scripting/JSInterface_Sound.h"
 
@@ -49,9 +49,9 @@
  * Functions are exposed to scripts within the global object 'Engine', so
  * scripts should call "Engine.FunctionName(...)" etc.
  */
-void GuiScriptingInit(ScriptInterface& scriptInterface)
+void GuiScriptingInit(Script::Interface& scriptInterface)
 {
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 
 	JSI_GUISize::RegisterScriptClass(scriptInterface);
 	JSI_CGUISize::RegisterScriptClass(scriptInterface);

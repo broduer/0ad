@@ -36,7 +36,7 @@
 #include "ps/Profile.h"
 #include "ps/Pyrogenesis.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 
 #include <SDL_events.h>
 #include <SDL_keycode.h>
@@ -48,7 +48,7 @@
 #include <js/Value.h>
 #include <string>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
 struct CProfileViewerInternals
 {
@@ -439,12 +439,12 @@ namespace
 
 	struct DumpTable
 	{
-		const ScriptInterface& m_ScriptInterface;
+		const Script::Interface& m_ScriptInterface;
 		JS::PersistentRooted<JS::Value> m_Root;
-		DumpTable(const ScriptInterface& scriptInterface, JS::HandleValue root) :
+		DumpTable(const Script::Interface& scriptInterface, JS::HandleValue root) :
 			m_ScriptInterface(scriptInterface)
 		{
-			ScriptRequest rq(scriptInterface);
+			Script::Request rq(scriptInterface);
 			m_Root.init(rq.cx, root);
 		}
 
@@ -453,13 +453,13 @@ namespace
 		DumpTable(DumpTable && original) :
 			m_ScriptInterface(original.m_ScriptInterface)
 		{
-			ScriptRequest rq(m_ScriptInterface);
+			Script::Request rq(m_ScriptInterface);
 			m_Root.init(rq.cx, original.m_Root.get());
 		}
 
 		void operator() (AbstractProfileTable* table)
 		{
-			ScriptRequest rq(m_ScriptInterface);
+			Script::Request rq(m_ScriptInterface);
 
 			JS::RootedValue t(rq.cx);
 			Script::CreateObject(
@@ -485,7 +485,7 @@ namespace
 
 		JS::Value DumpRows(AbstractProfileTable* table)
 		{
-			ScriptRequest rq(m_ScriptInterface);
+			Script::Request rq(m_ScriptInterface);
 
 			JS::RootedValue data(rq.cx);
 			Script::CreateObject(rq, &data);

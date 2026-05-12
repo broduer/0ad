@@ -27,8 +27,8 @@
 #include "ps/XML/Xeromyces.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpTemplateManager.h"
 #include "simulation2/system/Component.h"
@@ -115,7 +115,7 @@ public:
 		TS_ASSERT(tempMan != NULL);
 		tempMan->DisableValidation();
 
-		ScriptRequest rq(man.GetScriptInterface());
+		Script::Request rq(man.GetScriptInterface());
 
 		// This is testing some bugs in the template JS object caching
 

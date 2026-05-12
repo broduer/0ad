@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -32,8 +32,8 @@
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptConversions.h"
 #include "scriptinterface/ScriptExceptions.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -144,7 +144,7 @@ VfsPath GetBaseFilename(const VfsPath& filename)
 }
 
 template<typename Requester>
-[[nodiscard]] JSObject* CompileModule(const ScriptRequest& rq,
+[[nodiscard]] JSObject* CompileModule(const Script::Request& rq,
 	const ModuleLoader::AllowModuleFunc& allowModule, ModuleLoader::RegistryType& registry,
 	const VfsPath& filePath, Requester&& requester)
 {
@@ -154,7 +154,7 @@ template<typename Requester>
 	compiledModule.AddRequester(std::forward<Requester>(requester));
 	return compiledModule.m_ModuleObject;
 }
-[[nodiscard]] JSObject* Resolve(const ScriptRequest& rq, const ModuleLoader::AllowModuleFunc& allowModule,
+[[nodiscard]] JSObject* Resolve(const Script::Request& rq, const ModuleLoader::AllowModuleFunc& allowModule,
 	ModuleLoader::RegistryType& registry, JS::HandleValue referencingModule,
 	JS::HandleObject moduleRequest)
 {
@@ -171,7 +171,7 @@ template<typename Requester>
 	return CompileModule(rq, allowModule, registry, includeString, includingModule);
 }
 
-[[nodiscard]] JSObject* Evaluate(const ScriptRequest& rq, JS::HandleObject mod)
+[[nodiscard]] JSObject* Evaluate(const Script::Request& rq, JS::HandleObject mod)
 {
 	if (!JS::ModuleLink(rq.cx, mod))
 	{
@@ -226,7 +226,7 @@ template<bool reject>
 bool Call(JSContext* cx, const unsigned argc, JS::Value* vp)
 {
 	JS::CallArgs args{JS::CallArgsFromVp(argc, vp)};
-	const ScriptRequest rq{cx};
+	const Script::Request rq{cx};
 
 	const auto statusPtr{JS::GetMaybePtrFromReservedSlot<ModuleLoader::Future::Status>(
 		&args.callee(), 0)};
@@ -266,7 +266,7 @@ template<bool reject>
 constexpr JSClass callbackClass{"Callback", JSCLASS_HAS_RESERVED_SLOTS(1), &callbackClassOps<reject>};
 } // anonymous namespace
 
-ModuleLoader::CompiledModule::CompiledModule(const ScriptRequest& rq, const AllowModuleFunc& allowModule,
+ModuleLoader::CompiledModule::CompiledModule(const Script::Request& rq, const AllowModuleFunc& allowModule,
 	const VfsPath& filePath):
 	m_ModuleObject(rq.cx)
 {
@@ -326,7 +326,7 @@ void ModuleLoader::CompiledModule::RemoveRequester(Result* toErase)
 		}), m_Callbacks.end());
 }
 
-ModuleLoader::Future::Future(const ScriptRequest& rq, ModuleLoader& loader, Result& result,
+ModuleLoader::Future::Future(const Script::Request& rq, ModuleLoader& loader, Result& result,
 	VfsPath modulePath):
 	m_Status{Evaluating{{rq.cx, nullptr}, {rq.cx, JS_NewObject(rq.cx, &callbackClass<false>)},
 		{rq.cx, JS_NewObject(rq.cx, &callbackClass<true>)}}}
@@ -443,7 +443,7 @@ ModuleLoader::Result::iterator& ModuleLoader::Result::iterator::operator++(int)
 	return true;
 }
 
-ModuleLoader::Result::Result(const ScriptRequest& rq, const VfsPath& modulePath):
+ModuleLoader::Result::Result(const Script::Request& rq, const VfsPath& modulePath):
 	m_Script{rq.GetScriptInterface()},
 	m_ModulePath{modulePath},
 	m_Storage{rq, m_Script.GetModuleLoader(), *this, m_ModulePath}
@@ -487,7 +487,7 @@ ModuleLoader::~ModuleLoader()
 	UnregisterFileReloadFunc(FileChangedHook, static_cast<void*>(&m_Registry));
 }
 
-[[nodiscard]] ModuleLoader::Result ModuleLoader::LoadModule(const ScriptRequest& rq,
+[[nodiscard]] ModuleLoader::Result ModuleLoader::LoadModule(const Script::Request& rq,
 	const VfsPath& modulePath)
 {
 	return Result{rq, modulePath};
@@ -500,7 +500,7 @@ ModuleLoader::~ModuleLoader()
 [[nodiscard]] bool ModuleLoader::MetadataHook(JSContext* cx, JS::HandleValue privateValue,
 	JS::HandleObject metaObject) noexcept
 {
-	const ScriptRequest rq{cx};
+	const Script::Request rq{cx};
 
 	JS::RootedValue path{cx};
 	if (!Script::GetProperty(rq, privateValue, "path", &path))
@@ -518,7 +518,7 @@ ModuleLoader::~ModuleLoader()
 {
 	try
 	{
-		const ScriptRequest rq{cx};
+		const Script::Request rq{cx};
 		ModuleLoader& loader{rq.GetScriptInterface().GetModuleLoader()};
 		return Resolve(rq, loader.m_AllowModule, loader.m_Registry, referencingPrivate, request);
 	}
@@ -537,7 +537,7 @@ ModuleLoader::~ModuleLoader()
 [[nodiscard]] bool ModuleLoader::DynamicImportHook(JSContext* cx, JS::HandleValue referencingPrivate,
 	JS::HandleObject moduleRequest, JS::HandleObject promise) noexcept
 {
-	const ScriptRequest rq{cx};
+	const Script::Request rq{cx};
 	try
 	{
 		ModuleLoader& loader{rq.GetScriptInterface().GetModuleLoader()};

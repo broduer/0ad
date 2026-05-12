@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -27,8 +27,8 @@
 #include "ps/Filesystem.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 
 #include <js/PropertyAndElement.h>
 #include <js/RootingAPI.h>
@@ -60,7 +60,7 @@ CModInstaller::~CModInstaller()
 
 CModInstaller::ModInstallationResult CModInstaller::Install(
 	const OsPath& mod,
-	const std::shared_ptr<ScriptContext>& scriptContext,
+	const std::shared_ptr<Script::Context>& scriptContext,
 	bool keepFile)
 {
 	const OsPath modTemp = m_TempDir / mod.Basename() / mod.Filename().ChangeExtension(L".zip");
@@ -92,8 +92,8 @@ CModInstaller::ModInstallationResult CModInstaller::Install(
 	// Extract the name of the mod
 	CStr modName;
 	{
-		ScriptInterface scriptInterface("Engine", "ModInstaller", scriptContext);
-		ScriptRequest rq(scriptInterface);
+		Script::Interface scriptInterface("Engine", "ModInstaller", scriptContext);
+		Script::Request rq(scriptInterface);
 
 		JS::RootedValue json_val(rq.cx);
 		if (!Script::ParseJSON(rq, modinfo.GetAsString(), &json_val))

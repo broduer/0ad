@@ -26,7 +26,7 @@
 #include "ps/Profiler2.h"
 #include "ps/Replay.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"
 #include "simulation2/Simulation2.h"
 
@@ -50,7 +50,7 @@ CTurnManager::CTurnManager(CSimulation2& simulation, u32 defaultTurnLength, u32 
 	m_PlayerId(-1), m_ClientId(clientId), m_DeltaSimTime(0), m_Replay(replay),
 	m_FinalTurn(std::numeric_limits<u32>::max()), m_TimeWarpNumTurns(0)
 {
-	ScriptRequest rq(m_Simulation2.GetScriptInterface());
+	Script::Request rq(m_Simulation2.GetScriptInterface());
 	m_QuickSaveMetadata.init(rq.cx);
 	m_QueuedCommands.resize(1);
 }
@@ -229,7 +229,7 @@ void CTurnManager::AddCommand(int client, int player, JS::HandleValue data, u32 
 		return;
 	}
 
-	ScriptRequest rq(m_Simulation2.GetScriptInterface());
+	Script::Request rq(m_Simulation2.GetScriptInterface());
 
 	Script::DeepFreezeObject(rq, data);
 
@@ -299,7 +299,7 @@ void CTurnManager::QuickSave(JS::HandleValue GUIMetadata)
 
 	m_QuickSaveState = stream.str();
 
-	ScriptRequest rq(m_Simulation2.GetScriptInterface());
+	Script::Request rq(m_Simulation2.GetScriptInterface());
 
 	m_QuickSaveMetadata.set(Script::DeepCopy(rq, GUIMetadata));
 	// Freeze state to ensure that consectuvie loads don't modify the state

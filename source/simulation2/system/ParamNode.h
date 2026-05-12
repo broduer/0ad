@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -31,9 +31,9 @@
 #include <string>
 
 class CStrIntern;
-class ScriptRequest;
 class XMBData;
 class XMBElement;
+namespace Script { class Request; }
 
 /**
  * An entity initialisation parameter node.
@@ -261,7 +261,7 @@ public:
 	 * The cache will be reset if *this* node is modified (e.g. by LoadXML),
 	 * but *not* if any child nodes are modified (so don't do that).
 	 */
-	void ToJSVal(const ScriptRequest& rq, bool cacheValue, JS::MutableHandleValue ret) const;
+	void ToJSVal(const Script::Request& rq, bool cacheValue, JS::MutableHandleValue ret) const;
 
 	/**
 	 * Returns the names/nodes of the children of this node, ordered by name
@@ -291,7 +291,7 @@ private:
 
 	void ResetScriptVal();
 
-	void ConstructJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret) const;
+	void ConstructJSVal(const Script::Request& rq, JS::MutableHandleValue ret) const;
 
 	std::string m_Value;
 	ChildrenMap m_Childs;

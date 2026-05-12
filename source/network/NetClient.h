@@ -26,7 +26,7 @@
 #include "network/NetMessage.h"
 #include "ps/CStr.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"
 
 #include <ctime>
@@ -43,8 +43,8 @@ class CGame;
 class CNetClientSession;
 class CNetClientTurnManager;
 class JSTracer;
-class ScriptInterface;
 class XmppClient;
+namespace Script { class Interface; }
 
 typedef struct _ENetHost ENetHost;
 
@@ -130,7 +130,7 @@ public:
 	/**
 	 * Retrieves the next queued GUI message, and removes it from the queue.
 	 * The returned value is in the JS context of the provided
-	 * @c ScriptInterface.
+	 * @c Script::Interface.
 	 *
 	 * This is the only mechanism for the networking code to send messages to
 	 * the GUI.
@@ -141,13 +141,13 @@ public:
 	 *
 	 * @return a promise resolving to the next message.
 	 */
-	JSObject* GetNextGUIMessage(const ScriptInterface& guiInterface);
+	JSObject* GetNextGUIMessage(const Script::Interface& guiInterface);
 
 	/**
-	 * Has to be called bevore the @c ScriptInterface gets destroied so that
+	 * Has to be called bevore the @c Script::Interface gets destroied so that
 	 * no future messages are sent to it.
 	 */
-	void Unregister(const ScriptInterface& guiInterface);
+	void Unregister(const Script::Interface& guiInterface);
 
 	/**
 	 * Add a message to the queue, to be read by GuiPoll.
@@ -156,7 +156,7 @@ public:
 	template<typename... Args>
 	void PushGuiMessage(Args const&... args)
 	{
-		ScriptRequest rq(GetScriptInterface());
+		Script::Request rq(GetScriptInterface());
 
 		JS::RootedValue message(rq.cx);
 		Script::CreateObject(rq, &message, args...);
@@ -173,7 +173,7 @@ public:
 	 * Get the script interface associated with this network client,
 	 * which is equivalent to the one used by the CGame in the constructor.
 	 */
-	const ScriptInterface& GetScriptInterface();
+	const Script::Interface& GetScriptInterface();
 
 	/**
 	 * Send a message to the server.
@@ -203,7 +203,7 @@ public:
 	 */
 	void LoadFinished();
 
-	void SendGameSetupMessage(JS::MutableHandleValue attrs, const ScriptInterface& scriptInterface);
+	void SendGameSetupMessage(JS::MutableHandleValue attrs, const Script::Interface& scriptInterface);
 
 	void SendAssignPlayerMessage(const int playerID, const CStr& guid);
 
@@ -351,7 +351,7 @@ private:
 
 	struct GuiPollData
 	{
-		const ScriptInterface& interface;
+		const Script::Interface& interface;
 		/**
 		 * In the context of interface.
 		 * When the promise is pending @see Poll should fill it with a message.

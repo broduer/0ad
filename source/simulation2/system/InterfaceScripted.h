@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,26 +21,26 @@
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptInterface.h"
+#include "scriptinterface/Interface.h"
 #include "simulation2/system/ComponentManager.h"
 
 #define BEGIN_INTERFACE_WRAPPER(iname) \
 	JSClass class_ICmp##iname = { \
-		"ICmp" #iname, JSCLASS_HAS_RESERVED_SLOTS( ScriptInterface::JSObjectReservedSlots::PRIVATE+1 ) \
+		"ICmp" #iname, JSCLASS_HAS_RESERVED_SLOTS( Script::Interface::JSObjectReservedSlots::PRIVATE+1 ) \
 	}; \
 	static JSFunctionSpec methods_ICmp##iname[] = {
 
 #define END_INTERFACE_WRAPPER(iname) \
 		JS_FS_END \
 	}; \
-	void ICmp##iname::InterfaceInit(ScriptInterface& scriptInterface) { \
+	void ICmp##iname::InterfaceInit(Script::Interface& scriptInterface) { \
 		scriptInterface.DefineCustomObjectType(&class_ICmp##iname, NULL, 0, NULL, methods_ICmp##iname, NULL, NULL); \
 	} \
-	bool ICmp##iname::NewJSObject(const ScriptInterface& scriptInterface, JS::MutableHandleObject out) const\
+	bool ICmp##iname::NewJSObject(const Script::Interface& scriptInterface, JS::MutableHandleObject out) const\
 	{ \
 		out.set(scriptInterface.CreateCustomObject("ICmp" #iname)); \
 		IComponent* comp = const_cast<IComponent*>(static_cast<const IComponent*>(this)); \
-		JS::SetReservedSlot(out, ScriptInterface::JSObjectReservedSlots::PRIVATE, JS::PrivateValue(comp)); \
+		JS::SetReservedSlot(out, Script::Interface::JSObjectReservedSlots::PRIVATE, JS::PrivateValue(comp)); \
 		return true; \
 	} \
 	JS::HandleValue ICmp##iname::GetJSInstance() const \
@@ -48,8 +48,8 @@
 		if (m_CachedInstance) \
 			return JS::HandleValue::fromMarkedLocation(m_CachedInstance.address()); \
 		\
-		const ScriptInterface& si = GetSimContext().GetScriptInterface(); \
-		ScriptRequest rq(si); \
+		const Script::Interface& si = GetSimContext().GetScriptInterface(); \
+		Script::Request rq(si); \
 		JS::RootedObject obj(rq.cx); \
 		NewJSObject(GetSimContext().GetScriptInterface(), &obj); \
 		m_CachedInstance.setObject(*obj); \
@@ -57,14 +57,14 @@
 		GetSimContext().GetComponentManager().RegisterTrace(GetEntityId(), m_CachedInstance); \
 		return JS::HandleValue::fromMarkedLocation(m_CachedInstance.address()); \
 	} \
-	void RegisterComponentInterface_##iname(ScriptInterface& scriptInterface) { \
+	void RegisterComponentInterface_##iname(Script::Interface& scriptInterface) { \
 		ICmp##iname::InterfaceInit(scriptInterface); \
 	}
 
 template <typename T>
-inline T* ComponentGetter(const ScriptRequest& rq, JS::CallArgs& args)
+inline T* ComponentGetter(const Script::Request& rq, JS::CallArgs& args)
 {
-	return ScriptInterface::GetPrivate<T>(rq, args);
+	return Script::Interface::GetPrivate<T>(rq, args);
 }
 
 #define DEFINE_INTERFACE_METHOD(scriptname, classname, methodname) \

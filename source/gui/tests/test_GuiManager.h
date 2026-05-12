@@ -35,8 +35,8 @@
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptInterface.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Interface.h"
+#include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"
 
 #include <SDL_events.h>
@@ -59,7 +59,7 @@ class TestGuiManager : public CxxTest::TestSuite
 {
 	std::unique_ptr<CConfigDB> configDB;
 	std::optional<CXeromycesEngine> xeromycesEngine;
-	std::optional<ScriptInterface> scriptInterface;
+	std::optional<Script::Interface> scriptInterface;
 public:
 
 	void setUp()
@@ -89,15 +89,15 @@ public:
 	void test_EventObject()
 	{
 		// Load up a test page.
-		ScriptRequest rq{g_GUI->GetScriptInterface()};
+		Script::Request rq{g_GUI->GetScriptInterface()};
 		JS::RootedValue val(rq.cx);
 		Script::CreateObject(rq, &val);
 
 		Script::StructuredClone data = Script::WriteStructuredClone(rq, JS::NullHandleValue);
 		g_GUI->OpenChildPage(L"event/page_event.xml", data);
 
-		const ScriptInterface& pageScriptInterface = *(g_GUI->GetActiveGUI()->GetScriptInterface());
-		ScriptRequest prq(pageScriptInterface);
+		const Script::Interface& pageScriptInterface = *(g_GUI->GetActiveGUI()->GetScriptInterface());
+		Script::Request prq(pageScriptInterface);
 		JS::RootedValue global(prq.cx, prq.globalValue());
 
 		int called_value = 0;
@@ -152,7 +152,7 @@ public:
 		LoadHotkeys(*configDB);
 
 		// Load up a test page.
-		ScriptRequest rq{g_GUI->GetScriptInterface()};
+		Script::Request rq{g_GUI->GetScriptInterface()};
 		JS::RootedValue val(rq.cx);
 		Script::CreateObject(rq, &val);
 
@@ -172,8 +172,8 @@ public:
 		while (in_poll_event(&ev))
 			in_dispatch_event(&ev);
 
-		const ScriptInterface& pageScriptInterface = *(g_GUI->GetActiveGUI()->GetScriptInterface());
-		ScriptRequest prq(pageScriptInterface);
+		const Script::Interface& pageScriptInterface = *(g_GUI->GetActiveGUI()->GetScriptInterface());
+		Script::Request prq(pageScriptInterface);
 		JS::RootedValue global(prq.cx, prq.globalValue());
 
 		// Ensure that our hotkey state was synchronised with the event itself.
@@ -225,7 +225,7 @@ public:
 
 	static void CloseTopmostPage()
 	{
-		ScriptRequest rq{g_GUI->GetActiveGUI()->GetScriptInterface()};
+		Script::Request rq{g_GUI->GetActiveGUI()->GetScriptInterface()};
 		JS::RootedValue global{rq.cx, rq.globalValue()};
 		TS_ASSERT(ScriptFunction::CallVoid(rq, global, "closePageCallback"));
 		// Check whether promises are settled in the page stack and flush the stack.
@@ -234,7 +234,7 @@ public:
 
 	void test_PageRegainedFocusEvent()
 	{
-		ScriptRequest rq{g_GUI->GetScriptInterface()};
+		Script::Request rq{g_GUI->GetScriptInterface()};
 		const Script::StructuredClone undefined{
 			Script::WriteStructuredClone(rq, JS::UndefinedHandleValue)};
 
@@ -261,7 +261,7 @@ public:
 			{false, JS::PromiseState::Fulfilled},
 			{true, JS::PromiseState::Rejected}}};
 
-		const ScriptRequest rq{g_GUI->GetScriptInterface()};
+		const Script::Request rq{g_GUI->GetScriptInterface()};
 
 		const Script::StructuredClone undefined{
 			Script::WriteStructuredClone(rq, JS::UndefinedHandleValue)};
@@ -285,7 +285,7 @@ public:
 
 	void test_Sequential()
 	{
-		const ScriptRequest rq{g_GUI->GetScriptInterface()};
+		const Script::Request rq{g_GUI->GetScriptInterface()};
 		const Script::StructuredClone undefined{
 			Script::WriteStructuredClone(rq, JS::UndefinedHandleValue)};
 		g_GUI->OpenChildPage(L"sequential/page_sequential.xml", undefined);
@@ -298,7 +298,7 @@ public:
 
 	void test_Result()
 	{
-		const ScriptRequest rq{g_GUI->GetScriptInterface()};
+		const Script::Request rq{g_GUI->GetScriptInterface()};
 		g_GUI->OpenChildPage(L"Result/page_Result.xml",
 			Script::WriteStructuredClone(rq, JS::FalseHandleValue));
 		TS_ASSERT(!g_GUI->TickObjects().value());
@@ -310,7 +310,7 @@ public:
 
 	void test_MultipleRootModules()
 	{
-		ScriptRequest rq{g_GUI->GetScriptInterface()};
+		Script::Request rq{g_GUI->GetScriptInterface()};
 
 		TS_ASSERT_THROWS_EQUALS(g_GUI->OpenChildPage(
 			L"multiple_root-modules/page.xml",
@@ -320,7 +320,7 @@ public:
 
 	void test_Await()
 	{
-		ScriptRequest rq{g_GUI->GetScriptInterface()};
+		Script::Request rq{g_GUI->GetScriptInterface()};
 
 		TS_ASSERT_THROWS(g_GUI->OpenChildPage(L"await/page.xml",
 			Script::WriteStructuredClone(rq, JS::NullHandleValue)), const std::bad_variant_access&);
@@ -328,14 +328,14 @@ public:
 
 	void test_OpenRequest()
 	{
-		const ScriptRequest rq{g_GUI->GetScriptInterface()};
+		const Script::Request rq{g_GUI->GetScriptInterface()};
 		g_GUI->OpenChildPage(L"OpenRequest/Root/Page.xml",
 			Script::WriteStructuredClone(rq, JS::UndefinedHandleValue));
 		TS_ASSERT_EQUALS(g_GUI->GetPageCount(), 2);
 
 		g_GUI->TickObjects();
 
-		const ScriptRequest pageRq{g_GUI->GetActiveGUI()->GetScriptInterface()};
+		const Script::Request pageRq{g_GUI->GetActiveGUI()->GetScriptInterface()};
 		JS::RootedValue global{pageRq.cx, pageRq.globalValue()};
 		std::string result;
 		TS_ASSERT(ScriptFunction::Call(pageRq, global, "closePageCallback", result));

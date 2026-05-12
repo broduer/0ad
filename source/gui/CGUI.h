@@ -59,14 +59,14 @@ class CSize2D;
 class GUIProxyProps;
 class IGUIObject;
 class JSObject;
-class ScriptContext;
-class ScriptInterface;
-class ScriptRequest;
 class XMBData;
 class XMBElement;
 namespace JS { class HandleValueArray; }
 namespace JS { class Value; }
 namespace js { class BaseProxyHandler; }
+namespace Script { class Context; }
+namespace Script { class Interface; }
+namespace Script { class Request; }
 struct SDL_Event_;
 struct SGUIImageEffects;
 
@@ -86,7 +86,7 @@ private:
 	using ConstructObjectFunction = std::unique_ptr<IGUIObject> (*)(CGUI&);
 
 public:
-	CGUI(ScriptContext& context);
+	CGUI(Script::Context& context);
 	~CGUI();
 
 	/**
@@ -94,16 +94,16 @@ public:
 	 */
 	void AddObjectTypes();
 
-	JS::Value GetHotloadData(const ScriptRequest& rq);
+	JS::Value GetHotloadData(const Script::Request& rq);
 
-	JSObject* CallPageInit(const ScriptRequest& rq, Script::StructuredClone initDataVal,
+	JSObject* CallPageInit(const Script::Request& rq, Script::StructuredClone initDataVal,
 		JS::HandleValue hotloadDataVal, const std::string_view scriptName);
 
 	/**
 	 * Performs processing that should happen every frame
 	 * (including sending the "Tick" event to scripts)
 	 */
-	JSObject* TickObjects(const ScriptRequest& rq, Script::StructuredClone initData,
+	JSObject* TickObjects(const Script::Request& rq, Script::StructuredClone initData,
 		const std::string_view scriptName);
 
 	/**
@@ -286,7 +286,7 @@ public:
 
 	GUIProxyProps* GetProxyData(const js::BaseProxyHandler* ptr) { return m_ProxyData.at(ptr).get(); }
 
-	std::shared_ptr<ScriptInterface> GetScriptInterface() { return m_ScriptInterface; };
+	std::shared_ptr<Script::Interface> GetScriptInterface() { return m_ScriptInterface; };
 
 private:
 	/**
@@ -596,7 +596,7 @@ private:
 	//--------------------------------------------------------
 	//@{
 
-	std::shared_ptr<ScriptInterface> m_ScriptInterface;
+	std::shared_ptr<Script::Interface> m_ScriptInterface;
 
 	/**
 	 * don't want to pass this around with the
@@ -728,7 +728,7 @@ private:
 public:
 	struct ModuleArtifact
 	{
-		ModuleArtifact(const ScriptRequest& rq, VfsPath filename);
+		ModuleArtifact(const Script::Request& rq, VfsPath filename);
 
 		Script::ModuleLoader::Result result;
 		Script::ModuleLoader::Result::iterator iterator{result.begin()};

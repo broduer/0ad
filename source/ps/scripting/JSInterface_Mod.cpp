@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 
 #include <fmt/format.h>
 #include <js/Array.h>
@@ -37,8 +37,8 @@
 #include <stdexcept>
 #include <vector>
 
-class ScriptInterface;
 namespace JS { class CallArgs; }
+namespace Script { class Interface; }
 
 extern void RestartEngine();
 
@@ -46,7 +46,7 @@ extern void RestartEngine();
 using ModDataCPtr = const Mod::ModData*;
 
 template<>
-void Script::ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret, const ModDataCPtr& data)
+void Script::ToJSVal(const Script::Request& rq, JS::MutableHandleValue ret, const ModDataCPtr& data)
 {
 	ret.set(Script::CreateObject(rq));
 	Script::SetProperty(rq, ret, "mod", data->m_Pathname);
@@ -57,7 +57,7 @@ void Script::ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret, const 
 
 // Required by JSVAL_VECTOR, but can't be implemented.
 template<>
-bool Script::FromJSVal(const ScriptRequest &, const JS::HandleValue, ModDataCPtr&)
+bool Script::FromJSVal(const Script::Request &, const JS::HandleValue, ModDataCPtr&)
 {
 	LOGERROR("Not implemented");
 	return false;
@@ -67,7 +67,7 @@ JSVAL_VECTOR(const Mod::ModData*);
 
 // Implement FromJSVal as a non-pointer type.
 template<>
-void Script::ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret, const Mod::ModData& data)
+void Script::ToJSVal(const Script::Request& rq, JS::MutableHandleValue ret, const Mod::ModData& data)
 {
 	ret.set(Script::CreateObject(rq));
 	Script::SetProperty(rq, ret, "mod", data.m_Pathname);
@@ -77,7 +77,7 @@ void Script::ToJSVal(const ScriptRequest& rq, JS::MutableHandleValue ret, const 
 }
 
 template<>
-bool Script::FromJSVal(const ScriptRequest& rq, const JS::HandleValue val, Mod::ModData& data)
+bool Script::FromJSVal(const Script::Request& rq, const JS::HandleValue val, Mod::ModData& data)
 {
 	// To avoid errors & for convenience, some retro-compatibility when reading
 	// TODO: remove this once we hit A26.
@@ -119,14 +119,14 @@ JSVAL_VECTOR(Mod::ModData);
 
 namespace JSI_Mod
 {
-Mod* ModGetter(const ScriptRequest&, JS::CallArgs&)
+Mod* ModGetter(const Script::Request&, JS::CallArgs&)
 {
 	return &g_Mods;
 }
 
-JS::Value GetEngineInfo(const ScriptInterface& scriptInterface)
+JS::Value GetEngineInfo(const Script::Interface& scriptInterface)
 {
-	ScriptRequest rq(scriptInterface);
+	Script::Request rq(scriptInterface);
 
 	JS::RootedValue mods(rq.cx);
 	Script::ToJSVal(rq, &mods, g_Mods.GetEnabledModsData());
@@ -144,7 +144,7 @@ JS::Value GetEngineInfo(const ScriptInterface& scriptInterface)
 	return metainfo;
 }
 
-JS::Value GetAvailableMods(const ScriptRequest& rq)
+JS::Value GetAvailableMods(const Script::Request& rq)
 {
 	JS::RootedValue ret(rq.cx, Script::CreateObject(rq));
 	for (const Mod::ModData& data : g_Mods.GetAvailableMods())
@@ -186,7 +186,7 @@ bool HasIncompatibleMods()
 	return g_Mods.GetIncompatibleMods().size() > 0;
 }
 
-void RegisterScriptFunctions(const ScriptRequest& rq)
+void RegisterScriptFunctions(const Script::Request& rq)
 {
 	ScriptFunction::Register<GetEngineInfo>(rq, "GetEngineInfo");
 	ScriptFunction::Register<GetAvailableMods>(rq, "GetAvailableMods");

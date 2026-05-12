@@ -44,7 +44,7 @@
 #include "renderer/backend/vulkan/Texture.h"
 #include "renderer/backend/vulkan/Utilities.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptRequest.h"
+#include "scriptinterface/Request.h"
 
 #include <SDL_version.h>
 #include <SDL_video.h>
@@ -715,7 +715,7 @@ CDevice::~CDevice()
 		vkDestroyInstance(m_Instance, nullptr);
 }
 
-void CDevice::Report(const ScriptRequest& rq, JS::HandleValue settings)
+void CDevice::Report(const Script::Request& rq, JS::HandleValue settings)
 {
 	Script::SetProperty(rq, settings, "name", "vulkan");
 

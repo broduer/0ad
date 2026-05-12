@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -160,9 +160,9 @@ std::vector<T> ts_make_vector(T* start, size_t size_bytes)
 		for (int j = 0; j < size; ++j)						   \
 			TS_ASSERT(!feq(m1._data[j], m2._data[j], epsilon));
 
-class ScriptInterface;
+namespace Script { class Interface; }
 // Script-based testing setup (defined in test_setup.cpp). Defines TS_* functions.
-void ScriptTestSetup(const ScriptInterface&);
+void ScriptTestSetup(const Script::Interface&);
 
 // Default game data directory
 // (TODO: game-specific functions like this probably shouldn't be inside lib/, but it's useful

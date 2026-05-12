@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@
 #include <utility>
 #include <vector>
 
-class ScriptInterface;
+namespace Script { class Interface; }
 
 class CScriptStatsTable : public AbstractProfileTable
 {
@@ -35,8 +35,8 @@ class CScriptStatsTable : public AbstractProfileTable
 public:
 	CScriptStatsTable();
 
-	void Add(const ScriptInterface* scriptInterface, const std::string& title);
-	void Remove(const ScriptInterface* scriptInterface);
+	void Add(const Script::Interface* scriptInterface, const std::string& title);
+	void Remove(const Script::Interface* scriptInterface);
 
 	CStr GetName() override;
 	CStr GetTitle() override;
@@ -46,7 +46,7 @@ public:
 	AbstractProfileTable* GetChild(size_t row) override;
 
 private:
-	std::vector<std::pair<const ScriptInterface*, std::string> > m_ScriptInterfaces;
+	std::vector<std::pair<const Script::Interface*, std::string> > m_ScriptInterfaces;
 	std::vector<ProfileColumn> m_ColumnDescriptions;
 };
 
