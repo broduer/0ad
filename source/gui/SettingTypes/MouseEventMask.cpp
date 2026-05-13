@@ -32,7 +32,7 @@
 #include "ps/CStr.h"
 #include "ps/CacheLoader.h"
 #include "ps/Filesystem.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
 
 #include <cmath>
 #include <cstddef>

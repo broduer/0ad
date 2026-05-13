@@ -30,7 +30,7 @@
 #include "scriptinterface/ModuleLoader.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/Context.h"
-#include "scriptinterface/ScriptExceptions.h"
+#include "scriptinterface/Exceptions.h"
 #include "scriptinterface/Interface.h"
 #include "scriptinterface/Request.h"
 
@@ -307,7 +307,7 @@ namespace DAP
 		Script::Request rq(m_ScriptInterface.get());
 		if (!JS_DefineDebuggerObject(rq.cx, rq.glob))
 		{
-			ScriptException::CatchPending(rq);
+			Script::Exception::CatchPending(rq);
 			throw DapInterfaceNoJSDebuggerException{"Failed to define debugger object"};
 		}
 
@@ -341,7 +341,7 @@ namespace DAP
 
 		if (!Script::GetProperty(rq, m_ModuleValue, "handleMessage", &handler))
 		{
-			ScriptException::CatchPending(rq);
+			Script::Exception::CatchPending(rq);
 			return false;
 		}
 

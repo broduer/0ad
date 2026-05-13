@@ -465,7 +465,7 @@ bool IGUIObject::ScriptEvent(const CStr& eventName,
 	if (!JS_CallFunctionValue(rq.cx, obj, handlerVal, paramData, &result))
 	{
 		LOGERROR("Errors executing script event \"%s\"", eventName.c_str());
-		ScriptException::CatchPending(rq);
+		Script::Exception::CatchPending(rq);
 		return false;
 	}
 	return JS::ToBoolean(result);

@@ -21,7 +21,7 @@
 
 #include "gui/CGUI.h"
 #include "gui/ObjectBases/IGUIObject.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
 
 #include <js/RootingAPI.h>
 

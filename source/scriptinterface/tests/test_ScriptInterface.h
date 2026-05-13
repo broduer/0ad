@@ -23,7 +23,7 @@
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
 #include "scriptinterface/Interface.h"
 #include "scriptinterface/Request.h"
 #include "scriptinterface/StructuredClone.h"

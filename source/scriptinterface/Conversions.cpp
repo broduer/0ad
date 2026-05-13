@@ -17,12 +17,12 @@
 
 #include "precompiled.h"
 
-#include "ScriptConversions.h"
+#include "Conversions.h"
 
 #include "graphics/Entity.h"
 #include "lib/path.h"
 #include "ps/CStr.h"
-#include "scriptinterface/ScriptExceptions.h"
+#include "scriptinterface/Exceptions.h"
 #include "scriptinterface/Request.h"
 
 #include <cstddef>
@@ -33,12 +33,12 @@
 #include <string>
 
 // Catch the raised exception right away to ensure the stack trace gets printed.
-#define FAIL(msg) STMT(ScriptException::Raise(rq, msg); ScriptException::CatchPending(rq); return false)
+#define FAIL(msg) STMT(Script::Exception::Raise(rq, msg); Script::Exception::CatchPending(rq); return false)
 
 // Implicit type conversions often hide bugs, so fail.
 #define FAIL_IF_NOT(c, v) STMT(if (!(c)) { \
-	ScriptException::Raise(rq, "Script value conversion check failed: %s (got type %s)", #c, JS::InformalValueTypeName(v)); \
-	ScriptException::CatchPending(rq); \
+	Script::Exception::Raise(rq, "Script value conversion check failed: %s (got type %s)", #c, JS::InformalValueTypeName(v)); \
+	Script::Exception::CatchPending(rq); \
 	return false; \
 })
 

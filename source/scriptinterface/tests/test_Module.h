@@ -29,7 +29,7 @@
 #include "scriptinterface/ModuleLoader.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/Context.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
 #include "scriptinterface/Interface.h"
 #include "scriptinterface/Request.h"
 

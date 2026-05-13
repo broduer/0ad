@@ -16,7 +16,7 @@
  */
 #include "precompiled.h"
 
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
 
 #include "maths/Fixed.h"
 #include "ps/CLogger.h"

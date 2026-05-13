@@ -26,7 +26,7 @@
 #include "ps/KeyName.h"
 #include "ps/containers/StaticVector.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
 #include "scriptinterface/Request.h"
 
 #include <SDL_scancode.h>

@@ -30,7 +30,7 @@
 #include "maths/Vector2D.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
 
 #include <js/RootingAPI.h>
 

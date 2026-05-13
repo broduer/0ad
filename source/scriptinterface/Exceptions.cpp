@@ -18,7 +18,7 @@
 
 #include "precompiled.h"
 
-#include "ScriptExceptions.h"
+#include "Exceptions.h"
 
 #include "lib/code_annotation.h"
 #include "lib/debug.h"
@@ -26,7 +26,7 @@
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
 #include "scriptinterface/Request.h"
 
 #include <cstdarg>
@@ -39,12 +39,12 @@
 #include <sstream>
 #include <string>
 
-bool ScriptException::IsPending(const Script::Request& rq)
+bool Script::Exception::IsPending(const Script::Request& rq)
 {
 	return JS_IsExceptionPending(rq.cx);
 }
 
-bool ScriptException::CatchPending(const Script::Request& rq)
+bool Script::Exception::CatchPending(const Script::Request& rq)
 {
 	if (!JS_IsExceptionPending(rq.cx))
 		return false;
@@ -106,7 +106,7 @@ bool ScriptException::CatchPending(const Script::Request& rq)
 	return true;
 }
 
-void ScriptException::Raise(const Script::Request& rq, const char* format, ...)
+void Script::Exception::Raise(const Script::Request& rq, const char* format, ...)
 {
 	va_list ap;
 	va_start(ap, format);

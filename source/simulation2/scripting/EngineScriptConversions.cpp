@@ -27,8 +27,8 @@
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptExceptions.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Exceptions.h"
 #include "scriptinterface/Interface.h"
 #include "scriptinterface/Request.h"
 #include "simulation2/helpers/CinemaPath.h"
@@ -51,7 +51,7 @@
 #include <optional>
 
 #define FAIL(msg) STMT(LOGERROR(msg); return false)
-#define FAIL_VOID(msg) STMT(ScriptException::Raise(rq, msg); return)
+#define FAIL_VOID(msg) STMT(Script::Exception::Raise(rq, msg); return)
 
 template<> void Script::ToJSVal<IComponent*>(const Script::Request&, JS::MutableHandleValue ret,
 	IComponent* const& val)

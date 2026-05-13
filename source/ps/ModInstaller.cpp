@@ -26,7 +26,7 @@
 #include "ps/Errors.h"
 #include "ps/Filesystem.h"
 #include "scriptinterface/JSON.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
 #include "scriptinterface/Interface.h"
 #include "scriptinterface/Request.h"
 

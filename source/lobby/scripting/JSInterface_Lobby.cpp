@@ -31,7 +31,7 @@
 #include "ps/CStr.h"
 #include "ps/Util.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptExceptions.h"
+#include "scriptinterface/Exceptions.h"
 #include "third_party/encryption/pkcs5_pbkdf2.h"
 
 #include <js/RootingAPI.h>

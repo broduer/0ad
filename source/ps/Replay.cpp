@@ -44,7 +44,7 @@
 #include "scriptinterface/Context.h"
 #include "scriptinterface/Interface.h"
 #include "scriptinterface/Request.h"
-#include "scriptinterface/ScriptStats.h"
+#include "scriptinterface/Stats.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpGuiInterface.h"
 #include "simulation2/helpers/Player.h"

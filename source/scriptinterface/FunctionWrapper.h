@@ -19,8 +19,8 @@
 #define INCLUDED_FUNCTIONWRAPPER
 
 #include "lib/types.h"
-#include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptExceptions.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Exceptions.h"
 #include "scriptinterface/Request.h"
 
 #include <cstddef>
@@ -267,7 +267,7 @@ private:
 			}
 		}
 		// Even if everything succeeded, there could be pending exceptions
-		return !ScriptException::CatchPending(rq) && success;
+		return !Script::Exception::CatchPending(rq) && success;
 	}
 
 	struct StatefullCallbackPrivateSlot
@@ -342,15 +342,15 @@ public:
 			else
 				Script::ToJSVal(rq, args.rval(), call<callable>(obj, outs));
 
-			return !ScriptException::IsPending(rq);
+			return !Script::Exception::IsPending(rq);
 		}
 		catch (const std::exception& e)
 		{
-			ScriptException::Raise(rq, "%s", e.what());
+			Script::Exception::Raise(rq, "%s", e.what());
 		}
 		catch (...)
 		{
-			ScriptException::Raise(rq, "Unknown error occured in an Engine callback.");
+			Script::Exception::Raise(rq, "Unknown error occured in an Engine callback.");
 		}
 		return false;
 	}

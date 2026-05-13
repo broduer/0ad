@@ -21,8 +21,8 @@
 #include "lib/code_annotation.h"
 #include "lib/types.h"
 #include "ps/Errors.h"
-#include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptExceptions.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Exceptions.h"
 #include "scriptinterface/Request.h"
 
 #include <functional>
@@ -273,7 +273,7 @@ public:
 		T* value = JS::GetMaybePtrFromReservedSlot<T>(thisobj, JSObjectReservedSlots::PRIVATE);
 
 		if (value == nullptr)
-			ScriptException::Raise(rq, "Private data of the given object is null!");
+			Script::Exception::Raise(rq, "Private data of the given object is null!");
 
 		return value;
 	}
@@ -287,7 +287,7 @@ public:
 	{
 		if (!callArgs.thisv().isObject())
 		{
-			ScriptException::Raise(rq, "Cannot retrieve private JS object data because from a non-object value!");
+			Script::Exception::Raise(rq, "Cannot retrieve private JS object data because from a non-object value!");
 			return nullptr;
 		}
 
@@ -295,7 +295,7 @@ public:
 		T* value = JS::GetMaybePtrFromReservedSlot<T>(thisObj, JSObjectReservedSlots::PRIVATE);
 
 		if (value == nullptr)
-			ScriptException::Raise(rq, "Private data of the given object is null!");
+			Script::Exception::Raise(rq, "Private data of the given object is null!");
 
 		return value;
 	}

@@ -53,7 +53,7 @@
 #include "renderer/backend/Sampler.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptExceptions.h"
+#include "scriptinterface/Exceptions.h"
 #include "scriptinterface/Interface.h"
 #include "scriptinterface/Request.h"
 
@@ -129,7 +129,7 @@ InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 			JS::RootedObject globalObj(rq.cx, rq.glob);
 			JS::RootedValue result(rq.cx);
 			if (!JS_CallFunctionValue(rq.cx, globalObj, m_GlobalHotkeys[hotkey][eventName], JS::HandleValueArray::empty(), &result))
-				ScriptException::CatchPending(rq);
+				Script::Exception::CatchPending(rq);
 		}
 
 		std::map<CStr, std::vector<IGUIObject*> >::iterator it = m_HotkeyObjects.find(hotkey);

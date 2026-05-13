@@ -17,7 +17,7 @@
 
 #include "precompiled.h"
 
-#include "ScriptStats.h"
+#include "Stats.h"
 
 #include "scriptinterface/Interface.h"
 

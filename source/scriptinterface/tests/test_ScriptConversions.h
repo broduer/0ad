@@ -25,7 +25,7 @@
 #include "maths/FixedVector3D.h"
 #include "ps/Filesystem.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
 #include "scriptinterface/Interface.h"
 #include "scriptinterface/Request.h"
 

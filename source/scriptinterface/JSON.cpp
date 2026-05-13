@@ -28,7 +28,7 @@
 #include "ps/Errors.h"
 #include "ps/Filesystem.h"
 #include "scriptinterface/FunctionWrapper.h"
-#include "scriptinterface/ScriptExceptions.h"
+#include "scriptinterface/Exceptions.h"
 #include "scriptinterface/Request.h"
 
 #include <js/Exception.h>
@@ -45,7 +45,7 @@ bool Script::ParseJSON(const Script::Request& rq, const std::string& string_utf8
 	if (JS_ParseJSON(rq.cx, string.c_str(), (u32)string.size(), out))
 		return true;
 
-	ScriptException::CatchPending(rq);
+	Script::Exception::CatchPending(rq);
 	return false;
 }
 
@@ -99,7 +99,7 @@ std::string Script::StringifyJSON(const Script::Request& rq, JS::MutableHandleVa
 	JS::RootedValue indentVal(rq.cx, indent ? JS::Int32Value(2) : JS::UndefinedValue());
 	if (!JS_Stringify(rq.cx, obj, nullptr, indentVal, &Stringifier::callback, &str))
 	{
-		ScriptException::CatchPending(rq);
+		Script::Exception::CatchPending(rq);
 		return std::string();
 	}
 

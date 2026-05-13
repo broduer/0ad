@@ -21,7 +21,7 @@
 #include "lib/posix/posix_types.h"
 #include "lib/types.h"
 #include "ps/CLogger.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
 #include "scriptinterface/Request.h"
 
 #include <cwchar>

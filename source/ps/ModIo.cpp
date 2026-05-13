@@ -41,7 +41,7 @@
 #include "ps/Util.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Context.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
 #include "scriptinterface/Request.h"
 
 #include <algorithm>

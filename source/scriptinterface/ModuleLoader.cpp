@@ -30,8 +30,8 @@
 #include "ps/Filesystem.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptConversions.h"
-#include "scriptinterface/ScriptExceptions.h"
+#include "scriptinterface/Conversions.h"
+#include "scriptinterface/Exceptions.h"
 #include "scriptinterface/Interface.h"
 #include "scriptinterface/Request.h"
 
@@ -175,14 +175,14 @@ template<typename Requester>
 {
 	if (!JS::ModuleLink(rq.cx, mod))
 	{
-		ScriptException::CatchPending(rq);
+		Script::Exception::CatchPending(rq);
 		throw std::invalid_argument{"Unable to link module."};
 	}
 
 	JS::RootedValue val{rq.cx};
 	if (!JS::ModuleEvaluate(rq.cx, mod, &val) || !val.isObject())
 	{
-		ScriptException::CatchPending(rq);
+		Script::Exception::CatchPending(rq);
 		throw std::invalid_argument{"Unable to evaluate module."};
 	}
 
@@ -290,7 +290,7 @@ ModuleLoader::CompiledModule::CompiledModule(const Script::Request& rq, const Al
 
 	if (!m_ModuleObject)
 	{
-		ScriptException::CatchPending(rq);
+		Script::Exception::CatchPending(rq);
 		throw std::invalid_argument{fmt::format("Unable to compile module: \"{}\".",
 			filePathStr)};
 	}

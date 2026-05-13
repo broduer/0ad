@@ -22,7 +22,7 @@
 #include "lib/external_libraries/gloox.h"
 #include "lib/utf8.h"
 #include "lobby/GlooxConversion.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
 
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>

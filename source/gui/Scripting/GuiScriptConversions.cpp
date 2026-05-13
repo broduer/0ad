@@ -17,7 +17,7 @@
 
 #include "precompiled.h"
 
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
 
 #include "gui/CGUISprite.h"
 #include "gui/ObjectBases/IGUIObject.h"
@@ -36,7 +36,7 @@
 #include "ps/CLogger.h"
 #include "ps/Hotkey.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptExceptions.h"
+#include "scriptinterface/Exceptions.h"
 #include "scriptinterface/Request.h"
 
 #include <js/CallArgs.h>
@@ -161,13 +161,13 @@ template<> bool Script::FromJSVal<IGUIObject*>(const Script::Request& rq, JS::Ha
 {
 	if (!v.isObject())
 	{
-		ScriptException::Raise(rq, "Value is not an IGUIObject.");
+		Script::Exception::Raise(rq, "Value is not an IGUIObject.");
 		return false;
 	}
 	out = IGUIProxyObject::FromPrivateSlot<IGUIObject>(v.toObjectOrNull());
 	if (!out)
 	{
-		ScriptException::Raise(rq, "Value is not an IGUIObject.");
+		Script::Exception::Raise(rq, "Value is not an IGUIObject.");
 		return false;
 	}
 	return true;
@@ -251,7 +251,7 @@ template<> void Script::ToJSVal<EVAlign>(const Script::Request& rq, JS::MutableH
 
 	default:
 		word = "error";
-		ScriptException::Raise(rq, "Invalid EVAlign");
+		Script::Exception::Raise(rq, "Invalid EVAlign");
 		break;
 	}
 	ToJSVal(rq, ret, word);
@@ -293,7 +293,7 @@ template<> void Script::ToJSVal<EAlign>(const Script::Request& rq, JS::MutableHa
 		break;
 	default:
 		word = "error";
-		ScriptException::Raise(rq, "Invalid alignment (should be 'left', 'right' or 'center')");
+		Script::Exception::Raise(rq, "Invalid alignment (should be 'left', 'right' or 'center')");
 		break;
 	}
 	ToJSVal(rq, ret, word);
@@ -335,7 +335,7 @@ template<> void Script::ToJSVal<EScrollOrientation>(const Script::Request& rq, J
 		break;
 	default:
 		word = "error";
-		ScriptException::Raise(rq, "Invalid scroll orientation (should be 'vertical', 'horizontal' or 'both')");
+		Script::Exception::Raise(rq, "Invalid scroll orientation (should be 'vertical', 'horizontal' or 'both')");
 		break;
 	}
 	ToJSVal(rq, ret, word);

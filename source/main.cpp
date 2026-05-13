@@ -82,7 +82,7 @@ that of Atlas depending on commandline parameters.
 #include "rlinterface/RLInterface.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Context.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
 #include "scriptinterface/Engine.h"
 #include "scriptinterface/Interface.h"
 #include "scriptinterface/Request.h"

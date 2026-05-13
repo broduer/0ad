@@ -22,7 +22,7 @@
 #include "lib/debug.h"
 #include "lib/types.h"
 #include "ps/CStr.h"
-#include "scriptinterface/ScriptExceptions.h"
+#include "scriptinterface/Exceptions.h"
 #include "scriptinterface/Request.h"
 
 #include <js/Array.h>
@@ -150,7 +150,7 @@ template<typename T> inline void ToJSVal_vector(const Script::Request& rq, JS::M
 	ret.setObject(*obj);
 }
 
-#define FAIL(msg) STMT(ScriptException::Raise(rq, msg); return false)
+#define FAIL(msg) STMT(Script::Exception::Raise(rq, msg); return false)
 
 template<typename T> inline bool FromJSVal_vector(const Script::Request& rq, JS::HandleValue v, std::vector<T>& out)
 {

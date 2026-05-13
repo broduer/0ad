@@ -23,7 +23,7 @@
 #include "ps/CLogger.h"
 #include "ps/Util.h"
 #include "scriptinterface/JSON.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
 #include "scriptinterface/Request.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/system/LocalTurnManager.h"

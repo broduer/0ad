@@ -15,12 +15,14 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef INCLUDED_SCRIPTEXCEPTIONS
-#define INCLUDED_SCRIPTEXCEPTIONS
+#ifndef INCLUDED_SCRIPT_EXCEPTIONS
+#define INCLUDED_SCRIPT_EXCEPTIONS
 
 namespace Script { class Request; }
 
-namespace ScriptException
+namespace Script
+{
+namespace Exception
 {
 /**
  * @return Whether there is a JS exception pending.
@@ -46,4 +48,5 @@ bool CatchPending(const Script::Request& rq);
 void Raise(const Script::Request& rq, const char* format, ...);
 }
 
-#endif // INCLUDED_SCRIPTEXCEPTIONS
+}
+#endif // INCLUDED_SCRIPT_EXCEPTIONS

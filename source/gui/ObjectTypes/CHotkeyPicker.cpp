@@ -26,7 +26,7 @@
 #include "lib/timer.h"
 #include "ps/CLogger.h"
 #include "ps/KeyName.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
 #include "scriptinterface/Request.h"
 
 #include <SDL_events.h>

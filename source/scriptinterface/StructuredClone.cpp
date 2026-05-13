@@ -21,7 +21,7 @@
 
 #include "lib/debug.h"
 #include "ps/Profile.h"
-#include "scriptinterface/ScriptExceptions.h"
+#include "scriptinterface/Exceptions.h"
 #include "scriptinterface/Request.h"
 
 #include <js/CallArgs.h>
@@ -37,7 +37,7 @@ Script::StructuredClone Script::WriteStructuredClone(const Script::Request& rq, 
 	if (!JS_WriteStructuredClone(rq.cx, v, ret.get(), JS::StructuredCloneScope::SameProcess, policy, nullptr, nullptr, JS::UndefinedHandleValue))
 	{
 		debug_warn(L"Writing a structured clone with JS_WriteStructuredClone failed!");
-		ScriptException::CatchPending(rq);
+		Script::Exception::CatchPending(rq);
 		return StructuredClone();
 	}
 
@@ -48,7 +48,7 @@ void Script::ReadStructuredClone(const Script::Request& rq, const Script::Struct
 {
 	JS::CloneDataPolicy policy;
 	if (!JS_ReadStructuredClone(rq.cx, *ptr, JS_STRUCTURED_CLONE_VERSION, ptr->scope(), ret, policy, nullptr, nullptr))
-		ScriptException::CatchPending(rq);
+		Script::Exception::CatchPending(rq);
 }
 
 JS::Value Script::CloneValueFromOtherCompartment(const Script::Interface& to, const Script::Interface& from, JS::HandleValue val)

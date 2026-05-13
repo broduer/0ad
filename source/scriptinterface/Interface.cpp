@@ -33,7 +33,7 @@
 #include "scriptinterface/ModuleLoader.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/Context.h"
-#include "scriptinterface/ScriptStats.h"
+#include "scriptinterface/Stats.h"
 #include "scriptinterface/StructuredClone.h"
 
 #include <cstdio>
@@ -218,14 +218,14 @@ JS::Value deepcopy(const Script::Request& rq, JS::HandleValue val)
 {
 	if (val.isNullOrUndefined())
 	{
-		ScriptException::Raise(rq, "deepcopy requires one argument.");
+		Script::Exception::Raise(rq, "deepcopy requires one argument.");
 		return JS::UndefinedValue();
 	}
 
 	JS::RootedValue ret(rq.cx, Script::DeepCopy(rq, val));
 	if (ret.isNullOrUndefined())
 	{
-		ScriptException::Raise(rq, "deepcopy StructureClone copy failed.");
+		Script::Exception::Raise(rq, "deepcopy StructureClone copy failed.");
 		return JS::UndefinedValue();
 	}
 	return ret;
@@ -236,7 +236,7 @@ JS::Value deepfreeze(const Script::Interface& scriptInterface, JS::HandleValue v
 	Script::Request rq(scriptInterface);
 	if (!val.isObject())
 	{
-		ScriptException::Raise(rq, "deepfreeze requires exactly one object as an argument.");
+		Script::Exception::Raise(rq, "deepfreeze requires exactly one object as an argument.");
 		return JS::UndefinedValue();
 	}
 
@@ -483,7 +483,7 @@ bool Script::Interface::ReplaceNondeterministicRNG(boost::rand48& rng)
 		}
 	}
 
-	ScriptException::CatchPending(rq);
+	Script::Exception::CatchPending(rq);
 	LOGERROR("ReplaceNondeterministicRNG: failed to replace Math.random");
 	return false;
 }
@@ -540,7 +540,7 @@ void Script::Interface::DefineCustomObjectType(JSClass *clasp, JSNative construc
 
 	if (obj == nullptr)
 	{
-		ScriptException::CatchPending(rq);
+		Script::Exception::CatchPending(rq);
 		throw PSERROR_Scripting_DefineType_CreationFailed();
 	}
 
@@ -581,7 +581,7 @@ bool Script::Interface::SetGlobal_(const char* name, JS::HandleValue value, bool
 		{
 			if (!replace)
 			{
-				ScriptException::Raise(rq, "SetGlobal \"%s\" called multiple times", name);
+				Script::Exception::Raise(rq, "SetGlobal \"%s\" called multiple times", name);
 				return false;
 			}
 
@@ -589,7 +589,7 @@ bool Script::Interface::SetGlobal_(const char* name, JS::HandleValue value, bool
 			// instead of using SetGlobal.
 			if (!desc->configurable())
 			{
-				ScriptException::Raise(rq, "The global \"%s\" is permanent and cannot be hotloaded", name);
+				Script::Exception::Raise(rq, "The global \"%s\" is permanent and cannot be hotloaded", name);
 				return false;
 			}
 
@@ -670,7 +670,7 @@ bool Script::Interface::LoadScript(const VfsPath& filename, const std::string& c
 	JS::RootedFunction func(rq.cx, JS::CompileFunction(rq.cx, emptyScopeChain, options, NULL, 0, NULL, src));
 	if (func == nullptr)
 	{
-		ScriptException::CatchPending(rq);
+		Script::Exception::CatchPending(rq);
 		return false;
 	}
 
@@ -678,7 +678,7 @@ bool Script::Interface::LoadScript(const VfsPath& filename, const std::string& c
 	if (JS_CallFunction(rq.cx, nullptr, func, JS::HandleValueArray::empty(), &rval))
 		return true;
 
-	ScriptException::CatchPending(rq);
+	Script::Exception::CatchPending(rq);
 	return false;
 }
 
@@ -699,7 +699,7 @@ bool Script::Interface::LoadGlobalScript(const VfsPath& filename, const std::str
 	if (JS::Evaluate(rq.cx, opts, src, &rval))
 		return true;
 
-	ScriptException::CatchPending(rq);
+	Script::Exception::CatchPending(rq);
 	return false;
 }
 
@@ -739,7 +739,7 @@ bool Script::Interface::Eval(const char* code) const
 	if (JS::Evaluate(rq.cx, opts, src, &rval))
 		return true;
 
-	ScriptException::CatchPending(rq);
+	Script::Exception::CatchPending(rq);
 	return false;
 }
 
@@ -755,6 +755,6 @@ bool Script::Interface::Eval(const char* code, JS::MutableHandleValue rval) cons
 	if (JS::Evaluate(rq.cx, opts, src, rval))
 		return true;
 
-	ScriptException::CatchPending(rq);
+	Script::Exception::CatchPending(rq);
 	return false;
 }

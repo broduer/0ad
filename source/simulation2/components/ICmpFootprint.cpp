@@ -20,7 +20,7 @@
 #include "ICmpFootprint.h"
 
 #include "maths/FixedVector3D.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
 #include "scriptinterface/Request.h"
 #include "simulation2/system/InterfaceScripted.h"
 

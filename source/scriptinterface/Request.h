@@ -18,7 +18,7 @@
 #ifndef INCLUDED_SCRIPT_REQUEST
 #define INCLUDED_SCRIPT_REQUEST
 
-#include "scriptinterface/ScriptForward.h"
+#include "scriptinterface/ForwardDeclarations.h"
 
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>

@@ -44,7 +44,7 @@
 #include "renderer/SceneRenderer.h"
 #include "renderer/WaterManager.h"
 #include "scriptinterface/Object.h"
-#include "scriptinterface/ScriptConversions.h"
+#include "scriptinterface/Conversions.h"
 #include "scriptinterface/Request.h"
 #include "simulation2/components/ICmpRangeManager.h"
 #include "simulation2/system/Component.h"

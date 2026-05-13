@@ -22,7 +22,7 @@
 #include "Message.h"
 #include "Entity.h"
 #include "SimContext.h"
-#include "scriptinterface/ScriptForward.h"
+#include "scriptinterface/ForwardDeclarations.h"
 
 class CParamNode;
 class CMessage;
