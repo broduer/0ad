@@ -314,7 +314,7 @@ Trigger.prototype.tutorialSteps = [
 			"text":
 				markForTranslation("Select two of your newly-trained Civilians and order them to build these Houses in the empty space to the east of the Civic Center. Click on the House icon in the bottom right panel. While holding %(hotkey1)s click on positions on the map where you want to build Houses. The Civilians will then start to build the houses in order. (When you give a command while holding %(hotkey1)s, you put the command in a queue; units automatically switch to the next command in their queue when they finish their current command). Press Escape to get rid of the House cursor so you don't spam Houses all over the map.\n") +
 				markForTranslation("Reminder: to select only two Civilians, click on the first one and then hold %(hotkey2)s and click on the second one."),
-			"hotkeys": ["selection.queue", "selection.add"]
+			"hotkeys": ["session.queue", "selection.add"]
 		},
 		"Init": function()
 		{
@@ -559,7 +559,7 @@ Trigger.prototype.tutorialSteps = [
 			"text":
 				markForTranslation("Thus, we should order them to deposit their wood in the Civic Center along the way. To do so, we will hold %(hotkey)s while clicking to queue orders: select your soldiers, hold %(hotkey)s and right-click on the Civic Center to deposit their wood and then hold %(hotkey)s and right-click on the stone quarry to gather it.\n") +
 				markForTranslation("Perform a similar order queue with the remaining soldiers and the metal mine in the west."),
-			"hotkeys": ["selection.queue"]
+			"hotkeys": ["session.queue"]
 		},
 		"Init": function()
 		{
