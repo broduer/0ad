@@ -286,6 +286,15 @@ Attack.prototype.CanAttack = function(target, wantedTypes)
 	if (!cmpTargetPlayer || !cmpEntityPlayer)
 		return false;
 
+	// Must be visible or miraged / with retainInFog flag, not completely hidden
+	const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
+	if (cmpRangeManager)
+	{
+		const visibility = cmpRangeManager.GetLosVisibility(target, cmpEntityPlayer.GetPlayerID());
+		if (visibility == "hidden")
+			return false;
+	}
+
 	const types = this.GetAttackTypes(wantedTypes);
 	const entityOwner = cmpEntityPlayer.GetPlayerID();
 	const targetOwner = cmpTargetPlayer.GetPlayerID();
