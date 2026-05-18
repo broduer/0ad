@@ -180,6 +180,11 @@ Attack.prototype.Schema =
 							"</element>" +
 							"<element name='FriendlyFire' a:help='Whether stray missiles can hurt non enemy units.'><data type='boolean'/></element>" +
 							"<optional>" +
+								"<element name='Count' a:help='Number of projectiles to fire at once.'>" +
+									"<data type='positiveInteger'/>" +
+								"</element>" +
+							"</optional>" +
+							"<optional>" +
 								"<element name='LaunchPoint' a:help='Delta from the unit position where to launch the projectile.'>" +
 									"<attribute name='y'>" +
 										"<data type='decimal'/>" +
@@ -660,7 +665,7 @@ Attack.prototype.PerformAttack = function(type, target)
 		"target": target,
 	};
 
-	let delay = +(this.template[type].EffectDelay || 0);
+	const delay = +(this.template[type].EffectDelay || 0);
 
 	if (this.template[type].Projectile)
 	{
@@ -679,7 +684,7 @@ Attack.prototype.PerformAttack = function(type, target)
 		// of the last turn. We compute the time till an arrow will intersect the target.
 		const targetVelocity = Vector3D.sub(targetPosition, cmpTargetPosition.GetPreviousPosition()).div(turnLength);
 
-		let timeToTarget = PositionHelper.PredictTimeToTarget(selfPosition, horizSpeed, targetPosition, targetVelocity);
+		const timeToTarget = PositionHelper.PredictTimeToTarget(selfPosition, horizSpeed, targetPosition, targetVelocity);
 
 		// 'Cheat' and use UnitMotion to predict the position in the near-future.
 		// This avoids 'dancing' issues with units zigzagging over very short distances.
@@ -714,18 +719,6 @@ Attack.prototype.PerformAttack = function(type, target)
 		const distanceModifiedSpread = ApplyValueModificationsToEntity("Attack/" + type + "/Projectile/Spread", +this.template[type].Projectile.Spread, this.entity) *
 			predictedPosition.horizDistanceTo(selfPosition) / 100;
 
-		const randNorm = randomNormal2D();
-		const offsetX = randNorm[0] * distanceModifiedSpread;
-		const offsetZ = randNorm[1] * distanceModifiedSpread;
-
-		data.position = new Vector3D(predictedPosition.x + offsetX, predictedHeight, predictedPosition.z + offsetZ);
-
-		const realHorizDistance = data.position.horizDistanceTo(selfPosition);
-		timeToTarget = realHorizDistance / horizSpeed;
-		delay += timeToTarget * 1000;
-
-		data.direction = Vector3D.sub(data.position, selfPosition).div(realHorizDistance);
-
 		let actorName = this.template[type].Projectile.ActorName || "";
 		const impactActorName = this.template[type].Projectile.ImpactActorName || "";
 		const impactAnimationLifetime = this.template[type].Projectile.ImpactAnimationLifetime || 0;
@@ -748,18 +741,53 @@ Attack.prototype.PerformAttack = function(type, target)
 		}
 
 		const cmpProjectileManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_ProjectileManager);
-		data.projectileId = cmpProjectileManager.LaunchProjectileAtPoint(launchPoint, data.position, horizSpeed, gravity, actorName, impactActorName, impactAnimationLifetime);
-
 		const cmpSound = Engine.QueryInterface(this.entity, IID_Sound);
-		data.attackImpactSound = cmpSound ? cmpSound.GetSoundGroup("attack_impact_" + type.toLowerCase()) : "";
+		const attackImpactSound = cmpSound ? cmpSound.GetSoundGroup("attack_impact_" + type.toLowerCase()) : "";
+		const friendlyFire = this.template[type].Projectile.FriendlyFire == "true";
+		const count = Math.max(1, Math.floor(
+			ApplyValueModificationsToEntity(
+				"Attack/" + type + "/Projectile/Count",
+				this.template[type].Projectile.Count ? +this.template[type].Projectile.Count : 1,
+				this.entity
+			)
+		));
 
-		data.friendlyFire = this.template[type].Projectile.FriendlyFire == "true";
+		for (let i = 0; i < count; ++i)
+		{
+			const randNorm = randomNormal2D();
+			const offsetX = randNorm[0] * distanceModifiedSpread;
+			const offsetZ = randNorm[1] * distanceModifiedSpread;
+
+			const projectileData = {
+				"type": type,
+				"attackData": this.GetAttackEffectsData(type),
+				"splash": this.GetSplashData(type),
+				"attacker": this.entity,
+				"attackerOwner": attackerOwner,
+				"target": target,
+				"position": new Vector3D(predictedPosition.x + offsetX, predictedHeight, predictedPosition.z + offsetZ),
+				"friendlyFire": friendlyFire,
+				"attackImpactSound": attackImpactSound
+			};
+
+			const realHorizDistance = projectileData.position.horizDistanceTo(selfPosition);
+			const projectileTimeToTarget = realHorizDistance / horizSpeed;
+			const projectileDelay = delay + projectileTimeToTarget * 1000;
+
+			projectileData.direction = Vector3D.sub(projectileData.position, selfPosition).div(realHorizDistance);
+			projectileData.projectileId = cmpProjectileManager.LaunchProjectileAtPoint(launchPoint, projectileData.position, horizSpeed, gravity, actorName, impactActorName, impactAnimationLifetime);
+
+			if (projectileDelay)
+				cmpTimer.SetTimeout(SYSTEM_ENTITY, IID_DelayedDamage, "Hit", projectileDelay, projectileData);
+			else
+				Engine.QueryInterface(SYSTEM_ENTITY, IID_DelayedDamage).Hit(projectileData, 0);
+		}
+		return;
 	}
-	else
-	{
-		data.position = targetPosition;
-		data.direction = Vector3D.sub(targetPosition, selfPosition);
-	}
+
+	data.position = targetPosition;
+	data.direction = Vector3D.sub(targetPosition, selfPosition);
+
 	if (delay)
 	{
 		const cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
