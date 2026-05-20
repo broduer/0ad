@@ -19,7 +19,11 @@
 
 #include "NetStats.h"
 
+#include "network/NetClientSession.h"
+#include "network/NetServerSession.h"
+
 #include <fmt/format.h>
+#include <ngtcp2/ngtcp2.h>
 #include <string>
 
 enum
@@ -38,13 +42,8 @@ enum
 	NumberRows
 };
 
-CNetStatsTable::CNetStatsTable(const ENetPeer& peer)
-	: m_Peer(&peer)
-{
-}
-
-CNetStatsTable::CNetStatsTable()
-	: m_Peer(NULL)
+CNetStatsTable::CNetStatsTable(const CNetClientSession& conn):
+	m_Connection{&conn}
 {
 }
 
@@ -55,7 +54,7 @@ CStr CNetStatsTable::GetName()
 
 CStr CNetStatsTable::GetTitle()
 {
-	if (m_Peer)
+	if (m_Connection)
 		return "Network client statistics";
 	else
 		return "Network host statistics";
@@ -71,7 +70,7 @@ const std::vector<ProfileColumn>& CNetStatsTable::GetColumns()
 	m_ColumnDescriptions.clear();
 	m_ColumnDescriptions.push_back(ProfileColumn("Name", 200));
 
-	if (m_Peer)
+	if (m_Connection)
 		m_ColumnDescriptions.push_back(ProfileColumn("Value", 80));
 	else
 	{
@@ -96,22 +95,28 @@ CStr CNetStatsTable::GetCellText(size_t row, size_t col)
 	#define ROW(id, title, member) \
 	case id: \
 		if (col == 0) return title; \
-		if (m_Peer) return std::to_string(m_Peer->member); \
+		if (m_Connection) return std::to_string(member); \
 		return "???"
+
+	CNetClientSession::ProfileData info;
+	if (col != 0)
+		info = m_Connection->GetProfileData();
 
 	switch(row)
 	{
-	ROW(Row_InData, "incoming bytes", incomingDataTotal);
-	ROW(Row_OutData, "outgoing bytes", outgoingDataTotal);
-	ROW(Row_LastSendTime, "last send time", lastSendTime);
-	ROW(Row_LastRecvTime, "last receive time", lastReceiveTime);
-	ROW(Row_NextTimeout, "next timeout", nextTimeout);
-	ROW(Row_PacketsSent, "packets sent", packetsSent);
-	ROW(Row_PacketsLost, "packets lost", packetsLost);
-	ROW(Row_LastRTT, "last RTT", lastRoundTripTime);
-	ROW(Row_RTT, "mean RTT", roundTripTime);
-	ROW(Row_MTU, "MTU", mtu);
-	ROW(Row_ReliableInTransit, "reliable data in transit", reliableDataInTransit);
+	ROW(Row_InData, "incoming bytes", info.connectionInfo.bytes_recv);
+	ROW(Row_OutData, "outgoing bytes", info.connectionInfo.bytes_sent);
+	ROW(Row_LastSendTime, "last send time", std::chrono::duration_cast<std::chrono::milliseconds>(
+		info.lastSendTime.time_since_epoch()).count());
+	ROW(Row_LastRecvTime, "last receive time", std::chrono::duration_cast<std::chrono::milliseconds>(
+		info.lastReceiveTime.time_since_epoch()).count());
+	ROW(Row_NextTimeout, "next timeout", info.expiry);
+	ROW(Row_PacketsSent, "packets sent", info.connectionInfo.pkt_sent);
+	ROW(Row_PacketsLost, "packets lost", info.connectionInfo.pkt_lost);
+	ROW(Row_LastRTT, "last RTT", info.connectionInfo.latest_rtt);
+	ROW(Row_RTT, "mean RTT", info.connectionInfo.smoothed_rtt);
+	ROW(Row_MTU, "MTU", info.maxPayloadSize);
+	ROW(Row_ReliableInTransit, "reliable data in transit", info.connectionInfo.bytes_in_flight);
 
 	default:
 		return "???";
@@ -125,29 +130,34 @@ AbstractProfileTable* CNetStatsTable::GetChild(size_t /*row*/)
 	return 0;
 }
 
-void CNetStatsTable::LatchHostState(const ENetHost& host)
+void CNetStatsTable::LatchHostState(const std::span<std::unique_ptr<CNetServerSession>> sessions)
 {
 	std::lock_guard<std::mutex> lock(m_Mutex);
 
 #define ROW(id, title, member) \
-	m_LatchedData[i].push_back(std::to_string(host.peers[i].member));
+	m_LatchedData[i].push_back(std::to_string(info.member));
 
 	m_LatchedData.clear();
-	m_LatchedData.resize(host.peerCount);
+	m_LatchedData.resize(sessions.size());
 
-	for (size_t i = 0; i < host.peerCount; ++i)
+	for (size_t i = 0; i < sessions.size(); ++i)
 	{
-		ROW(Row_InData, "incoming bytes", incomingDataTotal);
-		ROW(Row_OutData, "outgoing bytes", outgoingDataTotal);
-		ROW(Row_LastSendTime, "last send time", lastSendTime);
-		ROW(Row_LastRecvTime, "last receive time", lastReceiveTime);
-		ROW(Row_NextTimeout, "next timeout", nextTimeout);
-		ROW(Row_PacketsSent, "packets sent", packetsSent);
-		ROW(Row_PacketsLost, "packets lost", packetsLost);
-		ROW(Row_LastRTT, "last RTT", lastRoundTripTime);
-		ROW(Row_RTT, "mean RTT", roundTripTime);
-		ROW(Row_MTU, "MTU", mtu);
-		ROW(Row_ReliableInTransit, "reliable data in transit", reliableDataInTransit);
+		CNetServerSession::ProfileData info{sessions[i]->GetProfileData()};
+		ROW(Row_InData, "incoming bytes", connectionInfo.bytes_recv);
+		ROW(Row_OutData, "outgoing bytes", connectionInfo.bytes_sent);
+		m_LatchedData[i].push_back(std::to_string(
+			std::chrono::duration_cast<std::chrono::milliseconds>(
+			info.lastSendTime.time_since_epoch()).count()));
+		m_LatchedData[i].push_back(std::to_string(
+			std::chrono::duration_cast<std::chrono::milliseconds>(
+			info.lastReceiveTime.time_since_epoch()).count()));
+		ROW(Row_NextTimeout, "next timeout", expiry);
+		ROW(Row_PacketsSent, "packets sent", connectionInfo.pkt_sent);
+		ROW(Row_PacketsLost, "packets lost", connectionInfo.pkt_lost);
+		ROW(Row_LastRTT, "last RTT", connectionInfo.latest_rtt);
+		ROW(Row_RTT, "mean RTT", connectionInfo.smoothed_rtt);
+		ROW(Row_MTU, "MTU", maxPayloadSize);
+		ROW(Row_ReliableInTransit, "reliable data in transit", connectionInfo.bytes_in_flight);
 	}
 #undef ROW
 }

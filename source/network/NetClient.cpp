@@ -73,7 +73,7 @@ CNetClient::CNetClient(CGame* game, std::string serverAddressOrHostname, std::ui
 	CNetClient{PrivateTag{}, game, std::move(serverAddressOrHostname), serverPort, username, hostJID,
 		std::move(hashedPassword), std::move(controllerSecret)}
 {
-	SetupConnection(nullptr);
+	SetupConnection();
 }
 
 CNetClient::CNetClient(PrivateTag, CGame* game, std::string serverAddressOrHostname,
@@ -208,10 +208,10 @@ CNetClient::~CNetClient()
 }
 
 
-void CNetClient::SetupConnection(ENetHost* enetClient)
+void CNetClient::SetupConnection()
 {
 	CNetClientSession* session = new CNetClientSession(*this);
-	bool ok = session->Connect(m_ServerAddressOrHostname, m_ServerPort, enetClient);
+	bool ok = session->Connect(m_ServerAddressOrHostname, m_ServerPort);
 	SetAndOwnSession(session);
 	if (ok)
 		m_PollingThread = std::thread(Threading::HandleExceptions<CNetClientSession::RunNetLoop>::Wrapper, m_Session);
@@ -324,7 +324,7 @@ bool CNetClient::TryToConnectWithSTUN(std::string serverAddressOrHostname, std::
 
 	try
 	{
-		g_NetClient->SetupConnection(enetClient);
+		g_NetClient->SetupConnection();
 	}
 	catch (...)
 	{
@@ -504,6 +504,7 @@ bool CNetClient::SendMessage(const CNetMessage* message)
 
 void CNetClient::HandleConnect()
 {
+	LOGMESSAGE("Net client: Connected", m_ServerAddressOrHostname, m_ServerPort);
 	Update(static_cast<unsigned int>(NMT_CONNECT_COMPLETE), nullptr);
 }
 

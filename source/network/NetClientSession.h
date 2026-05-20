@@ -19,19 +19,18 @@
 #define NETSESSION_H
 
 #include "lib/code_annotation.h"
-#include "lib/external_libraries/enet.h"
 #include "network/NetFileTransfer.h"
 #include "network/NetHost.h"
 
 #include <atomic>
 #include <boost/lockfree/queue.hpp>
+#include <ngtcp2/ngtcp2.h>
 
 class CNetClient;
 class CNetMessage;
 class CNetStatsTable;
 class CStr;
-
-typedef struct _ENetHost ENetHost;
+struct CNetClientSessionImpl;
 
 /**
  * @file
@@ -55,7 +54,7 @@ public:
 	CNetClientSession(CNetClient& client);
 	~CNetClientSession();
 
-	bool Connect(const CStr& server, const std::uint16_t port, ENetHost* enetClient);
+	bool Connect(const CStr& server, const std::uint16_t port);
 
 	/**
 	 * The client NetSession is threaded to avoid getting timeouts if the main thread hangs.
@@ -89,6 +88,16 @@ public:
 	std::uint32_t GetMeanRTT() const;
 
 	CNetFileTransferer& GetFileTransferer() { return m_FileTransferer; }
+
+	struct ProfileData
+	{
+		ngtcp2_tstamp expiry;
+		std::size_t maxPayloadSize;
+		ngtcp2_conn_info connectionInfo;
+		std::chrono::steady_clock::time_point lastSendTime;
+		std::chrono::steady_clock::time_point lastReceiveTime;
+	};
+	ProfileData GetProfileData() const;
 private:
 	/**
 	 * Process queued incoming messages.
@@ -104,28 +113,23 @@ private:
 
 	CNetFileTransferer m_FileTransferer;
 
-	// Net messages received and waiting for fetching.
-	boost::lockfree::queue<ENetEvent> m_IncomingMessages{16};
 	// Net messages to send on the next flush() call.
-	boost::lockfree::queue<ENetPacket*> m_OutgoingMessages{16};
+	boost::lockfree::queue<std::vector<std::uint8_t>*> m_OutgoingMessages{16};
 
-	// Last known state. If false, flushing errors are silenced.
-	bool m_Connected{false};
-
-	// Whether this session was ever connected to the server.
-	bool m_WasConnected{false};
-
-	// Wrapper around enet stats - those are atomic as the code is lock-free.
-	std::atomic<std::uint32_t> m_LastReceivedTime{0};
+	// Wrapper around stats - those are atomic as the code is lock-free.
+	std::atomic<std::chrono::steady_clock::duration> m_LastReceivedTime{
+		std::chrono::steady_clock::duration::zero()};
 	std::atomic<std::uint32_t> m_MeanRTT{0};
+	mutable std::mutex m_ProfileDataMutex;
+	ProfileData m_ProfileData;
 
 	// If this is true, calling Connect() or deleting the session is an error.
 	std::atomic<bool> m_LoopRunning{false};
 	std::atomic<bool> m_ShouldShutdown{false};
 
-	std::unique_ptr<ENetHost, DestroyHost> m_Host;
-	std::unique_ptr<ENetPeer, DestroyPeer> m_Server;
 	std::unique_ptr<CNetStatsTable> m_Stats;
+
+	const std::unique_ptr<CNetClientSessionImpl> m_Impl;
 };
 
 #endif	// NETSESSION_H

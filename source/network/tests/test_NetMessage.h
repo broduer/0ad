@@ -47,7 +47,7 @@ public:
 		TS_ASSERT_EQUALS(msg.Serialize(buf) - (buf+len), 0);
 		TS_ASSERT_EQUALS(buf[len], '!');
 
-		CNetMessage* msg2 = CNetMessageFactory::CreateMessage(buf, len, script);
+		CNetMessage* msg2 = CNetMessageFactory::CreateMessage({buf, len}, script);
 		TS_ASSERT_STR_EQUALS(((CSimulationMessage*)msg2)->ToString(), "CSimulationMessage { m_Client: 1, m_Player: 2, m_Turn: 3, m_Data: [4] }");
 
 		delete msg2;

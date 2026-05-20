@@ -19,24 +19,50 @@
 #define NETPROTOCOL_H
 
 #include "network/NetMessage.h"
+#include "network/Stream.h"
 #include "ps/Mod.h"
 #include "ps/Pyrogenesis.h"
 
+#include <chrono>
+#include <ngtcp2/ngtcp2.h>
 #include <optional>
 #include <string>
 #include <type_traits>
 #include <vector>
 
+#include <gnutls/gnutls.h>
+
 /**
  * Report the peer if we didn't receive a packet after this time (milliseconds).
  */
 inline constexpr std::uint32_t NETWORK_WARNING_TIMEOUT{2000};
+inline constexpr std::size_t MAX_UDP_PAYLOAD_SIZE{64 * KiB};
+inline constexpr std::size_t CID_LENGTH{8};
+// nanoseconds
+inline constexpr ngtcp2_duration KEEPALIVE_TIME{500000000};
 
-struct HandshakeError
+struct CredentialsDeleter
 {
-	std::string componentType;
-	std::string clientComponent;
-	std::string serverComponent;
+	void operator()(const gnutls_certificate_credentials_t cred) const
+	{
+		gnutls_certificate_free_credentials(cred);
+	}
+};
+
+struct SessionDeleter
+{
+	void operator()(const gnutls_session_t p) const
+	{
+		gnutls_deinit(p);
+	}
+};
+
+struct ConnectionDeleter
+{
+	void operator()(ngtcp2_conn* p) const
+	{
+		ngtcp2_conn_del(p);
+	}
 };
 
 template <typename Message>
@@ -65,6 +91,49 @@ Message CreateHandshake() {
 	return handshake;
 }
 
-std::optional<HandshakeError> CheckHandshake(const CSrvHandshakeMessage& serverMessage, const CCliHandshakeMessage& clientMessage);
+struct AddressStorage
+{
+	ngtcp2_sockaddr_union address;
+	ngtcp2_socklen length{sizeof(address)};
+};
+struct CreateSocketResult
+{
+	int descriptor;
+	AddressStorage address;
+};
+struct addrinfo;
+using SocketTest = bool(int, const addrinfo&);
+CreateSocketResult CreateSocket(const char* host, const std::uint16_t port, const addrinfo& hints,
+	const SocketTest& socketTest);
+
+std::size_t ReceiveDatagram(const int fd, const std::span<std::uint8_t> data,
+	AddressStorage& remoteAddress);
+void SendDatagram(const int socketFd, const std::span<const std::uint8_t> data, const ngtcp2_addr remote);
+
+using ConfigureCallback = int(gnutls_session_t);
+std::unique_ptr<gnutls_session_int, SessionDeleter> CreateTlsSession(const unsigned int roleFlags,
+	const gnutls_certificate_credentials_t credentials, const ConfigureCallback& configureCallback,
+	void* connectionReference);
+
+struct HandshakeError
+{
+	std::string componentType;
+	std::string clientComponent;
+	std::string serverComponent;
+};
+std::optional<HandshakeError> CheckHandshake(const CSrvHandshakeMessage& serverMessage,
+	const CCliHandshakeMessage& clientMessage);
+
+ngtcp2_tstamp Timestamp();
+ngtcp2_callbacks InitCallbacks();
+ngtcp2_settings InitSettings();
+ngtcp2_transport_params InitTransportParams();
+
+ngtcp2_cid GenerateRandomCid();
+
+void WriteStream(const int socketFd, ngtcp2_conn& connection, Stream* stream, const ngtcp2_addr remote,
+	std::chrono::steady_clock::time_point& lastSendTime);
+
+void IncreaseWindow(ngtcp2_conn* conn, const std::uint64_t streamId, const std::uint64_t size);
 
 #endif

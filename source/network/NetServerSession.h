@@ -21,11 +21,23 @@
 #include "network/FSM.h"
 #include "network/NetFileTransfer.h"
 #include "network/NetHost.h"
+#include "network/Stream.h"
 #include "ps/CStr.h"
 
-class CNetServerWorker;
+#include <deque>
+#include <ngtcp2/ngtcp2.h>
+#include <ngtcp2/ngtcp2_crypto.h>
+#include <ngtcp2/ngtcp2_crypto_gnutls.h>
+#include <optional>
+#include <span>
 
-typedef struct _ENetPeer ENetPeer;
+#include <sys/poll.h>
+#include <sys/socket.h>
+
+#include "ps/CLogger.h"
+
+class CNetServerWorker;
+class CNetServerSessionImpl;
 
 /**
  * The server's end of a network session.
@@ -40,7 +52,11 @@ class CNetServerSession : public CFsm<CNetServerSession, CNetMessage*>
 	NONCOPYABLE(CNetServerSession);
 
 public:
-	CNetServerSession(CNetServerWorker& server, ENetPeer* peer);
+	CNetServerSession(CNetServerWorker& server, const int socketFd, const ngtcp2_settings& settings,
+		gnutls_certificate_credentials_t credentials, const ngtcp2_pkt_hd& header,
+		const ngtcp2_cid& newScid, const ngtcp2_path& path);
+
+	~CNetServerSession();
 
 	CNetServerWorker& GetServer() { return m_Server; }
 
@@ -53,7 +69,7 @@ public:
 	std::uint32_t GetHostID() const { return m_HostID; }
 	void SetHostID(std::uint32_t id) { m_HostID = id; }
 
-	std::uint32_t GetIPAddress() const;
+	std::array<std::uint8_t, 16> GetIPAddress() const;
 
 	/**
 	 * Number of milliseconds since the latest packet of that client was received.
@@ -74,30 +90,39 @@ public:
 	void Disconnect(NetDisconnectReason reason);
 
 	/**
-	 * Sends an unreliable disconnection notification to the client.
-	 * The server will not receive any disconnection notification.
-	 * The server will not receive any further messages sent via this session.
-	 */
-	void DisconnectNow(NetDisconnectReason reason);
-
-	/**
 	 * Send a message to the client.
 	 */
 	bool SendMessage(const CNetMessage* message);
 
 	CNetFileTransferer& GetFileTransferer() { return m_FileTransferer; }
 
+	void Read(const ngtcp2_addr remote, const std::span<std::uint8_t> data);
+	void TrySend(const bool ready, const bool readyToSend, const int socketDescriptor);
+
+	std::vector<ngtcp2_cid> GetAllCids() const;
+
+	struct ProfileData
+	{
+		ngtcp2_tstamp expiry;
+		std::size_t maxPayloadSize;
+		ngtcp2_conn_info connectionInfo;
+		std::chrono::steady_clock::time_point lastSendTime;
+		std::chrono::steady_clock::time_point lastReceiveTime;
+	};
+	ProfileData GetProfileData() const;
+
 private:
 	CNetServerWorker& m_Server;
 
-	CNetFileTransferer m_FileTransferer;
+	const std::unique_ptr<CNetServerSessionImpl> m_Impl;
 
-	ENetPeer* m_Peer;
+	CNetFileTransferer m_FileTransferer;
 
 	CStr m_GUID;
 	CStrW m_UserName;
 	std::uint32_t m_HostID{0};
 	CStr m_Password;
+	int m_SocketDescriptor;
 };
 
 #endif // NET_SERVER_SESSION_H

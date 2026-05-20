@@ -37,7 +37,7 @@ class CNetMessage;
 // fragmented or dropped.
 static const size_t DEFAULT_FILE_TRANSFER_PACKET_SIZE = 1024;
 
-// To improve performance without flooding ENet's internal buffers,
+// To improve performance without flooding the network,
 // maintain a small number of in-flight packets.
 // Pick numbers so that with e.g. 200ms round-trip latency
 // we can hopefully get windowSize*packetSize*1000/200 = 160KB/s bandwidth

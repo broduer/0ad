@@ -25,33 +25,10 @@
 #include "ps/CLogger.h"
 
 #include <cstddef>
+#include <numeric>
 #include <vector>
 
-bool CNetHost::SendMessage(const CNetMessage* message, ENetPeer* peer, const char* peerName)
-{
-	ENetPacket* packet = CreatePacket(message);
-	if (!packet)
-		return false;
-
-	LOGMESSAGE("Net: Sending message {} of size {} to {}", message->ToString(), packet->dataLength,
-		peerName);
-
-	// Let ENet send the message to peer
-	if (enet_peer_send(peer, DEFAULT_CHANNEL, packet) < 0)
-	{
-		LOGERROR("Net: Failed to send packet to peer");
-		return false;
-	}
-
-	// Don't call enet_host_flush now - let it queue up all the packets
-	// and send them during the next frame
-	//
-	// TODO: we should flush explicitly at some appropriate point before the next frame
-
-	return true;
-}
-
-ENetPacket* CNetHost::CreatePacket(const CNetMessage* message)
+std::vector<std::uint8_t> CNetHost::CreatePacket(const CNetMessage* message)
 {
 	size_t size = message->GetSerializedLength();
 
@@ -64,12 +41,7 @@ ENetPacket* CNetHost::CreatePacket(const CNetMessage* message)
 	// Save message to internal buffer
 	message->Serialize(&buffer[0]);
 
-	// Create a reliable packet
-	ENetPacket* packet = enet_packet_create(&buffer[0], size, ENET_PACKET_FLAG_RELIABLE);
-	if (!packet)
-		LOGERROR("Net: Failed to construct packet");
-
-	return packet;
+	return buffer;
 }
 
 void CNetHost::Initialize()

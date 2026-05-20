@@ -91,16 +91,14 @@ CStr CNetMessage::ToString() const
 		return fmt::format("Unknown Message {}", static_cast<int>(GetType()));
 }
 
-CNetMessage* CNetMessageFactory::CreateMessage(const void* pData,
-											   size_t dataSize,
-											   const Script::Interface& scriptInterface)
+CNetMessage* CNetMessageFactory::CreateMessage(const std::span<const std::uint8_t> data,
+	const Script::Interface& scriptInterface)
 {
 	CNetMessage* pNewMessage = NULL;
 	CNetMessage header;
 
 	// Figure out message type
-	header.Deserialize(static_cast<const std::uint8_t*>(pData),
-		static_cast<const std::uint8_t*>(pData) + dataSize);
+	header.Deserialize(std::to_address(data.begin()), std::to_address(data.end()));
 
 	switch (header.GetType())
 	{
@@ -231,10 +229,7 @@ CNetMessage* CNetMessageFactory::CreateMessage(const void* pData,
 	}
 
 	if (pNewMessage)
-	{
-		pNewMessage->Deserialize(static_cast<const std::uint8_t*>(pData),
-			static_cast<const std::uint8_t*>(pData) + dataSize);
-	}
+		pNewMessage->Deserialize(std::to_address(data.begin()), std::to_address(data.end()));
 
 	return pNewMessage;
 }

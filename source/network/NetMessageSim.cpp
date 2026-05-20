@@ -34,6 +34,7 @@
 #include <js/Value.h>
 #include <sstream>
 #include <string>
+#include "ps/CLogger.h"
 
 namespace Script { class Interface; }
 

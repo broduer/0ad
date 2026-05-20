@@ -22,7 +22,6 @@
 #include "lib/config2.h"
 #include "lib/debug.h"
 #include "lib/external_libraries/curl.h"
-#include "lib/external_libraries/enet.h"
 #include "lib/external_libraries/png.h"
 #include "lib/external_libraries/libsdl.h"
 #include "lib/path.h"
@@ -70,6 +69,7 @@
 #include <js/TypeDecls.h>
 #include <js/Value.h>
 #include <libxml/xmlversion.h>
+#include <ngtcp2/ngtcp2.h>
 #include <random>
 #include <sodium.h>
 #include <sstream>
@@ -207,7 +207,8 @@ void ReportLibraries(const Script::Request& rq, JS::HandleValue settings)
 	appendLibrary(MakeFreeTypeReport(rq));
 
 	appendLibrary(LibraryReporter{rq, "boost"}.Add("version", BOOST_VERSION).MakeReport());
-	appendLibrary(LibraryReporter{rq, "enet"}.Add("version", std::to_string(ENET_VERSION)).MakeReport());
+	const ngtcp2_info& ngtcp2{*ngtcp2_version(0)};
+	appendLibrary(LibraryReporter{rq, "ngtcp2"}.Add("version", ngtcp2.version_str).MakeReport());
 	appendLibrary(LibraryReporter{rq, "fmt"}.Add("version", FMT_VERSION).MakeReport());
 #if CONFIG2_LOBBY
 	appendLibrary(LibraryReporter{rq, "gloox"}.Add("version", gloox_version()).MakeReport());

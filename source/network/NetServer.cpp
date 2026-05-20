@@ -19,14 +19,14 @@
 
 #include "NetServer.h"
 
+#include "i18n/L10n.h"
 #include "lib/code_generation.h"
 #include "lib/debug.h"
-#include "lib/external_libraries/enet.h"
+#include "lib/hash.h"
 #include "lib/secure_crt.h"
 #include "lib/status.h"
 #include "lib/utf8.h"
 #include "network/FSM.h"
-#include "network/NetEnet.h"
 #include "network/NetFileTransfer.h"
 #include "network/NetHost.h"
 #include "network/NetMessage.h"
@@ -38,6 +38,8 @@
 #include "ps/CLogger.h"
 #include "ps/ConfigDB.h"
 #include "ps/GUID.h"
+#include "ps/GameSetup/CmdLineArgs.h"
+#include "ps/GameSetup/Paths.h"
 #include "ps/Hashing.h"
 #include "ps/ProfileViewer.h"
 #include "ps/Profiler2.h"
@@ -53,10 +55,23 @@
 
 #include <algorithm>
 #include <cstring>
+#include <fcntl.h>
 #include <fmt/format.h>
 #include <functional>
+#include <gnutls/crypto.h>
+#include <gnutls/gnutls.h>
+#include <gnutls/pkcs12.h>
+#include <gnutls/x509.h>
 #include <iterator>
 #include <memory>
+#include <netdb.h>
+#include <ngtcp2/ngtcp2.h>
+#include <ngtcp2/ngtcp2_crypto.h>
+#include <ngtcp2/ngtcp2_crypto_gnutls.h>
+#include <numeric>
+#include <poll.h>
+#include <random>
+#include <ranges>
 #include <set>
 #include <sstream>
 #include <string>
@@ -74,23 +89,8 @@
 #include <fmt/xchar.h>
 #endif
 
-/**
- * Number of peers to allocate for the enet host.
- * Limited by ENET_PROTOCOL_MAXIMUM_PEER_ID (4096).
- *
- * At most 8 players, 32 observers and 1 temporary connection to send the "server full" disconnect-reason.
- */
-#define MAX_CLIENTS 41
-
 constexpr int CHANNEL_COUNT = 1;
 constexpr int FAILED_PASSWORD_TRIES_BEFORE_BAN = 3;
-
-/**
- * enet_host_service timeout (msecs).
- * Smaller numbers may hurt performance; larger numbers will
- * hurt latency responding to messages from game thread.
- */
-static const int HOST_SERVICE_TIMEOUT = 50;
 
 /**
  * Once ping goes above turn length * command delay,
@@ -102,14 +102,317 @@ constexpr std::uint32_t NETWORK_BAD_PING = DEFAULT_TURN_LENGTH * COMMAND_DELAY_M
 
 CNetServer* g_NetServer = NULL;
 
-static CStr DebugName(CNetServerSession* session)
+namespace
 {
-	if (session == NULL)
-		return "[unknown host]";
-	if (session->GetGUID().empty())
-		return "[unauthed host]";
-	return "[" + session->GetGUID().substr(0, 8) + "...]";
+// static CStr DebugName(CNetServerSession* session)
+// {
+// 	if (session == NULL)
+// 		return "[unknown host]";
+// 	if (session->GetGUID().empty())
+// 		return "[unauthed host]";
+// 	return "[" + session->GetGUID().substr(0, 8) + "...]";
+// }
+
+bool TestServerSocket(const int fd, const addrinfo& info)
+{
+	const int error{fcntl(fd, F_SETFL, O_NONBLOCK)};
+	if (error == -1)
+		return false;
+
+	// Allow IPv4 using the same socket.
+	const int onlyIPv6{0};
+	if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &onlyIPv6, sizeof(onlyIPv6)))
+		return false;
+
+	if (!bind(fd, info.ai_addr, info.ai_addrlen))
+		return true;
+
+	if (errno == EADDRINUSE)
+		throw std::runtime_error{g_L10n.Translate("The port is already in use")};
+
+	return false;
 }
+
+void GeneratePkcs12File(const std::filesystem::path& keyfile)
+{
+	gnutls_x509_privkey_t newKey;
+	if (const int ret{gnutls_x509_privkey_init(&newKey)})
+	{
+		throw std::runtime_error{fmt::format("Error initializing privatkey: {}",
+			gnutls_strerror(ret))};
+	}
+	std::unique_ptr<gnutls_x509_privkey_int, decltype(&gnutls_x509_privkey_deinit)> keyDeleter(
+		newKey, gnutls_x509_privkey_deinit);
+
+	if (const int ret{gnutls_x509_privkey_generate(newKey, GNUTLS_PK_EDDSA_ED25519, 256, 0)})
+	{
+		throw std::runtime_error{fmt::format("Error generating privatkey: {}",
+			gnutls_strerror(ret))};
+	}
+
+	gnutls_datum_t exportedKey;
+	if (const int ret{gnutls_x509_privkey_export2_pkcs8(newKey, GNUTLS_X509_FMT_DER, nullptr, 0,
+		&exportedKey)})
+	{
+		throw std::runtime_error{fmt::format("Error exporting privatkey: {}",
+			gnutls_strerror(ret))};
+	}
+	const std::unique_ptr<unsigned char, decltype(gnutls_free)> exportedKeyDeleter{exportedKey.data,
+		gnutls_free};
+
+	gnutls_x509_crt_t newCertificate;
+	if (const int ret{gnutls_x509_crt_init(&newCertificate)})
+	{
+		throw std::runtime_error{fmt::format("Error initializing certificate: {}",
+			gnutls_strerror(ret))};
+	}
+	std::unique_ptr<gnutls_x509_crt_int, decltype(&gnutls_x509_crt_deinit)> certificateDeleter(
+		newCertificate, gnutls_x509_crt_deinit);
+
+	std::array<unsigned char, 20> serialNumber;
+	auto generator = [&, randomDevice = std::random_device{},
+		distribution = std::uniform_int_distribution<unsigned char>{}]() mutable
+	{
+		return distribution(randomDevice);
+	};
+	std::ranges::generate(serialNumber, std::ref(generator));
+	std::get<0>(serialNumber) &= ~(1 << 8);
+	if (const int ret{gnutls_x509_crt_set_serial(newCertificate, serialNumber.data(),
+		serialNumber.size())})
+	{
+		throw std::runtime_error{fmt::format("Error setting serial number: {}", gnutls_strerror(ret))};
+	}
+
+	if (const int ret{gnutls_x509_crt_set_activation_time(newCertificate, 0)})
+	{
+		throw std::runtime_error{fmt::format("Error setting activation time: {}",
+			gnutls_strerror(ret))};
+	}
+	if (const int ret{gnutls_x509_crt_set_expiration_time(newCertificate, -1)})
+	{
+		throw std::runtime_error{fmt::format("Error setting expiration time: {}",
+			gnutls_strerror(ret))};
+	}
+
+	if (const int ret{gnutls_x509_crt_set_key(newCertificate, newKey)})
+	{
+		throw std::runtime_error{fmt::format("Error setting certificate key: {}",
+			gnutls_strerror(ret))};
+	}
+
+	if (const int ret{gnutls_x509_crt_sign(newCertificate, newCertificate, newKey)})
+		throw std::runtime_error{fmt::format("Error signing certificate: {}", gnutls_strerror(ret))};
+
+	gnutls_datum_t exportedCertificate;
+	if (const int ret{gnutls_x509_crt_export2(newCertificate, GNUTLS_X509_FMT_DER,
+		&exportedCertificate)})
+	{
+		throw std::runtime_error{fmt::format("Error exporting certificate: {}", gnutls_strerror(ret))};
+	}
+	const std::unique_ptr<unsigned char, decltype(gnutls_free)> exportedCertificateDeleter{
+		exportedCertificate.data, gnutls_free};
+
+	gnutls_pkcs12_t container;
+	if (const int ret{gnutls_pkcs12_init(&container)})
+	{
+		throw std::runtime_error{fmt::format("Error initializing PKCS#12 structure: {}",
+			gnutls_strerror(ret))};
+	}
+	std::unique_ptr<gnutls_pkcs12_int, decltype(&gnutls_pkcs12_deinit)> pkcs12Deleter{container,
+		gnutls_pkcs12_deinit};
+
+	gnutls_pkcs12_bag_t newCertificateBag;
+	if (const int ret{gnutls_pkcs12_bag_init(&newCertificateBag)})
+	{
+		throw std::runtime_error{fmt::format("Error initializing certificate bag: {}",
+			gnutls_strerror(ret))};
+	}
+	std::unique_ptr<gnutls_pkcs12_bag_int, decltype(&gnutls_pkcs12_bag_deinit)>
+		certificateBagDeleter{newCertificateBag, gnutls_pkcs12_bag_deinit};
+
+	if (const int ret{gnutls_pkcs12_bag_set_data(newCertificateBag, GNUTLS_BAG_CERTIFICATE,
+		&exportedCertificate)})
+	{
+		throw std::runtime_error{fmt::format("Error adding certificate to bag: {}",
+			gnutls_strerror(ret))};
+	}
+	if (const int ret{gnutls_pkcs12_set_bag(container, newCertificateBag)})
+	{
+		throw std::runtime_error{fmt::format("Error adding certificate bag: {}",
+			gnutls_strerror(ret))};
+	}
+
+	gnutls_pkcs12_bag_t newKeyBag;
+	if (const int ret{gnutls_pkcs12_bag_init(&newKeyBag)})
+		throw std::runtime_error{fmt::format("Error initializing key bag: {}", gnutls_strerror(ret))};
+	std::unique_ptr<gnutls_pkcs12_bag_int, decltype(&gnutls_pkcs12_bag_deinit)> keyBagDeleter{
+		newKeyBag, gnutls_pkcs12_bag_deinit};
+
+	if (const int ret{gnutls_pkcs12_bag_set_data(newKeyBag, GNUTLS_BAG_PKCS8_KEY, &exportedKey)})
+		throw std::runtime_error{fmt::format("Error adding key to bag: {}", gnutls_strerror(ret))};
+	if (const int ret{gnutls_pkcs12_set_bag(container, newKeyBag)})
+		throw std::runtime_error{fmt::format("Error adding key bag: {}", gnutls_strerror(ret))};
+
+	// Set a mac so in conforms
+	if (const int ret{gnutls_pkcs12_generate_mac(container, "")})
+	{
+		throw std::runtime_error{fmt::format("Error generating PKCS#12 MAC: {}",
+			gnutls_strerror(ret))};
+	}
+
+	gnutls_datum_t exportedPkcs12;
+	if (const int ret{gnutls_pkcs12_export2(container, GNUTLS_X509_FMT_DER, &exportedPkcs12)})
+	{
+		throw std::runtime_error{fmt::format("Error exporting PKCS#12 structure: {}",
+			gnutls_strerror(ret))};
+	}
+	const std::unique_ptr<unsigned char, decltype(gnutls_free)> exportedPkcs12Deleter{
+		exportedPkcs12.data, gnutls_free};
+
+	std::ofstream{keyfile, std::ios::binary}.write(reinterpret_cast<const char*>(exportedPkcs12.data),
+		exportedPkcs12.size);
+}
+
+std::unique_ptr<gnutls_certificate_credentials_st, CredentialsDeleter> CreateTlsServerCredentials()
+{
+	gnutls_certificate_credentials_t temp;
+	if (const int ret{gnutls_certificate_allocate_credentials(&temp)})
+	{
+		throw std::runtime_error{fmt::format("gnutls_certificate_allocate_credentials: {}",
+			gnutls_strerror(ret))};
+	}
+	std::unique_ptr<gnutls_certificate_credentials_st, CredentialsDeleter> cred{temp};
+
+	const auto keyfile = (Paths(g_CmdLineArgs).UserData() / "encryption.p12").fileSystemPath();
+	if (!std::filesystem::is_regular_file(keyfile))
+		GeneratePkcs12File(keyfile);
+
+	if (const int ret{gnutls_certificate_set_x509_simple_pkcs12_file(cred.get(), keyfile.c_str(),
+		GNUTLS_X509_FMT_DER, nullptr)})
+	{
+		throw std::runtime_error{fmt::format(
+			"gnutls_certificate_set_x509_simple_pkcs12_file: {}", gnutls_strerror(ret))};
+	}
+
+	return cred;
+}
+} // anonymous namespace
+
+class CNetServerWorker::Impl
+{
+public:
+	explicit Impl(const CreateSocketResult socket):
+		m_LocalAddress{socket}
+	{}
+	~Impl()
+	{
+		close(m_LocalAddress.descriptor);
+	}
+	CreateSocketResult m_LocalAddress;
+	std::unique_ptr<gnutls_certificate_credentials_st, CredentialsDeleter> m_Credentials{
+		CreateTlsServerCredentials()};
+	ngtcp2_settings m_Settings{InitSettings()};
+
+	void HandleIncoming(CNetServerWorker& server)
+	{
+		while (true)
+		{
+			AddressStorage remoteAddress;
+			std::array<std::uint8_t, MAX_UDP_PAYLOAD_SIZE> buf;
+
+			std::size_t n_read;
+			try
+			{
+				n_read = ReceiveDatagram(m_LocalAddress.descriptor, buf, remoteAddress);
+			}
+			catch (std::system_error& e)
+			{
+				if (e.code().value() == EAGAIN || e.code().value() == EWOULDBLOCK)
+					return;
+				throw;
+			}
+
+			ngtcp2_version_cid version;
+			if (const int ret{ngtcp2_pkt_decode_version_cid(&version, buf.data(), n_read,
+				CID_LENGTH)})
+			{
+				LOGWARNING("Received wrongly formatted QUIC header: {}", ngtcp2_strerror(ret));
+				continue;
+			}
+
+			const ngtcp2_addr remote{
+				.addr{&remoteAddress.address.sa},
+				.addrlen{remoteAddress.length}
+			};
+
+			/* Find any existing connection by DCID */
+			ngtcp2_cid tempCid;
+			ngtcp2_cid_init(&tempCid, version.dcid, version.dcidlen);
+
+			const auto connectionIter = std::ranges::find_if(server.m_Sessions,
+				[&tempCid](const std::vector<ngtcp2_cid> association)
+				{
+					return std::ranges::any_of(association, [&tempCid](const ngtcp2_cid& elem)
+					{
+						return ngtcp2_cid_eq(&elem, &tempCid);
+					});
+				},
+				&CNetServerSession::GetAllCids);
+
+			const bool existing{connectionIter != server.m_Sessions.end()};
+			if (!existing)
+			{
+				if (PS::contains(server.m_BannedIPs,
+					std::to_array(remoteAddress.address.in6.sin6_addr.s6_addr)))
+				{
+					continue;
+				}
+
+				ngtcp2_pkt_hd header;
+				if (const int ret{ngtcp2_accept(&header, buf.data(), n_read)})
+				{
+					LOGERROR("Package not accepted by new connection: {}", ngtcp2_strerror(ret));
+					continue;
+				}
+
+				const ngtcp2_cid newScid{GenerateRandomCid()};
+
+				const ngtcp2_path path{
+					.local{
+						.addr{&m_LocalAddress.address.address.sa},
+						.addrlen{m_LocalAddress.address.length}
+					},
+					.remote{remote}
+				};
+
+				server.m_Sessions.push_back(std::make_unique<CNetServerSession>(server,
+					m_LocalAddress.descriptor, m_Settings, m_Credentials.get(), header, newScid, path));
+				server.SetupSession(server.m_Sessions.back().get());
+			}
+			auto& session{existing ? *connectionIter : server.m_Sessions.back()};
+
+			try
+			{
+				session->Read(remote, {buf.data(), n_read});
+			}
+			catch (const std::system_error&)
+			{
+				throw;
+			}
+			catch (const std::runtime_error&)
+			{
+				const auto session = existing ? std::move(*connectionIter) :
+					std::move(server.m_Sessions.back());
+				if (existing)
+					server.m_Sessions.erase(connectionIter);
+				else
+					server.m_Sessions.pop_back();
+
+				session->Update(static_cast<uint>(NMT_CONNECTION_LOST), nullptr);
+			}
+		}
+	}
+};
 
 /*
  * XXX: We use some non-threadsafe functions from the worker thread.
@@ -124,28 +427,17 @@ CNetServerWorker::CNetServerWorker(const bool continueSavedGame, std::uint16_t p
 	m_ControllerSecret{std::move(controllerSecret)},
 	m_Password{std::move(password)}
 {
-	// Bind to default host
-	ENetAddress addr;
-	addr.host = ENET_HOST_ANY;
-	addr.port = port;
-
-	// Create ENet server
-	m_Host.reset(PS::Enet::CreateHost(&addr, MAX_CLIENTS, CHANNEL_COUNT));
-	if (!m_Host)
-	{
-		LOGERROR("Net server: enet_host_create failed");
-		throw std::runtime_error{"Failed to start server"};
-	}
-
 	m_Stats = std::make_unique<CNetStatsTable>();
 	if (CProfileViewer::IsInitialised())
 		g_ProfileViewer.AddRootTable(m_Stats.get());
 
 	m_State = SERVER_STATE_PREGAME;
 
+	const CreateSocketResult socket{CreateSocket(nullptr, port,
+		addrinfo{ .ai_flags{AI_PASSIVE | AI_V4MAPPED }, .ai_family{AF_INET6} }, TestServerSocket)};
 	// Launch the worker thread
 	m_WorkerThread = std::thread(Threading::HandleExceptions<RunThread>::Wrapper, this,
-		std::move(initAttributes));
+		std::move(initAttributes), socket);
 
 #if CONFIG2_MINIUPNPC
 	// Launch the UPnP thread
@@ -168,10 +460,6 @@ CNetServerWorker::~CNetServerWorker()
 	if (m_UPnPThread.joinable())
 		m_UPnPThread.detach();
 #endif
-
-	// Clean up resources
-	for (const auto& session : m_Sessions)
-		session->DisconnectNow(NDR_SERVER_SHUTDOWN);
 }
 
 
@@ -332,21 +620,10 @@ void CNetServerWorker::SetupUPnP(const std::uint16_t port)
 }
 #endif // CONFIG2_MINIUPNPC
 
-bool CNetServerWorker::SendMessage(ENetPeer* peer, const CNetMessage* message)
-{
-	ENSURE(m_Host);
-
-	CNetServerSession* session = static_cast<CNetServerSession*>(peer->data);
-
-	return CNetHost::SendMessage(message, peer, DebugName(session).c_str());
-}
-
 bool CNetServerWorker::Multicast(const CNetMessage* message,
 	const std::vector<NetServerSessionState>& targetStates,
 	const std::optional<std::vector<std::string>>& receivers /* = std::nullopt */)
 {
-	ENSURE(m_Host);
-
 	const auto isReceiver = [&](const CNetServerSession& session)
 		{
 			if (!PS::contains(targetStates,
@@ -371,14 +648,15 @@ bool CNetServerWorker::Multicast(const CNetMessage* message,
 	return ok;
 }
 
-void CNetServerWorker::RunThread(CNetServerWorker* data, const std::string& initAttributes)
+void CNetServerWorker::RunThread(CNetServerWorker* data, const std::string& initAttributes,
+	const CreateSocketResult& socket)
 {
 	debug_SetThreadName("NetServer");
 
-	data->Run(initAttributes);
+	data->Run(initAttributes, socket);
 }
 
-void CNetServerWorker::Run(const std::string& initAttributes)
+void CNetServerWorker::Run(const std::string& initAttributes, const CreateSocketResult& socket)
 {
 	// The script context uses the profiler and therefore the thread must be registered before the context is created
 	g_Profiler2.RegisterCurrentThread("Net server");
@@ -396,22 +674,27 @@ void CNetServerWorker::Run(const std::string& initAttributes)
 		m_InitAttributes = gameAttributesVal;
 	}
 
+	Impl impl{socket};
+
 	while (true)
 	{
-		if (!RunStep())
+		if (!RunStep(impl))
 			break;
 
 		// Update profiler stats
-		m_Stats->LatchHostState(*m_Host);
+		m_Stats->LatchHostState(m_Sessions);
 	}
 
 	// Clear roots before deleting their context
 	m_SavedCommands.clear();
 
 	SAFE_DELETE(m_ScriptInterface);
+
+	for (const auto& session : m_Sessions)
+		session->Disconnect(NDR_SERVER_SHUTDOWN);
 }
 
-bool CNetServerWorker::RunStep()
+bool CNetServerWorker::RunStep(Impl& impl)
 {
 	// Check for messages from the game thread.
 	// (Do as little work as possible while the mutex is held open,
@@ -452,106 +735,32 @@ bool CNetServerWorker::RunStep()
 
 	CheckClientConnections();
 
-	// Process network events:
+	pollfd pollFd{
+		.fd{impl.m_LocalAddress.descriptor},
+		.events{POLLIN | POLLOUT}
+	};
+	const int ready{poll(&pollFd, 1, 25)};
 
-	ENetEvent event;
-	int status = enet_host_service(m_Host.get(), &event, HOST_SERVICE_TIMEOUT);
-	if (status < 0)
+	if (ready < 0)
+		throw std::runtime_error{fmt::format("poll: {}", std::strerror(errno))};
+
+	if (ready > 0 && pollFd.revents & POLLIN)
+		impl.HandleIncoming(*this);
+
+	for (auto& session : m_Sessions)
 	{
-		LOGERROR("CNetServerWorker: enet_host_service failed ({})", status);
-		// TODO: notify game that the server has shut down
-		return false;
-	}
-
-	if (status == 0)
-	{
-		// Reached timeout with no events - try again
-		return true;
-	}
-
-	// Process the event:
-
-	switch (event.type)
-	{
-	case ENET_EVENT_TYPE_CONNECT:
-	{
-		// Report the client address
-		char hostname[256] = "(error)";
-		enet_address_get_host_ip(&event.peer->address, hostname, ARRAY_SIZE(hostname));
-		LOGMESSAGE("Net server: Received connection from {}:{}", hostname,
-			event.peer->address.port);
-
-		// Set up a session object for this peer
-
-		const std::unique_ptr<CNetServerSession>& session{m_Sessions.emplace_back(
-			std::make_unique<CNetServerSession>(*this, event.peer))};
-
-		SetupSession(session.get());
-
-		ENSURE(event.peer->data == NULL);
-		event.peer->data = session.get();
-
-		HandleConnect(session.get());
-
-		break;
-	}
-
-	case ENET_EVENT_TYPE_DISCONNECT:
-	{
-		// If there is an active session with this peer, then reset and delete it
-
-		CNetServerSession* session = static_cast<CNetServerSession*>(event.peer->data);
-		if (session)
+		try
 		{
-			LOGMESSAGE("Net server: Disconnected {}", DebugName(session));
-
-			// Remove the session first, so we won't send player-update messages to it
-			// when updating the FSM
-			const auto iter = std::ranges::find(m_Sessions, session,
-				&std::unique_ptr<CNetServerSession>::get);
-			const std::unique_ptr<CNetServerSession> _ = std::move(*iter);
-			m_Sessions.erase(iter);
-
-			session->Update(static_cast<unsigned int>(NMT_CONNECTION_LOST), nullptr);
-
-			event.peer->data = NULL;
+			session->TrySend(ready == 0, pollFd.revents & POLLOUT, impl.m_LocalAddress.descriptor);
 		}
-
-		if (m_State == SERVER_STATE_LOADING)
-			CheckGameLoadStatus(NULL);
-
-		break;
-	}
-
-	case ENET_EVENT_TYPE_RECEIVE:
-	{
-		// If there is an active session with this peer, then process the message
-
-		CNetServerSession* session = static_cast<CNetServerSession*>(event.peer->data);
-		if (session)
+		catch (const std::exception& e)
 		{
-			// Create message from raw data
-			CNetMessage* msg = CNetMessageFactory::CreateMessage(event.packet->data, event.packet->dataLength, GetScriptInterface());
-			if (msg)
-			{
-				LOGMESSAGE("Net server: Received message {} of size {} from {}",
-					msg->ToString(), msg->GetSerializedLength(), DebugName(session));
-
-				HandleMessageReceive(msg, session);
-
-				delete msg;
-			}
+			LOGERROR("{}", e.what());
+			std::exchange(session, nullptr)->Disconnect(NDR_UNKNOWN);
 		}
-
-		// Done using the packet
-		enet_packet_destroy(event.packet);
-
-		break;
 	}
 
-	case ENET_EVENT_TYPE_NONE:
-		break;
-	}
+	std::erase(m_Sessions, nullptr);
 
 	return true;
 }
@@ -712,18 +921,6 @@ void CNetServerWorker::SetupSession(CNetServerSession* session)
 	session->SetFirstState(NSS_HANDSHAKE);
 }
 
-bool CNetServerWorker::HandleConnect(CNetServerSession* session)
-{
-	if (std::find(m_BannedIPs.begin(), m_BannedIPs.end(), session->GetIPAddress()) != m_BannedIPs.end())
-	{
-		session->Disconnect(NDR_BANNED);
-		return false;
-	}
-
-    const CSrvHandshakeMessage handshake(CreateHandshake<CSrvHandshakeMessage>());
-    return session->SendMessage(&handshake);
-}
-
 void CNetServerWorker::OnUserJoin(CNetServerSession* session)
 {
 	AddPlayer(session->GetGUID(), session->GetUserName());
@@ -833,7 +1030,7 @@ void CNetServerWorker::KickPlayer(const CStrW& playerName, const bool ban)
 			m_BannedPlayers.push_back(m_LobbyAuth ? CStrW(playerName.substr(0, playerName.find(L" ("))) : playerName);
 
 		// Remember IP address
-		std::uint32_t ipAddress = (*it)->GetIPAddress();
+		const auto ipAddress = (*it)->GetIPAddress();
 		if (std::find(m_BannedIPs.begin(), m_BannedIPs.end(), ipAddress) == m_BannedIPs.end())
 			m_BannedIPs.push_back(ipAddress);
 	}
@@ -1035,13 +1232,8 @@ bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent<CNet
 	}
 
 	bool isRejoining = false;
-	bool serverFull = false;
-	if (server.m_State == SERVER_STATE_PREGAME)
-	{
-		// Don't check for maxObservers in the gamesetup, as we don't know yet who will be assigned
-		serverFull = server.m_Sessions.size() >= MAX_CLIENTS;
-	}
-	else
+	// Don't check for maxObservers in the gamesetup, as we don't know yet who will be assigned
+	if (server.m_State != SERVER_STATE_PREGAME)
 	{
 		bool isObserver = true;
 		int disconnectedPlayers = 0;
@@ -1101,16 +1293,12 @@ bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent<CNet
 		}
 
 		// Ensure all players will be able to rejoin
-		serverFull = isObserver && (
-			(int) server.m_Sessions.size() - connectedPlayers >
-				g_ConfigDB.Get("network.observerlimit", 0) ||
-			(int) server.m_Sessions.size() + disconnectedPlayers >= MAX_CLIENTS);
-	}
-
-	if (serverFull)
-	{
-		session->Disconnect(NDR_SERVER_FULL);
-		return true;
+		if (isObserver && static_cast<int>(server.m_Sessions.size()) - connectedPlayers >
+			g_ConfigDB.Get("network.observerlimit", 0))
+		{
+			session->Disconnect(NDR_SERVER_FULL);
+			return true;
+		}
 	}
 
 	std::uint32_t newHostID = server.m_NextHostID++;
@@ -1685,10 +1873,8 @@ CStrW CNetServerWorker::DeduplicatePlayerName(const CStrW& original)
 	}
 }
 
-void CNetServerWorker::SendHolePunchingMessage(const CStr& ipStr, std::uint16_t port)
+void CNetServerWorker::SendHolePunchingMessage(const CStr& /*ipStr*/, std::uint16_t /*port*/)
 {
-	if (m_Host)
-		StunClient::SendHolePunchingMessages(*m_Host, ipStr, port);
 }
 
 
@@ -1706,9 +1892,9 @@ CNetServer::CNetServer(const bool continueSavedGame, std::uint16_t port, const b
 
 	// In lobby, we send our public ip and port on request to the players who want to connect.
 	// Thus we need to know our public IP and use STUN to get it.
-	std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
-	if (!m_Worker.m_Host || !StunClient::FindPublicIP(*m_Worker.m_Host, m_PublicIp, m_PublicPort))
-		throw std::runtime_error{"Failed to resolve public IP-address."};
+	// std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
+	// if (!m_Worker.m_Host || !StunClient::FindPublicIP(*m_Worker.m_Host, m_PublicIp, m_PublicPort))
+	// 	throw std::runtime_error{"Failed to resolve public IP-address."};
 }
 
 bool CNetServer::UseLobbyAuth() const
@@ -1729,9 +1915,7 @@ std::uint16_t CNetServer::GetPublicPort() const
 std::uint16_t CNetServer::GetLocalPort() const
 {
 	std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
-	if (!m_Worker.m_Host)
-		return 0;
-	return m_Worker.m_Host->address.port;
+	return 0; // m_Worker.m_Host->address.port;
 }
 
 bool CNetServer::CheckPasswordAndIncrement(const std::string& username, const std::string& password, const std::string& salt)

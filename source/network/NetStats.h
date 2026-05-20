@@ -19,19 +19,20 @@
 #define INCLUDED_NETSTATS
 
 #include "lib/code_annotation.h"
-#include "lib/external_libraries/enet.h"
 #include "ps/CStr.h"
 #include "ps/ProfileViewer.h"
 
 #include <cstddef>
 #include <mutex>
+#include <span>
 #include <vector>
 
-typedef struct _ENetPeer ENetPeer;
-typedef struct _ENetHost ENetHost;
+class CNetClientSession;
+class CNetServerSession;
+struct ngtcp2_conn;
 
 /**
- * ENet connection statistics profiler table.
+ * Connection statistics profiler table.
  *
  * Thread-safety:
  * - Must be constructed in the main thread (to match the profiler).
@@ -43,8 +44,8 @@ class CNetStatsTable : public AbstractProfileTable
 {
 	NONCOPYABLE(CNetStatsTable);
 public:
-	CNetStatsTable();
-	CNetStatsTable(const ENetPeer& peer);
+	CNetStatsTable() = default;
+	CNetStatsTable(const CNetClientSession& conn);
 
 	CStr GetName() override;
 	CStr GetTitle() override;
@@ -53,10 +54,10 @@ public:
 	CStr GetCellText(size_t row, size_t col) override;
 	AbstractProfileTable* GetChild(size_t row) override;
 
-	void LatchHostState(const ENetHost& host);
+	void LatchHostState(const std::span<std::unique_ptr<CNetServerSession>> sessions);
 
 private:
-	const ENetPeer* m_Peer;
+	const CNetClientSession* m_Connection{nullptr};
 	std::vector<ProfileColumn> m_ColumnDescriptions;
 
 	std::mutex m_Mutex;

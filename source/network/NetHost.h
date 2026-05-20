@@ -27,6 +27,7 @@
 #include "ps/CStr.h"
 
 #include <map>
+#include <vector>
 
 class CNetMessage;
 
@@ -106,19 +107,9 @@ public:
 	static const int DEFAULT_CHANNEL = 0;
 
 	/**
-	 * Transmit a message to the given peer.
-	 * @param message message to send
-	 * @param peer peer to send to
-	 * @param peerName name of peer for debug logs
-	 * @return true on success, false on failure
+	 * Serialise the given message.
 	 */
-	static bool SendMessage(const CNetMessage* message, ENetPeer* peer, const char* peerName);
-
-	/**
-	 * Construct an ENet packet by serialising the given message.
-	 * @return NULL on failure
-	 */
-	static ENetPacket* CreatePacket(const CNetMessage* message);
+	static std::vector<std::uint8_t> CreatePacket(const CNetMessage* message);
 
 	/**
 	 * Initialize ENet.
@@ -131,5 +122,4 @@ public:
 	 */
 	static void Deinitialize();
 };
-
 #endif	// NETHOST_H

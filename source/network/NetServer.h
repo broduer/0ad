@@ -43,6 +43,7 @@ class CPlayerAssignmentMessage;
 class CSimulationMessage;
 namespace Script { class Interface; }
 namespace Script { class Request; }
+struct CreateSocketResult;
 template <typename MessageType> class CFsmEvent;
 
 enum NetServerState
@@ -116,11 +117,6 @@ public:
 	// Public functions for CNetSession/CNetServerTurnManager to use:
 
 	/**
-	 * Send a message to the given network peer.
-	 */
-	bool SendMessage(ENetPeer* peer, const CNetMessage* message);
-
-	/**
 	 * Disconnects a player from gamesetup or session.
 	 */
 	void KickPlayer(const CStrW& playerName, const bool ban);
@@ -172,10 +168,12 @@ private:
 	 */
 	CStrW DeduplicatePlayerName(const CStrW& original);
 
+public:
 	/**
 	 * Get the script context used for init attributes.
 	 */
 	const Script::Interface& GetScriptInterface();
+private:
 
 	/**
 	 * Set the turn length to a fixed value.
@@ -191,7 +189,6 @@ private:
 	void ClearAllPlayerReady();
 
 	void SetupSession(CNetServerSession* session);
-	bool HandleConnect(CNetServerSession* session);
 
 	void OnUserJoin(CNetServerSession* session);
 	void OnUserLeave(CNetServerSession* session);
@@ -226,7 +223,9 @@ private:
 
 	void ConstructPlayerAssignmentMessage(CPlayerAssignmentMessage& message);
 
+public:
 	void HandleMessageReceive(CNetMessage* message, CNetServerSession* session);
+public:
 
 	/**
 	 * Send a network warning if the connection to a client is being lost or has bad latency.
@@ -262,7 +261,8 @@ private:
 	 */
 	const bool m_LobbyAuth;
 
-	std::unique_ptr<ENetHost, DestroyHost> m_Host;
+	class Impl;
+
 	std::vector<std::unique_ptr<CNetServerSession>> m_Sessions;
 
 	std::unique_ptr<CNetStatsTable> m_Stats;
@@ -271,7 +271,7 @@ private:
 
 	CStrW m_ServerName{L"Unnamed Server"};
 
-	std::vector<std::uint32_t> m_BannedIPs;
+	std::vector<std::array<std::uint8_t, 16>> m_BannedIPs;
 	std::vector<CStrW> m_BannedPlayers;
 
 	CStr m_Password;
@@ -329,9 +329,10 @@ private:
 	std::thread m_UPnPThread;
 #endif
 
-	static void RunThread(CNetServerWorker* data, const std::string& initAttributes);
-	void Run(const std::string& initAttributes);
-	bool RunStep();
+	static void RunThread(CNetServerWorker* data, const std::string& initAttributes,
+		const CreateSocketResult& socket);
+	void Run(const std::string& initAttributes, const CreateSocketResult& socket);
+	bool RunStep(Impl& impl);
 
 	std::thread m_WorkerThread;
 	mutable std::mutex m_WorkerMutex;

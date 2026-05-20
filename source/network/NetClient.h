@@ -20,7 +20,6 @@
 
 #include "lib/code_annotation.h"
 #include "lib/config2.h"
-#include "lib/external_libraries/enet.h"
 #include "network/FSM.h"
 #include "network/NetHost.h"
 #include "network/NetMessage.h"
@@ -46,8 +45,6 @@ class JSTracer;
 class XmppClient;
 
 namespace Script { class Interface; }
-
-typedef struct _ENetHost ENetHost;
 
 // NetClient session FSM states
 enum
@@ -293,7 +290,7 @@ private:
 	 * Set up a connection to the remote networked server.
 	 * @return true on success, false on connection failure
 	 */
-	void SetupConnection(ENetHost* enetClient);
+	void SetupConnection();
 
 	/**
 	 * Take ownership of a session object, and use it for all network communication.

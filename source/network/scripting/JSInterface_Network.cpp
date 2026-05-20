@@ -114,7 +114,7 @@ void StartNetworkHost(const CStrW& playerName, const std::uint16_t serverPort, c
 	// Generate a secret to identify the host client.
 
 	auto tempGame = std::make_unique<CGame>(storeReplay);
-	g_NetClient = new CNetClient(tempGame.get(), "127.0.0.1", serverPort, playerName, hostJID,
+	g_NetClient = new CNetClient(tempGame.get(), "::1", serverPort, playerName, hostJID,
 		hashedPassword, secret);
 	g_Game = tempGame.release();
 }

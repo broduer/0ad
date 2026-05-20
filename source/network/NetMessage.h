@@ -26,6 +26,7 @@
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
 #include <js/Value.h>
+#include <span>
 
 namespace Script { class Interface; }
 
@@ -107,12 +108,12 @@ public:
 	/**
 	 * Factory method which creates a message object based on the given data
 	 *
-	 * @param pData						Data buffer
-	 * @param dataSize					Size of data buffer
+	 * @param data						Data buffer
 	 * @param scriptInterface			Script instance to use when constructing scripted messages
 	 * @return							The new message created
 	 */
-	static CNetMessage* CreateMessage(const void* pData, size_t dataSize, const Script::Interface& scriptInterface);
+	static CNetMessage* CreateMessage(const std::span<const std::uint8_t> data,
+		const Script::Interface& scriptInterface);
 };
 
 /**
