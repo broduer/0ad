@@ -242,6 +242,9 @@ function GetTemplateDataHelper(template, player, auraTemplates, resources, modif
 
 			ret.attack[type].repeatTime = getAttackStat("RepeatTime");
 			if (template.Attack[type].Projectile)
+				ret.attack[type].projectileCount = template.Attack[type].Projectile.Count ?
+					+template.Attack[type].Projectile.Count : 1;
+			if (template.Attack[type].Projectile)
 				ret.attack[type].friendlyFire = template.Attack[type].Projectile.FriendlyFire == "true";
 
 			Object.assign(ret.attack[type], getAttackEffects(template.Attack[type], "Attack/" + type));

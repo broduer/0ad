@@ -305,7 +305,7 @@ function getStatusEffectsResistanceTooltip(resistanceTypeTemplate)
 	});
 }
 
-function attackRateDetails(interval, projectiles)
+function attackRateDetails(interval, projectiles, isVolley = false)
 {
 	if (!interval)
 		return "";
@@ -313,26 +313,41 @@ function attackRateDetails(interval, projectiles)
 	if (projectiles === 0)
 		return translate("Garrison to fire arrows");
 
-	let attackRateString = getSecondsString(interval / 1000);
-	let header = headerFont(translate("Interval:"));
-
-	if (projectiles && +projectiles > 1)
+	// Volley attack (multiple projectiles fired simultaneously)
+	if (isVolley && projectiles > 1)
 	{
-		header = headerFont(translate("Rate:"));
+		return sprintf(translate("%(label)s %(time)s, %(projectileLabel)s %(count)s %(unit)s"), {
+			"label": headerFont(translate("Interval:")),
+			"time": getSecondsString(interval / 1000),
+			"projectileLabel": headerFont(translate("Projectiles:")),
+			"count": projectiles,
+			"unit": unitFont(translate("per attack"))
+		});
+	}
+
+	// Garrison arrows (multiple projectiles from garrisoned units)
+	if (!isVolley && projectiles > 1)
+	{
 		const projectileString = sprintf(translatePlural("%(projectileCount)s %(projectileName)s", "%(projectileCount)s %(projectileName)s", projectiles), {
 			"projectileCount": projectiles,
 			"projectileName": unitFont(translatePlural("arrow", "arrows", projectiles))
 		});
 
-		attackRateString = sprintf(translate("%(projectileString)s / %(attackRateString)s"), {
+		const rateString = sprintf(translate("%(projectileString)s / %(time)s"), {
 			"projectileString": projectileString,
-			"attackRateString": attackRateString
+			"time": getSecondsString(interval / 1000)
+		});
+
+		return sprintf(translate("%(label)s %(details)s"), {
+			"label": headerFont(translate("Rate:")),
+			"details": rateString
 		});
 	}
 
-	return sprintf(translate("%(label)s %(details)s"), {
-		"label": header,
-		"details": attackRateString
+	// Single projectile
+	return sprintf(translate("%(label)s %(time)s"), {
+		"label": headerFont(translate("Interval:")),
+		"time": getSecondsString(interval / 1000)
 	});
 }
 
@@ -457,10 +472,13 @@ function getAttackTooltip(template)
 			"attackType": translateWithContext(attackTypeTemplate.attackName.context || "Name of an attack, usually the weapon.", attackTypeTemplate.attackName.name)
 		});
 
+		const isVolley = !!(attackTypeTemplate.projectileCount && attackTypeTemplate.projectileCount > 1);
+
+		// Get projectile count - either volley size or garrison arrows
 		let projectiles;
-		// Use either current rate from simulation or default count if the sim is not running.
-		// TODO: This ought to be extended to include units which fire multiple projectiles.
-		if (template.buildingAI)
+		if (isVolley)
+			projectiles = attackTypeTemplate.projectileCount;
+		else if (template.buildingAI)
 			projectiles = template.buildingAI.arrowCount || template.buildingAI.defaultArrowCount;
 
 		const splashTemplate = attackTypeTemplate.splash;
@@ -476,7 +494,7 @@ function getAttackTooltip(template)
 			"attackLabel": attackLabel,
 			"effects": attackEffectsDetails(attackTypeTemplate),
 			"range": rangeDetails(attackTypeTemplate),
-			"rate": attackRateDetails(attackTypeTemplate.repeatTime, projectiles),
+			"rate": attackRateDetails(attackTypeTemplate.repeatTime, projectiles, isVolley),
 			"splash": splashTemplate ? "\n" + g_Indent + g_Indent + splashDetails(splashTemplate) : "",
 			"statusEffects": statusEffectsDetails
 		}));

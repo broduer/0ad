@@ -491,6 +491,8 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 			if (ret.attack[type].splash)
 				Object.assign(ret.attack[type].splash, cmpAttack.GetAttackEffectsData(type, true));
 
+			ret.attack[type].projectileCount = cmpAttack.GetProjectileCount(type);
+
 			const range = cmpAttack.GetRange(type);
 			ret.attack[type].minRange = range.min;
 			ret.attack[type].maxRange = range.max;
