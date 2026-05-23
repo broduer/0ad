@@ -196,10 +196,10 @@ class TemplateParser
 		const tech = GetTechnologyDataHelper(template, civCode, g_ResourceData, this.modifiers[civCode] || {});
 		tech.name.internal = technologyName;
 
-		if (template.pair !== undefined)
+		if (template.partOfPair !== undefined)
 		{
-			tech.pair = template.pair;
-			tech.reqs = this.mergeRequirements(tech.reqs, this.TemplateLoader.loadTechnologyPairTemplate(template.pair).reqs);
+			tech.partOfPair = template.partOfPair;
+			tech.reqs = this.mergeRequirements(tech.reqs, this.TemplateLoader.loadTechnologyPairTemplate(template.partOfPair).reqs);
 		}
 
 		if (this.TemplateLoader.isPhaseTech(technologyName))

@@ -212,7 +212,7 @@ TechnologyManager.prototype.Init = function()
 	this.unresearchedAutoResearchTechs = new Set();
 	const allTechs = TechnologyTemplates.GetAll();
 	for (const key in allTechs)
-		if (allTechs[key].autoResearch || allTechs[key].top)
+		if (allTechs[key].autoResearch || allTechs[key].pair)
 			this.unresearchedAutoResearchTechs.add(key);
 };
 
@@ -263,8 +263,7 @@ TechnologyManager.prototype.UpdateAutoResearch = function()
 	for (const key of this.unresearchedAutoResearchTechs)
 	{
 		const tech = TechnologyTemplates.Get(key);
-		if ((tech.autoResearch && this.CanResearch(key)) ||
-			(tech.top && (this.IsTechnologyResearched(tech.top) || this.IsTechnologyResearched(tech.bottom))))
+		if ((tech.autoResearch && this.CanResearch(key)) || (tech.pair?.some(t => this.IsTechnologyResearched(t))))
 		{
 			this.unresearchedAutoResearchTechs.delete(key);
 			this.ResearchTechnology(key);
@@ -306,11 +305,10 @@ TechnologyManager.prototype.CanResearch = function(tech)
 		return false;
 	}
 
-	if (template.top && this.IsInProgress(template.top) ||
-	    template.bottom && this.IsInProgress(template.bottom))
+	if (template.pair?.some(t => this.IsInProgress(t)))
 		return false;
 
-	if (template.pair && !this.CanResearch(template.pair))
+	if (template.partOfPair && !this.CanResearch(template.partOfPair))
 		return false;
 
 	if (this.IsInProgress(tech))

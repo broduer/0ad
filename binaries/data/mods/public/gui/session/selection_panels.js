@@ -684,8 +684,8 @@ g_SelectionPanels.Research = {
 						(item.tech == tech ||
 							item.tech.pair &&
 							tech.pair &&
-							item.tech.bottom == tech.bottom &&
-							item.tech.top == tech.top) &&
+							item.tech.pair?.[0] == tech.pair?.[0] &&
+							item.tech.pair?.[1] == tech.pair?.[1]) &&
 						Object.keys(item.techCostMultiplier).every(
 							k => item.techCostMultiplier[k] == state.researcher.techCostMultiplier[k])
 				));
@@ -731,7 +731,7 @@ g_SelectionPanels.Research = {
 		// Handle one or two techs (tech pair)
 		const player = data.player;
 		const playerState = GetSimState().players[player];
-		for (const tech of data.item.tech.pair ? [data.item.tech.bottom, data.item.tech.top] : [data.item.tech])
+		for (const tech of (data.item.tech.pair || [data.item.tech]))
 		{
 			// Don't change the object returned by GetTechnologyData
 			const template = clone(GetTechnologyData(tech, playerState.civ));

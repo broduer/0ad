@@ -1,6 +1,5 @@
 {
 	"genericName": "Cult",
-	"top": "pharaonic_cult",
-	"bottom": "serapis_cult",
+	"pair": ["pharaonic_cult", "serapis_cult"],
 	"requirements": { "civ": "ptol" }
 }

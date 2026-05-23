@@ -1,6 +1,5 @@
 {
 	"genericName": "Civil Service",
-	"top": "civil_service_01",
-	"bottom": "civil_service_02",
+	"pair": ["civil_service_01", "civil_service_02"],
 	"requirements": { "civ": "han" }
 }

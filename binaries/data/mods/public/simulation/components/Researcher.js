@@ -234,36 +234,22 @@ Researcher.prototype.GetTechnologiesList = function()
 			superseded[template.supersedes] = tech;
 	}
 
-	// Now make researched/in progress techs invisible.
-	for (const i in techList)
+	return techList.map(tech =>
 	{
-		let tech = techList[i];
-		while (this.IsTechnologyResearchedOrInProgress(tech))
-			tech = superseded[tech];
+		// Make researched/in progress techs invisible.
+		while (tech && this.IsTechnologyResearchedOrInProgress(tech))
+			tech = superseded[tech]; // might be undefined
 
-		techList[i] = tech;
-	}
-
-	const ret = [];
-
-	// This inserts the techs into the correct positions to line up the technology pairs.
-	for (let i = 0; i < techList.length; ++i)
-	{
-		const tech = techList[i];
 		if (!tech)
-		{
-			ret[i] = undefined;
-			continue;
-		}
+			return undefined;
 
+		// "Unwrap" tech pairs
 		const template = TechnologyTemplates.Get(tech);
-		if (template.top)
-			ret[i] = { "pair": true, "top": template.top, "bottom": template.bottom };
-		else
-			ret[i] = tech;
-	}
+		if (template?.pair)
+			tech = { "pair": template.pair };
 
-	return ret;
+		return tech;
+	});
 };
 
 /**
@@ -294,11 +280,9 @@ Researcher.prototype.IsTechnologyResearchedOrInProgress = function(tech)
 		return false;
 
 	const template = TechnologyTemplates.Get(tech);
-	if (template.top)
-		return cmpTechnologyManager.IsTechnologyResearched(template.top) ||
-		    cmpTechnologyManager.IsInProgress(template.top) ||
-		    cmpTechnologyManager.IsTechnologyResearched(template.bottom) ||
-		    cmpTechnologyManager.IsInProgress(template.bottom);
+	if (template.pair)
+		return template.pair.some(t => cmpTechnologyManager.IsTechnologyResearched(t) ||
+		    cmpTechnologyManager.IsInProgress(t));
 
 	return cmpTechnologyManager.IsTechnologyResearched(tech) || cmpTechnologyManager.IsInProgress(tech);
 };
@@ -310,9 +294,7 @@ Researcher.prototype.IsTechnologyResearchedOrInProgress = function(tech)
  */
 Researcher.prototype.QueueTechnology = function(templateName, metadata)
 {
-	if (!this.GetTechnologiesList().some(tech =>
-		tech && (tech == templateName ||
-			tech.pair && (tech.top == templateName || tech.bottom == templateName))))
+	if (!this.GetTechnologiesList().some(tech => tech === templateName || tech?.pair?.includes(templateName)))
 	{
 		error("This entity cannot research " + templateName + ".");
 		return -1;

@@ -7,15 +7,14 @@ export function Technology(templateName)
 	const template = TechnologyTemplates.Get(templateName);
 
 	// check if this is one of two paired technologies.
-	this._isPair = template.pair !== undefined;
-	if (this._isPair)
+	if (template.partOfPair)
 	{
-		const pairTech = TechnologyTemplates.Get(template.pair);
-		this._pairedWith = pairTech.top == templateName ? pairTech.bottom : pairTech.top;
+		const parentTech = TechnologyTemplates.Get(template.partOfPair);
+		this._pairedWith = parentTech.pair[0] == templateName ? parentTech.pair[1] : parentTech.pair[0];
 	}
 
 	// check if it only defines a pair:
-	this._definesPair = template.top !== undefined;
+	this._definesPair = !!template.pair;
 	this._template = template;
 }
 
@@ -41,22 +40,17 @@ Technology.prototype.getPairedTechs = function()
 	if (!this._definesPair)
 		return undefined;
 
-	return [
-		new Technology(this._template.top),
-		new Technology(this._template.bottom)
-	];
+	return this._template.pair.map(name => new Technology(name));
 };
 
 Technology.prototype.pair = function()
 {
-	if (!this._isPair)
-		return undefined;
-	return this._template.pair;
+	return this._template.partOfPair;
 };
 
 Technology.prototype.pairedWith = function()
 {
-	if (!this._isPair)
+	if (!this._template.partOfPair)
 		return undefined;
 	return this._pairedWith;
 };

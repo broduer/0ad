@@ -48,8 +48,8 @@ GameState.prototype.init = function(SharedScript, state, player)
 		{
 			// Cannot call pickrandom because this function is called on rejoin and that causes oos.
 			// (reverting rP20750)
-			techName = this.playerData.disabledTechnologies[techData._template.bottom] ?
-				techData._template.top : techData._template.bottom;
+			techName = this.playerData.disabledTechnologies[techData._template.pair[0]] ?
+				techData._template.pair[1] : techData._template.pair[0];
 
 			const supersedes = techData._template.supersedes;
 			techData = clone(this.getTemplate(techName));

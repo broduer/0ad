@@ -151,7 +151,6 @@ function Cheat(input)
 				// try to spilt the input
 				const tmp = input.parameter.split(/\s+/);
 				const number = +tmp[0];
-				const pair = tmp.length > 1 && (tmp[1] == "top" || tmp[1] == "bottom") ? tmp[1] : "top"; // use top as default value
 
 				// check, if valid number was parsed.
 				if (!isNaN(number))
@@ -166,7 +165,7 @@ function Cheat(input)
 
 						// get name of tech
 						if (tech.pair)
-							techname = tech[pair];
+							techname = tech.pair[tmp[1] === "1" ? 1 : 0];
 						else
 							techname = tech;
 					}

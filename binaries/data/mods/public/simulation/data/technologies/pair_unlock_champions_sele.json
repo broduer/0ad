@@ -1,6 +1,5 @@
 {
 	"genericName": "Traditional Army vs Reform Army",
-	"top": "traditional_army_sele",
-	"bottom": "reformed_army_sele",
+	"pair": ["traditional_army_sele", "reformed_army_sele"],
 	"requirements": { "civ": "sele" }
 }

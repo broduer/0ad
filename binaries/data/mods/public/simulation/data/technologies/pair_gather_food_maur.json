@@ -1,6 +1,5 @@
 {
 	"genericName": "Wicker Basket vs Ahimsa",
-	"top": "gather_wicker_baskets_maur",
-	"bottom": "gather_ahimsa",
+	"pair": ["gather_wicker_baskets_maur", "gather_ahimsa"],
 	"requirements": { "civ": "maur" }
 }
