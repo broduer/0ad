@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -147,6 +147,9 @@ protected:
 
 	void SetState(State* state)
 	{
+		if (m_CurrentState == state)
+			return;
+
 		m_CurrentState->OnLeave(static_cast<T*>(this));
 		// this cast is safe as long as the class is used as in
 		// "class Something : public StateDrivenTool<Something> { ... }"
