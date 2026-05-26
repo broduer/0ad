@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -30,10 +30,12 @@
 #include <list>
 #include <random>
 #include <string>
+#include <tuple>
 #include <wx/chartype.h>
 #include <wx/debug.h>
 #include <wx/defs.h>
 #include <wx/event.h>
+#include <wx/listbox.h>
 #include <wx/object.h>
 #include <wx/string.h>
 
@@ -45,7 +47,10 @@ class PlaceObject : public StateDrivenTool<PlaceObject>
 {
 	DECLARE_DYNAMIC_CLASS(PlaceObject);
 
-	Position m_ScreenPos, m_ObjPos, m_Target;
+	Position m_ScreenPos;
+	Position m_ObjPos;
+	Position m_Target;
+	wxListBox* m_ObjectListBox;
 	wxString m_ObjectID;
 	unsigned int m_ActorSeed;
 	int m_RotationDirection;
@@ -73,11 +78,16 @@ public:
 
 	virtual void Init(void* initData, ScenarioEditor* scenarioEditor)
 	{
+		printf("Init called\n");
 		StateDrivenTool<PlaceObject>::Init(initData, scenarioEditor);
 
 		wxASSERT(initData);
-		wxString& id = *static_cast<wxString*>(initData);
-		m_ObjectID = id;
+		auto data = *static_cast<std::tuple<wxListBox*,wxString*>*>(initData);
+		m_ObjectListBox = std::get<0>(data);
+		m_ObjectID = *std::get<1>(data);
+		// Toolswitching from placment to placement tool with different object
+		// might have already cleared the selection, so set it again.
+		m_ObjectListBox->SetStringSelection(m_ObjectID);
 		SendObjectMsg(true);
 	}
 
@@ -88,6 +98,8 @@ public:
 
 	void OnDisable()
 	{
+		m_ObjectListBox->SetSelection(wxNOT_FOUND);
+		m_ObjectListBox = nullptr;
 		m_ObjectID = _T("");
 		SendObjectMsg(true);
 	}

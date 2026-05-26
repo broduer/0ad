@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -37,6 +37,7 @@
 #include <cstddef>
 #include <list>
 #include <string>
+#include <tuple>
 #include <vector>
 #include <wx/arrstr.h>
 #include <wx/busyinfo.h>
@@ -445,7 +446,8 @@ void ObjectSidebar::OnSelectObject(wxCommandEvent& evt)
 	else
 	{
 		// On selecting an object, enable the PlaceObject tool with this object
-		m_ScenarioEditor.GetToolManager().SetCurrentTool(_T("PlaceObject"), &id);
+		auto data = std::make_tuple(m_Impl->m_ObjectListBox, &id);
+		m_ScenarioEditor.GetToolManager().SetCurrentTool(_T("PlaceObject"), &data);
 	}
 }
 
