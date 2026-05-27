@@ -48,8 +48,9 @@ public:
 	 * Otherwise, returns true.
 	 * If maxRange is negative, then the maximum range is treated as infinity.
 	 * If facePointAfterMove is true, the entity turns toward the target when it stops.
+	 * If preserveRotation is true, the entity keeps its current facing direction during the move.
 	 */
-	virtual bool MoveToPointRange(entity_pos_t x, entity_pos_t z, entity_pos_t minRange, entity_pos_t maxRange, bool facePointAfterMove) = 0;
+	virtual bool MoveToPointRange(entity_pos_t x, entity_pos_t z, entity_pos_t minRange, entity_pos_t maxRange, bool facePointAfterMove, bool preserveRotation) = 0;
 
 	/**
 	 * Attempt to walk into range of a given target entity, or as close as possible.

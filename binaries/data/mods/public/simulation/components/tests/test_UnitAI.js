@@ -465,7 +465,7 @@ function TestMoveIntoFormationWhileAttacking()
 	controllerAI.Attack(enemy);
 
 	for (const ent of unitAIs)
-		TS_ASSERT_EQUALS(unitAI.fsmStateName, "INDIVIDUAL.COMBAT.ATTACKING");
+		TS_ASSERT_EQUALS(ent.fsmStateName, "INDIVIDUAL.COMBAT.ATTACKING");
 
 	controllerAI.MoveIntoFormation({ "name": "Circle" });
 
@@ -473,8 +473,9 @@ function TestMoveIntoFormationWhileAttacking()
 	for (const ent of unitAIs)
 		controllerFormation.SetFinishedEntity(ent);
 
+	// A forced MoveIntoFormation interrupts attacking members, as it does gathering/packing ones.
 	for (const ent of unitAIs)
-		TS_ASSERT_EQUALS(unitAI.fsmStateName, "INDIVIDUAL.COMBAT.ATTACKING");
+		TS_ASSERT_EQUALS(ent.fsmStateName, "FORMATIONMEMBER.WALKING");
 
 	controllerFormation.Disband();
 }

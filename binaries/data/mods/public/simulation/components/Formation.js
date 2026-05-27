@@ -497,44 +497,44 @@ Formation.prototype.Disband = function()
  * @param {boolean} force - All individual orders of the formation units are replaced,
  * otherwise the order to walk into formation is just pushed to the front.
  * @param {string | undefined} variant - Variant to be passed as order parameter.
+ * @param {boolean} idleOnly - Only send confirmed idle members to their offset,
+ * busy members (fighting, gathering, etc.) keep their current orders.
  */
-Formation.prototype.ArrangeFormation = function(moveCenter, force, variant)
+Formation.prototype.ArrangeFormation = function(moveCenter, force, variant = this.lastOrderVariant, idleOnly = false)
 {
 	if (!this.members.length)
 		return;
 
-	const active = [];
-	const positions = [];
-
-	for (const ent of this.members)
+	if (idleOnly && !this.members.some(ent =>
 	{
-		const cmpPosition = Engine.QueryInterface(ent, IID_Position);
-		if (!cmpPosition || !cmpPosition.IsInWorld())
-			continue;
+		const cmpUnitAI = Engine.QueryInterface(ent, IID_UnitAI);
+		return cmpUnitAI && cmpUnitAI.IsIdle() && cmpUnitAI.isIdleConfirmed;
+	}))
+		return;
 
-		active.push(ent);
-		// Query the 2D position as the exact height calculation isn't needed,
-		// but bring the position to the correct coordinates.
-		positions.push(cmpPosition.GetPosition2D());
-	}
+	const memberData = this.GetMembersData();
+	if (!memberData)
+		return;
 
 	const cmpFormationUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
 	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
+
 	// Reposition the formation if we're told to or if we don't already have a position.
 	if (cmpPosition && (moveCenter || !cmpPosition.IsInWorld()))
 	{
-		const avgpos = Vector2D.average(positions);
 		const targetPosition = cmpFormationUnitAI.GetTargetPositions()[0];
 
 		const oldRotation = cmpPosition.GetRotation().y;
-		const newRotation = targetPosition !== undefined && avgpos.distanceToSquared(targetPosition) > g_RotateDistanceThreshold ? avgpos.angleTo(targetPosition) : oldRotation;
+		const newRotation = targetPosition !== undefined &&
+			memberData.center.distanceToSquared(targetPosition) > g_RotateDistanceThreshold ?
+			memberData.center.angleTo(targetPosition) : oldRotation;
 
 		// When we are out of world or the angle difference is big, trigger repositioning.
 		// Do this before setting up the position, because then we will always be in world.
 		if (!cmpPosition.IsInWorld() || !this.DoesAngleDifferenceAllowTurning(newRotation, oldRotation))
 			this.offsets = undefined;
 
-		this.SetupPositionAndHandleRotation(avgpos.x, avgpos.y, newRotation, true);
+		this.SetupPositionAndHandleRotation(memberData.center.x, memberData.center.y, newRotation, true);
 	}
 
 	this.lastOrderVariant = variant;
@@ -542,7 +542,7 @@ Formation.prototype.ArrangeFormation = function(moveCenter, force, variant)
 	let offsetsChanged = false;
 	if (!this.offsets)
 	{
-		this.offsets = this.ComputeFormationOffsets(active, positions);
+		this.offsets = this.ComputeFormationOffsets(memberData.positions);
 		offsetsChanged = true;
 	}
 
@@ -566,6 +566,14 @@ Formation.prototype.ArrangeFormation = function(moveCenter, force, variant)
 			continue;
 		}
 
+		xMax = Math.max(xMax, offset.x);
+		yMax = Math.max(yMax, offset.y);
+		xMin = Math.min(xMin, offset.x);
+		yMin = Math.min(yMin, offset.y);
+
+		if (idleOnly && !(cmpUnitAI.IsIdle() && cmpUnitAI.isIdleConfirmed))
+			continue;
+
 		const data =
 			{
 				"target": this.entity,
@@ -575,32 +583,58 @@ Formation.prototype.ArrangeFormation = function(moveCenter, force, variant)
 				"variant": variant
 			};
 		cmpUnitAI.AddOrder("FormationWalk", data, !force);
-		xMax = Math.max(xMax, offset.x);
-		yMax = Math.max(yMax, offset.y);
-		xMin = Math.min(xMin, offset.x);
-		yMin = Math.min(yMin, offset.y);
 	}
 	this.width = xMax - xMin;
 	this.depth = yMax - yMin;
 };
 
-Formation.prototype.MoveToMembersCenter = function()
+/**
+ * Collects position data for all formation members.
+ *
+ * @returns {Object|undefined} Object with:
+ *   - center: Vector2D average position of all members
+ *   - avgRotation: number average rotation angle in radians
+ *   - positions: Vector2D[] positions of the members, in the order of this.members
+ *   Returns undefined if there are no members or one of them is out of world.
+ *
+ * NB: Members are removed from the formation before leaving the world,
+ * so a member out of world is an error.
+ */
+Formation.prototype.GetMembersData = function()
 {
+	if (!this.members.length)
+		return undefined;
+
 	const positions = [];
 	let rotations = 0;
 
 	for (const ent of this.members)
 	{
 		const cmpPosition = Engine.QueryInterface(ent, IID_Position);
-		if (!cmpPosition || !cmpPosition.IsInWorld())
-			continue;
+		if (!cmpPosition?.IsInWorld())
+		{
+			error("Formation " + this.entity + " has member " + ent + " out of world.");
+			return undefined;
+		}
 
 		positions.push(cmpPosition.GetPosition2D());
 		rotations += cmpPosition.GetRotation().y;
 	}
 
-	const avgpos = Vector2D.average(positions);
-	this.SetupPositionAndHandleRotation(avgpos.x, avgpos.y, rotations / positions.length, false);
+	return {
+		"center": Vector2D.average(positions),
+		"avgRotation": rotations / this.members.length,
+		"positions": positions
+	};
+};
+
+Formation.prototype.MoveToMembersCenter = function()
+{
+	const memberData = this.GetMembersData();
+	if (!memberData)
+		return;
+
+	this.SetupPositionAndHandleRotation(memberData.center.x, memberData.center.y, memberData.avgRotation, false);
 };
 
 /**
@@ -624,10 +658,10 @@ Formation.prototype.SetupPositionAndHandleRotation = function(x, y, rot, forceRo
 		Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager).SetEntityFlag(this.entity, "normal", false);
 };
 
-Formation.prototype.GetAvgFootprint = function(active)
+Formation.prototype.GetAvgFootprint = function()
 {
 	const footprints = [];
-	for (const ent of active)
+	for (const ent of this.members)
 	{
 		const cmpFootprint = Engine.QueryInterface(ent, IID_Footprint);
 		if (cmpFootprint)
@@ -720,9 +754,9 @@ Formation.prototype.GetMemberClassCombinations = function(ent)
 	return matchedClassCombination;
 };
 
-Formation.prototype.ComputeFormationOffsets = function(active, positions)
+Formation.prototype.ComputeFormationOffsets = function(positions)
 {
-	const separation = this.GetAvgFootprint(active);
+	const separation = this.GetAvgFootprint();
 	separation.width *= this.separationMultiplier.width;
 	separation.depth *= this.separationMultiplier.depth;
 
@@ -731,14 +765,14 @@ Formation.prototype.ComputeFormationOffsets = function(active, positions)
 	for (const classCombination of this.allMatchingClassCombinations)
 		classCombinations[classCombination] = [];
 
-	for (const i in active)
+	for (const i in this.members)
 	{
-		const ent = active[i];
+		const ent = this.members[i];
 		const matchedClassCombinations = this.GetMemberClassCombinations(ent);
 		classCombinations[matchedClassCombinations].push({ "ent": ent, "pos": positions[i] });
 	}
 
-	const count = active.length;
+	const count = this.members.length;
 	let offsets = [];
 
 	let depth = Math.sqrt(count / this.widthDepthRatio);
@@ -1105,12 +1139,13 @@ Formation.prototype.LoadFormation = function(newTemplate)
  * @param {boolean} moveCenter - Whether to move the formation center
  * @param {boolean} force - Force rearrangement regardless of state
  * @param {string} formationType - Formation variant to be passed as order parameter.
+ * @param {boolean} idleOnly - Only send confirmed idle members to their offset.
  */
-Formation.prototype.UpdateFormation = function(moveCenter = false, force = false, formationType = "default")
+Formation.prototype.UpdateFormation = function(moveCenter = false, force = false, formationType = "default", idleOnly = false)
 {
 	// Move members into appropriate formation type
 	if (this.IsRearrangementAllowed() || force)
-		this.ArrangeFormation(moveCenter, force, formationType);
+		this.ArrangeFormation(moveCenter, force, formationType, idleOnly);
 };
 
 /**

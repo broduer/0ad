@@ -54,9 +54,9 @@ class CCmpUnitMotionScripted : public ICmpUnitMotion
 public:
 	DEFAULT_SCRIPT_WRAPPER(UnitMotionScripted)
 
-	bool MoveToPointRange(const entity_pos_t x, const entity_pos_t z, const entity_pos_t minRange, const entity_pos_t maxRange, const bool facePointAfterMove) override
+	bool MoveToPointRange(const entity_pos_t x, const entity_pos_t z, const entity_pos_t minRange, const entity_pos_t maxRange, const bool facePointAfterMove, const bool preserveRotation) override
 	{
-		return m_Script.Call<bool>("MoveToPointRange", x, z, minRange, maxRange, facePointAfterMove);
+		return m_Script.Call<bool>("MoveToPointRange", x, z, minRange, maxRange, facePointAfterMove, preserveRotation);
 	}
 
 	bool MoveToTargetRange(entity_id_t target, entity_pos_t minRange, entity_pos_t maxRange) override

@@ -864,7 +864,10 @@ UnitAI.prototype.UnitFsmSpec = {
 			if (cmpAttack && cmpAttack.CanAttackAsFormation())
 				this.SetNextState("COMBAT.ATTACKING");
 			else
-				this.SetNextState("MEMBER");
+				// Formation can't attack as one; members were just delegated their own Attack
+				// orders above, so there's nothing left for the controller to do.
+				return this.FinishOrder();
+
 			return ACCEPT_ORDER;
 		},
 
@@ -1079,6 +1082,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			return ACCEPT_ORDER;
 		},
 
+		// The controller has no order. Its members aren't necessarily idle too:
+		// they may still be busy, e.g. fighting enemies according to their stance.
 		"IDLE": {
 			"enter": function(msg)
 			{
@@ -1100,9 +1105,52 @@ UnitAI.prototype.UnitFsmSpec = {
 				if (!cmpFormation)
 					return;
 
+				// Follow the members if they moved away from us.
+				const center = cmpFormation.GetMembersData()?.center;
+				if (center)
+				{
+					const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
+					if (cmpPosition && cmpPosition.IsInWorld())
+					{
+						const currentPos = cmpPosition.GetPosition2D();
+
+						if (currentPos.distanceTo(center) > 3)
+						{
+							this.SetNextState("SLIDING");
+							return;
+						}
+					}
+				}
+
 				this.RequestFormationUpdate();
 			},
+		},
 
+		// Some members are busy fighting, and moved away from the controller,
+		// so the members' center is no longer where the controller stands. Slide the
+		// controller toward that center, taking the idle members along, without
+		// interrupting the busy ones.
+		"SLIDING": {
+			"enter": function()
+			{
+				this.StartTimer(0, 1000);
+				return false;
+			},
+
+			"leave": function()
+			{
+				this.StopTimer();
+				this.StopMoving();
+				this.lastSlideTarget = undefined;
+			},
+
+			"Timer": function()
+			{
+				// Let members pick a fight before we pull them along with us.
+				this.FindWalkAndFightTargets();
+				if (!this.SlideControllerToCenter())
+					this.SetNextState("IDLE");
+			},
 		},
 
 		"WALKING": {
@@ -1149,7 +1197,6 @@ UnitAI.prototype.UnitFsmSpec = {
 					return true;
 				}
 				this.StartTimer(0, 1000);
-				this.order.data.returningState = "WALKINGANDFIGHTING";
 				return false;
 			},
 
@@ -1157,22 +1204,29 @@ UnitAI.prototype.UnitFsmSpec = {
 			{
 				this.StopMoving();
 				this.StopTimer();
+				this.waitingForMembers = undefined;
+				this.lastSlideTarget = undefined;
 			},
 
 			"Timer": function(msg)
 			{
-				Engine.ProfileStart("FindWalkAndFightTargets");
-				if (this.FindWalkAndFightTargets())
-					this.SetNextState("MEMBER");
-
-				Engine.ProfileStop();
+				this.WalkAndFightAsFormation();
 			},
 
 			"MovementUpdate": function(msg)
 			{
 				if (msg.veryObstructed && !this.obstructionMitigationAttempted)
+				{
 					this.AttemptObstructionMitigation();
-				else if (msg.likelyFailure || this.CheckRange(this.order.data))
+					return;
+				}
+
+				// While waiting for members, our move is the slide toward them, not the walk order:
+				// its success or failure says nothing about reaching the destination.
+				if (this.waitingForMembers)
+					return;
+
+				if (msg.likelyFailure || this.CheckRange(this.order.data))
 					this.FinishOrder();
 			},
 		},
@@ -1204,16 +1258,17 @@ UnitAI.prototype.UnitFsmSpec = {
 			"PATROLLING": {
 				"enter": function()
 				{
-					const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
-					if (!cmpPosition || !cmpPosition.IsInWorld() ||
-					    !this.MoveTo(this.order.data))
+					// Recalculate offsets at the start of each patrol leg
+					// so members take closest position after formation reorients.
+					this.RequestFormationUpdate(true, true, "combat");
+
+					if (!this.MoveTo(this.order.data))
 					{
 						this.FinishOrder();
 						return true;
 					}
 
 					this.StartTimer(0, 1000);
-					this.order.data.returningState = "PATROL.PATROLLING";
 					return false;
 				},
 
@@ -1221,17 +1276,15 @@ UnitAI.prototype.UnitFsmSpec = {
 				{
 					this.StopMoving();
 					this.StopTimer();
+					this.waitingForMembers = undefined;
+					this.lastSlideTarget = undefined;
 				},
 
 				"Timer": function(msg)
 				{
-					// Force the units to stick together
-					// TODO : better handling of formation patrolling
-					// See https://gitea.wildfiregames.com/0ad/0ad/issues/8558
-					this.RequestFormationUpdate(true, true, "combat");
-
-					if (this.FindWalkAndFightTargets())
-						this.SetNextState("MEMBER");
+					// Make the non-busy formation members follow the controller.
+					this.RequestFormationUpdate(false, false, "combat");
+					this.WalkAndFightAsFormation();
 				},
 
 				"MovementUpdate": function(msg)
@@ -1242,7 +1295,12 @@ UnitAI.prototype.UnitFsmSpec = {
 						return;
 					}
 
-					if (!msg.likelyFailure && !msg.likelySuccess && !this.RelaxedMaxRangeCheck(this.order.data, this.DefaultRelaxedMaxRange))
+					// While waiting for members, keep moving but don't advance waypoints
+					if (this.waitingForMembers)
+						return;
+
+					if (!msg.likelyFailure && !msg.likelySuccess &&
+						!this.RelaxedMaxRangeCheck(this.order.data, this.DefaultRelaxedMaxRange))
 						return;
 
 					if (this.orderQueue.length == 1)
@@ -1276,9 +1334,8 @@ UnitAI.prototype.UnitFsmSpec = {
 						return;
 					}
 					if (this.FindWalkAndFightTargets())
-						this.SetNextState("MEMBER");
-					else
-						++this.stopSurveying;
+						return;
+					++this.stopSurveying;
 				}
 			}
 		},
@@ -1390,7 +1447,9 @@ UnitAI.prototype.UnitFsmSpec = {
 					if (cmpAttack.CanAttackAsFormation())
 						this.SetNextState("COMBAT.ATTACKING");
 					else
-						this.SetNextState("MEMBER");
+						// Formation can't attack as one; members were just delegated their own Attack
+						// orders above, so there's nothing left for the controller to do.
+						this.FinishOrder();
 				},
 			},
 
@@ -1442,7 +1501,7 @@ UnitAI.prototype.UnitFsmSpec = {
 			},
 		},
 
-		// Wait for individual members to finish
+		// Wait for individual members to finish a non-combat order (e.g. gathering or repairing)
 		"MEMBER": {
 			"OrderTargetRenamed": function(msg)
 			{
@@ -1475,10 +1534,7 @@ UnitAI.prototype.UnitFsmSpec = {
 				if (cmpFormation && !cmpFormation.AreAllMembersFinished())
 					return;
 
-				if (this.order?.data?.returningState)
-					this.SetNextState(this.order.data.returningState);
-				else
-					this.FinishOrder();
+				this.FinishOrder();
 			},
 
 			"leave": function(msg)
@@ -5227,13 +5283,84 @@ UnitAI.prototype.MoveFormationToTargetAttackRange = function(target)
  * Requests the formation component to update member positions.
  * Called by formation controller when formation needs reorganization.
  */
-UnitAI.prototype.RequestFormationUpdate = function(moveCenter = false, force = false, formationType = "default")
+UnitAI.prototype.RequestFormationUpdate = function(moveCenter = false, force = false, formationType = "default", idleOnly = false)
 {
 	const cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
 	if (!cmpFormation)
 		return;
 
-	cmpFormation.UpdateFormation(moveCenter, force, formationType);
+	cmpFormation.UpdateFormation(moveCenter, force, formationType, idleOnly);
+};
+
+/**
+ * Smoothly slide the formation controller toward the members' center
+ * without changing facing direction. Used when members are busy (fighting, etc.)
+ * and we want idle members to follow without interrupting busy ones.
+ *
+ * @returns {boolean} - true if the controller is moving, false if arrived or no need to move
+ */
+UnitAI.prototype.SlideControllerToCenter = function()
+{
+	const cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
+	if (!cmpFormation)
+		return false;
+
+	const center = cmpFormation.GetMembersData()?.center;
+	if (!center)
+		return false;
+
+	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
+	if (!cmpPosition || !cmpPosition.IsInWorld())
+		return false;
+
+	const currentPos = cmpPosition.GetPosition2D();
+	const distanceToCenter = currentPos.distanceTo(center);
+
+	// Already close enough - no need to move
+	if (distanceToCenter <= 1)
+		return false;
+
+	const cmpUnitMotion = Engine.QueryInterface(this.entity, IID_UnitMotion);
+	if (!cmpUnitMotion)
+		return false;
+
+	// Issue the move unless we're already moving toward the current center.
+	if (!cmpUnitMotion.IsMoveRequested() || !this.lastSlideTarget || this.lastSlideTarget.distanceTo(center) > 1)
+	{
+		this.lastSlideTarget = center;
+		cmpUnitMotion.MoveToPointRange(center.x, center.y, 0, 1, false, true);
+	}
+
+	// Make idle members follow the moving controller.
+	// Forced, as the members we follow are busy and would otherwise block the update.
+	this.RequestFormationUpdate(false, true, "combat", true);
+	return true;
+};
+
+/**
+ * Walk-and-fight step for a formation controller: while members are fighting,
+ * hold the walk and slide along with them, then resume once they are all back.
+ */
+UnitAI.prototype.WalkAndFightAsFormation = function()
+{
+	const hasTargets = this.FindWalkAndFightTargets();
+
+	if (!hasTargets && !this.waitingForMembers)
+		return;
+
+	// Set from the first fight until the walk order is resumed. hasTargets alone isn't enough:
+	// once fights end, the controller is still sliding and idle members still walking back,
+	// and MovementUpdate needs to know the current move is the slide, not the walk order.
+	this.waitingForMembers = true;
+	const isMoving = this.SlideControllerToCenter();
+	if (isMoving || hasTargets)
+		return;
+
+	// All members back and controller close enough
+	this.waitingForMembers = undefined;
+	this.lastSlideTarget = undefined;
+	if (!this.MoveTo(this.order.data))
+		this.FinishOrder();
 };
 
 /**
@@ -6552,10 +6679,41 @@ UnitAI.prototype.FindNewTargets = function()
 	return this.AttackEntitiesByPreference(cmpRangeManager.ResetActiveQuery(this.losAttackRangeQuery));
 };
 
+/**
+ * Find and attack enemy targets within the unit's (stance-dependent) attack query range.
+ * Units already fighting keep their current target: searching again would restart their attack.
+ *
+ * @returns {boolean} - true if a target was found or unit is already fighting.
+ */
 UnitAI.prototype.FindWalkAndFightTargets = function()
 {
 	if (this.IsFormationController())
 		return this.CallMemberFunction("FindWalkAndFightTargets", null);
+
+	const state = this.GetCurrentState();
+
+	// A unit that just finished its last order can still be in a COMBAT state: let it search.
+	if (state.includes("COMBAT") && this.order)
+	{
+		// Already in combat - don't search for new targets
+		// But check if we're in range of our current target
+		const target = this.order?.data?.target;
+		if (target && this.CanAttack(target) && this.CheckTargetAttackRange(target, this.order.data.attackType) &&
+			!state.endsWith("COMBAT.ATTACKING"))
+		{
+			// Target is in range but we're not attacking yet (e.g. still APPROACHING) -
+			// push the attack order to trigger the transition into ATTACKING.
+			// Don't do this if already ATTACKING the same target, since re-pushing the
+			// order would restart the attack cycle (StopAttacking/StartAttacking) every time.
+			this.PushOrderFront("Attack", {
+				"target": target,
+				"force": false,
+				"allowCapture": this.order.data.allowCapture || this.DEFAULT_CAPTURE,
+				"attackType": this.order.data.attackType
+			});
+		}
+		return true; // Don't search new targets
+	}
 
 	const cmpAttack = Engine.QueryInterface(this.entity, IID_Attack);
 

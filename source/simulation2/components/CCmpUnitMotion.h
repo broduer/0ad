@@ -185,6 +185,8 @@ public:
 
 	bool m_FacePointAfterMove{true};
 
+	bool m_PreserveRotation{false};
+
 	// Whether the unit participates in pushing.
 	bool m_Pushing = false;
 
@@ -362,6 +364,7 @@ public:
 		serialize.NumberFixed_Unbounded("acceleration", m_Acceleration);
 
 		serialize.Bool("facePointAfterMove", m_FacePointAfterMove);
+		serialize.Bool("preserveRotation", m_PreserveRotation);
 		serialize.Bool("pushing", m_Pushing);
 
 		Serializer(serialize, "long path", m_LongPath.m_Waypoints);
@@ -559,15 +562,17 @@ public:
 		UpdateMessageSubscriptions();
 	}
 
-	bool MoveToPointRange(const entity_pos_t x, const entity_pos_t z, const entity_pos_t minRange, const entity_pos_t maxRange, const bool facePointAfterMove) override
+	bool MoveToPointRange(const entity_pos_t x, const entity_pos_t z, const entity_pos_t minRange, const entity_pos_t maxRange, const bool facePointAfterMove, const bool preserveRotation) override
 	{
 		m_FacePointAfterMove = facePointAfterMove;
+		m_PreserveRotation = preserveRotation;
 		return MoveTo(MoveRequest(CFixedVector2D(x, z), minRange, maxRange));
 	}
 
 	bool MoveToTargetRange(entity_id_t target, entity_pos_t minRange, entity_pos_t maxRange) override
 	{
 		m_FacePointAfterMove = true;
+		m_PreserveRotation = false;
 		return MoveTo(MoveRequest(target, minRange, maxRange));
 	}
 
@@ -575,6 +580,7 @@ public:
 	{
 		// Members get their rotation from the formation instead.
 		m_FacePointAfterMove = false;
+		m_PreserveRotation = false;
 		// Pass the controller to the move request anyways.
 		MoveTo(MoveRequest(controller, CFixedVector2D(x, z)));
 	}
@@ -1106,7 +1112,11 @@ void CCmpUnitMotion::PostMove(CCmpUnitMotionManager::MotionState& state, fixed d
 	{
 		// Update the Position component after our movement (if we actually moved anywhere)
 		CFixedVector2D offset = state.pos - state.initialPos;
-		state.cmpPosition->MoveAndTurnTo(state.pos.X, state.pos.Y, state.angle);
+		if (m_PreserveRotation)
+			// Only update position, keep current rotation
+			state.cmpPosition->MoveTo(state.pos.X, state.pos.Y);
+		else
+			state.cmpPosition->MoveAndTurnTo(state.pos.X, state.pos.Y, state.angle);
 
 		// Calculate the mean speed over this past turn.
 		UpdateMovementState(state.speed, offset.Length() / dt);
@@ -1274,7 +1284,8 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate, WaypointPath& 
 
 		CFixedVector2D offset = target - pos;
 
-		if (turnRate > zero && !offset.IsZero())
+		// When preserving rotation, skip all rotation logic - just move directly toward target
+		if (!m_PreserveRotation && turnRate > zero && !offset.IsZero())
 		{
 			fixed angleDiff = angle - atan2_approx(offset.X, offset.Y);
 			fixed absoluteAngleDiff = angleDiff.Absolute();
