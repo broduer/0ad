@@ -35,6 +35,10 @@ while [ "$#" -gt 0 ]; do
 			version=$2
 			shift
 			;;
+		--update-url)
+			update_url=$2
+			shift
+			;;
 		*)
 			printf "Unknown option: %s\n\n" "$1"
 			exit 1
@@ -97,4 +101,15 @@ linuxdeploy \
 	--icon-file "${ROOT}/build/resources/0ad.png" \
 	--icon-filename 0ad || die
 
-appimagetool --comp zstd --mksquashfs-opt -Xcompression-level --mksquashfs-opt 20 "${APPDIR}" "${APPIMAGE}" || die
+ZSYNC="0ad-latest-${arch}.AppImage.zsync"
+if [ -n "${update_url}" ]; then
+	UPINFO="-u zsync|${update_url}/${ZSYNC}"
+fi
+
+cd "${TOP_SRC_DIR}" || die
+# shellcheck disable=SC2086
+appimagetool --comp zstd --mksquashfs-opt -Xcompression-level --mksquashfs-opt 20 ${UPINFO} "${APPDIR}" "${APPIMAGE}" || die
+
+if [ -n "${update_url}" ]; then
+	mv "${APPIMAGE}.zsync" "${ZSYNC}" || die "zsyncmake did not generate ${APPIMAGE}.zsync"
+fi
