@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -183,8 +183,20 @@ pipeline {
                         untar(dir: 'appimage-build', file: "0ad-${params.BUNDLE_VERSION}-unix-build.tar.gz", keepPermissions: true)
                         untar(dir: 'appimage-build', file: "0ad-${params.BUNDLE_VERSION}-unix-data.tar.gz", keepPermissions: true)
 
-                        sh "source/tools/dist/build-appimage.sh --version ${params.BUNDLE_VERSION} --root appimage-build/0ad-${params.BUNDLE_VERSION}"
-                        stash(name: 'appimage', includes: '*AppImage')
+                        // we avoid passing the updateUrl for non-stable and non-rc releases
+                        // because the server only keeps assets from the latest stable and rc releases
+                        // we don't save the assets for other releases (e.g. dev builds)
+                        script {
+                            def updateArg = ''
+                            if (params.BUNDLE_VERSION.contains('-rc')) {
+                                updateArg = '--update-url https://releases.wildfiregames.com/rc'
+                            } else if (!params.BUNDLE_VERSION.contains('dev')) {
+                                updateArg = '--update-url https://releases.wildfiregames.com'
+                            }
+
+                            sh "source/tools/dist/build-appimage.sh --version ${params.BUNDLE_VERSION} ${updateArg} --root appimage-build/0ad-${params.BUNDLE_VERSION}"
+                        }
+                        stash(name: 'appimage', includes: '*AppImage*')
                     }
                 }
             }
@@ -299,18 +311,18 @@ pipeline {
             steps {
                 unstash('appimage')
                 withCredentials([sshUserPrivateKey(credentialsId: 'minisign-releases-key', keyFileVariable: 'MINISIGN_KEY', passphraseVariable: 'MINISIGN_PASS')]) {
-                    sh 'echo ${MINISIGN_PASS} | minisign -s ${MINISIGN_KEY} -Sm *.{AppImage,dmg,exe,tar.gz,tar.xz}'
+                    sh 'shopt -s nullglob; echo ${MINISIGN_PASS} | minisign -s ${MINISIGN_KEY} -Sm *.{AppImage,zsync,dmg,exe,tar.gz,tar.xz}'
                 }
-                sh 'for file in *.{AppImage,dmg,exe,tar.gz,tar.xz}; do md5sum "${file}" > "${file}".md5sum; done'
-                sh 'for file in *.{AppImage,dmg,exe,tar.gz,tar.xz}; do sha1sum "${file}" > "${file}".sha1sum; done'
-                sh 'for file in *.{AppImage,dmg,exe,tar.gz,tar.xz}; do sha256sum "${file}" > "${file}".sha256sum; done'
+                sh 'shopt -s nullglob; for file in *.{AppImage,zsync,dmg,exe,tar.gz,tar.xz}; do md5sum "${file}" > "${file}".md5sum; done'
+                sh 'shopt -s nullglob; for file in *.{AppImage,zsync,dmg,exe,tar.gz,tar.xz}; do sha1sum "${file}" > "${file}".sha1sum; done'
+                sh 'shopt -s nullglob; for file in *.{AppImage,zsync,dmg,exe,tar.gz,tar.xz}; do sha256sum "${file}" > "${file}".sha256sum; done'
             }
         }
     }
 
     post {
         success {
-            archiveArtifacts artifacts: '*AppImage,*.dmg,*.exe,*.tar.gz,*.tar.xz,*.minisig,*.md5sum,*.sha1sum,*.sha256sum', excludes: 'win32-rebuild.tar.gz,win64-build.tar.gz'
+            archiveArtifacts artifacts: '*AppImage,*.zsync,*.dmg,*.exe,*.tar.gz,*.tar.xz,*.minisig,*.md5sum,*.sha1sum,*.sha256sum', excludes: 'win32-rebuild.tar.gz,win64-build.tar.gz'
         }
         cleanup {
             sh 'svn revert -R .'

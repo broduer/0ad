@@ -15,6 +15,7 @@ RUN apt-get -qqy update \
         patchelf \
         squashfs-tools \
         wget \
+        zsync \
     && apt-get clean
 
 RUN \
