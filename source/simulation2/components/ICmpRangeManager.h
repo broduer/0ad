@@ -161,29 +161,42 @@ public:
 	 * @param requiredInterface if non-zero, an interface ID that matching entities must implement.
 	 * @param flags if a entity in range has one of the flags set it will show up.
 	 * @param accountForSize if true, compensate for source/target entity sizes.
+	 * @param preferMirages if true, mirage entities are included (bypassing interface checks)
+	 *        and HIDDEN entities are filtered out (needed for targeting fogged enemies).
+	 *        When false (default), mirages are excluded entirely and real entities
+	 *        are returned regardless of visibility (even if hidden).
 	 * @return unique non-zero identifier of query.
 	 */
-	virtual tag_t CreateActiveQuery(entity_id_t source, entity_pos_t minRange, entity_pos_t maxRange,
-		const std::vector<int>& owners, int requiredInterface, u8 flags, bool accountForSize) = 0;
+	virtual tag_t CreateActiveQuery(entity_id_t source,
+		entity_pos_t minRange, entity_pos_t maxRange,
+		const std::vector<int>& owners, int requiredInterface, u8 flags,
+		bool accountForSize, bool preferMirages = false) = 0;
 
-    /**
-	 * Construct an active query of a paraboloic form around the unit.
+	/**
+	 * Construct an active query of a parabolic form around the unit.
 	 * The query will be disabled by default.
 	 * @param source the entity around which the range will be computed.
 	 * @param minRange non-negative minimum horizontal distance in metres (inclusive). MinRange doesn't do parabolic checks.
 	 * @param maxRange non-negative maximum distance in metres (inclusive) for units on the same elevation;
 	 *      or -1.0 to ignore distance.
 	 *      For units on a different height positions, a physical correct paraboloid with height=maxRange/2 above the unit is used to query them
+	 * @param baseRange non-negative base detection range in metres (inclusive) for simple 2D circle checks.
+	 *      Units within this horizontal distance are always considered in range regardless of height.
+	 *      Set to 0 to disable (original parabolic-only behavior).
 	 * @param yOrigin extra bonus so the source can be placed higher and shoot further
 	 * @param owners list of player IDs that matching entities may have; -1 matches entities with no owner.
 	 * @param requiredInterface if non-zero, an interface ID that matching entities must implement.
 	 * @param flags if a entity in range has one of the flags set it will show up.
+	 * @param preferMirages if true, mirage entities are included (bypassing interface checks)
+	 *        and HIDDEN entities are filtered out (needed for targeting fogged enemies).
+	 *        When false (default), mirages are excluded entirely and real entities
+	 *        are returned regardless of visibility (even if hidden).
 	 * NB: this one has no accountForSize parameter (assumed true), because we currently can only have 7 arguments for JS functions.
 	 * @return unique non-zero identifier of query.
 	 */
-	virtual tag_t CreateActiveParabolicQuery(entity_id_t source, entity_pos_t minRange, entity_pos_t maxRange, entity_pos_t yOrigin,
-		const std::vector<int>& owners, int requiredInterface, u8 flags) = 0;
-
+	virtual tag_t CreateActiveParabolicQuery(entity_id_t source,
+		entity_pos_t minRange, entity_pos_t maxRange, entity_pos_t baseRange, entity_pos_t yOrigin,
+		const std::vector<int>& owners, int requiredInterface, u8 flags, bool preferMirages = false) = 0;
 
 	/**
 	 * Get the effective range in a parablic range query.

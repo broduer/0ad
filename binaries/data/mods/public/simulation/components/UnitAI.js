@@ -4248,16 +4248,27 @@ UnitAI.prototype.SetupAttackRangeQuery = function(enable = true)
 	{
 		const cmpAttack = Engine.QueryInterface(this.entity, IID_Attack);
 		const yOrigin = cmpAttack ? cmpAttack.GetAttackYOrigin("Ranged") : 0;
+
 		// Do not compensate for entity sizes: LOS doesn't, and UnitAI relies on that.
-		this.losAttackRangeQuery = cmpRangeManager.CreateActiveParabolicQuery(this.entity,
-			range.min, range.max, yOrigin,
-			players, IID_Resistance,
-			cmpRangeManager.GetEntityFlagMask("normal"));
+		this.losAttackRangeQuery = cmpRangeManager.CreateActiveParabolicQuery(
+			this.entity,
+			range.min,
+			range.max,
+			range.base,
+			yOrigin,
+			players,
+			IID_Resistance,
+			cmpRangeManager.GetEntityFlagMask("normal"),
+			true // Allow mirages for attack queries
+		);
 	}
 	else
 		this.losAttackRangeQuery = cmpRangeManager.CreateActiveQuery(this.entity,
 			range.min, range.max, players, IID_Resistance,
-			cmpRangeManager.GetEntityFlagMask("normal"), false);
+			cmpRangeManager.GetEntityFlagMask("normal"),
+			false,
+			true // Allow mirages for attack queries
+		);
 
 	if (enable)
 		cmpRangeManager.EnableActiveQuery(this.losAttackRangeQuery);
@@ -5594,8 +5605,16 @@ UnitAI.prototype.ShouldChaseTargetedEntity = function(target, force)
 	if (!this.AbleToMove())
 		return false;
 
+	// Check if we should chase based on stance
 	if (this.GetStance().respondChase)
-		return true;
+	{
+		// If we're allowed to chase beyond vision, always chase
+		if (this.GetStance().respondChaseBeyondVision)
+			return true;
+
+		// Otherwise, only chase if the target is within our personal vision
+		return this.CheckTargetIsInVisionRange(target);
+	}
 
 	// If we are guarding/escorting, chase at least as long as the guarded unit is in target range of the attacker
 	if (this.isGuardOf)
@@ -6637,14 +6656,15 @@ UnitAI.prototype.FindWalkAndFightTargets = function()
  * the unit should "notice" an enemy and potentially start moving toward it.
  *
  * @param {number} iid - IID_Vision, IID_Heal, or IID_Attack
- * @returns {{min: number, max: number, parabolic: boolean}}
+ * @returns {{min: number, max: number, base: number, parabolic: boolean}}
  * 'parabolic' indicates that the caller
  * should use a parabolic range query (accounting for elevation) instead of a
  * flat 2D one. Generally used for projectile attacks.
+ * 'base' is a non-parabolic 2D detection range that always counts as in-range.
  */
 UnitAI.prototype.GetQueryRange = function(iid)
 {
-	const ret = { "min": 0, "max": 0, "parabolic": false };
+	const ret = { "min": 0, "max": 0, "base": 0, "parabolic": false };
 
 	const cmpVision = Engine.QueryInterface(this.entity, IID_Vision);
 	if (!cmpVision)
@@ -6657,41 +6677,35 @@ UnitAI.prototype.GetQueryRange = function(iid)
 		return ret;
 	}
 
+	const range = this.GetRange(iid);
+	if (!range)
+		return ret;
+
 	// The query range depends on stance because it represents the distance at which
-	// the unit should "notice" an enemy and potentially start moving toward it:
-	if (this.GetStance().respondStandGround)
-	{
-		// StandGround: flat attack range only (won't move at all)
-		const range = this.GetRange(iid);
-		if (!range)
-			return ret;
-		ret.min = range.min;
-		ret.max = Math.min(range.max, visionRange);
-		// For StandGround, the 'parabolic' flag is set so that the caller can create a
-		// parabolic query instead of a flat one. This ensures elevation bonuses are
-		// properly accounted for when detecting enemies.
-		// Without this, a unit on a hill could be in parabolic range of an enemy
-		// but never notice them because the flat 2D detection circle is smaller.
-		// Other stances don't need this since they'll chase/approach anyway, and
-		// the attack validation (IsTargetInRange) does a precise parabolic check
-		// before actually attacking.
-		ret.parabolic = range.parabolic;
-	}
-	else if (this.GetStance().respondChase)
-		// Chase stances: use full vision range (unit will chase anything it sees)
-		ret.max = visionRange;
+	// the unit should "notice" an enemy and potentially start moving toward it.
+
+	// In all stances, always spot targets within effective attack/heal range.
+	Object.assign(ret, range);
+
+	let nonParabolicMax = 0;
+	if (this.GetStance().respondChase)
+		// Chase: Always spot targets within vision range, so we can chase them.
+		nonParabolicMax = visionRange;
 	else if (this.GetStance().respondHoldGround)
-	{
-		// HoldGround: vision range + half attack range (willing to move a bit)
-		const range = this.GetRange(iid);
-		if (!range)
-			return ret;
-		ret.max = Math.min(range.max + visionRange / 2, visionRange);
-	}
+		// HoldGround: willing to move a bit, so spot targets within attack range + half vision.
+		nonParabolicMax = Math.min(range.max + visionRange / 2, visionRange);
+
+	// StandGround: nonParabolicMax stays 0, using only parabolic range.
+
 	// We probably have stance 'passive' and we wouldn't have a range,
 	// but as it is the default for healers we need to set it to something sane.
 	else if (iid === IID_Heal)
-		ret.max = visionRange;
+		nonParabolicMax = visionRange;
+
+	if (ret.parabolic)
+		ret.base = nonParabolicMax;
+	else
+		ret.max = nonParabolicMax;
 
 	return ret;
 };

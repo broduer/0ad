@@ -243,8 +243,9 @@ public:
 		{ CMessageCreate msg(100); rangeManager->HandleMessage(msg, false); }
 		{ CMessageCreate msg(101); rangeManager->HandleMessage(msg, false); }
 
-		{ CMessageOwnershipChanged msg(100, -1, 1); rangeManager->HandleMessage(msg, false); }
-		{ CMessageOwnershipChanged msg(101, -1, 1); rangeManager->HandleMessage(msg, false); }
+		// Don't set ownership for either entity - leave both as INVALID_PLAYER.
+		// This bypasses the visibility check in TestEntityQuery, allowing us to test
+		// the core distance calculation logic independently of the LOS system.
 
 		auto move = [&rangeManager](entity_id_t ent, MockPositionRgm& pos, fixed x, fixed z) {
 			pos.m_Pos = CFixedVector3D(x, fixed::Zero(), z);
@@ -254,41 +255,42 @@ public:
 		move(100, position, fixed::FromInt(10), fixed::FromInt(10));
 		move(101, position2, fixed::FromInt(10), fixed::FromInt(20));
 
-		std::vector<entity_id_t> nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(0), fixed::FromInt(4), {1}, 0, true);
+		// Query for owner -1 (INVALID_PLAYER) since both entities have no owner
+		std::vector<entity_id_t> nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(0), fixed::FromInt(4), {-1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{});
-		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(4), fixed::FromInt(50), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(4), fixed::FromInt(50), {-1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{101});
 
 		move(101, position2, fixed::FromInt(10), fixed::FromInt(10));
-		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(0), fixed::FromInt(4), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(0), fixed::FromInt(4), {-1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{101});
-		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(4), fixed::FromInt(50), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(4), fixed::FromInt(50), {-1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{});
 
 		move(101, position2, fixed::FromInt(10), fixed::FromInt(13));
-		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(0), fixed::FromInt(4), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(0), fixed::FromInt(4), {-1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{101});
-		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(4), fixed::FromInt(50), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(4), fixed::FromInt(50), {-1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{});
 
 		move(101, position2, fixed::FromInt(10), fixed::FromInt(15));
 		// In range thanks to self obstruction size.
-		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(0), fixed::FromInt(4), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(0), fixed::FromInt(4), {-1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{101});
 		// In range thanks to target obstruction size.
-		nearby = rangeManager->ExecuteQuery(101, fixed::FromInt(0), fixed::FromInt(4), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(101, fixed::FromInt(0), fixed::FromInt(4), {-1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{100});
 
 		// Trickier: min-range is closest-to-closest, but rotation may change the real distance.
-		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(2), fixed::FromInt(50), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(2), fixed::FromInt(50), {-1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{101});
-		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(5), fixed::FromInt(50), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(5), fixed::FromInt(50), {-1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{101});
-		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(6), fixed::FromInt(50), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(100, fixed::FromInt(6), fixed::FromInt(50), {-1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{});
-		nearby = rangeManager->ExecuteQuery(101, fixed::FromInt(5), fixed::FromInt(50), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(101, fixed::FromInt(5), fixed::FromInt(50), {-1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{100});
-		nearby = rangeManager->ExecuteQuery(101, fixed::FromInt(6), fixed::FromInt(50), {1}, 0, true);
+		nearby = rangeManager->ExecuteQuery(101, fixed::FromInt(6), fixed::FromInt(50), {-1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{});
 
 	}

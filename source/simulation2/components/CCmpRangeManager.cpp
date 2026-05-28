@@ -188,6 +188,7 @@ struct Query
 	CEntityHandle source; // TODO: this could crash if an entity is destroyed while a Query is still referencing it
 	entity_pos_t minRange;
 	entity_pos_t maxRange;
+	entity_pos_t baseRange;  // Non-parabolic detection range
 	entity_pos_t yOrigin; // Used for parabolas only.
 	u32 ownersMask;
 	i32 interface;
@@ -195,6 +196,7 @@ struct Query
 	bool enabled;
 	bool parabolic;
 	bool accountForSize; // If true, the query accounts for unit sizes, otherwise it treats all entities as points.
+	bool preferMirages;  // If true, include mirages and filter HIDDEN entities. Otherwise exclude mirages and no visibility filter.
 };
 
 /**
@@ -349,6 +351,7 @@ struct SerializeHelper<Query>
 	{
 		serialize.NumberFixed_Unbounded("min range", value.minRange);
 		serialize.NumberFixed_Unbounded("max range", value.maxRange);
+		serialize.NumberFixed_Unbounded("baseRange", value.baseRange);
 		serialize.NumberFixed_Unbounded("yOrigin", value.yOrigin);
 		serialize.NumberU32_Unbounded("owners mask", value.ownersMask);
 		serialize.NumberI32_Unbounded("interface", value.interface);
@@ -357,6 +360,7 @@ struct SerializeHelper<Query>
 		serialize.Bool("enabled", value.enabled);
 		serialize.Bool("parabolic",value.parabolic);
 		serialize.Bool("account for size",value.accountForSize);
+		serialize.Bool("preferMirages", value.preferMirages);
 	}
 
 	void operator()(ISerializer& serialize, const char* name, Query& value, const CSimContext&)
@@ -992,21 +996,20 @@ public:
 
 	tag_t CreateActiveQuery(entity_id_t source,
 		entity_pos_t minRange, entity_pos_t maxRange,
-		const std::vector<int>& owners, int requiredInterface, u8 flags, bool accountForSize) override
+		const std::vector<int>& owners, int requiredInterface, u8 flags,
+		bool accountForSize, bool preferMirages) override
 	{
 		tag_t id = m_QueryNext++;
-		m_Queries[id] = ConstructQuery(source, minRange, maxRange, owners, requiredInterface, flags, accountForSize);
-
+		m_Queries[id] = ConstructQuery(source, minRange, maxRange, owners, requiredInterface, flags, accountForSize, preferMirages);
 		return id;
 	}
 
 	tag_t CreateActiveParabolicQuery(entity_id_t source,
-		entity_pos_t minRange, entity_pos_t maxRange, entity_pos_t yOrigin,
-		const std::vector<int>& owners, int requiredInterface, u8 flags) override
+		entity_pos_t minRange, entity_pos_t maxRange, entity_pos_t baseRange, entity_pos_t yOrigin,
+		const std::vector<int>& owners, int requiredInterface, u8 flags, bool preferMirages = false) override
 	{
 		tag_t id = m_QueryNext++;
-		m_Queries[id] = ConstructParabolicQuery(source, minRange, maxRange, yOrigin, owners, requiredInterface, flags, true);
-
+		m_Queries[id] = ConstructParabolicQuery(source, minRange, maxRange, baseRange, yOrigin, owners, requiredInterface, flags, true, preferMirages);
 		return id;
 	}
 
@@ -1297,9 +1300,34 @@ public:
 		if (id == q.source.GetId())
 			return false;
 
-		// Ignore if it's missing the required interface
-		if (q.interface && !GetSimContext().GetComponentManager().QueryInterface(id, q.interface))
+		// Check if this is a mirage entity
+		CmpPtr<ICmpMirage> cmpMirage(GetSimContext(), id);
+		bool isMirage = !!cmpMirage;
+
+		// If it's a mirage and we're not including mirages, skip it
+		if (isMirage && !q.preferMirages)
 			return false;
+
+		// If it's not a mirage, check interface normally
+		if (!isMirage && q.interface && !GetSimContext().GetComponentManager().QueryInterface(id, q.interface))
+			return false;
+
+		// Filter hidden entities when we want mirages (i.e., we care about visibility)
+		if (q.preferMirages && q.source.GetId() != INVALID_ENTITY)
+		{
+			// Look up the source's current owner
+			EntityMap<EntityData>::const_iterator itSource = m_EntityData.find(q.source.GetId());
+			if (itSource != m_EntityData.end())
+			{
+				player_id_t sourceOwner = itSource->second.owner;
+				if (sourceOwner != INVALID_PLAYER)
+				{
+					LosVisibility vis = GetPlayerVisibility(entity.visibilities, sourceOwner);
+					if (vis == LosVisibility::HIDDEN)
+						return false;
+				}
+			}
+		}
 
 		return true;
 	}
@@ -1324,13 +1352,18 @@ public:
 		// Not the entire world, so check a parabolic range, or a regular range.
 		else if (q.parabolic)
 		{
-			// The yOrigin is part of the 3D position, as the source is really that much heigher.
+			// The yOrigin is part of the 3D position, as the source is really that much higher.
 			CmpPtr<ICmpPosition> cmpSourcePosition(q.source);
-			CFixedVector3D pos3d = cmpSourcePosition->GetPosition()+
-			    CFixedVector3D(entity_pos_t::Zero(), q.yOrigin, entity_pos_t::Zero()) ;
-			// Get a quick list of entities that are potentially in range, with a cutoff of 2*maxRange.
+			CFixedVector3D pos3d = cmpSourcePosition->GetPosition() +
+				CFixedVector3D(entity_pos_t::Zero(), q.yOrigin, entity_pos_t::Zero());
+			// Get a quick list of entities that are potentially in range.
+			// For parabolic queries, the search radius must cover:
+			//   1. The baseRange circle (non-parabolic detection)
+			//   2. The maximum possible horizontal extent of the parabolic range
+			// Multiplying maxRange by 2 provides a safe upper bound for all possible height differences.
+			entity_pos_t subdivisionRange = std::max(q.baseRange, q.maxRange * 2);
 			subdivisionResultsBuffer.clear();
-			m_Subdivision.GetNear(subdivisionResultsBuffer, pos, q.maxRange * 2);
+			m_Subdivision.GetNear(subdivisionResultsBuffer, pos, subdivisionRange);
 
 			for (size_t i = 0; i < subdivisionResultsBuffer.size(); ++i)
 			{
@@ -1340,6 +1373,20 @@ public:
 				if (!TestEntityQuery(q, it->first, it->second))
 					continue;
 
+				CFixedVector2D delta2D = CFixedVector2D(it->second.x, it->second.z) - pos;
+
+				// Check base range first
+				bool inBaseRange = !q.baseRange.IsZero() && delta2D.CompareLength(q.baseRange) <= 0;
+
+				if (inBaseRange)
+				{
+					// In base range - no need for parabolic check
+					if (q.minRange.IsZero() || delta2D.CompareLength(q.minRange) >= 0)
+						r.push_back(it->first);
+					continue;
+				}
+
+				// Parabolic check for entities outside base range
 				CmpPtr<ICmpPosition> cmpSecondPosition(GetSimContext(), subdivisionResultsBuffer[i]);
 				if (!cmpSecondPosition || !cmpSecondPosition->IsInWorld())
 					continue;
@@ -1357,7 +1404,7 @@ public:
 					continue;
 
 				if (!q.minRange.IsZero())
-					if ((CFixedVector2D(it->second.x, it->second.z) - pos).CompareLength(q.minRange) < 0)
+					if (delta2D.CompareLength(q.minRange) < 0)
 						continue;
 
 				r.push_back(it->first);
@@ -1554,7 +1601,8 @@ public:
 
 	Query ConstructQuery(entity_id_t source,
 		entity_pos_t minRange, entity_pos_t maxRange,
-		const std::vector<int>& owners, int requiredInterface, u8 flagsMask, bool accountForSize) const
+		const std::vector<int>& owners, int requiredInterface, u8 flagsMask,
+		bool accountForSize, bool preferMirages = false) const
 	{
 		// Min range must be non-negative.
 		if (minRange < entity_pos_t::Zero())
@@ -1565,6 +1613,8 @@ public:
 		if (maxRange < entity_pos_t::Zero() && maxRange != ALWAYS_IN_RANGE)
 			LOGWARNING("CCmpRangeManager: Invalid max range %f in query for entity %u", maxRange.ToDouble(), source);
 
+		CmpPtr<ICmpOwnership> cmpOwnership(GetSimContext(), source);
+
 		Query q;
 		q.enabled = false;
 		q.parabolic = false;
@@ -1573,6 +1623,7 @@ public:
 		q.maxRange = maxRange;
 		q.yOrigin = entity_pos_t::Zero();
 		q.accountForSize = accountForSize;
+		q.preferMirages = preferMirages;
 
 		if (q.accountForSize && q.source.GetId() != INVALID_ENTITY && q.maxRange != ALWAYS_IN_RANGE)
 		{
@@ -1609,12 +1660,14 @@ public:
 	}
 
 	Query ConstructParabolicQuery(entity_id_t source,
-		entity_pos_t minRange, entity_pos_t maxRange, entity_pos_t yOrigin,
-		const std::vector<int>& owners, int requiredInterface, u8 flagsMask, bool accountForSize) const
+		entity_pos_t minRange, entity_pos_t maxRange, entity_pos_t baseRange, entity_pos_t yOrigin,
+		const std::vector<int>& owners, int requiredInterface, u8 flagsMask,
+		bool accountForSize, bool preferMirages = false) const
 	{
-		Query q = ConstructQuery(source, minRange, maxRange, owners, requiredInterface, flagsMask, accountForSize);
+		Query q = ConstructQuery(source, minRange, maxRange, owners, requiredInterface, flagsMask, accountForSize, preferMirages);
 		q.parabolic = true;
 		q.yOrigin = yOrigin;
+		q.baseRange = baseRange;
 		return q;
 	}
 

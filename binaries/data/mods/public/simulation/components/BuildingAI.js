@@ -127,10 +127,20 @@ BuildingAI.prototype.SetupRangeQuery = function()
 
 	const range = cmpAttack.GetRange(attackType);
 	const yOrigin = cmpAttack.GetAttackYOrigin(attackType);
+
+	// Get building's vision range
+	const cmpVision = Engine.QueryInterface(this.entity, IID_Vision);
+	const visionRange = cmpVision ? cmpVision.GetRange() : 0;
+
+	// Base range
+	const baseRange = Math.min(visionRange, range.max);
+
 	// This takes entity sizes into accounts, so no need to compensate for structure size.
 	this.enemyUnitsQuery = cmpRangeManager.CreateActiveParabolicQuery(
-		this.entity, range.min, range.max, yOrigin,
-		enemies, IID_Resistance, cmpRangeManager.GetEntityFlagMask("normal"));
+		this.entity, range.min, range.max, baseRange, yOrigin,
+		enemies, IID_Resistance, cmpRangeManager.GetEntityFlagMask("normal"),
+		true  // Allow mirages for attack queries
+	);
 
 	cmpRangeManager.EnableActiveQuery(this.enemyUnitsQuery);
 };
@@ -156,10 +166,17 @@ BuildingAI.prototype.SetupGaiaRangeQuery = function()
 	const range = cmpAttack.GetRange(attackType);
 	const yOrigin = cmpAttack.GetAttackYOrigin(attackType);
 
+	// Get building's vision range
+	const cmpVision = Engine.QueryInterface(this.entity, IID_Vision);
+	const visionRange = cmpVision ? cmpVision.GetRange() : 0;
+
+	// Base range
+	const baseRange = Math.min(visionRange, range.max);
+
 	// This query is only interested in Gaia entities that can attack.
 	// This takes entity sizes into accounts, so no need to compensate for structure size.
 	this.gaiaUnitsQuery = cmpRangeManager.CreateActiveParabolicQuery(
-		this.entity, range.min, range.max, yOrigin,
+		this.entity, range.min, range.max, baseRange, yOrigin,
 		[0], IID_Attack, cmpRangeManager.GetEntityFlagMask("normal"));
 
 	cmpRangeManager.EnableActiveQuery(this.gaiaUnitsQuery);
@@ -170,7 +187,6 @@ BuildingAI.prototype.SetupGaiaRangeQuery = function()
  */
 BuildingAI.prototype.OnRangeUpdate = function(msg)
 {
-
 	var cmpAttack = Engine.QueryInterface(this.entity, IID_Attack);
 	if (!cmpAttack)
 		return;
@@ -189,10 +205,10 @@ BuildingAI.prototype.OnRangeUpdate = function(msg)
 
 	// Add new targets.
 	for (const entity of msg.added)
-		if (cmpAttack.CanAttack(entity))
+		if (!this.targetUnits.includes(entity))
 			this.targetUnits.push(entity);
 
-	// Remove targets outside of vision-range.
+	// Remove targets out of range.
 	for (const entity of msg.removed)
 	{
 		const index = this.targetUnits.indexOf(entity);
@@ -375,13 +391,7 @@ BuildingAI.prototype.FireArrows = function()
 	{
 
 		const selectedTarget = targets[targetIndex].entityId;
-		if (this.CheckTargetVisible(selectedTarget) && cmpObstructionManager.IsInTargetParabolicRange(
-			this.entity,
-			selectedTarget,
-			range.min,
-			range.max,
-			yOrigin,
-			false))
+		if (cmpAttack.CanAttack(selectedTarget, [attackType]))
 		{
 			cmpAttack.PerformAttack(attackType, selectedTarget);
 			PlaySound("attack_" + attackType.toLowerCase(), this.entity);
