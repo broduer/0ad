@@ -198,7 +198,7 @@ void CReplayPlayer::Replay(const int serializationtestturn, const int rejointest
 
 	new CProfileViewer;
 	new CProfileManager;
-	g_ScriptStatsTable = new CScriptStatsTable;
+	g_ScriptStatsTable = new Script::CScriptStatsTable;
 	g_ProfileViewer.AddRootTable(g_ScriptStatsTable);
 
 	const int contextSize = 384 * 1024 * 1024;

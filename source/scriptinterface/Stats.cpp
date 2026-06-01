@@ -24,7 +24,7 @@
 #include <cstdint>
 #include <js/GCAPI.h>
 
-CScriptStatsTable* g_ScriptStatsTable;
+Script::CScriptStatsTable* g_ScriptStatsTable;
 
 enum
 {
@@ -34,16 +34,16 @@ enum
 	NumberRows
 };
 
-CScriptStatsTable::CScriptStatsTable()
+Script::CScriptStatsTable::CScriptStatsTable()
 {
 }
 
-void CScriptStatsTable::Add(const Script::Interface* scriptInterface, const std::string& title)
+void Script::CScriptStatsTable::Add(const Script::Interface* scriptInterface, const std::string& title)
 {
 	m_ScriptInterfaces.emplace_back(scriptInterface, title);
 }
 
-void CScriptStatsTable::Remove(const Script::Interface* scriptInterface)
+void Script::CScriptStatsTable::Remove(const Script::Interface* scriptInterface)
 {
 	for (size_t i = 0; i < m_ScriptInterfaces.size(); )
 	{
@@ -54,22 +54,22 @@ void CScriptStatsTable::Remove(const Script::Interface* scriptInterface)
 	}
 }
 
-CStr CScriptStatsTable::GetName()
+CStr Script::CScriptStatsTable::GetName()
 {
 	return "script";
 }
 
-CStr CScriptStatsTable::GetTitle()
+CStr Script::CScriptStatsTable::GetTitle()
 {
 	return "Script statistics";
 }
 
-size_t CScriptStatsTable::GetNumberRows()
+size_t Script::CScriptStatsTable::GetNumberRows()
 {
 	return NumberRows;
 }
 
-const std::vector<ProfileColumn>& CScriptStatsTable::GetColumns()
+const std::vector<ProfileColumn>& Script::CScriptStatsTable::GetColumns()
 {
 	m_ColumnDescriptions.clear();
 	m_ColumnDescriptions.push_back(ProfileColumn("Name", 200));
@@ -78,7 +78,7 @@ const std::vector<ProfileColumn>& CScriptStatsTable::GetColumns()
 	return m_ColumnDescriptions;
 }
 
-CStr CScriptStatsTable::GetCellText(size_t row, size_t col)
+CStr Script::CScriptStatsTable::GetCellText(size_t row, size_t col)
 {
 	switch(row)
 	{
@@ -108,7 +108,7 @@ CStr CScriptStatsTable::GetCellText(size_t row, size_t col)
 	}
 }
 
-AbstractProfileTable* CScriptStatsTable::GetChild(size_t /*row*/)
+AbstractProfileTable* Script::CScriptStatsTable::GetChild(size_t /*row*/)
 {
 	return 0;
 }

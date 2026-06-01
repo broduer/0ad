@@ -69,6 +69,7 @@ namespace Script { class Interface; }
 namespace Script { class Request; }
 struct SDL_Event_;
 struct SGUIImageEffects;
+union SDL_Event;
 
 extern const double SELECT_DBLCLICK_RATE;
 
@@ -132,11 +133,11 @@ public:
 	void DrawSprite(const CGUISpriteInstance& Sprite, CCanvas2D& canvas, const CRect& Rect, const CRect& Clipping = CRect());
 
 	/**
-	 * The replacement of Process(), handles an SDL_Event_
+	 * The replacement of Process(), handles an SDL_Event
 	 *
 	 * @param ev SDL Event, like mouse/keyboard input
 	 */
-	InReaction HandleEvent(const SDL_Event_* ev);
+	InReaction HandleEvent(const SDL_Event& ev);
 
 	/**
 	 * Load a GUI XML file into the GUI.

@@ -159,6 +159,8 @@ CNetClient::CNetClient(CGame* game, const CStrW& username, const CStr& hostJID,
 
 CNetClient::~CNetClient()
 {
+	Unregister(nullptr);
+
 	// Try to flush messages before dying (probably fails).
 	if (m_ClientTurnManager)
 		m_ClientTurnManager->OnDestroyConnection();
@@ -364,17 +366,25 @@ void CNetClient::CheckServerConnection()
 
 JSObject* CNetClient::GetNextGUIMessage(const Script::Interface& guiInterface)
 {
-	const Script::Request rq{guiInterface};
+	Unregister(nullptr);
+	const ScriptRequest rq{guiInterface};
 	m_GuiMessagePoll.emplace(GuiPollData{guiInterface, {rq.cx, JS::NewPromiseObject(rq.cx, nullptr)}});
 
 	FetchMessage();
 	return m_GuiMessagePoll.value().promise;
 }
 
-void CNetClient::Unregister(const Script::Interface& guiInterface)
+void CNetClient::Unregister(const Script::Interface* guiInterface)
 {
-	if (m_GuiMessagePoll.has_value() && &m_GuiMessagePoll.value().interface == &guiInterface)
-		m_GuiMessagePoll.reset();
+	if (!m_GuiMessagePoll.has_value() ||
+		(guiInterface && &m_GuiMessagePoll.value().interface != guiInterface))
+	{
+		return;
+	}
+	auto& [interface, promise] = m_GuiMessagePoll.value();
+	const ScriptRequest oldRq{interface};
+	JS::ResolvePromise(oldRq.cx, promise, JS::UndefinedHandleValue);
+	m_GuiMessagePoll.reset();
 }
 
 void CNetClient::FetchMessage()

@@ -541,7 +541,7 @@ bool Init(const CmdLineArgs& args, int flags)
 	new CProfileViewer;
 	new CProfileManager;	// before any script code
 
-	g_ScriptStatsTable = new CScriptStatsTable;
+	g_ScriptStatsTable = new Script::CScriptStatsTable;
 	g_ProfileViewer.AddRootTable(g_ScriptStatsTable);
 
 	// Set up the console early, so that debugging

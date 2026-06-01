@@ -15,8 +15,8 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef INCLUDED_SCRIPTSTATS
-#define INCLUDED_SCRIPTSTATS
+#ifndef INCLUDED_SCRIPT_STATS
+#define INCLUDED_SCRIPT_STATS
 
 #include "lib/code_annotation.h"
 #include "ps/CStr.h"
@@ -28,6 +28,8 @@
 #include <vector>
 
 namespace Script { class Interface; }
+
+namespace Script {
 
 class CScriptStatsTable : public AbstractProfileTable
 {
@@ -50,8 +52,10 @@ private:
 	std::vector<ProfileColumn> m_ColumnDescriptions;
 };
 
+}
+
 // To simplify the UI we want to use a single table for all script interfaces,
 // so just make it a global that they can all add themselves to
-extern CScriptStatsTable* g_ScriptStatsTable;
+extern Script::CScriptStatsTable* g_ScriptStatsTable;
 
-#endif // INCLUDED_SCRIPTSTATS
+#endif // INCLUDED_SCRIPT_STATS
