@@ -1,18 +1,16 @@
 // Returns an array of commands suitable for ProcessCommand() based on the rally point data.
 // This assumes that the rally point has a valid position.
-function GetRallyPointCommands(cmpRallyPoint, spawnedEnts)
+function GetRallyPointCommands(rallyPos, data, spawnedEnts)
 {
-	const data = cmpRallyPoint.GetData();
-	const rallyPos = cmpRallyPoint.GetPositions();
 	const ret = [];
 	for (let i = 0; i < rallyPos.length; ++i)
 	{
 		// Look and see if there is a command in the rally point data, otherwise just walk there.
-		let command = data[i] && data[i].command ? data[i].command : "walk";
+		let command = data[i]?.command ?? "walk";
 
 		// If a target was set and the target no longer exists, or no longer
 		// has a valid position, then just walk to the rally point.
-		if (data[i] && data[i].target)
+		if (data[i]?.target)
 		{
 			const cmpPosition = Engine.QueryInterface(data[i].target, IID_Position);
 			if (!cmpPosition || !cmpPosition.IsInWorld())

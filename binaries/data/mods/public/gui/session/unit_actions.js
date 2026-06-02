@@ -1125,7 +1125,7 @@ var g_UnitActions =
 
 				Engine.PostNetworkCommand({
 					"type": "set-rallypoint",
-					"entities": selection,
+					"structures": selection,
 					"x": position.x,
 					"z": position.z,
 					"data": action.data,
@@ -1355,7 +1355,7 @@ var g_UnitActions =
 			{
 				Engine.PostNetworkCommand({
 					"type": "unset-rallypoint",
-					"entities": selection
+					"structures": selection
 				});
 
 				// Remove displayed rally point

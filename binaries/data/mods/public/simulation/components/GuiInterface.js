@@ -397,7 +397,7 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 
 	const cmpRallyPoint = Engine.QueryInterface(ent, IID_RallyPoint);
 	if (cmpRallyPoint)
-		ret.rallyPoint = { "position": cmpRallyPoint.GetPositions()[0] }; // undefined or {x,z} object
+		ret.rallyPoint = { "position": cmpRallyPoint.GetPositions(player)[0] }; // undefined or {x,z} object
 
 	const cmpGarrisonHolder = Engine.QueryInterface(ent, IID_GarrisonHolder);
 	if (cmpGarrisonHolder)
@@ -1036,6 +1036,16 @@ GuiInterface.prototype.GetNonGaiaEntities = function()
 };
 
 /**
+ * @param {number} entity - The entityID to verify.
+ * @param {number} player - The playerID to check against.
+ * @return {boolean}.
+ */
+function IsOwnedByPlayerOrMutualAlly(entity, player)
+{
+	return IsOwnedByPlayer(player, entity) || IsOwnedByMutualAllyOfPlayer(player, entity);
+}
+
+/**
  * Displays the rally points of a given list of entities (carried in cmd.entities).
  *
  * The 'cmd' object may carry its own x/z coordinate pair indicating the location where the rally point should
@@ -1046,14 +1056,12 @@ GuiInterface.prototype.GetNonGaiaEntities = function()
  */
 GuiInterface.prototype.DisplayRallyPoint = function(player, cmd)
 {
-	const cmpPlayer = QueryPlayerIDInterface(player);
-
 	// If there are some rally points already displayed, first hide them.
-	for (const ent of this.entsRallyPointsDisplayed)
+	for (const { ent } of this.entsRallyPointsDisplayed)
 	{
 		const cmpRallyPointRenderer = Engine.QueryInterface(ent, IID_RallyPointRenderer);
 		if (cmpRallyPointRenderer)
-			cmpRallyPointRenderer.SetDisplayed(false);
+			cmpRallyPointRenderer.Reset();
 	}
 
 	this.entsRallyPointsDisplayed = [];
@@ -1071,11 +1079,8 @@ GuiInterface.prototype.DisplayRallyPoint = function(player, cmd)
 		if (!cmpRallyPoint)
 			continue;
 
-		// Verify the owner.
-		const cmpOwnership = Engine.QueryInterface(ent, IID_Ownership);
-		if (!(cmpPlayer && cmpPlayer.CanControlAllUnits()))
-			if (!cmpOwnership || cmpOwnership.GetOwner() != player)
-				continue;
+		if (!IsOwnedByPlayerOrMutualAlly(ent, player))
+			continue;
 
 		// If the command was passed an explicit position, use that and
 		// override the real rally point position; otherwise use the real position.
@@ -1083,8 +1088,8 @@ GuiInterface.prototype.DisplayRallyPoint = function(player, cmd)
 		if (cmd.x && cmd.z)
 			pos = cmd;
 		else
-			// May return undefined if no rally point is set.
-			pos = cmpRallyPoint.GetPositions()[0];
+			// may return undefined if no rally point is set.
+			pos = cmpRallyPoint.GetPositions(player)[0];
 
 		if (pos)
 		{
@@ -1093,20 +1098,49 @@ GuiInterface.prototype.DisplayRallyPoint = function(player, cmd)
 			if ("queued" in cmd)
 			{
 				if (cmd.queued == true)
+				{
+					// check by re adding all existing positions before appending the new queued one.
+					const existingPositions = cmpRallyPoint.GetPositions(player);
+					for (const posi of existingPositions)
+						cmpRallyPointRenderer.AddPosition(new Vector2D(posi.x, posi.z));
 					cmpRallyPointRenderer.AddPosition(new Vector2D(pos.x, pos.z));
+				}
 				else
 					cmpRallyPointRenderer.SetPosition(new Vector2D(pos.x, pos.z));
 			}
 			else if (!cmpRallyPointRenderer.IsSet())
+			{
 				// Rebuild the renderer when not set (when reading saved game or in case of building update).
-				for (const posi of cmpRallyPoint.GetPositions())
+				const positions = cmpRallyPoint.GetPositions(player);
+				for (const posi of positions)
 					cmpRallyPointRenderer.AddPosition(new Vector2D(posi.x, posi.z));
+			}
 
 			cmpRallyPointRenderer.SetDisplayed(true);
 
 			// Remember which entities have their rally points displayed so we can hide them again.
-			this.entsRallyPointsDisplayed.push(ent);
+			this.entsRallyPointsDisplayed.push({ ent, player });
 		}
+	}
+};
+
+GuiInterface.prototype.OnUpdate = function()
+{
+	for (const { ent, player } of this.entsRallyPointsDisplayed)
+	{
+		const cmpRallyPointRenderer = Engine.QueryInterface(ent, IID_RallyPointRenderer);
+		if (!cmpRallyPointRenderer)
+			continue;
+
+		const cmpRallyPoint = Engine.QueryInterface(ent, IID_RallyPoint);
+		if (!cmpRallyPoint)
+			continue;
+
+		const positions = cmpRallyPoint.GetPositions(player);
+
+		// Update renderer positions so the path follows moving targets.
+		for (let i = 0; i < positions.length; i++)
+			cmpRallyPointRenderer.UpdatePosition(i, new Vector2D(positions[i].x, positions[i].z));
 	}
 };
 

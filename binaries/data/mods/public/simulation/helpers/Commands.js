@@ -434,27 +434,31 @@ var g_Commands = {
 
 	"set-rallypoint": function(player, cmd, data)
 	{
-		for (const ent of data.entities)
+		const structures = FilterEntityListWithAllies(cmd.structures || [], player, data.controlAllUnits);
+		for (const structure of structures)
 		{
-			var cmpRallyPoint = Engine.QueryInterface(ent, IID_RallyPoint);
-			if (cmpRallyPoint)
-			{
-				if (!cmd.queued)
-					cmpRallyPoint.Unset();
+			const cmpRallyPoint = Engine.QueryInterface(structure, IID_RallyPoint);
+			if (!cmpRallyPoint)
+				continue;
 
-				cmpRallyPoint.AddPosition(cmd.x, cmd.z);
-				cmpRallyPoint.AddData(clone(cmd.data));
-			}
+			if (!cmd.queued)
+				cmpRallyPoint.Unset(player);
+
+			cmpRallyPoint.AddPosition(cmd.x, cmd.z, player);
+			cmpRallyPoint.AddData(clone(cmd.data), player);
 		}
 	},
 
 	"unset-rallypoint": function(player, cmd, data)
 	{
-		for (const ent of data.entities)
+		const structures = FilterEntityListWithAllies(cmd.structures || [], player, data.controlAllUnits);
+		for (const structure of structures)
 		{
-			var cmpRallyPoint = Engine.QueryInterface(ent, IID_RallyPoint);
-			if (cmpRallyPoint)
-				cmpRallyPoint.Reset();
+			const cmpRallyPoint = Engine.QueryInterface(structure, IID_RallyPoint);
+			if (!cmpRallyPoint)
+				continue;
+
+			cmpRallyPoint.Unset(player);
 		}
 	},
 

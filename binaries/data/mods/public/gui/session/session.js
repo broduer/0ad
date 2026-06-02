@@ -331,6 +331,8 @@ async function init(initData, hotloadData)
 		resumeGame();
 	});
 
+	g_DiplomacyColors.updateDisplayedPlayerColors();
+
 	const promise = Promise.race([new Promise((_, reject) =>
 	{
 		if (g_IsNetworked)

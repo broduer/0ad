@@ -229,7 +229,7 @@ Trainer.prototype.Item.prototype.Spawn = function()
 	const cmpRallyPoint = Engine.QueryInterface(this.trainer, IID_RallyPoint);
 	if (cmpRallyPoint)
 	{
-		const data = cmpRallyPoint.GetData()[0];
+		const data = cmpRallyPoint.GetData(this.player)[0];
 		if (data?.target && data.target == this.trainer && data.command == "garrison")
 			autoGarrison = true;
 	}
@@ -294,7 +294,7 @@ Trainer.prototype.Item.prototype.Spawn = function()
 	}
 
 	if (spawnedEnts.length && cmpRallyPoint)
-		for (const com of GetRallyPointCommands(cmpRallyPoint, spawnedEnts))
+		for (const com of GetRallyPointCommands(cmpRallyPoint.GetPositions(this.player), cmpRallyPoint.GetData(this.player), spawnedEnts))
 		{
 			// Tag this command as coming from a rally point
 			com.fromRallyPoint = true;

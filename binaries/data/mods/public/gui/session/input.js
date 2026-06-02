@@ -263,7 +263,7 @@ function determineAction(x, y, fromMiniMap)
 	if (!entState)
 		return undefined;
 
-	if (!selection.every(ownsEntity) &&
+	if (!selection.every(ent => ownsEntity(ent) || isMutualAllyBuilding(ent)) &&
 	    !(g_SimState.players[g_ViewedPlayer] &&
 	      g_SimState.players[g_ViewedPlayer].controlsAll))
 		return undefined;
@@ -316,6 +316,13 @@ function ownsEntity(ent)
 {
 	const entState = GetEntityState(ent);
 	return entState && entState.player == g_ViewedPlayer;
+}
+
+function isMutualAllyBuilding(ent)
+{
+	const entState = GetEntityState(ent);
+	return entState && entState.rallyPoint &&
+		g_Players[entState.player]?.isMutualAlly[g_ViewedPlayer];
 }
 
 function isAttackMovePressed()

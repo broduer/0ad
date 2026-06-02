@@ -996,13 +996,13 @@ export const Entity = Class({
 	"setRallyPoint": function(target, command)
 	{
 		const data = { "command": command, "target": target.id() };
-		Engine.PostCommand(PlayerID, { "type": "set-rallypoint", "entities": [this.id()], "x": target.position()[0], "z": target.position()[1], "data": data });
+		Engine.PostCommand(PlayerID, { "type": "set-rallypoint", "structures": [this.id()], "x": target.position()[0], "z": target.position()[1], "data": data });
 		return this;
 	},
 
 	"unsetRallyPoint": function()
 	{
-		Engine.PostCommand(PlayerID, { "type": "unset-rallypoint", "entities": [this.id()] });
+		Engine.PostCommand(PlayerID, { "type": "unset-rallypoint", "structures": [this.id()] });
 		return this;
 	},
 
