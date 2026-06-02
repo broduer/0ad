@@ -44,6 +44,7 @@ class CNetClientSession;
 class CNetClientTurnManager;
 class JSTracer;
 class XmppClient;
+
 namespace Script { class Interface; }
 
 typedef struct _ENetHost ENetHost;
@@ -147,7 +148,7 @@ public:
 	 * Has to be called bevore the @c Script::Interface gets destroied so that
 	 * no future messages are sent to it.
 	 */
-	void Unregister(const Script::Interface& guiInterface);
+	void Unregister(const Script::Interface* guiInterface);
 
 	/**
 	 * Add a message to the queue, to be read by GuiPoll.

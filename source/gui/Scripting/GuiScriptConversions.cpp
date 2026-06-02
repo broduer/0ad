@@ -17,7 +17,7 @@
 
 #include "precompiled.h"
 
-#include "scriptinterface/Conversions.h"
+#include "scriptinterface/ScriptConversions.h"
 
 #include "gui/CGUISprite.h"
 #include "gui/ObjectBases/IGUIObject.h"
@@ -55,7 +55,7 @@ struct CColor;
 	// ignore JS_SetProperty return value, because errors should be impossible
 	// and we can't do anything useful in the case of errors anyway
 
-template<> void Script::ToJSVal<SDL_Event_>(const Script::Request& rq, JS::MutableHandleValue ret, SDL_Event_ const& val)
+template<> void Script::ToJSVal<SDL_Event>(const Script::Request& rq, JS::MutableHandleValue ret, SDL_Event const& ev)
 {
 	const char* typeName;
 

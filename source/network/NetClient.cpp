@@ -367,7 +367,7 @@ void CNetClient::CheckServerConnection()
 JSObject* CNetClient::GetNextGUIMessage(const Script::Interface& guiInterface)
 {
 	Unregister(nullptr);
-	const ScriptRequest rq{guiInterface};
+	const Script::Request rq{guiInterface};
 	m_GuiMessagePoll.emplace(GuiPollData{guiInterface, {rq.cx, JS::NewPromiseObject(rq.cx, nullptr)}});
 
 	FetchMessage();
@@ -382,7 +382,7 @@ void CNetClient::Unregister(const Script::Interface* guiInterface)
 		return;
 	}
 	auto& [interface, promise] = m_GuiMessagePoll.value();
-	const ScriptRequest oldRq{interface};
+	const Script::Request oldRq{interface};
 	JS::ResolvePromise(oldRq.cx, promise, JS::UndefinedHandleValue);
 	m_GuiMessagePoll.reset();
 }
