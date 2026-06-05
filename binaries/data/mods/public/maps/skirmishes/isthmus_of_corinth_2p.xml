@@ -32,7 +32,7 @@
 		</Postproc>
 	</Environment>
 	<Camera>
-		<Position x="467.537" y="137.73" z="774.529"/>
+		<Position x="614.021" y="106.243" z="861.685"/>
 		<Rotation angle="0"/>
 		<Declination angle="0.610865"/>
 	</Camera>
@@ -8138,7 +8138,7 @@
 		</Entity>
 		<Entity uid="1225">
 			<Template>actor|props/flora/grass_temp_field_dry.xml</Template>
-			<Position x="912.47529" z="249.783"/>
+			<Position x="910.79615" z="248.68339"/>
 			<Orientation y="-2.01514"/>
 			<Actor seed="57554"/>
 		</Entity>
@@ -8174,7 +8174,7 @@
 		</Entity>
 		<Entity uid="1231">
 			<Template>actor|props/flora/grass_temp_field_dry.xml</Template>
-			<Position x="911.75501" z="254.51551"/>
+			<Position x="895.09894" z="264.08848"/>
 			<Orientation y="-2.03077"/>
 			<Actor seed="20682"/>
 		</Entity>
@@ -8240,7 +8240,7 @@
 		</Entity>
 		<Entity uid="1242">
 			<Template>actor|props/flora/grass_temp_field_dry.xml</Template>
-			<Position x="922.8996" z="285.85636"/>
+			<Position x="934.64002" z="304.09562"/>
 			<Orientation y="0.38163"/>
 			<Actor seed="31145"/>
 		</Entity>
@@ -8516,7 +8516,7 @@
 		</Entity>
 		<Entity uid="1288">
 			<Template>actor|props/flora/grass_soft_dry_small_tall.xml</Template>
-			<Position x="923.9911" z="281.77057"/>
+			<Position x="943.88105" z="302.88657"/>
 			<Orientation y="-1.63752"/>
 			<Actor seed="48326"/>
 		</Entity>
@@ -32070,12 +32070,6 @@
 			<Position x="341.25934" z="974.16224"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="40309"/>
-		</Entity>
-		<Entity uid="5523">
-			<Template>actor|props/structures/decals/paving_tile_aegean_8x8_round.xml</Template>
-			<Position x="936.05225" z="279.86188"/>
-			<Orientation y="0.75466"/>
-			<Actor seed="63340"/>
 		</Entity>
 		<Entity uid="5524">
 			<Template>actor|geology/stone_granite_greek_med.xml</Template>

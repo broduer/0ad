@@ -3,10 +3,10 @@
 <Scenario version="7">
 	<Environment>
 		<SkySet>desert</SkySet>
-		<SunColor r="0.984314" g="0.92549" b="0.690196"/>
+		<SunColor r="0.984314" g="0.921569" b="0.686275"/>
 		<SunElevation angle="0.929592"/>
 		<SunRotation angle="-0.566729"/>
-		<AmbientColor r="0.368627" g="0.376471" b="0.419608"/>
+		<AmbientColor r="0.364706" g="0.376471" b="0.419608"/>
 		<Fog>
 			<FogFactor>0.00226562</FogFactor>
 			<FogThickness>0</FogThickness>
@@ -32,7 +32,7 @@
 		</Postproc>
 	</Environment>
 	<Camera>
-		<Position x="324.684" y="146.467" z="59.9582"/>
+		<Position x="260.418" y="82.2488" z="136.68"/>
 		<Rotation angle="0"/>
 		<Declination angle="0.610865"/>
 	</Camera>
