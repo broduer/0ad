@@ -3,7 +3,7 @@
  */
 class QuitConfirmationDefeat extends QuitConfirmation
 {
-	constructor(closePageCallback)
+	constructor(closeSession)
 	{
 		super();
 
@@ -11,10 +11,10 @@ class QuitConfirmationDefeat extends QuitConfirmation
 			return;
 
 		this.confirmHandler = undefined;
-		registerPlayersFinishedHandler(this.onPlayersFinished.bind(this, closePageCallback));
+		registerPlayersFinishedHandler(this.onPlayersFinished.bind(this, closeSession));
 	}
 
-	onPlayersFinished(closePageCallback, players, won)
+	onPlayersFinished(closeSession, players, won)
 	{
 		if (players.indexOf(Engine.GetPlayerID()) == -1)
 			return;
@@ -22,11 +22,11 @@ class QuitConfirmationDefeat extends QuitConfirmation
 		// Defer simulation result until
 		// 1. the loading screen finished for all networked clients (g_IsNetworkedActive)
 		// 2. all messages modifying g_Players victory state were processed (next turn)
-		this.confirmHandler = this.confirmExit.bind(this, won, closePageCallback);
+		this.confirmHandler = this.confirmExit.bind(this, won, closeSession);
 		registerSimulationUpdateHandler(this.confirmHandler);
 	}
 
-	confirmExit(won, closePageCallback)
+	confirmExit(won, closeSession)
 	{
 		if (g_IsNetworked && !g_IsNetworkedActive)
 			return;
@@ -47,7 +47,7 @@ class QuitConfirmationDefeat extends QuitConfirmation
 
 		this.Buttons = askExit ? super.Buttons : undefined;
 
-		this.display(closePageCallback);
+		this.display(closeSession);
 	}
 }
 

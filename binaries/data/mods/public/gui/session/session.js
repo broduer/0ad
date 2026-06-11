@@ -338,13 +338,13 @@ async function init(initData, hotloadData)
 	{
 		if (g_IsNetworked)
 			handleNetMessages().catch(reject);
-	}), new Promise(closePageCallback =>
+	}), new Promise(closeSession =>
 	{
-		g_Menu = new Menu(g_PauseControl, g_PlayerViewControl, g_Chat, closePageCallback);
-		g_NetworkStatusOverlay = new NetworkStatusOverlay(closePageCallback);
-		g_QuitConfirmationDefeat = new QuitConfirmationDefeat(closePageCallback);
-		g_QuitConfirmationReplay = new QuitConfirmationReplay(closePageCallback);
-		g_TutorialManager = new TutorialManager(closePageCallback, hotloadData?.tutorial);
+		g_Menu = new Menu(g_PauseControl, g_PlayerViewControl, g_Chat, closeSession);
+		g_NetworkStatusOverlay = new NetworkStatusOverlay(closeSession);
+		g_QuitConfirmationDefeat = new QuitConfirmationDefeat(closeSession);
+		g_QuitConfirmationReplay = new QuitConfirmationReplay(closeSession);
+		g_TutorialManager = new TutorialManager(closeSession, hotloadData?.tutorial);
 	})]);
 
 	// TODO: use event instead
@@ -370,7 +370,19 @@ async function init(initData, hotloadData)
 
 	setTimeout(displayGamestateNotifications, 1000);
 
-	return promise;
+	const showSummary = await promise;
+
+	// Depends on the simulation, so it has to be called before EndGame.
+	const openRequest = getNextPageOpenRequest(showSummary);
+
+	Engine.EndGame();
+	// After the replay file was closed in EndGame
+	if (!g_IsReplay)
+		Engine.AddReplayToCache(Engine.GetCurrentReplayDirectory());
+	if (g_IsController && Engine.HasXmppClient())
+		Engine.SendUnregisterGame();
+
+	return { [Engine.openRequest]: openRequest };
 }
 
 function registerPlayersInitHandler(handler)
@@ -530,31 +542,20 @@ function closeOpenDialogs()
 	g_TradeDialog.close();
 }
 
-function endGame(showSummary)
+/**
+ * Put together an open request for the next GUI page to show after closing the session.
+ * This could be, depending on the situation, the the summary screen, the main menu, the lobby, etc.
+ */
+function getNextPageOpenRequest(showSummary)
 {
-	// Before ending the game
-	const replayDirectory = Engine.GetCurrentReplayDirectory();
-	const simData = Engine.GuiInterfaceCall("GetReplayMetadata");
-	const playerID = Engine.GetPlayerID();
-
-	Engine.EndGame();
-
-	// After the replay file was closed in EndGame
-	// Done here to keep EndGame small
-	if (!g_IsReplay)
-		Engine.AddReplayToCache(replayDirectory);
-
-	if (g_IsController && Engine.HasXmppClient())
-		Engine.SendUnregisterGame();
-
 	const summaryData = {
-		"sim": simData,
+		"sim": Engine.GuiInterfaceCall("GetReplayMetadata"),
 		"gui": {
 			"dialog": false,
-			"assignedPlayer": playerID,
+			"assignedPlayer": Engine.GetPlayerID(),
 			"disconnected": g_Disconnected,
 			"isReplay": g_IsReplay,
-			"replayDirectory": !g_HasRejoined && replayDirectory,
+			"replayDirectory": !g_HasRejoined && Engine.GetCurrentReplayDirectory(),
 			"replaySelectionData": g_ReplaySelectionData
 		}
 	};
@@ -563,9 +564,8 @@ function endGame(showSummary)
 	{
 		const menu = g_CampaignSession.getMenu();
 		if (g_InitAttributes.campaignData.skipSummary)
-		{
 			return { "page": menu };
-		}
+
 		summaryData.campaignData = { "filename": g_InitAttributes.campaignData.run };
 		summaryData.nextPage = menu;
 	}

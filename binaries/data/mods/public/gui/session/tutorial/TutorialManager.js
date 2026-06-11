@@ -25,11 +25,11 @@ class TutorialManager
 	activePanel;
 	currentWarning = "";
 	isFinished = false;
-	closePageCallback;
+	closeSession;
 
-	constructor(closePageCallback, hotloadData)
+	constructor(closeSession, hotloadData)
 	{
-		this.closePageCallback = closePageCallback;
+		this.closeSession = closeSession;
 
 		this.parentObj.hidden = true;
 
@@ -140,7 +140,7 @@ class TutorialManager
 	continue()
 	{
 		if (this.isFinished)
-			this.closePageCallback({ [Engine.openRequest]: endGame(true) });
+			this.closeSession(true);
 		else if (this.pendingSteps.length)
 			this.displayNextPendingStep();
 		else

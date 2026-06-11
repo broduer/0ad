@@ -3,7 +3,7 @@
  */
 class Menu
 {
-	constructor(pauseControl, playerViewControl, chat, closePageCallback)
+	constructor(pauseControl, playerViewControl, chat, closeSession)
 	{
 		this.menuButton = Engine.GetGUIObjectByName("menuButton");
 		this.menuButton.onPress = this.toggle.bind(this);
@@ -26,7 +26,7 @@ class Menu
 		this.buttons = handlerNames.map((handlerName, i) =>
 		{
 			const handler = new MenuButtons.prototype[handlerName](menuButtons[i], pauseControl, playerViewControl, chat);
-			this.initButton(handler, menuButtons[i], i, closePageCallback);
+			this.initButton(handler, menuButtons[i], i, closeSession);
 			return handler;
 		});
 
@@ -62,12 +62,12 @@ class Menu
 		this.startAnimation();
 	}
 
-	initButton(handler, button, i, closePageCallback)
+	initButton(handler, button, i, closeSession)
 	{
 		button.onPress = () =>
 		{
 			this.close();
-			handler.onPress(closePageCallback);
+			handler.onPress(closeSession);
 		};
 		button.size.top = this.buttonHeight * (i + 1) + this.margin;
 		button.size.bottom = this.buttonHeight * (i + 2);

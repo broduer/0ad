@@ -283,13 +283,13 @@ MenuButtons.prototype.Exit = class
 		this.pauseControl = pauseControl;
 	}
 
-	onPress(closePageCallback)
+	onPress(closeSession)
 	{
 		for (const name in QuitConfirmationMenu.prototype)
 		{
 			const quitConfirmation = new QuitConfirmationMenu.prototype[name]();
 			if (quitConfirmation.enabled())
-				quitConfirmation.display(closePageCallback);
+				quitConfirmation.display(closeSession);
 		}
 	}
 };

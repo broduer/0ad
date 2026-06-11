@@ -18,12 +18,12 @@ QuitConfirmation.prototype.Buttons =
 		{
 		// Translation: Shown in the Dialog that shows up when the game finishes
 			"caption": translate("Quit and View Summary"),
-			"onPress": () => endGame(true)
+			"onPress": function() { this.closeSession(true); }
 		},
 		{
 		// Translation: Shown in the Dialog that shows up when the game finishes
 			"caption": translate("Quit"),
-			"onPress": () => endGame(false)
+			"onPress": function() { this.closeSession(false); }
 		}
 	];
 

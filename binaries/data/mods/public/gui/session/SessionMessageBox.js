@@ -4,7 +4,7 @@
  */
 class SessionMessageBox
 {
-	async display(closePageCallback)
+	async display(closeSession)
 	{
 		closeOpenDialogs();
 		g_PauseControl.implicitPause();
@@ -19,12 +19,9 @@ class SessionMessageBox
 				"buttonCaptions": this.Buttons ? this.Buttons.map(button => button.caption) : undefined,
 			});
 
+		this.closeSession = closeSession;
 		if (this.Buttons && this.Buttons[buttonId].onPress)
-		{
-			const ret = this.Buttons[buttonId].onPress.call(this);
-			if (ret !== undefined)
-				closePageCallback({ [Engine.openRequest]: ret });
-		}
+			this.Buttons[buttonId].onPress.call(this);
 
 		if (this.ResumeOnClose)
 			resumeGame();
