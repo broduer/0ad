@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -93,7 +93,7 @@ pipeline {
                 {
                     sh '''
                         security unlock-keychain -p ${KEYCHAIN_PW} login.keychain
-                        /opt/wfg/venv/bin/python3 source/tools/dist/build-osx-bundle.py \
+                        /opt/wfg/venv/bin/python3 source/tools/dist/build-macos-bundle.py \
                             --min_osx=${MIN_OSX_VERSION} \
                             -s ${SIGNKEY_SHA} \
                             --notarytool_user=${NOTARIZATION_USER} \
@@ -129,7 +129,7 @@ pipeline {
                 {
                     sh '''
                         security unlock-keychain -p ${KEYCHAIN_PW} login.keychain
-                        /opt/wfg/venv/bin/python3 source/tools/dist/build-osx-bundle.py \
+                        /opt/wfg/venv/bin/python3 source/tools/dist/build-macos-bundle.py \
                             --architecture=x86_64 \
                             --min_osx=${MIN_OSX_VERSION} \
                             -s ${SIGNKEY_SHA} \
