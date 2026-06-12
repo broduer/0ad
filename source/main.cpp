@@ -114,7 +114,7 @@ that of Atlas depending on commandline parameters.
 #endif // OS_UNIX
 
 #if OS_MACOSX
-#include "lib/sysdep/os/osx/osx_atlas.h"
+#include "lib/sysdep/os/macos/macos_atlas.h"
 #endif
 
 #if MSC_VERSION

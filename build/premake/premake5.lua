@@ -1023,7 +1023,7 @@ function setup_all_libs ()
 		-- note: RC file must be added to main_exe project.
 		-- note: don't add "lib/sysdep/os/win/aken.cpp" because that must be compiled with the DDK.
 		windows = { "lib/sysdep/os/win", "lib/sysdep/os/win/wposix", "lib/sysdep/os/win/whrt" },
-		macosx = { "lib/sysdep/os/osx", "lib/sysdep/os/unix" },
+		macosx = { "lib/sysdep/os/macos", "lib/sysdep/os/unix" },
 		bsd = { "lib/sysdep/os/bsd", "lib/sysdep/os/unix", "lib/sysdep/os/unix/x" },
 	}
 	for i,v in pairs(sysdep_dirs[os.target()]) do

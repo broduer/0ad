@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -20,8 +20,8 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef OSX_BUNDLE_H
-#define OSX_BUNDLE_H
+#ifndef MACOS_BUNDLE_H
+#define MACOS_BUNDLE_H
 
 /**
  * @file
@@ -60,4 +60,4 @@ std::string osx_GetBundleResourcesPath();
  */
 std::string osx_GetBundleFrameworksPath();
 
-#endif // OSX_BUNDLE_H
+#endif // MACOS_BUNDLE_H

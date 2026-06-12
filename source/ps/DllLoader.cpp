@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -30,7 +30,7 @@
 #include <string>
 
 #if OS_MACOSX
-# include "lib/sysdep/os/osx/osx_bundle.h"
+# include "lib/sysdep/os/macos/macos_bundle.h"
 #endif
 
 static void* const HANDLE_UNAVAILABLE = (void*)-1;

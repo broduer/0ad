@@ -1,4 +1,4 @@
-/* Copyright (C) 2013 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -25,7 +25,7 @@
 #import <dispatch/dispatch.h>
 #import <string>
 
-#import "osx_sys_version.h"
+#import "macos_sys_version.h"
 
 void GetSystemVersion(int &major, int &minor, int &bugfix)
 {

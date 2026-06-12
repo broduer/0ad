@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -20,32 +20,17 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#import <AvailabilityMacros.h> // MAC_OS_X_VERSION_MIN_REQUIRED
-#import <AppKit/AppKit.h>
+#ifndef MACOS_ATLAS_H
+#define MACOS_ATLAS_H
 
-#import "osx_atlas.h"
+#include <vector>
 
-#include "lib/types.h"
-#include "ps/CStr.h"
+class CStr8;
 
-void startNewAtlasProcess(const std::vector<CStr8>& mods)
-{
-	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+/**
+ * Runs a new pyrogenesis process with the -editor argument.
+ * Necessary because SDL and WxWidgets conflict.
+ */
+void startNewAtlasProcess(const std::vector<CStr8>& mods);
 
-	NSMutableArray *args = [[NSMutableArray alloc] init];
-	[args addObject:@"--editor"];
-
-	// Pass mods on the command line.
-	for (const CStr8& mod : mods)
-	{
-		std::string arg = std::string("-mod=") + mod;
-		[args addObject:[[NSString alloc] initWithUTF8String:arg.c_str()]];
-	}
-
-	// Apple documents this as (deprecated) NSWorkspaceLaunchConfigurationKey, but that's not available in early SDKs.
-	NSDictionary<NSString*, id> *params = @{ NSWorkspaceLaunchConfigurationArguments: args };
-
-	[[NSWorkspace sharedWorkspace] launchApplicationAtURL:[[NSRunningApplication currentApplication] executableURL] options:NSWorkspaceLaunchNewInstance configuration:params error:nil];
-
-	[pool drain];
-}
+#endif // MACOS_ATLAS_H

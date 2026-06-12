@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -20,34 +20,32 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-// note: the BFD stuff *could* be used on other platforms, if we saw the
-// need for it.
+#import <AvailabilityMacros.h> // MAC_OS_X_VERSION_MIN_REQUIRED
+#import <AppKit/AppKit.h>
 
-#include "precompiled.h"
+#import "macos_atlas.h"
 
-#include "lib/sysdep/sysdep.h"
-#include "lib/debug.h"
+#include "lib/types.h"
+#include "ps/CStr.h"
 
-#include <pthread.h>
-
-void* debug_GetCaller(void* /*context*/, const wchar_t* /*lastFuncToSkip*/)
+void startNewAtlasProcess(const std::vector<CStr8>& mods)
 {
-	return NULL;
-}
+	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 
-Status debug_DumpStack(wchar_t* /*buf*/, size_t /*max_chars*/, void* /*context*/,
-	const wchar_t* /*lastFuncToSkip*/)
-{
-	return ERR::NOT_SUPPORTED;
-}
+	NSMutableArray *args = [[NSMutableArray alloc] init];
+	[args addObject:@"--editor"];
 
-Status debug_ResolveSymbol(void* /*ptr_of_interest*/, wchar_t* /*sym_name*/, wchar_t* /*file*/,
-	int* /*line*/)
-{
-	return ERR::NOT_SUPPORTED;
-}
+	// Pass mods on the command line.
+	for (const CStr8& mod : mods)
+	{
+		std::string arg = std::string("-mod=") + mod;
+		[args addObject:[[NSString alloc] initWithUTF8String:arg.c_str()]];
+	}
 
-void debug_SetThreadName(char const* name)
-{
-	pthread_setname_np(name);
+	// Apple documents this as (deprecated) NSWorkspaceLaunchConfigurationKey, but that's not available in early SDKs.
+	NSDictionary<NSString*, id> *params = @{ NSWorkspaceLaunchConfigurationArguments: args };
+
+	[[NSWorkspace sharedWorkspace] launchApplicationAtURL:[[NSRunningApplication currentApplication] executableURL] options:NSWorkspaceLaunchNewInstance configuration:params error:nil];
+
+	[pool drain];
 }

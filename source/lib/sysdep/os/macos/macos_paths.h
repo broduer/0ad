@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -20,17 +20,28 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef OSX_ATLAS_H
-#define OSX_ATLAS_H
-
-#include <vector>
-
-class CStr8;
+#ifndef MACOS_PATHS_H
+#define MACOS_PATHS_H
 
 /**
- * Runs a new pyrogenesis process with the -editor argument.
- * Necessary because SDL and WxWidgets conflict.
+ * @file
+ * C++ interface to Cocoa implementation for retrieving standard OS X paths
  */
-void startNewAtlasProcess(const std::vector<CStr8>& mods);
 
-#endif // OSX_ATLAS_H
+/**
+ * Get the user's Application Support path (typically ~/Library/Application Support)
+ *
+ * @return string containing POSIX-style path in UTF-8 encoding,
+ *	else empty string if an error occurred.
+ */
+std::string osx_GetAppSupportPath();
+
+/**
+ * Get the user's Caches path (typically ~/Library/Caches)
+ *
+ * @return string containing POSIX-style path in UTF-8 encoding,
+ *	else empty string if an error occurred.
+ */
+std::string osx_GetCachesPath();
+
+#endif // MACOS_PATHS_H

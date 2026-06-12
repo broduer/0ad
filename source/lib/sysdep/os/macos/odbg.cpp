@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -20,46 +20,34 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+// note: the BFD stuff *could* be used on other platforms, if we saw the
+// need for it.
+
 #include "precompiled.h"
 
-#include "lib/lib.h"
 #include "lib/sysdep/sysdep.h"
-#include "lib/utf8.h"
-#include "osx_bundle.h"
+#include "lib/debug.h"
 
-#include <ApplicationServices/ApplicationServices.h>
-#include <AvailabilityMacros.h> // MAC_OS_X_VERSION_MIN_REQUIRED
-#include <CoreFoundation/CoreFoundation.h>
-#include <mach-o/dyld.h> // _NSGetExecutablePath
+#include <pthread.h>
 
-// Ignore deprecation warnings for 10.5 backwards compatibility
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-
-OsPath sys_ExecutablePathname()
+void* debug_GetCaller(void* /*context*/, const wchar_t* /*lastFuncToSkip*/)
 {
-	OsPath path;
-
-	// On OS X we might be a bundle, return the bundle path as the executable name,
-	//	i.e. /path/to/0ad.app instead of /path/to/0ad.app/Contents/MacOS/pyrogenesis
-	if (osx_IsAppBundleValid())
-	{
-		path = osx_GetBundlePath();
-		ENSURE(!path.empty());
-	}
-	else
-	{
-		char temp[PATH_MAX];
-		u32 size = PATH_MAX;
-		if (_NSGetExecutablePath(temp, &size) == 0)
-		{
-			char name[PATH_MAX];
-			realpath(temp, name);
-			path = OsPath(name);
-		}
-	}
-
-	return path;
+	return NULL;
 }
 
-#pragma GCC diagnostic pop // restore user flags
+Status debug_DumpStack(wchar_t* /*buf*/, size_t /*max_chars*/, void* /*context*/,
+	const wchar_t* /*lastFuncToSkip*/)
+{
+	return ERR::NOT_SUPPORTED;
+}
+
+Status debug_ResolveSymbol(void* /*ptr_of_interest*/, wchar_t* /*sym_name*/, wchar_t* /*file*/,
+	int* /*line*/)
+{
+	return ERR::NOT_SUPPORTED;
+}
+
+void debug_SetThreadName(char const* name)
+{
+	pthread_setname_np(name);
+}

@@ -1,4 +1,4 @@
-/* Copyright (C) 2013 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -24,56 +24,50 @@
 #import <Foundation/Foundation.h>
 #import <string>
 
-#import "osx_bundle.h"
+#import "macos_paths.h"
 
-bool osx_IsAppBundleValid()
+// Helper function
+static std::string getUserDirectoryPath(NSSearchPathDirectory directory)
 {
 	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+	std::string result;
 
-	NSBundle *bundle = [NSBundle mainBundle];
-	// mainBundle can create an NSBundle even with a loose executable.
-	// Assume that if the identifier is defined, we are actually inside a bundle.
-	NSString *identifier = [bundle bundleIdentifier];
+	NSArray* paths;
+#if MAC_OS_X_VERSION_MIN_REQUIRED >= 1060
+	// Returns array of NSURL objects which are preferred for file paths
+	if ([NSFileManager instancesRespondToSelector:@selector(URLsForDirectory)])
+		paths = [[NSFileManager defaultManager] URLsForDirectory:directory inDomains:NSUserDomainMask];
+	else
+#endif	// fallback to 10.5 API
+		paths = NSSearchPathForDirectoriesInDomains(directory, NSUserDomainMask, true);
 
-	[pool drain];
-	return bundle != nil && identifier != nil;
-}
-
-namespace {
-std::string GetBundlePath(SEL selector)
-{
-	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-	std::string path;
-
-	NSBundle *bundle = [NSBundle mainBundle];
-	if (bundle != nil)
+	if ([paths count] > 0)
 	{
-		NSString *pathStr;
-		// Retrieve NSURL and convert to POSIX path, then get C-string
+		NSString* pathStr;
+#if MAC_OS_X_VERSION_MIN_REQUIRED >= 1060
+		// Retrieve first NSURL and convert to POSIX path, then get C-string
 		//	encoded as UTF-8, and use it to construct std::string
 		// NSURL:path "If the receiver does not conform to RFC 1808, returns nil."
-		pathStr = [[bundle performSelector:selector] path];
+		if ([NSFileManager instancesRespondToSelector:@selector(URLsForDirectory)])
+			pathStr = [[paths objectAtIndex:0] path];
+		else
+#endif		// fallback to 10.5 API
+			pathStr = [paths objectAtIndex:0];
 
 		if (pathStr != nil)
-			path = std::string([pathStr UTF8String]);
+			result = std::string([pathStr UTF8String]);
 	}
 
 	[pool drain];
-	return path;
-}
-}
-
-std::string osx_GetBundlePath()
-{
-	return GetBundlePath(@selector(bundleURL));
+	return result;
 }
 
-std::string osx_GetBundleResourcesPath()
+std::string osx_GetAppSupportPath()
 {
-	return GetBundlePath(@selector(resourceURL));
+	return getUserDirectoryPath(NSApplicationSupportDirectory);
 }
 
-std::string osx_GetBundleFrameworksPath()
+std::string osx_GetCachesPath()
 {
-	return GetBundlePath(@selector(privateFrameworksURL));
+	return getUserDirectoryPath(NSCachesDirectory);
 }

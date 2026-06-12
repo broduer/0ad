@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -24,7 +24,7 @@
 
 #include "lib/sysdep/dir_watch.h"
 #include "lib/file/file_system.h"
-#include "osx_sys_version.h"
+#include "macos_sys_version.h"
 
 #include "lib/os_path.h"
 #include "lib/file/file.h"
