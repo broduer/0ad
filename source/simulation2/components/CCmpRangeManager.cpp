@@ -71,6 +71,7 @@
 #include <set>
 #include <string>
 #include <type_traits>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -444,6 +445,10 @@ public:
 	Grid<std::set<entity_id_t>> m_LosRegions;
 	// List of entities that must be updated, regardless of the status of their tile
 	std::vector<entity_id_t> m_ModifiedEntities;
+	// Mirror of m_ModifiedEntities for O(1) membership tests (not serialized,
+	// rebuilt in Deserialize). The vector is kept as the serialized form and
+	// for its deterministic processing order in UpdateVisibilityData.
+	std::unordered_set<entity_id_t> m_ModifiedEntitiesSet;
 
 	// Counts of units seeing vertex, per vertex, per player (starting with player 0).
 	// Use u16 to avoid overflows when we have very large (but not infeasibly large) numbers
@@ -546,6 +551,9 @@ public:
 		Init(paramNode);
 
 		SerializeCommon(deserialize);
+
+		m_ModifiedEntitiesSet.clear();
+		m_ModifiedEntitiesSet.insert(m_ModifiedEntities.begin(), m_ModifiedEntities.end());
 	}
 
 	void HandleMessage(const CMessage& msg, bool /*global*/) override
@@ -1860,7 +1868,7 @@ public:
 		if (IsVisibilityDirty(m_DirtyVisibility[PosToLosRegionsHelper(pos.X, pos.Y)], player))
 			return ComputeLosVisibility(ent, player);
 
-		if (std::find(m_ModifiedEntities.begin(), m_ModifiedEntities.end(), entId) != m_ModifiedEntities.end())
+		if (m_ModifiedEntitiesSet.find(entId) != m_ModifiedEntitiesSet.end())
 			return ComputeLosVisibility(ent, player);
 
 		EntityMap<EntityData>::const_iterator it = m_EntityData.find(entId);
@@ -1964,6 +1972,7 @@ public:
 		{
 			entity_id_t ent = m_ModifiedEntities.back();
 			m_ModifiedEntities.pop_back();
+			m_ModifiedEntitiesSet.erase(ent);
 
 			++attempts[ent];
 			ENSURE(attempts[ent] < 100 && "Infinite loop in UpdateVisibilityData");
@@ -1974,7 +1983,7 @@ public:
 
 	void RequestVisibilityUpdate(entity_id_t ent) override
 	{
-		if (std::find(m_ModifiedEntities.begin(), m_ModifiedEntities.end(), ent) == m_ModifiedEntities.end())
+		if (m_ModifiedEntitiesSet.insert(ent).second)
 			m_ModifiedEntities.push_back(ent);
 	}
 
