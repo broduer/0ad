@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -55,6 +55,39 @@ public:
 
 	void SetWaterLevel(entity_pos_t /*h*/) override
 	{
+	}
+};
+
+class MockPositionChangedListener : public IComponent
+{
+public:
+	DEFAULT_MOCK_COMPONENT()
+
+	JS::HandleValue GetJSInstance() const override
+	{
+		return JS::UndefinedHandleValue;
+	}
+
+	bool NewJSObject(const ScriptInterface&, JS::MutableHandleObject) const override
+	{
+		return false;
+	}
+
+	int m_Count = 0;
+	bool m_LastInWorld = false;
+	entity_pos_t m_LastX, m_LastZ;
+	entity_angle_t m_LastRotY;
+
+	void HandleMessage(const CMessage& msg, bool /*global*/) override
+	{
+		if (msg.GetType() != MT_PositionChanged)
+			return;
+		const CMessagePositionChanged& msgData = static_cast<const CMessagePositionChanged&>(msg);
+		++m_Count;
+		m_LastInWorld = msgData.inWorld;
+		m_LastX = msgData.x;
+		m_LastZ = msgData.z;
+		m_LastRotY = msgData.a;
 	}
 };
 
@@ -211,6 +244,58 @@ public:
 		TS_ASSERT_EQUALS(cmp->GetHeightFixed(), entity_pos_t::FromInt(122));
 		TS_ASSERT_EQUALS(cmp->GetHeightOffset(), entity_pos_t::FromInt(72));
 		TS_ASSERT_EQUALS(cmp->GetPosition(), fixedvec(100, 122, 200));
+	}
+
+	void test_advertise_position_changes()
+	{
+		CXeromycesEngine xeromycesEngine;
+		ComponentTestHelper test(*g_ScriptContext);
+
+		MockTerrain terrain;
+		test.AddMock(SYSTEM_ENTITY, IID_Terrain, terrain);
+
+		ICmpPosition* cmp = test.Add<ICmpPosition>(CID_Position, "<Anchor>upright</Anchor><Altitude>0</Altitude><Floating>false</Floating>");
+
+		MockPositionChangedListener listener;
+		test.GetSimContext().GetComponentManager().DynamicSubscriptionNonsync(MT_PositionChanged, &listener, true);
+
+		// Moving out of the world while already out of it doesn't send a message.
+		cmp->MoveOutOfWorld();
+		TS_ASSERT_EQUALS(listener.m_Count, 0);
+
+		// Entering the world does.
+		cmp->JumpTo(entity_pos_t::FromInt(100), entity_pos_t::FromInt(200));
+		TS_ASSERT_EQUALS(listener.m_Count, 1);
+		TS_ASSERT(listener.m_LastInWorld);
+		TS_ASSERT_EQUALS(listener.m_LastX, entity_pos_t::FromInt(100));
+		TS_ASSERT_EQUALS(listener.m_LastZ, entity_pos_t::FromInt(200));
+
+		// Turning to a new angle sends a message.
+		cmp->TurnTo(entity_angle_t::FromInt(1));
+		TS_ASSERT_EQUALS(listener.m_Count, 2);
+		TS_ASSERT_EQUALS(listener.m_LastRotY, entity_angle_t::FromInt(1));
+
+		// Turning to the angle the entity already faces doesn't (#7654).
+		cmp->TurnTo(entity_angle_t::FromInt(1));
+		TS_ASSERT_EQUALS(listener.m_Count, 2);
+
+		// Moving without turning still advertises the movement (#6844).
+		cmp->MoveAndTurnTo(entity_pos_t::FromInt(110), entity_pos_t::FromInt(200), entity_angle_t::FromInt(1));
+		TS_ASSERT_EQUALS(listener.m_Count, 3);
+		TS_ASSERT_EQUALS(listener.m_LastX, entity_pos_t::FromInt(110));
+		TS_ASSERT_EQUALS(listener.m_LastZ, entity_pos_t::FromInt(200));
+		TS_ASSERT_EQUALS(listener.m_LastRotY, entity_angle_t::FromInt(1));
+
+		// Moving to the position the entity already has doesn't send a message.
+		cmp->MoveTo(entity_pos_t::FromInt(110), entity_pos_t::FromInt(200));
+		TS_ASSERT_EQUALS(listener.m_Count, 3);
+
+		// Leaving the world sends an out-of-world message, but only once.
+		cmp->MoveOutOfWorld();
+		TS_ASSERT_EQUALS(listener.m_Count, 4);
+		TS_ASSERT(!listener.m_LastInWorld);
+		cmp->MoveOutOfWorld();
+		TS_ASSERT_EQUALS(listener.m_Count, 4);
 	}
 
 	void test_serialize()

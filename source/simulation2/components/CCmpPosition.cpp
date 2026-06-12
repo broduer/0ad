@@ -116,6 +116,14 @@ public:
 
 	bool m_EnabledMessageInterpolate;
 
+	// The data of the last CMessagePositionChanged sent, to avoid sending redundant
+	// messages (e.g. when UnitAI turns an entity towards a target it already faces).
+	// Derived state: it always matches the current position when messages are up to
+	// date, so Deserialize recomputes it instead of serializing it.
+	bool m_LastAdvertisedInWorld;
+	entity_pos_t m_LastAdvertisedX, m_LastAdvertisedZ;
+	entity_angle_t m_LastAdvertisedRotY;
+
 	static std::string GetSchema()
 	{
 		return
@@ -174,6 +182,11 @@ public:
 		m_ActorFloating = false;
 
 		m_EnabledMessageInterpolate = false;
+
+		// Match the message that would be sent while out of the world.
+		m_LastAdvertisedInWorld = false;
+		m_LastAdvertisedX = m_LastAdvertisedZ = entity_pos_t::Zero();
+		m_LastAdvertisedRotY = entity_angle_t::Zero();
 	}
 
 	void Deinit() override
@@ -278,6 +291,13 @@ public:
 			UpdateXZRotation();
 
 		UpdateMessageSubscriptions();
+
+		// No message is sent during deserialization (subscribers restore their own
+		// state), so the last advertised data is the current position.
+		m_LastAdvertisedInWorld = m_InWorld;
+		m_LastAdvertisedX = m_InWorld ? m_X : entity_pos_t::Zero();
+		m_LastAdvertisedZ = m_InWorld ? m_Z : entity_pos_t::Zero();
+		m_LastAdvertisedRotY = m_InWorld ? m_RotY : entity_angle_t::Zero();
 	}
 
 	void Deserialized()
@@ -905,7 +925,7 @@ private:
 	 *  - m_X, m_Z
 	 *  - m_RotY
 	 */
-	void AdvertisePositionChanges() const
+	void AdvertisePositionChanges()
 	{
 		for (std::set<entity_id_t>::const_iterator it = m_Turrets.begin(); it != m_Turrets.end(); ++it)
 		{
@@ -913,16 +933,28 @@ private:
 			if (cmpPosition)
 				cmpPosition->UpdateTurretPosition();
 		}
-		if (m_InWorld)
-		{
-			CMessagePositionChanged msg(GetEntityId(), true, m_X, m_Z, m_RotY);
-			GetSimContext().GetComponentManager().PostMessage(GetEntityId(), msg);
-		}
-		else
-		{
-			CMessagePositionChanged msg(GetEntityId(), false, entity_pos_t::Zero(), entity_pos_t::Zero(), entity_angle_t::Zero());
-			GetSimContext().GetComponentManager().PostMessage(GetEntityId(), msg);
-		}
+
+		const entity_pos_t x = m_InWorld ? m_X : entity_pos_t::Zero();
+		const entity_pos_t z = m_InWorld ? m_Z : entity_pos_t::Zero();
+		const entity_angle_t rotY = m_InWorld ? m_RotY : entity_angle_t::Zero();
+
+		// Don't send a message if the advertised position didn't actually change,
+		// e.g. when UnitAI keeps facing an entity towards a target it already faces
+		// (#7654). The check covers the whole message data, not just the angle, so
+		// MoveAndTurnTo with an unchanged angle still advertises the movement (#6844).
+		if (m_InWorld == m_LastAdvertisedInWorld &&
+			x == m_LastAdvertisedX &&
+			z == m_LastAdvertisedZ &&
+			rotY == m_LastAdvertisedRotY)
+			return;
+
+		m_LastAdvertisedInWorld = m_InWorld;
+		m_LastAdvertisedX = x;
+		m_LastAdvertisedZ = z;
+		m_LastAdvertisedRotY = rotY;
+
+		CMessagePositionChanged msg(GetEntityId(), m_InWorld, x, z, rotY);
+		GetSimContext().GetComponentManager().PostMessage(GetEntityId(), msg);
 	}
 
 	/**
