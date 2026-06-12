@@ -1621,6 +1621,11 @@ UnitAI.prototype.UnitFsmSpec = {
 				if (this.order.data.target != msg.data.attacker && this.CanAttack(msg.data.attacker))
 					return;
 
+			// don't interrupt healing or repairing the guarded entity to start it anew (#6007)
+			if (this.order && (this.order.type == "Heal" || this.order.type == "Repair") &&
+			    this.order.data.target == this.isGuardOf)
+				return;
+
 			var cmpIdentity = Engine.QueryInterface(this.entity, IID_Identity);
 			var cmpHealth = Engine.QueryInterface(this.isGuardOf, IID_Health);
 			if (cmpIdentity && cmpIdentity.HasClass("Support") &&

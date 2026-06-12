@@ -152,7 +152,7 @@ global.SerializationCycle = function(cmp)
 	else
 	{
 		data = {};
-		for (const att of cmp)
+		for (const att in cmp)
 			if (Object.hasOwn(cmp, att))
 				data[att] = cmp[att];
 	}

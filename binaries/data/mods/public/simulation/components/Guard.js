@@ -6,7 +6,16 @@ Guard.prototype.Schema =
 Guard.prototype.Init = function()
 {
 	this.entities = [];
+	this.nextAttackedMessageTime = 0;
 };
+
+/**
+ * Minimum time in milliseconds between MT_GuardedAttacked notifications.
+ * Many attackers hitting the guarded entity in the same turns (e.g. dozens
+ * of archers shooting a guarded structure) would otherwise send a message
+ * to every guard for every single hit (#6007).
+ */
+Guard.prototype.NotificationInterval = 2000;
 
 Guard.prototype.GetRange = function(entity)
 {
@@ -38,6 +47,8 @@ Guard.prototype.AddGuard = function(ent)
 	if (this.entities.indexOf(ent) != -1)
 		return;
 	this.entities.push(ent);
+	// Let the new guard be notified of an ongoing attack without delay.
+	this.nextAttackedMessageTime = 0;
 };
 
 Guard.prototype.RemoveGuard = function(ent)
@@ -56,6 +67,15 @@ Guard.prototype.RenameGuard = function(oldent, newent)
 
 Guard.prototype.OnAttacked = function(msg)
 {
+	if (!this.entities.length)
+		return;
+
+	const cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
+	const now = cmpTimer.GetTime();
+	if (now < this.nextAttackedMessageTime)
+		return;
+	this.nextAttackedMessageTime = now + this.NotificationInterval;
+
 	for (const ent of this.entities)
 		Engine.PostMessage(ent, MT_GuardedAttacked, { "guarded": this.entity, "data": msg });
 };
