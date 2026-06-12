@@ -76,7 +76,7 @@ class MiscSetup : public CxxTest::GlobalFixture
 		// Timer must be initialised, else things will break when tests do IO
 		timer_Init();
 
-#if OS_MACOSX || OS_BSD
+#if OS_MACOS || OS_BSD
 		// See comment in GameSetup.cpp FixLocales
 		setlocale(LC_CTYPE, "UTF-8");
 #endif

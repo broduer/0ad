@@ -113,7 +113,7 @@ that of Atlas depending on commandline parameters.
 #include <unistd.h> // geteuid
 #endif // OS_UNIX
 
-#if OS_MACOSX
+#if OS_MACOS
 #include "lib/sysdep/os/macos/macos_atlas.h"
 #endif
 
@@ -808,7 +808,7 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 	if (rlInterfaceError)
 	      throw RL::SetupError{};
 
-#if OS_MACOSX
+#if OS_MACOS
 	if (g_Shutdown == ShutdownType::RestartAsAtlas)
 		startNewAtlasProcess(g_Mods.GetEnabledMods());
 #else

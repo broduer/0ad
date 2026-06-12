@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -45,13 +45,13 @@
 #include <tuple>
 #include <utility>
 
-#if OS_MACOSX
+#if OS_MACOS
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 #if OS_LINUX
 #include <cstdlib>
 #endif
-#if OS_WIN || OS_WIN64 || OS_MACOSX
+#if OS_WIN || OS_WIN64 || OS_MACOS
 #include <filesystem>
 #endif
 
@@ -62,7 +62,7 @@ namespace
 {
 void ClearFromCache(const VfsPath& path)
 {
-#if OS_BSD && !OS_MACOSX
+#if OS_BSD && !OS_MACOS
 	TS_SKIP("On BSD hotload isn't implemented.");
 #endif
 
@@ -72,7 +72,7 @@ void ClearFromCache(const VfsPath& path)
 	PDirWatch dirWatch;
 	dir_watch_Add((file.Parent() / "").string8(), dirWatch);
 
-#if OS_WIN || OS_WIN64 || OS_MACOSX
+#if OS_WIN || OS_WIN64 || OS_MACOS
 	std::filesystem::last_write_time(file.string8(), std::filesystem::file_time_type::clock::now());
 #endif
 
@@ -86,7 +86,7 @@ void ClearFromCache(const VfsPath& path)
 	while (status == INFO::SKIPPED)
 	{
 		status = ReloadChangedFiles();
-#if OS_MACOSX
+#if OS_MACOS
 		// Console apps don't have a run loop, so we need to wait
 		// a bit for the file watcher to catch up.
 		CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, true);

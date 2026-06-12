@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -29,7 +29,7 @@
 #include "lib/sysdep/cpu.h"
 #include "lib/sysdep/os.h"
 
-#if OS_MACOSX
+#if OS_MACOS
 #include <cstdlib>
 #include <cstddef>
 #include <sys/sysctl.h>
@@ -37,7 +37,7 @@
 
 const char* cpu_IdentifierString()
 {
-#if OS_MACOSX
+#if OS_MACOS
 	size_t bufferSize = 0;
 
 	if (sysctlbyname("machdep.cpu.brand_string", nullptr, &bufferSize, nullptr, 0) != 0) {

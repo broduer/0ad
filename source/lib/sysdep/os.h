@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -62,9 +62,9 @@
 #endif
 // Mac OS X
 #if (defined(__APPLE__) && defined(__MACH__))
-# define OS_MACOSX 1
+# define OS_MACOS 1
 #else
-# define OS_MACOSX 0
+# define OS_MACOS 0
 #endif
 // BSD
 #if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__FreeBSD_kernel__)
@@ -107,13 +107,13 @@
 // convenience: additionally set OS_UNIX for Unix-based OSes
 // note: doing this in an separate section instead of adding the extra define
 // to all affected OSes saves a few undefs or macro redefinition warnings.
-#if OS_LINUX || OS_MACOSX || OS_BSD || OS_SOLARIS
+#if OS_LINUX || OS_MACOS || OS_BSD || OS_SOLARIS
 # undef OS_UNIX
 # define OS_UNIX 1
 #endif
 
 // convenience: additionally set OS_BSD for BSD-based OSes. see note above.
-#if OS_MACOSX
+#if OS_MACOS
 # undef OS_BSD
 # define OS_BSD 1
 #endif

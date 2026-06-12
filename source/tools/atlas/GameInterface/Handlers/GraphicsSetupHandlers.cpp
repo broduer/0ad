@@ -223,7 +223,7 @@ MESSAGEHANDLER(ResizeScreen)
 {
 	CVideoMode::UpdateRenderer(msg->width, msg->height);
 
-#if OS_MACOSX
+#if OS_MACOS
 	// OS X seems to require this to update the GL canvas
 	Atlas_GLSetCurrent(const_cast<void*>(g_AtlasGameLoop->glCanvas));
 #endif

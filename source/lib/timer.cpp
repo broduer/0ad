@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -53,7 +53,7 @@
 # define HAVE_GETTIMEOFDAY 0
 #endif
 
-#if (defined(_POSIX_TIMERS) && _POSIX_TIMERS > 0) || OS_MACOSX
+#if (defined(_POSIX_TIMERS) && _POSIX_TIMERS > 0) || OS_MACOS
 # define HAVE_CLOCK_GETTIME 1
 #else
 # define HAVE_CLOCK_GETTIME 0

@@ -437,7 +437,7 @@ std::unique_ptr<CDevice> CDevice::Create(SDL_Window* window)
 		return nullptr;
 	}
 
-#if !OS_MACOSX
+#if !OS_MACOS
 	auto hasDeviceExtension = [&extensions = choosenDevice.extensions](const char* name) -> bool
 	{
 		return std::find(extensions.begin(), extensions.end(), name) != extensions.end();

@@ -123,7 +123,7 @@
 #include <utility>
 
 
-#if !(OS_WIN || OS_MACOSX || OS_ANDROID) // assume all other platforms use X11 for wxWidgets
+#if !(OS_WIN || OS_MACOS || OS_ANDROID) // assume all other platforms use X11 for wxWidgets
 #define MUST_INIT_X11 1
 #include <X11/Xlib.h>
 #else
@@ -337,7 +337,7 @@ static void InitSDL()
 	SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "1");
 #endif
 
-#if OS_MACOSX
+#if OS_MACOS
 	// Some Mac mice only have one button, so they can't right-click
 	// but SDL2 can emulate that with Ctrl+Click
 	SDL_SetHint(SDL_HINT_MAC_CTRL_CLICK_EMULATE_RIGHT_CLICK,
@@ -434,7 +434,7 @@ void ShutdownConfigAndSubsequent()
 #if OS_UNIX
 static void FixLocales()
 {
-#if OS_MACOSX || OS_BSD
+#if OS_MACOS || OS_BSD
 	// OS X requires a UTF-8 locale in LC_CTYPE so that *wprintf can handle
 	// wide characters. Peculiarly the string "UTF-8" seems to be acceptable
 	// despite not being a real locale, and it's conveniently language-agnostic,

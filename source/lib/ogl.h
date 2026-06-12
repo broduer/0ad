@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -46,7 +46,7 @@
  **/
 #if OS_WIN
 extern bool ogl_Init(void* (load)(const char*), void* hdc);
-#elif !OS_MACOSX && !CONFIG2_GLES
+#elif !OS_MACOS && !CONFIG2_GLES
 extern bool ogl_Init(void* (load)(const char*), void* display, int subsystem);
 #else
 extern bool ogl_Init(void* (load)(const char*));

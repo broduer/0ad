@@ -63,7 +63,7 @@
 #include <string>
 #include <string_view>
 
-#if OS_MACOSX && SDL_VERSION_ATLEAST(2, 0, 6)
+#if OS_MACOS && SDL_VERSION_ATLEAST(2, 0, 6)
 #include "ps/DllLoader.h"
 
 #include <SDL_vulkan.h>
@@ -393,7 +393,7 @@ bool CVideoMode::SetVideoMode(int w, int h, int bpp, bool fullscreen)
 			flags |= SDL_WINDOW_VULKAN;
 		m_WindowedX = m_WindowedY = SDL_WINDOWPOS_CENTERED_DISPLAY(m_ConfigDisplay);
 
-#if OS_MACOSX && SDL_VERSION_ATLEAST(2, 0, 6)
+#if OS_MACOS && SDL_VERSION_ATLEAST(2, 0, 6)
 		if (m_Backend == Renderer::Backend::Backend::VULKAN)
 		{
 			// MoltenVK - enable full component swizzling support.
@@ -710,7 +710,7 @@ void CVideoMode::RecreateSwapChain()
 
 Renderer::Backend::ISwapChain* CVideoMode::GetOrCreateSwapChain()
 {
-#if !OS_MACOSX
+#if !OS_MACOS
 	const bool vsync{g_ConfigDB.Get("vsync", false)};
 	const bool vsyncChanged{m_ConfigVSync != vsync};
 	if (vsyncChanged)

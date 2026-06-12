@@ -369,7 +369,7 @@ void RunHardwareDetection(bool writeSystemInfoBeforeDetection, Renderer::Backend
 	Script::SetProperty(rq, settings, "os_bsd", OS_BSD);
 	Script::SetProperty(rq, settings, "os_linux", OS_LINUX);
 	Script::SetProperty(rq, settings, "os_android", OS_ANDROID);
-	Script::SetProperty(rq, settings, "os_macosx", OS_MACOSX);
+	Script::SetProperty(rq, settings, "os_macosx", OS_MACOS);
 	Script::SetProperty(rq, settings, "os_win", OS_WIN);
 
 	Script::SetProperty(rq, settings, "arch_ia32", ARCH_IA32);

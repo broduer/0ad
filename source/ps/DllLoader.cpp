@@ -29,7 +29,7 @@
 #include <sstream>
 #include <string>
 
-#if OS_MACOSX
+#if OS_MACOS
 # include "lib/sysdep/os/macos/macos_bundle.h"
 #endif
 
@@ -66,7 +66,7 @@ static CStr suffixes[] = { "", "_dbg" };
 // NB: our Windows dlopen() function changes the extension to .dll
 static CStr extensions[] = {
 	".so",
-#if OS_MACOSX
+#if OS_MACOS
 	".dylib"	// supported by OS X dlopen
 #endif
 };
@@ -82,7 +82,7 @@ CStr DllLoader::GenerateFilename(const CStr& name, const CStr& suffix, const CSt
 	if (!g_Libdir.empty())
 		n = g_Libdir + "/";
 
-#if OS_MACOSX
+#if OS_MACOS
 	if (osx_IsAppBundleValid())
 	{
 		// We are in a bundle, in which case the lib directory is ../Frameworks

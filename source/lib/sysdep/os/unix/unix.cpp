@@ -1,4 +1,4 @@
-/* Copyright (c) 2025 Wildfire Games.
+/* Copyright (c) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -44,7 +44,7 @@
 
 #include <sys/wait.h>
 
-#if OS_MACOSX
+#if OS_MACOS
 #define URL_OPEN_COMMAND "open"
 #else
 #define URL_OPEN_COMMAND "xdg-open"
@@ -69,7 +69,7 @@ void sys_display_msg(const wchar_t* caption, const wchar_t* msg)
 	fprintf(stderr, "%ls: %ls\n", caption, msg); // must not use fwprintf, since stderr is byte-oriented
 }
 
-#if OS_MACOSX || OS_ANDROID
+#if OS_MACOS || OS_ANDROID
 static ErrorReactionInternal try_gui_display_error(const wchar_t* /*text*/, bool /*manual_break*/,
 	bool /*allow_suppress*/, bool /*no_continue*/)
 {

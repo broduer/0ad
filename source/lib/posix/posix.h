@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -97,7 +97,7 @@ need only be renamed (e.g. _open, _stat).
 #include <strings.h> // IWYU pragma: export
 #endif
 
-#if OS_MACOSX
+#if OS_MACOS
 # define EMULATE_WCSDUP 1
 # define EMULATE_WCSCASECMP 1
 #else

@@ -36,7 +36,7 @@
 
 #if OS_WIN
 # include "lib/sysdep/os/win/wutil.h"	// wutil_*Path
-#elif OS_MACOSX
+#elif OS_MACOS
 # include "lib/sysdep/os/macos/macos_paths.h"
 # include "lib/sysdep/os/macos/macos_bundle.h"
 #endif
@@ -103,7 +103,7 @@ Paths::Paths(const CmdLineArgs& args)
 		m_config = roamingAppData / "config"/"";
 		m_logs = localAppdata / "logs"/"";
 
-#elif OS_MACOSX
+#elif OS_MACOS
 
 		/* For reasoning behind our OS X paths, see the discussion here:
 		 * http://www.wildfiregames.com/forum/index.php?showtopic=15511
@@ -203,7 +203,7 @@ Paths::Paths(const CmdLineArgs& args)
 	return OsPath(STRINGIZE(INSTALLED_DATADIR))/"";
 #else
 
-# if OS_MACOSX
+# if OS_MACOS
 	if (osx_IsAppBundleValid())
 	{
 		debug_printf("Valid app bundle detected\n");
@@ -214,7 +214,7 @@ Paths::Paths(const CmdLineArgs& args)
 
 		return OsPath(resourcesPath)/"data"/"";
 	}
-# endif // OS_MACOSX
+# endif // OS_MACOS
 
 	return Root(argv0)/"data"/"";
 
