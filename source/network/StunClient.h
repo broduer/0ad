@@ -22,7 +22,10 @@
 #include "lib/external_libraries/enet.h"
 #include "lib/types.h"
 
+#include <chrono>
+#include <optional>
 #include <string>
+#include <vector>
 
 class CStr8;
 
@@ -47,12 +50,43 @@ bool FindPublicIP(ENetHost& enetClient, CStr8& ip, u16& port);
 void SendHolePunchingMessages(ENetHost& enetClient, const std::string& serverAddress, u16 serverPort);
 
 /**
- * Send a single hole punching message to the target address.
- * Unlike SendHolePunchingMessages this doesn't block, so the caller
- * is responsible for repeating the message at a sensible interval.
- * @see SendHolePunchingMessages
+ * Sends hole punching messages (@see SendHolePunchingMessages) to any number
+ * of targets without blocking: each call to Tick sends the messages that are
+ * due and returns when the next one is. Not thread-safe.
  */
-void SendHolePunchingMessage(ENetHost& enetClient, const ENetAddress& addr);
+class HolePuncher
+{
+public:
+	/**
+	 * Resolve the target and schedule lobby.fw_punch.num_msg messages to it
+	 * (a negative number meaning until RemoveTarget is called).
+	 * @return whether messages were scheduled.
+	 */
+	bool AddTarget(const std::string& address, u16 port);
+
+	/**
+	 * Stop sending messages to the target, e.g. because it connected.
+	 */
+	void RemoveTarget(const ENetAddress& address);
+
+	/**
+	 * Send all due messages from the given ENet host/socket.
+	 * @return the time the next message is due, or std::nullopt if no
+	 * messages remain to be sent.
+	 */
+	std::optional<std::chrono::steady_clock::time_point> Tick(ENetHost& enetClient);
+
+private:
+	struct Target
+	{
+		ENetAddress address;
+		/// A negative number means sending until RemoveTarget is called.
+		int remainingMessages;
+		std::chrono::steady_clock::time_point nextSendTime;
+	};
+
+	std::vector<Target> m_Targets;
+};
 
 /**
  * Return the local IP.

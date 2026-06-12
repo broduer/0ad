@@ -52,7 +52,6 @@
 #include "simulation2/system/TurnManager.h"
 
 #include <algorithm>
-#include <chrono>
 #include <cstring>
 #include <functional>
 #include <iterator>
@@ -476,11 +475,7 @@ bool CNetServerWorker::RunStep()
 		LOGMESSAGE("Net server: Received connection from %s:%u", hostname, (unsigned int)event.peer->address.port);
 
 		// The peer connected, so the hole punching for it succeeded or wasn't needed.
-		std::erase_if(m_HolePunchTargets, [&](const HolePunchTarget& target)
-			{
-				return target.address.host == event.peer->address.host &&
-					target.address.port == event.peer->address.port;
-			});
+		m_HolePuncher.RemoveTarget(event.peer->address);
 
 		// Set up a session object for this peer
 
@@ -1661,42 +1656,10 @@ void CNetServerWorker::ProcessHolePunching(std::vector<std::pair<CStr, u16>>&& n
 	if (!m_Host)
 		return;
 
-	const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-
 	for (const std::pair<CStr, u16>& request : newRequests)
-	{
-		// A negative number of messages means punching until the peer connects.
-		const int numMessages{g_ConfigDB.Get("lobby.fw_punch.num_msg", 3)};
-		if (numMessages == 0)
-			continue;
+		m_HolePuncher.AddTarget(request.first, request.second);
 
-		ENetAddress address;
-		address.port = request.second;
-		if (enet_address_set_host(&address, request.first.c_str()) != 0)
-		{
-			LOGWARNING("Net server: Failed to resolve hole punching target %s", request.first.c_str());
-			continue;
-		}
-		m_HolePunchTargets.push_back({address, numMessages, now});
-	}
-
-	if (m_HolePunchTargets.empty())
-		return;
-
-	const std::chrono::milliseconds delay{g_ConfigDB.Get("lobby.fw_punch.delay", 200)};
-	for (HolePunchTarget& target : m_HolePunchTargets)
-	{
-		if (now < target.nextSendTime)
-			continue;
-
-		StunClient::SendHolePunchingMessage(*m_Host, target.address);
-		if (target.remainingMessages > 0)
-			--target.remainingMessages;
-		target.nextSendTime = now + delay;
-	}
-
-	std::erase_if(m_HolePunchTargets,
-		[](const HolePunchTarget& target) { return target.remainingMessages == 0; });
+	m_HolePuncher.Tick(*m_Host);
 }
 
 

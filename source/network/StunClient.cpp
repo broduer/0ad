@@ -27,6 +27,7 @@
 #include "ps/CStr.h"
 #include "ps/ConfigDB.h"
 
+#include <algorithm>
 #include <bit>
 #include <cerrno>
 #include <chrono>
@@ -34,6 +35,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 #include <thread>
 #include <type_traits>
 #include <vector>
@@ -355,25 +357,63 @@ bool FindPublicIP(ENetHost& transactionHost, CStr& ip, u16& port)
 
 void SendHolePunchingMessages(ENetHost& enetClient, const std::string& serverAddress, u16 serverPort)
 {
-	// Convert ip string to int64
-	ENetAddress addr;
-	addr.port = serverPort;
-	enet_address_set_host(&addr, serverAddress.c_str());
+	HolePuncher puncher;
+	if (!puncher.AddTarget(serverAddress, serverPort))
+		return;
 
-	const int delay{g_ConfigDB.Get("lobby.fw_punch.delay", 200)};
-	const int numMsg{g_ConfigDB.Get("lobby.fw_punch.num_msg", 3)};
-
-	// Send an UDP message from enet host to ip:port
-	for (int i = 0; i < numMsg || numMsg == -1; ++i)
-	{
-		SendStunRequest(enetClient, addr);
-		std::this_thread::sleep_for(std::chrono::milliseconds(delay));
-	}
+	while (const std::optional<std::chrono::steady_clock::time_point> nextSendTime = puncher.Tick(enetClient))
+		std::this_thread::sleep_until(*nextSendTime);
 }
 
-void SendHolePunchingMessage(ENetHost& enetClient, const ENetAddress& addr)
+bool HolePuncher::AddTarget(const std::string& address, u16 port)
 {
-	SendStunRequest(enetClient, addr);
+	const int numMessages{g_ConfigDB.Get("lobby.fw_punch.num_msg", 3)};
+	if (numMessages == 0)
+		return false;
+
+	ENetAddress addr;
+	addr.port = port;
+	if (enet_address_set_host(&addr, address.c_str()) != 0)
+	{
+		LOGWARNING("StunClient: failed to resolve hole punching target %s", address.c_str());
+		return false;
+	}
+
+	m_Targets.push_back({addr, numMessages, std::chrono::steady_clock::now()});
+	return true;
+}
+
+void HolePuncher::RemoveTarget(const ENetAddress& address)
+{
+	std::erase_if(m_Targets, [&](const Target& target)
+		{
+			return target.address.host == address.host && target.address.port == address.port;
+		});
+}
+
+std::optional<std::chrono::steady_clock::time_point> HolePuncher::Tick(ENetHost& enetClient)
+{
+	const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+	const std::chrono::milliseconds delay{g_ConfigDB.Get("lobby.fw_punch.delay", 200)};
+
+	for (Target& target : m_Targets)
+	{
+		if (now < target.nextSendTime)
+			continue;
+
+		SendStunRequest(enetClient, target.address);
+		if (target.remainingMessages > 0)
+			--target.remainingMessages;
+		target.nextSendTime = now + delay;
+	}
+
+	std::erase_if(m_Targets, [](const Target& target) { return target.remainingMessages == 0; });
+
+	if (m_Targets.empty())
+		return std::nullopt;
+
+	return std::min_element(m_Targets.begin(), m_Targets.end(),
+		[](const Target& lhs, const Target& rhs) { return lhs.nextSendTime < rhs.nextSendTime; })->nextSendTime;
 }
 
 bool FindLocalIP(CStr& ip)

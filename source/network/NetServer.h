@@ -22,9 +22,9 @@
 #include "lib/config2.h"
 #include "lib/types.h"
 #include "network/NetHost.h"
+#include "network/StunClient.h"
 #include "ps/CStr.h"
 
-#include <chrono>
 #include <ctime>
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
@@ -325,20 +325,10 @@ private:
 	std::time_t m_LastConnectionCheck{0};
 
 	/**
-	 * A peer which should receive hole punching messages until it connects.
+	 * Sends the hole punching messages to the peers which requested them
+	 * until they connect.
 	 */
-	struct HolePunchTarget
-	{
-		ENetAddress address;
-		/// A negative number means sending until the peer connects.
-		int remainingMessages;
-		std::chrono::steady_clock::time_point nextSendTime;
-	};
-
-	/**
-	 * The peers currently being sent hole punching messages.
-	 */
-	std::vector<HolePunchTarget> m_HolePunchTargets;
+	StunClient::HolePuncher m_HolePuncher;
 
 private:
 	// Thread-related stuff:
