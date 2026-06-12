@@ -1884,6 +1884,41 @@ public:
 		return GetLosVisibility(handle, player);
 	}
 
+	LosVisibility GetCachedLosVisibility(CEntityHandle ent, player_id_t player) const override
+	{
+		entity_id_t entId = ent.GetId();
+
+		// Entities not with positions in the world are never visible
+		if (entId == INVALID_ENTITY)
+			return LosVisibility::HIDDEN;
+
+		CmpPtr<ICmpPosition> cmpPosition(ent);
+		if (!cmpPosition || !cmpPosition->IsInWorld())
+			return LosVisibility::HIDDEN;
+
+		// Gaia and observers do not have a visibility cache
+		if (player <= 0)
+			return ComputeLosVisibility(ent, player);
+
+		// The cache of entities that changed since the last visibility update
+		// is still stale (this notably keeps newly created entities, e.g.
+		// corpses, from being hidden until the next turn).
+		if (m_ModifiedEntitiesSet.find(entId) != m_ModifiedEntitiesSet.end())
+			return ComputeLosVisibility(ent, player);
+
+		EntityMap<EntityData>::const_iterator it = m_EntityData.find(entId);
+		if (it == m_EntityData.end())
+			return ComputeLosVisibility(ent, player);
+
+		return static_cast<LosVisibility>(GetPlayerVisibility(it->second.visibilities, player));
+	}
+
+	LosVisibility GetCachedLosVisibility(entity_id_t ent, player_id_t player) const override
+	{
+		CEntityHandle handle = GetSimContext().GetComponentManager().LookupEntityHandle(ent);
+		return GetCachedLosVisibility(handle, player);
+	}
+
 	LosVisibility GetLosVisibilityPosition(entity_pos_t x, entity_pos_t z, player_id_t player) const override
 	{
 		int i = (x / LOS_TILE_SIZE).ToInt_RoundToNearest();

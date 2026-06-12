@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -461,7 +461,7 @@ void CCmpUnitRenderer::UpdateVisibility(SUnit& unit) const
 		else
 		{
 			CmpPtr<ICmpRangeManager> cmpRangeManager(GetSystemEntity());
-			unit.visibility = cmpRangeManager->GetLosVisibility(unit.entity,
+			unit.visibility = cmpRangeManager->GetCachedLosVisibility(unit.entity,
 					GetSimContext().GetCurrentDisplayedPlayer());
 		}
 	}

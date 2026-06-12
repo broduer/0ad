@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -288,6 +288,73 @@ public:
 		nearby = cmp->ExecuteQuery(101, fixed::FromInt(6), fixed::FromInt(50), {1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{});
 
+	}
+
+	void test_cached_los_visibility()
+	{
+		ComponentTestHelper test(*g_ScriptContext);
+
+		ICmpRangeManager* cmp = test.Add<ICmpRangeManager>(CID_RangeManager, "", SYSTEM_ENTITY);
+
+		// A viewer unit of player 1, and a static entity of player 2 watched by it.
+		MockVisionRgm vision;
+		MockPositionRgm viewerPosition, watchedPosition;
+		test.AddMock(100, IID_Vision, vision);
+		test.AddMock(100, IID_Position, viewerPosition);
+		test.AddMock(101, IID_Position, watchedPosition);
+
+		cmp->SetBounds(entity_pos_t::FromInt(0), entity_pos_t::FromInt(0), entity_pos_t::FromInt(512), entity_pos_t::FromInt(512));
+		cmp->SetSharedLos(1, { 1 });
+		cmp->SetSharedLos(2, { 2 });
+		{ CMessageCreate msg(100); cmp->HandleMessage(msg, false); }
+		{ CMessageCreate msg(101); cmp->HandleMessage(msg, false); }
+		{ CMessageOwnershipChanged msg(100, -1, 1); cmp->HandleMessage(msg, false); }
+		{ CMessageOwnershipChanged msg(101, -1, 2); cmp->HandleMessage(msg, false); }
+
+		auto move = [&cmp](entity_id_t ent, MockPositionRgm& pos, int x, int z) {
+			pos.m_Pos = CFixedVector3D(fixed::FromInt(x), fixed::Zero(), fixed::FromInt(z));
+			CMessagePositionChanged msg(ent, true, fixed::FromInt(x), fixed::FromInt(z), entity_angle_t::Zero());
+			cmp->HandleMessage(msg, false);
+		};
+		auto update = [&cmp] {
+			CMessageUpdate msg(fixed::FromInt(1));
+			cmp->HandleMessage(msg, false);
+		};
+
+		move(100, viewerPosition, 10, 10);
+		move(101, watchedPosition, 20, 10);
+
+		// Both entities changed since the last visibility update, so the
+		// cached query recomputes them and agrees with the uncached one.
+		TS_ASSERT_EQUALS(cmp->GetCachedLosVisibility(static_cast<entity_id_t>(101), 1), LosVisibility::VISIBLE);
+		TS_ASSERT_EQUALS(cmp->GetLosVisibility(static_cast<entity_id_t>(101), 1), LosVisibility::VISIBLE);
+
+		// The per-turn update refreshes the cache.
+		update();
+		TS_ASSERT_EQUALS(cmp->GetCachedLosVisibility(static_cast<entity_id_t>(101), 1), LosVisibility::VISIBLE);
+		TS_ASSERT_EQUALS(cmp->GetLosVisibility(static_cast<entity_id_t>(101), 1), LosVisibility::VISIBLE);
+
+		// The viewer moves away: the watched entity leaves player 1's vision.
+		// Its LOS region is now dirty, so the uncached query recomputes (the
+		// entity is in explored-but-not-visible territory and doesn't retain
+		// in fog, hence hidden), while the cached query still returns the
+		// result of the last per-turn update.
+		move(100, viewerPosition, 400, 400);
+		TS_ASSERT_EQUALS(cmp->GetLosVisibility(static_cast<entity_id_t>(101), 1), LosVisibility::HIDDEN);
+		TS_ASSERT_EQUALS(cmp->GetCachedLosVisibility(static_cast<entity_id_t>(101), 1), LosVisibility::VISIBLE);
+
+		// After the next per-turn update both agree again.
+		update();
+		TS_ASSERT_EQUALS(cmp->GetLosVisibility(static_cast<entity_id_t>(101), 1), LosVisibility::HIDDEN);
+		TS_ASSERT_EQUALS(cmp->GetCachedLosVisibility(static_cast<entity_id_t>(101), 1), LosVisibility::HIDDEN);
+
+		// An entity whose own state changed since the last update (here: it
+		// moved into player 1's vision) is recomputed even by the cached
+		// query, so e.g. newly spawned corpses don't stay hidden until the
+		// next turn.
+		move(101, watchedPosition, 401, 400);
+		TS_ASSERT_EQUALS(cmp->GetLosVisibility(static_cast<entity_id_t>(101), 1), LosVisibility::VISIBLE);
+		TS_ASSERT_EQUALS(cmp->GetCachedLosVisibility(static_cast<entity_id_t>(101), 1), LosVisibility::VISIBLE);
 	}
 
 	void test_IsInTargetParabolicRange()

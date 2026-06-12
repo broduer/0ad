@@ -683,7 +683,7 @@ void CMiniMapTexture::UpdateAndUploadEntities(
 		ICmpMinimap* cmpMinimap = static_cast<ICmpMinimap*>(it->second);
 		if (cmpMinimap->GetRenderData(v.r, v.g, v.b, posX, posZ))
 		{
-			LosVisibility vis = cmpRangeManager->GetLosVisibility(it->first, m_Simulation.GetSimContext().GetCurrentDisplayedPlayer());
+			LosVisibility vis = cmpRangeManager->GetCachedLosVisibility(it->first, m_Simulation.GetSimContext().GetCurrentDisplayedPlayer());
 			if (vis != LosVisibility::HIDDEN)
 			{
 				v.a = 255;

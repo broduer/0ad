@@ -298,6 +298,21 @@ public:
 	virtual LosVisibility GetLosVisibility(entity_id_t ent, player_id_t player) const = 0;
 
 	/**
+	 * Returns the visibility status of the given entity as of the last per-turn
+	 * visibility update, with respect to the given player.
+	 * Unlike GetLosVisibility, this does not recompute the visibility of
+	 * entities in LOS regions that changed since the last update, so it never
+	 * calls into scripts for them. The result may thus be one turn stale; it is
+	 * consistent with the VisibilityChanged messages. Meant for rendering and
+	 * other non-simulation callers (see #5876 and #8327).
+	 * Entities whose own state changed since the last update (e.g. created or
+	 * moved entities, see RequestVisibilityUpdate) are still recomputed, as are
+	 * queries for players without a visibility cache (gaia and observers).
+	 */
+	virtual LosVisibility GetCachedLosVisibility(CEntityHandle ent, player_id_t player) const = 0;
+	virtual LosVisibility GetCachedLosVisibility(entity_id_t ent, player_id_t player) const = 0;
+
+	/**
 	 * Returns the visibility status of the given position, with respect to the given player.
 	 * This respects the GetLosRevealWholeMap flag.
 	 */
