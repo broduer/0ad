@@ -26,7 +26,7 @@
 
 #import "macos_bundle.h"
 
-bool osx_IsAppBundleValid()
+bool macos_IsAppBundleValid()
 {
 	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 
@@ -63,17 +63,17 @@ std::string GetBundlePath(SEL selector)
 }
 }
 
-std::string osx_GetBundlePath()
+std::string macos_GetBundlePath()
 {
 	return GetBundlePath(@selector(bundleURL));
 }
 
-std::string osx_GetBundleResourcesPath()
+std::string macos_GetBundleResourcesPath()
 {
 	return GetBundlePath(@selector(resourceURL));
 }
 
-std::string osx_GetBundleFrameworksPath()
+std::string macos_GetBundleFrameworksPath()
 {
 	return GetBundlePath(@selector(privateFrameworksURL));
 }

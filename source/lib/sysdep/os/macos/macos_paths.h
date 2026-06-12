@@ -34,7 +34,7 @@
  * @return string containing POSIX-style path in UTF-8 encoding,
  *	else empty string if an error occurred.
  */
-std::string osx_GetAppSupportPath();
+std::string macos_GetAppSupportPath();
 
 /**
  * Get the user's Caches path (typically ~/Library/Caches)
@@ -42,6 +42,6 @@ std::string osx_GetAppSupportPath();
  * @return string containing POSIX-style path in UTF-8 encoding,
  *	else empty string if an error occurred.
  */
-std::string osx_GetCachesPath();
+std::string macos_GetCachesPath();
 
 #endif // MACOS_PATHS_H

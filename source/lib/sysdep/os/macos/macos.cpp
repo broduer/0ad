@@ -42,9 +42,9 @@ OsPath sys_ExecutablePathname()
 
 	// On OS X we might be a bundle, return the bundle path as the executable name,
 	//	i.e. /path/to/0ad.app instead of /path/to/0ad.app/Contents/MacOS/pyrogenesis
-	if (osx_IsAppBundleValid())
+	if (macos_IsAppBundleValid())
 	{
-		path = osx_GetBundlePath();
+		path = macos_GetBundlePath();
 		ENSURE(!path.empty());
 	}
 	else

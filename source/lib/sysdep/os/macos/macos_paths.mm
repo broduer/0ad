@@ -62,12 +62,12 @@ static std::string getUserDirectoryPath(NSSearchPathDirectory directory)
 	return result;
 }
 
-std::string osx_GetAppSupportPath()
+std::string macos_GetAppSupportPath()
 {
 	return getUserDirectoryPath(NSApplicationSupportDirectory);
 }
 
-std::string osx_GetCachesPath()
+std::string macos_GetCachesPath()
 {
 	return getUserDirectoryPath(NSCachesDirectory);
 }

@@ -116,7 +116,7 @@ Paths::Paths(const CmdLineArgs& args)
 		 *		regenerated if this directory is deleted. It is not
 		 *		included in backups by default.
 		 *
-		 * Note: the paths returned by osx_Get*Path are not guaranteed to exist,
+		 * Note: the paths returned by macos_Get*Path are not guaranteed to exist,
 		 *     but that's OK since we always create them on demand.
 		 */
 
@@ -127,12 +127,12 @@ Paths::Paths(const CmdLineArgs& args)
 		OsPath cachePath;       // ~/Library/Caches/0ad
 
 		{
-			std::string path = osx_GetAppSupportPath();
+			std::string path = macos_GetAppSupportPath();
 			ENSURE(!path.empty());
 			appSupportPath = OsPath(path) / subdirectoryName;
 		}
 		{
-			std::string path = osx_GetCachesPath();
+			std::string path = macos_GetCachesPath();
 			ENSURE(!path.empty());
 			cachePath = OsPath(path) / subdirectoryName;
 		}
@@ -204,11 +204,11 @@ Paths::Paths(const CmdLineArgs& args)
 #else
 
 # if OS_MACOS
-	if (osx_IsAppBundleValid())
+	if (macos_IsAppBundleValid())
 	{
 		debug_printf("Valid app bundle detected\n");
 
-		std::string resourcesPath = osx_GetBundleResourcesPath();
+		std::string resourcesPath = macos_GetBundleResourcesPath();
 		// Ensure we have a valid resources path
 		ENSURE(!resourcesPath.empty());
 

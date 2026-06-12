@@ -83,12 +83,12 @@ CStr DllLoader::GenerateFilename(const CStr& name, const CStr& suffix, const CSt
 		n = g_Libdir + "/";
 
 #if OS_MACOS
-	if (osx_IsAppBundleValid())
+	if (macos_IsAppBundleValid())
 	{
 		// We are in a bundle, in which case the lib directory is ../Frameworks
 		// relative to the binary, so we use a helper function to get the system path
 		// (alternately we could use @executable_path as below, but this seems better)
-		CStr frameworksPath = osx_GetBundleFrameworksPath();
+		CStr frameworksPath = macos_GetBundleFrameworksPath();
 		if (!frameworksPath.empty())
 			n = frameworksPath + "/";
 	}

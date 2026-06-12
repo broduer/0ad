@@ -34,7 +34,7 @@
  * @return true if valid bundle reference was found matching identifier
  *  property "com.wildfiregames.play0ad"
  */
-bool osx_IsAppBundleValid();
+bool macos_IsAppBundleValid();
 
 /**
  * Get the system path to the bundle itself
@@ -42,7 +42,7 @@ bool osx_IsAppBundleValid();
  * @return string containing POSIX-style path in UTF-8 encoding,
  *	else empty string if an error occurred.
  */
-std::string osx_GetBundlePath();
+std::string macos_GetBundlePath();
 
 /**
  * Get the system path to the bundle's Resources directory
@@ -50,7 +50,7 @@ std::string osx_GetBundlePath();
  * @return string containing POSIX-style path in UTF-8 encoding,
  *	else empty string if an error occurred.
  */
-std::string osx_GetBundleResourcesPath();
+std::string macos_GetBundleResourcesPath();
 
 /**
  * Get the system path to the bundle's Frameworks directory
@@ -58,6 +58,6 @@ std::string osx_GetBundleResourcesPath();
  * @return string containing POSIX-style path in UTF-8 encoding,
  *	else empty string if an error occurred.
  */
-std::string osx_GetBundleFrameworksPath();
+std::string macos_GetBundleFrameworksPath();
 
 #endif // MACOS_BUNDLE_H
