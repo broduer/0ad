@@ -24,6 +24,7 @@
 #include "network/NetHost.h"
 #include "ps/CStr.h"
 
+#include <chrono>
 #include <ctime>
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
@@ -234,7 +235,11 @@ private:
 	 */
 	void CheckClientConnections();
 
-	void SendHolePunchingMessage(const CStr& ip, u16 port);
+	/**
+	 * Turn new hole punching requests from the game thread into targets and
+	 * send the due hole punching messages without blocking.
+	 */
+	void ProcessHolePunching(std::vector<std::pair<CStr, u16>>&& newRequests);
 
 	/**
 	 * Internal script context for (de)serializing script messages,
@@ -319,6 +324,22 @@ private:
 	 */
 	std::time_t m_LastConnectionCheck{0};
 
+	/**
+	 * A peer which should receive hole punching messages until it connects.
+	 */
+	struct HolePunchTarget
+	{
+		ENetAddress address;
+		/// A negative number means sending until the peer connects.
+		int remainingMessages;
+		std::chrono::steady_clock::time_point nextSendTime;
+	};
+
+	/**
+	 * The peers currently being sent hole punching messages.
+	 */
+	std::vector<HolePunchTarget> m_HolePunchTargets;
+
 private:
 	// Thread-related stuff:
 
@@ -344,6 +365,7 @@ private:
 	std::vector<bool> m_StartGameQueue;
 	std::vector<std::pair<CStr, CStr>> m_LobbyAuthQueue;
 	std::vector<u32> m_TurnLengthQueue;
+	std::vector<std::pair<CStr, u16>> m_HolePunchQueue;
 };
 
 /**

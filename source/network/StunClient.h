@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * Copyright (C) 2013-2016 SuperTuxKart-Team.
  * This file is part of 0 A.D.
  *
@@ -45,6 +45,14 @@ bool FindPublicIP(ENetHost& enetClient, CStr8& ip, u16& port);
  * thus allowing the IP discovered via STUN to be sent to the target server.
  */
 void SendHolePunchingMessages(ENetHost& enetClient, const std::string& serverAddress, u16 serverPort);
+
+/**
+ * Send a single hole punching message to the target address.
+ * Unlike SendHolePunchingMessages this doesn't block, so the caller
+ * is responsible for repeating the message at a sensible interval.
+ * @see SendHolePunchingMessages
+ */
+void SendHolePunchingMessage(ENetHost& enetClient, const ENetAddress& addr);
 
 /**
  * Return the local IP.

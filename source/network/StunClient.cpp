@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * Copyright (C) 2013-2016 SuperTuxKart-Team.
  * This file is part of 0 A.D.
  *
@@ -369,6 +369,11 @@ void SendHolePunchingMessages(ENetHost& enetClient, const std::string& serverAdd
 		SendStunRequest(enetClient, addr);
 		std::this_thread::sleep_for(std::chrono::milliseconds(delay));
 	}
+}
+
+void SendHolePunchingMessage(ENetHost& enetClient, const ENetAddress& addr)
+{
+	SendStunRequest(enetClient, addr);
 }
 
 bool FindLocalIP(CStr& ip)

@@ -52,6 +52,7 @@
 #include "simulation2/system/TurnManager.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <functional>
 #include <iterator>
@@ -414,6 +415,7 @@ bool CNetServerWorker::RunStep()
 	std::vector<bool> newStartGame;
 	std::vector<std::pair<CStr, CStr>> newLobbyAuths;
 	std::vector<u32> newTurnLength;
+	std::vector<std::pair<CStr, u16>> newHolePunchRequests;
 
 	{
 		std::lock_guard<std::mutex> lock(m_WorkerMutex);
@@ -424,6 +426,7 @@ bool CNetServerWorker::RunStep()
 		newStartGame.swap(m_StartGameQueue);
 		newLobbyAuths.swap(m_LobbyAuthQueue);
 		newTurnLength.swap(m_TurnLengthQueue);
+		newHolePunchRequests.swap(m_HolePunchQueue);
 	}
 
 	if (!newTurnLength.empty())
@@ -441,6 +444,8 @@ bool CNetServerWorker::RunStep()
 		session->GetFileTransferer().Poll();
 
 	CheckClientConnections();
+
+	ProcessHolePunching(std::move(newHolePunchRequests));
 
 	// Process network events:
 
@@ -469,6 +474,13 @@ bool CNetServerWorker::RunStep()
 		char hostname[256] = "(error)";
 		enet_address_get_host_ip(&event.peer->address, hostname, ARRAY_SIZE(hostname));
 		LOGMESSAGE("Net server: Received connection from %s:%u", hostname, (unsigned int)event.peer->address.port);
+
+		// The peer connected, so the hole punching for it succeeded or wasn't needed.
+		std::erase_if(m_HolePunchTargets, [&](const HolePunchTarget& target)
+			{
+				return target.address.host == event.peer->address.host &&
+					target.address.port == event.peer->address.port;
+			});
 
 		// Set up a session object for this peer
 
@@ -1644,10 +1656,47 @@ CStrW CNetServerWorker::DeduplicatePlayerName(const CStrW& original)
 	}
 }
 
-void CNetServerWorker::SendHolePunchingMessage(const CStr& ipStr, u16 port)
+void CNetServerWorker::ProcessHolePunching(std::vector<std::pair<CStr, u16>>&& newRequests)
 {
-	if (m_Host)
-		StunClient::SendHolePunchingMessages(*m_Host, ipStr, port);
+	if (!m_Host)
+		return;
+
+	const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+
+	for (const std::pair<CStr, u16>& request : newRequests)
+	{
+		// A negative number of messages means punching until the peer connects.
+		const int numMessages{g_ConfigDB.Get("lobby.fw_punch.num_msg", 3)};
+		if (numMessages == 0)
+			continue;
+
+		ENetAddress address;
+		address.port = request.second;
+		if (enet_address_set_host(&address, request.first.c_str()) != 0)
+		{
+			LOGWARNING("Net server: Failed to resolve hole punching target %s", request.first.c_str());
+			continue;
+		}
+		m_HolePunchTargets.push_back({address, numMessages, now});
+	}
+
+	if (m_HolePunchTargets.empty())
+		return;
+
+	const std::chrono::milliseconds delay{g_ConfigDB.Get("lobby.fw_punch.delay", 200)};
+	for (HolePunchTarget& target : m_HolePunchTargets)
+	{
+		if (now < target.nextSendTime)
+			continue;
+
+		StunClient::SendHolePunchingMessage(*m_Host, target.address);
+		if (target.remainingMessages > 0)
+			--target.remainingMessages;
+		target.nextSendTime = now + delay;
+	}
+
+	std::erase_if(m_HolePunchTargets,
+		[](const HolePunchTarget& target) { return target.remainingMessages == 0; });
 }
 
 
@@ -1735,5 +1784,6 @@ void CNetServer::SetTurnLength(u32 msecs)
 
 void CNetServer::SendHolePunchingMessage(const CStr& ip, u16 port)
 {
-	m_Worker.SendHolePunchingMessage(ip, port);
+	std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
+	m_Worker.m_HolePunchQueue.emplace_back(ip, port);
 }
