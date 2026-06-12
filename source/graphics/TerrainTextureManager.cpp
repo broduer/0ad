@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -207,7 +207,7 @@ CTerrainTextureManager::LoadAlphaMap(const VfsPath& alphaMapType)
 			LOGERROR("Failed to load alphamap: %s", alphaMapType.string8());
 
 			const VfsPath standard("standard");
-			if (path != standard)
+			if (alphaMapType != standard)
 				return LoadAlphaMap(standard);
 			return m_TerrainAlphas.end();
 		}
