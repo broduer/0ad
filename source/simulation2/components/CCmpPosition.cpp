@@ -195,6 +195,14 @@ public:
 
 	void Serialize(ISerializer& serialize) override
 	{
+		// Deserialize reconstructs the last advertised data from the current
+		// position, which relies on every change to the advertised data being
+		// advertised before the simulation can serialize.
+		ENSURE(m_LastAdvertisedInWorld == m_InWorld &&
+			m_LastAdvertisedX == (m_InWorld ? m_X : entity_pos_t::Zero()) &&
+			m_LastAdvertisedZ == (m_InWorld ? m_Z : entity_pos_t::Zero()) &&
+			m_LastAdvertisedRotY == (m_InWorld ? m_RotY : entity_angle_t::Zero()));
+
 		serialize.Bool("in world", m_InWorld);
 		if (m_InWorld)
 		{
