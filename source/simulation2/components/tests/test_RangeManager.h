@@ -221,7 +221,7 @@ public:
 		}
 	}
 
-	void test_queries()
+	void test_range_queries_distance_only()
 	{
 		ComponentTestHelper test(*g_ScriptContext);
 
@@ -293,6 +293,106 @@ public:
 		nearby = rangeManager->ExecuteQuery(101, fixed::FromInt(6), fixed::FromInt(50), {-1}, 0, true);
 		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{});
 
+	}
+
+	void test_range_queries_visibility_filtering()
+	{
+		ComponentTestHelper test(*g_ScriptContext);
+
+		ICmpRangeManager* rangeManager = test.Add<ICmpRangeManager>(CID_RangeManager, "", SYSTEM_ENTITY);
+
+		MockVisionRgm vision, vision2;
+		MockPositionRgm position, position2;
+		MockObstructionRgm obs(fixed::FromInt(2)), obs2(fixed::Zero());
+		test.AddMock(100, IID_Vision, vision);
+		test.AddMock(100, IID_Position, position);
+		test.AddMock(100, IID_Obstruction, obs);
+
+		test.AddMock(101, IID_Vision, vision2);
+		test.AddMock(101, IID_Position, position2);
+		test.AddMock(101, IID_Obstruction, obs2);
+
+		rangeManager->SetBounds(entity_pos_t::FromInt(0), entity_pos_t::FromInt(0), entity_pos_t::FromInt(512), entity_pos_t::FromInt(512));
+		rangeManager->Verify();
+		{ CMessageCreate msg(100); rangeManager->HandleMessage(msg, false); }
+		{ CMessageCreate msg(101); rangeManager->HandleMessage(msg, false); }
+
+		// Set ownership for both entities so they have proper owners
+		{ CMessageOwnershipChanged msg(100, -1, 1); rangeManager->HandleMessage(msg, false); }
+		{ CMessageOwnershipChanged msg(101, -1, 1); rangeManager->HandleMessage(msg, false); }
+
+		auto move = [&rangeManager](entity_id_t ent, MockPositionRgm& pos, fixed x, fixed z) {
+			pos.m_Pos = CFixedVector3D(x, fixed::Zero(), z);
+			{ CMessagePositionChanged msg(ent, true, x, z, entity_angle_t::Zero()); rangeManager->HandleMessage(msg, false); }
+		};
+
+		move(100, position, fixed::FromInt(10), fixed::FromInt(10));
+		move(101, position2, fixed::FromInt(10), fixed::FromInt(15));
+
+		std::vector<int> owners;
+		owners.push_back(1);
+
+		// Test 1: With preferMirages = true, we should get the mirage entity when visible
+		ICmpRangeManager::tag_t query = rangeManager->CreateActiveQuery(
+			100,                                // source
+			fixed::FromInt(0),                  // minRange
+			fixed::FromInt(50),                 // maxRange
+			owners,                             // owners
+			0,                                  // requiredInterface
+			rangeManager->GetEntityFlagMask("normal"),
+			true,                               // accountForSize
+			true                                // preferMirages = true
+		);
+		rangeManager->EnableActiveQuery(query);
+
+		// With reveal map enabled, entity should be visible
+		rangeManager->SetLosRevealWholeMap(1, true);
+		{ CMessageUpdate msg(fixed::FromInt(1)); rangeManager->HandleMessage(msg, false); }
+
+		std::vector<entity_id_t> nearby = rangeManager->ResetActiveQuery(query);
+		// Should return either the real entity (101) or a mirage.
+		// For this test, we just verify something is returned.
+		TS_ASSERT_EQUALS(nearby.size(), 1);
+
+		// Disable reveal map - entity should become hidden
+		rangeManager->SetLosRevealWholeMap(1, false);
+		{ CMessageUpdate msg(fixed::FromInt(1)); rangeManager->HandleMessage(msg, false); }
+
+		nearby = rangeManager->ResetActiveQuery(query);
+		// Should return empty (no visible entities)
+		TS_ASSERT_EQUALS(nearby.size(), 0);
+
+		// Re-enable reveal map
+		rangeManager->SetLosRevealWholeMap(1, true);
+		{ CMessageUpdate msg(fixed::FromInt(1)); rangeManager->HandleMessage(msg, false); }
+
+		nearby = rangeManager->ResetActiveQuery(query);
+		TS_ASSERT_EQUALS(nearby.size(), 1);
+
+		// Test 2: With preferMirages = false (default), visibility filtering is disabled
+		ICmpRangeManager::tag_t query2 = rangeManager->CreateActiveQuery(
+			100,                                // source
+			fixed::FromInt(0),                  // minRange
+			fixed::FromInt(50),                 // maxRange
+			owners,                             // owners
+			0,                                  // requiredInterface
+			rangeManager->GetEntityFlagMask("normal"),
+			true,                               // accountForSize
+			false                               // preferMirages = false
+		);
+		rangeManager->EnableActiveQuery(query2);
+
+		// With preferMirages = false, entity should be returned even when hidden
+		rangeManager->SetLosRevealWholeMap(1, false);
+		{ CMessageUpdate msg(fixed::FromInt(1)); rangeManager->HandleMessage(msg, false); }
+
+		nearby = rangeManager->ResetActiveQuery(query2);
+		// Should return the real entity (101) even though hidden
+		TS_ASSERT_EQUALS(nearby, std::vector<entity_id_t>{101});
+
+		// Clean up
+		rangeManager->DestroyActiveQuery(query);
+		rangeManager->DestroyActiveQuery(query2);
 	}
 
 	void test_ParabolicRangeBasic()
