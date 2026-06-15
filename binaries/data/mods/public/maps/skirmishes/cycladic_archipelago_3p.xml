@@ -3,7 +3,7 @@
 <Scenario version="7">
 	<Environment>
 		<SkySet>sunny</SkySet>
-		<SunColor r="0.921569" g="0.87451" b="0.768627"/>
+		<SunColor r="0.921569" g="0.87451" b="0.764706"/>
 		<SunElevation angle="0.730175"/>
 		<SunRotation angle="-0.909753"/>
 		<AmbientColor r="0.356863" g="0.356863" b="0.356863"/>
@@ -32,7 +32,7 @@
 		</Postproc>
 	</Environment>
 	<Camera>
-		<Position x="1171.58" y="233.55" z="927.984"/>
+		<Position x="668.542" y="107.776" z="1414.46"/>
 		<Rotation angle="0"/>
 		<Declination angle="0.610865"/>
 	</Camera>
@@ -21758,8 +21758,8 @@
 		<Entity uid="4925">
 			<Template>gaia/treasure/wood_lumber</Template>
 			<Player>0</Player>
-			<Position x="937.97278" z="1701.55286"/>
-			<Orientation y="-4.20142"/>
+			<Position x="937.92865" z="1701.77112"/>
+			<Orientation y="-9.20968"/>
 			<Actor seed="2608"/>
 		</Entity>
 		<Entity uid="4926">

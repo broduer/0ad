@@ -3,13 +3,13 @@
 <Scenario version="7">
 	<Environment>
 		<SkySet>sunny</SkySet>
-		<SunColor r="1.03516" g="0.909317" b="0.702285"/>
+		<SunColor r="0.978328" g="0.909317" b="0.807831"/>
 		<SunElevation angle="0.730175"/>
 		<SunRotation angle="-0.909753"/>
-		<AmbientColor r="0.356863" g="0.356863" b="0.356863"/>
+		<AmbientColor r="0.305882" g="0.337255" b="0.396078"/>
 		<Fog>
 			<FogFactor>0.00162109</FogFactor>
-			<FogThickness>0.0351563</FogThickness>
+			<FogThickness>0</FogThickness>
 			<FogColor r="0.819608" g="0.882353" b="0.901961"/>
 		</Fog>
 		<Water>
@@ -26,13 +26,13 @@
 		<Postproc>
 			<Brightness>-0.015625</Brightness>
 			<Contrast>0.984375</Contrast>
-			<Saturation>0.820313</Saturation>
+			<Saturation>0.914062</Saturation>
 			<Bloom>0.160156</Bloom>
 			<PostEffect>hdr</PostEffect>
 		</Postproc>
 	</Environment>
 	<Camera>
-		<Position x="1156.45" y="126.15" z="570.116"/>
+		<Position x="1212.42" y="79.3374" z="807.972"/>
 		<Rotation angle="0"/>
 		<Declination angle="0.610865"/>
 	</Camera>

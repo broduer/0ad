@@ -3,10 +3,10 @@
 <Scenario version="7">
 	<Environment>
 		<SkySet>sunny</SkySet>
-		<SunColor r="0.737255" g="0.721569" b="0.639216"/>
-		<SunElevation angle="0.717903"/>
-		<SunRotation angle="-0.693359"/>
-		<AmbientColor r="0.447059" g="0.509804" b="0.54902"/>
+		<SunColor r="0.917647" g="0.847059" b="0.709804"/>
+		<SunElevation angle="0.718171"/>
+		<SunRotation angle="-0.627629"/>
+		<AmbientColor r="0.392157" g="0.447059" b="0.52549"/>
 		<Fog>
 			<FogFactor>0.00199219</FogFactor>
 			<FogThickness>0.400391</FogThickness>
@@ -16,38 +16,44 @@
 			<WaterBody>
 				<Type>lake</Type>
 				<Color r="0.313726" g="0.321569" b="0.247059"/>
-				<Height>20.0394</Height>
-				<Waviness>4.0</Waviness>
-				<Murkiness>0.701172</Murkiness>
 				<Tint r="0.819608" g="0.74902" b="0.513726"/>
+				<Height>20.0394</Height>
+				<Waviness>4</Waviness>
+				<Murkiness>0.84668</Murkiness>
+				<WindAngle>2.03713</WindAngle>
 			</WaterBody>
 		</Water>
 		<Postproc>
 			<Brightness>0</Brightness>
 			<Contrast>1</Contrast>
-			<Saturation>0.99</Saturation>
+			<Saturation>0.914062</Saturation>
 			<Bloom>0.1999</Bloom>
-			<PostEffect>default</PostEffect>
+			<PostEffect>hdr</PostEffect>
 		</Postproc>
 	</Environment>
 	<Camera>
-		<Position x="767.628" y="56.2993" z="432.616"/>
+		<Position x="451.458" y="102.457" z="111.847"/>
 		<Rotation angle="0"/>
 		<Declination angle="0.610865"/>
 	</Camera>
 	<ScriptSettings><![CDATA[
 {
+  "AISeed": 0,
+  "AllyView": false,
   "CircularMap": true,
-  "Description": "Two factions find themselves perched safely atop large rocky plateaus.\u000a\u000aScout the lands to find free treasures and to secure new resources.",
+  "Description": "Two factions find themselves perched safely atop large rocky plateaus.\n\nScout the lands to find free treasures and to secure new resources.",
   "Keywords": [],
+  "LockTeams": false,
   "Name": "Greek Acropolis (2)",
   "PlayerData": [
-    {},
-    {}
+    "",
+    "",
+    ""
   ],
   "Preview": "acropolis_3.png",
+  "RevealMap": false,
   "VictoryConditions": [
-    "conquest"
+    "conquest_civic_centers"
   ]
 }
 ]]></ScriptSettings>

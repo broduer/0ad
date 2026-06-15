@@ -32,7 +32,7 @@
 		</Postproc>
 	</Environment>
 	<Camera>
-		<Position x="584.714" y="112.144" z="709.459"/>
+		<Position x="176.345" y="140.299" z="243.717"/>
 		<Rotation angle="0"/>
 		<Declination angle="0.610865"/>
 	</Camera>
@@ -12680,7 +12680,7 @@
 		<Entity uid="5510">
 			<Template>gaia/tree/carob</Template>
 			<Player>0</Player>
-			<Position x="336.84882" z="519.27564"/>
+			<Position x="342.753" z="553.20057"/>
 			<Orientation y="0.29801"/>
 			<Actor seed="56410"/>
 		</Entity>
@@ -14136,7 +14136,7 @@
 		<Entity uid="5770">
 			<Template>gaia/tree/poplar_lombardy</Template>
 			<Player>0</Player>
-			<Position x="323.61387" z="532.04993"/>
+			<Position x="332.43693" z="508.66718"/>
 			<Orientation y="0.38933"/>
 			<Actor seed="12422"/>
 		</Entity>
@@ -27326,7 +27326,7 @@
 			<Template>structures/shrine_italian</Template>
 			<Player>0</Player>
 			<Position x="341.86875" z="536.5135"/>
-			<Orientation y="2.35621"/>
+			<Orientation y="4.73133"/>
 			<Actor seed="12812"/>
 		</Entity>
 		<Entity uid="9336">

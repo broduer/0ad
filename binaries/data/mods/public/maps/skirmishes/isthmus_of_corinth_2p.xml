@@ -32,7 +32,7 @@
 		</Postproc>
 	</Environment>
 	<Camera>
-		<Position x="614.021" y="106.243" z="861.685"/>
+		<Position x="660.4" y="98.7963" z="882.691"/>
 		<Rotation angle="0"/>
 		<Declination angle="0.610865"/>
 	</Camera>
@@ -159,8 +159,8 @@
 		<Entity uid="40">
 			<Template>units/pirates/ship_scout</Template>
 			<Player>0</Player>
-			<Position x="98.74712" z="825.55585"/>
-			<Orientation y="-18.35286"/>
+			<Position x="99.1509" z="835.68915"/>
+			<Orientation y="-22.48874"/>
 			<Actor seed="18722"/>
 		</Entity>
 		<Entity uid="53">
@@ -25451,7 +25451,7 @@
 			<Template>units/pirates/ship_scout</Template>
 			<Player>0</Player>
 			<Position x="1046.60816" z="252.99369"/>
-			<Orientation y="-5.32314"/>
+			<Orientation y="-9.06476"/>
 			<Actor seed="59686"/>
 		</Entity>
 		<Entity uid="4235">
@@ -37413,6 +37413,34 @@
 			<Position x="920.83082" z="264.45551"/>
 			<Orientation y="0.73066"/>
 			<Actor seed="47072"/>
+		</Entity>
+		<Entity uid="6356">
+			<Template>vision_revealers/15_meters</Template>
+			<Player>1</Player>
+			<Position x="1107.08094" z="653.22333"/>
+			<Orientation y="2.35621"/>
+			<Actor seed="17565"/>
+		</Entity>
+		<Entity uid="6357">
+			<Template>vision_revealers/15_meters</Template>
+			<Player>2</Player>
+			<Position x="172.4286" z="547.20417"/>
+			<Orientation y="2.35621"/>
+			<Actor seed="49289"/>
+		</Entity>
+		<Entity uid="6358">
+			<Template>structures/pirates/dock</Template>
+			<Player>2</Player>
+			<Position x="1159.32581" z="459.38685"/>
+			<Orientation y="3.12429"/>
+			<Actor seed="33960"/>
+		</Entity>
+		<Entity uid="6359">
+			<Template>structures/pirates/dock</Template>
+			<Player>2</Player>
+			<Position x="105.78193" z="801.7273"/>
+			<Orientation y="-0.05797"/>
+			<Actor seed="32164"/>
 		</Entity>
 	</Entities>
 	<Paths/>
