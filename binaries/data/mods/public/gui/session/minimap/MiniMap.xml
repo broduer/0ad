@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <object name="minimapPanel"
-	size="0 0 100% 100%"
-	sprite="mapPanel"
+	size="0 2 100% 100%"
 	type="image"
 >
-
 	<!-- Civ background image -->
 	<object
 		name="minimapBackgroundTexture"
@@ -13,58 +11,106 @@
 		ghost="true"
 	/>
 
-	<!-- Background circle -->
-	<object
-		type="image"
-		size="4 6 100%-4 100%-6"
-		sprite="stretched:session/minimap_circle_modern.png"
-		ghost="true"
-	/>
+	<!-- Square layout -->
+	<object name="minimapLayoutSquare" size="0 0 100% 100%">
 
-	<!-- Idle Worker Button -->
-	<object name="idleWorkerButton"
-		type="button"
-		size="100%-119 100%-121 100%-4 100%-6"
-		tooltip_style="sessionToolTipBottom"
-		hotkey="selection.idleworker"
-		sprite="stretched:session/minimap-idle.png"
-		sprite_over="stretched:session/minimap-idle-highlight.png"
-		sprite_disabled="stretched:session/minimap-idle-disabled.png"
-		mouse_event_mask="texture:session/minimap-idle.png"
-	/>
+		<object name="minimapCircleSquare" type="image" size="4 4 100%-4 100%-4"
+			sprite="stretched:session/minimap/square/minimap_square.png" ghost="true"/>
 
-	<!-- Total number of idle workers -->
-	<object name="totalNumberIdleWorkers"
-		type="text"
-		size="85% 89% 97% 98%"
-		style="totalNumberIdleWorkersCount"
-		text_align="right"
-		text_valign="bottom"
-	/>
+		<object name="idleWorkerButtonSquare"
+			type="button"
+		size="41% 41% 100%-4 100%-4"
+			tooltip_style="sessionToolTipBottom"
+			sound_pressed="audio/interface/ui/ui_button_click.ogg"
+			sprite="stretched:session/minimap/square/idle.png"
+			sprite_over="stretched:session/minimap/square/idle_highlight.png"
+			sprite_disabled="stretched:session/minimap/square/idle_disabled.png"
+			mouse_event_mask="texture:session/minimap/square/idle.png"
+		/>
 
-	<!-- Diplomacy Colors Button -->
-	<object name="diplomacyColorsButton"
-		type="button"
-		size="3 100%-121 118 100%-6"
-		tooltip_style="sessionToolTipBottom"
-		hotkey="session.diplomacycolors"
-	/>
+		<object name="totalNumberIdleWorkersSquare"
+			type="text"
+		size="41% 41% 99% 99%"
+			style="totalNumberIdleWorkersCount"
+			text_align="right"
+			text_valign="bottom"
+		/>
 
-	<!-- Flare Button -->
-	<object
-		name="flareButton"
-		type="button"
-		size="2 4 117 119"
-		tooltip_style="sessionToolTip"
-		hotkey="session.flareactivate"
-		sprite_disabled="stretched:session/minimap-flare-disabled.png"
-		mouse_event_mask="texture:session/minimap-player-flare.png"
-	/>
+		<object name="diplomacyColorsButtonSquare"
+			type="button"
+		size="4 41% 60% 100%-4"
+			tooltip_style="sessionToolTipBottom"
+			sound_pressed="audio/interface/ui/ui_button_click.ogg"
+			mouse_event_mask="texture:session/minimap/square/diplomacy-on.png"
+		/>
+
+		<object name="flareButtonSquare"
+			type="button"
+		size="4 4 57% 58%"
+			tooltip_style="sessionToolTip"
+			sound_pressed="audio/interface/ui/ui_button_click.ogg"
+			sprite="stretched:session/minimap/square/player-flare.png"
+			sprite_over="stretched:session/minimap/square/player-flare_highlight.png"
+			sprite_disabled="stretched:session/minimap/square/player-flare_disabled.png"
+			mouse_event_mask="texture:session/minimap/square/player-flare.png"
+		/>
+	</object>
+
+	<!-- Round layout -->
+	<object name="minimapLayoutRound" size="0 0 100% 100%" hidden="true">
+
+		<object name="minimapCircleRound" type="image" size="4 4 100%-4 100%-4"
+			sprite="stretched:session/minimap/round/minimap_round_expanded.png" ghost="true"/>
+
+		<object name="idleWorkerButtonRound"
+			type="button"
+			size="87% 79% 99% 91%"
+			tooltip_style="sessionToolTipBottom"
+			sound_pressed="audio/interface/ui/ui_button_click.ogg"
+			sprite="stretched:session/minimap/round/idle.png"
+			sprite_over="stretched:session/minimap/round/idle_highlight.png"
+			sprite_disabled="stretched:session/minimap/round/idle_disabled.png"
+			mouse_event_mask="texture:session/minimap/round/idle.png"
+		/>
+
+		<object name="totalNumberIdleWorkersRound"
+			type="text"
+			size="87% 79% 99% 91%"
+			style="totalNumberIdleWorkersCount"
+			text_align="center"
+			text_valign="center"
+		/>
+
+		<object name="diplomacyColorsButtonRound"
+			type="button"
+			size="10% 88% 22% 100%"
+			tooltip_style="sessionToolTipBottom"
+			sound_pressed="audio/interface/ui/ui_button_click.ogg"
+			mouse_event_mask="texture:session/minimap/round/diplomacy-off.png"
+		/>
+
+		<object name="flareButtonRound"
+			type="button"
+			size="78% 88% 90% 100%"
+			tooltip_style="sessionToolTip"
+			sound_pressed="audio/interface/ui/ui_button_click.ogg"
+			sprite="stretched:session/minimap/round/player-flare.png"
+			sprite_over="stretched:session/minimap/round/player-flare_highlight.png"
+			sprite_disabled="stretched:session/minimap/round/player-flare_disabled.png"
+			mouse_event_mask="texture:session/minimap/round/player-flare.png"
+		/>
+	</object>
+
+	<!-- Expanded Layout -->
+	<object name="minimapLayoutExpanded" size="0 0 100% 100%" hidden="true">
+		<object name="minimapCircleExpanded" type="image" size="4 4 100%-4 100%-4"
+			sprite="stretched:session/minimap/round/minimap_round_expanded.png" ghost="true"/>
+	</object>
 
 	<!-- MiniMap -->
 	<object
 		name="minimap"
-		size="8 10 100%-8 100%-10"
+		size="8 8 100%-8 100%-8"
 		type="minimap"
 		mask="true"
 		flare_texture_count="16"

@@ -5,29 +5,33 @@ class MiniMapFlareButton
 {
 	constructor(playerViewControl)
 	{
-		this.flareButton = Engine.GetGUIObjectByName("flareButton");
-
-		this.flareButton.enabled = !g_IsReplay;
+		this.buttons = {
+			"square": Engine.GetGUIObjectByName("flareButtonSquare"),
+			"round": Engine.GetGUIObjectByName("flareButtonRound")
+		};
+		for (const shape in this.buttons)
+			this.buttons[shape].enabled = !g_IsReplay;
 		if (g_IsReplay)
 			return;
-
-		this.flareButton.onPress = this.onPress.bind(this);
+		for (const shape in this.buttons)
+			this.buttons[shape].onPress = this.onPress.bind(this);
+		Engine.SetGlobalHotkey("session.flareactivate", "Press", this.onPress.bind(this));
 		registerHotkeyChangeHandler(this.onHotkeyChange.bind(this));
 		playerViewControl.registerViewedPlayerChangeHandler(this.rebuild.bind(this));
 	}
 
+	updateSprites(isObserver)
+	{
+		const sprites = isObserver ? this.ObserverSprites : this.PlayerSprites;
+		for (const key in this.buttons)
+		{
+			this.buttons[key].sprite = sprites[key].sprite;
+			this.buttons[key].sprite_over = sprites[key].sprite_over;
+		}
+	}
+
 	rebuild()
 	{
-		if (g_IsObserver)
-		{
-			this.flareButton.sprite = "stretched:session/minimap-observer-flare.png";
-			this.flareButton.sprite_over = "stretched:session/minimap-observer-flare-highlight.png";
-		}
-		else
-		{
-			this.flareButton.sprite = "stretched:session/minimap-player-flare.png";
-			this.flareButton.sprite_over = "stretched:session/minimap-player-flare-highlight.png";
-		}
 		this.updateTooltip();
 	}
 
@@ -39,7 +43,9 @@ class MiniMapFlareButton
 
 	updateTooltip()
 	{
-		this.flareButton.tooltip = this.colorizedHotkey + (g_IsObserver ? this.ObserverTooltip : this.PlayerTooltip);
+		const tooltip = this.colorizedHotkey + (g_IsObserver ? this.ObserverTooltip : this.PlayerTooltip);
+		this.buttons.square.tooltip = tooltip;
+		this.buttons.round.tooltip = tooltip;
 	}
 
 	onPress()
@@ -51,3 +57,25 @@ class MiniMapFlareButton
 
 MiniMapFlareButton.prototype.PlayerTooltip = markForTranslation("Send a flare to your allies.");
 MiniMapFlareButton.prototype.ObserverTooltip = markForTranslation("Send a flare to other observers.");
+
+MiniMapFlareButton.prototype.PlayerSprites = {
+	"square": {
+		"sprite": "stretched:session/minimap/square/player-flare.png",
+		"sprite_over": "stretched:session/minimap/square/player-flare_highlight.png"
+	},
+	"round": {
+		"sprite": "stretched:session/minimap/round/player-flare.png",
+		"sprite_over": "stretched:session/minimap/round/player-flare_highlight.png"
+	}
+};
+
+MiniMapFlareButton.prototype.ObserverSprites = {
+	"square": {
+		"sprite": "stretched:session/minimap/square/observer-flare.png",
+		"sprite_over": "stretched:session/minimap/square/observer-flare_highlight.png"
+	},
+	"round": {
+		"sprite": "stretched:session/minimap/round/observer-flare.png",
+		"sprite_over": "stretched:session/minimap/round/observer-flare_highlight.png"
+	}
+};

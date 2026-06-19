@@ -5,40 +5,54 @@ class MiniMapDiplomacyColorsButton
 {
 	constructor(diplomacyColors)
 	{
-		this.diplomacyColorsButton = Engine.GetGUIObjectByName("diplomacyColorsButton");
-		this.diplomacyColorsButton.onPress = diplomacyColors.toggle.bind(diplomacyColors);
+		this.buttons = {
+			"square": Engine.GetGUIObjectByName("diplomacyColorsButtonSquare"),
+			"round": Engine.GetGUIObjectByName("diplomacyColorsButtonRound")
+		};
 
-		this.diplomacyColorsButton.mouse_event_mask = this.SpriteMask;
+		for (const shape in this.buttons)
+			this.buttons[shape].onPress = diplomacyColors.toggle.bind(diplomacyColors);
 
+		Engine.SetGlobalHotkey(this.Hotkey, "Press", diplomacyColors.toggle.bind(diplomacyColors));
+
+		this.onDiplomacyColorsChange(diplomacyColors.isEnabled());
 		diplomacyColors.registerDiplomacyColorsChangeHandler(this.onDiplomacyColorsChange.bind(this));
 		registerHotkeyChangeHandler(this.onHotkeyChange.bind(this));
 	}
 
 	onHotkeyChange()
 	{
-		this.diplomacyColorsButton.tooltip =
-			colorizeHotkey("%(hotkey)s" + " ", "session.diplomacycolors") +
-			translate(this.Tooltip);
+		const tooltip = colorizeHotkey("%(hotkey)s" + " ", this.Hotkey) + translate(this.Tooltip);
+		this.buttons.square.tooltip = tooltip;
+		this.buttons.round.tooltip = tooltip;
 	}
 
 	onDiplomacyColorsChange(enabled)
 	{
-		this.diplomacyColorsButton.sprite =
-			"stretched:" +
-			(enabled ? this.SpriteEnabled : this.SpriteDisabled);
-
-		this.diplomacyColorsButton.sprite_over =
-			"stretched:" +
-			(enabled ? this.SpriteEnabledOver : this.SpriteDisabledOver);
+		const sprites = this.Sprites;
+		for (const shape in this.buttons)
+		{
+			this.buttons[shape].sprite = enabled ? sprites[shape].on : sprites[shape].off;
+			this.buttons[shape].sprite_over = enabled ? sprites[shape].on_over : sprites[shape].off_over;
+		}
 	}
 }
 
+MiniMapDiplomacyColorsButton.prototype.Hotkey = "session.diplomacycolors";
+
 MiniMapDiplomacyColorsButton.prototype.Tooltip = markForTranslation("Toggle Diplomacy Colors");
 
-MiniMapDiplomacyColorsButton.prototype.SpriteEnabled = "session/minimap-diplomacy-on.png";
-MiniMapDiplomacyColorsButton.prototype.SpriteDisabled = "session/minimap-diplomacy-off.png";
-
-MiniMapDiplomacyColorsButton.prototype.SpriteEnabledOver = "session/minimap-diplomacy-on-highlight.png";
-MiniMapDiplomacyColorsButton.prototype.SpriteDisabledOver = "session/minimap-diplomacy-off-highlight.png";
-
-MiniMapDiplomacyColorsButton.prototype.SpriteMask = "texture:session/minimap-diplomacy-on.png";
+MiniMapDiplomacyColorsButton.prototype.Sprites = {
+	"square": {
+		"on": "stretched:session/minimap/square/diplomacy-on.png",
+		"off": "stretched:session/minimap/square/diplomacy-off.png",
+		"on_over": "stretched:session/minimap/square/diplomacy-on_highlight.png",
+		"off_over": "stretched:session/minimap/square/diplomacy-off_highlight.png"
+	},
+	"round": {
+		"on": "stretched:session/minimap/round/diplomacy-on.png",
+		"off": "stretched:session/minimap/round/diplomacy-off.png",
+		"on_over": "stretched:session/minimap/round/diplomacy-on_highlight.png",
+		"off_over": "stretched:session/minimap/round/diplomacy-off_highlight.png"
+	}
+};

@@ -87,6 +87,10 @@
 				"name": "Toggle status bars",
 				"desc": "Toggle display of status bars e.g. health indicator for all your buildings/units on the map (including unselected)."
 			},
+			"session.gui.expand.toggle": {
+				"name": "Toggle expanded minimap",
+				"desc": "Toggle minimap expand."
+			},
 			"session.highlightguarding": {
 				"name": "Toggle guarding highlight",
 				"desc": "Toggle highlight of guarding units."
