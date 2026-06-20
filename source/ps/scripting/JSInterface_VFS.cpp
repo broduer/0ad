@@ -297,7 +297,7 @@ bool DeleteCampaignSave(const CStrW& filePath)
 	if (g_VFS->RemoveFile(filePath) != INFO::OK)
 		return false;
 	std::error_code ec;
-	std::filesystem::remove(realPath.string(), ec);
+	std::filesystem::remove(realPath, ec);
 	return !ec;
 }
 

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -148,7 +148,7 @@ template<typename Requester>
 	const ModuleLoader::AllowModuleFunc& allowModule, ModuleLoader::RegistryType& registry,
 	const VfsPath& filePath, Requester&& requester)
 {
-	const VfsPath normalizedPath{filePath.fileSystemPath().lexically_normal().generic_string()};
+	const VfsPath normalizedPath{std::filesystem::path{filePath}.lexically_normal().generic_string()};
 	const auto insertResult = registry.try_emplace(normalizedPath, rq, allowModule, normalizedPath);
 	ModuleLoader::CompiledModule& compiledModule{std::get<1>(*std::get<0>(insertResult))};
 	compiledModule.AddRequester(std::forward<Requester>(requester));

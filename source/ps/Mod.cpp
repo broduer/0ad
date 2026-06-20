@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -66,11 +66,7 @@ Mod g_ModInstance;
 
 bool LoadModJSON(const PIVFS& vfs, OsPath modsPath, OsPath mod, std::string& text)
 {
-#if OS_WIN
-	const std::filesystem::path modJsonPath = (modsPath / mod / L"mod.json").fileSystemPath();
-#else
-	const std::string modJsonPath = OsString(modsPath / mod / L"mod.json");
-#endif
+	const std::filesystem::path modJsonPath = modsPath / mod / L"mod.json";
 	// Attempt to open mod.json first.
 	std::ifstream modjson(modJsonPath);
 	if (!modjson)

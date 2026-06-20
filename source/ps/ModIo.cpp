@@ -548,7 +548,7 @@ bool ModIo::ParseMods(const ScriptInterface& scriptInterface, std::string& err)
 void ModIo::DeleteDownloadedFile()
 {
 	std::error_code ec{};
-	std::filesystem::remove(m_DownloadFilePath.string(), ec);
+	std::filesystem::remove(m_DownloadFilePath, ec);
 	if (ec)
 		LOGERROR("Failed to delete temporary file.");
 	m_DownloadFilePath = OsPath();
@@ -559,7 +559,7 @@ bool ModIo::VerifyDownloadedFile(std::string& err)
 	// Verify filesize, as a first basic download check.
 	{
 		std::error_code ec{};
-		const u64 fileSize{static_cast<u64>(std::filesystem::file_size(std::filesystem::path(m_DownloadFilePath.string()), ec))};
+		const u64 fileSize{static_cast<u64>(std::filesystem::file_size(m_DownloadFilePath, ec))};
 		if (ec)
 			LOGERROR("Failed to get filesize for '%s', reason: %s", m_DownloadFilePath.string8().c_str(), ec.message());
 		const u64 expectedFileSize{std::stoull(m_ModData[m_DownloadModID].properties.at("filesize"))};

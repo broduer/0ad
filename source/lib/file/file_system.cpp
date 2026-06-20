@@ -38,7 +38,7 @@ bool DirectoryExists(const OsPath& path)
 {
 	try
 	{
-		return std::filesystem::is_directory(path.string());
+		return std::filesystem::is_directory(path);
 	}
 	catch (std::filesystem::filesystem_error& err)
 	{
@@ -52,7 +52,7 @@ Status GetFileInfo(const OsPath& pathname, CFileInfo* pPtrInfo)
 {
 	try
 	{
-		const std::filesystem::path path{pathname.string()};
+		const std::filesystem::path path{pathname};
 		*pPtrInfo = CFileInfo(path.filename().wstring(), static_cast<u64>(std::filesystem::file_size(path)),
 			static_cast<time_t>(std::chrono::duration_cast<std::chrono::seconds>(std::filesystem::last_write_time(path).time_since_epoch()).count()));
 	}
@@ -68,7 +68,7 @@ Status GetDirectoryEntries(const OsPath& path, CFileInfos* files, DirectoryNames
 {
 	try
 	{
-		for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(path.string()))
+		for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(path))
 		{
 			if (entry.is_directory() && entry.path().filename() != "." && entry.path().filename() != ".." && subdirectoryNames)
 			{
@@ -144,7 +144,7 @@ Status CreateDirectories(const OsPath& path, mode_t mode, bool breakpoint)
 {
 	try
 	{
-		return CreateDirectoriesImpl(std::filesystem::path(path.string()), ModeTToPerms(mode));
+		return CreateDirectoriesImpl(std::filesystem::path(path), ModeTToPerms(mode));
 	}
 	catch (std::filesystem::filesystem_error& err)
 	{
@@ -161,7 +161,7 @@ Status DeleteDirectory(const OsPath& path)
 {
 	try
 	{
-		std::filesystem::remove_all(path.string());
+		std::filesystem::remove_all(path);
 	}
 	catch (std::filesystem::filesystem_error& err)
 	{
@@ -178,7 +178,7 @@ Status RenameFile(const OsPath& path, const OsPath& newPath)
 
 	try
 	{
-		std::filesystem::rename(std::filesystem::path(path.string()), std::filesystem::path(newPath.string()));
+		std::filesystem::rename(std::filesystem::path(path), std::filesystem::path(newPath));
 	}
 	catch (std::filesystem::filesystem_error& err)
 	{
@@ -198,9 +198,9 @@ Status CopyFile(const OsPath& path, const OsPath& newPath, bool override_if_exis
 	try
 	{
 		if(override_if_exists)
-			std::filesystem::copy_file(std::filesystem::path(path.string()), std::filesystem::path(newPath.string()), std::filesystem::copy_options::overwrite_existing);
+			std::filesystem::copy_file(std::filesystem::path(path), std::filesystem::path(newPath), std::filesystem::copy_options::overwrite_existing);
 		else
-			std::filesystem::copy_file(std::filesystem::path(path.string()), std::filesystem::path(newPath.string()));
+			std::filesystem::copy_file(std::filesystem::path(path), std::filesystem::path(newPath));
 	}
 	catch(std::filesystem::filesystem_error& err)
 	{

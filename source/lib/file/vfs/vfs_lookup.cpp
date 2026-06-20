@@ -45,7 +45,7 @@
 
 static Status CreateDirectory(const OsPath& dirpath)
 {
-	const std::filesystem::path path{dirpath.string()};
+	const std::filesystem::path path{dirpath};
 	std::error_code ec{};
 
     if (std::filesystem::is_directory(path))

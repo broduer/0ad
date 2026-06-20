@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -792,7 +792,7 @@ public:
 	 */
 	CTextureConverter::Settings GetConverterSettings(const CTexturePtr& texture)
 	{
-		std::filesystem::path srcPath = texture->m_Properties.m_Path.string();
+		std::filesystem::path srcPath{texture->m_Properties.m_Path};
 
 		std::vector<CTextureConverter::SettingsFile*> files;
 		VfsPath p;

@@ -346,7 +346,7 @@ bool SavedGames::DeleteSavedGame(const std::wstring& name)
 
 	// Delete actual file
 	std::error_code ec{};
-	std::filesystem::remove(realpath.string(), ec);
+	std::filesystem::remove(realpath, ec);
 	if (ec)
 		return false; // Error
 

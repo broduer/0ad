@@ -60,7 +60,7 @@ public:
 		// Check it's absolute
 		TSM_ASSERT(L"Path: "+path.string(), path_is_absolute(path.string().c_str()));
 		// Check the file exists
-		TS_ASSERT(std::filesystem::is_regular_file(path.string()));
+		TS_ASSERT(std::filesystem::is_regular_file(path));
 	}
 
 private:

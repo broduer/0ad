@@ -177,9 +177,8 @@ Paths::Paths(const CmdLineArgs& args)
 	OsPath pathname = sys_ExecutablePathname();	// safe, but requires OS-specific implementation
 	if(pathname.empty())	// failed, use argv[0] instead
 	{
-		const std::filesystem::path rpath{argv0.string()};
 		std::error_code ec{};
-		const std::filesystem::path cpath{std::filesystem::canonical(rpath, ec)};
+		const std::filesystem::path cpath{std::filesystem::canonical(argv0, ec)};
 		if (ec)
 			LOGERROR("Failed to get absolute path of argv0, reason: %s", ec.message());
 		else

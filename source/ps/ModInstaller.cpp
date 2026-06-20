@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -123,11 +123,7 @@ CModInstaller::ModInstallationResult CModInstaller::Install(
 
 	DeleteDirectory(modTemp.Parent());
 
-#if OS_WIN
-	const std::filesystem::path modJsonPath = (modDir / L"mod.json").fileSystemPath();
-#else
-	const std::string modJsonPath = OsString(modDir / L"mod.json");
-#endif
+	const std::filesystem::path modJsonPath = modDir / L"mod.json";
 	std::ofstream mod_json(modJsonPath);
 	if (mod_json.good())
 	{

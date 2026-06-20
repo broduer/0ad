@@ -337,7 +337,7 @@ static inline Status Store(const OsPath& pathname, const void* data, size_t size
 	file.Close();	// (required by resize_file)
 
 	std::error_code ec{};
-	std::filesystem::resize_file(pathname.string(), size, ec);
+	std::filesystem::resize_file(pathname, size, ec);
 	if (ec)
 		return StatusFromSystemError(ec);
 

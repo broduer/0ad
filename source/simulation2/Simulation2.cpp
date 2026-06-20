@@ -339,7 +339,7 @@ void CSimulation2Impl::ReportSerializationFailure(
 		"state.after.b",
 	})};
 
-	const std::filesystem::path fspath{path.string()};
+	const std::filesystem::path fspath{path};
 	std::error_code ec{};
 	for (const std::string_view nameToRemove : namesToRemove)
 		std::filesystem::remove(fspath / nameToRemove, ec);

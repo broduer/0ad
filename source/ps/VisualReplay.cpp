@@ -113,7 +113,7 @@ bool VisualReplay::ReadCacheFile(const ScriptInterface& scriptInterface, JS::Mut
 
 	LOGWARNING("The replay cache file is corrupted, it will be deleted");
 	std::error_code ec{};
-	std::filesystem::remove(GetCacheFilePath().string(), ec);
+	std::filesystem::remove(GetCacheFilePath(), ec);
 	return false;
 }
 
@@ -127,7 +127,7 @@ void VisualReplay::StoreCacheFile(const ScriptInterface& scriptInterface, JS::Ha
 	cacheStream.close();
 
 	std::error_code ec{};
-	std::filesystem::remove(GetCacheFilePath().string(), ec);
+	std::filesystem::remove(GetCacheFilePath(), ec);
 	if (RenameFile(GetTempCacheFilePath(), GetCacheFilePath()))
 		LOGERROR("Could not store the replay cache");
 }
