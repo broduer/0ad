@@ -792,7 +792,6 @@ const char* CProfiler2::ConstructJSONResponse(std::ostream& stream, const std::s
 void CProfiler2::SaveToFile()
 {
 	OsPath path = psLogDir()/"profile2.jsonp";
-	debug_printf("Writing profile data to %s \n", path.string8().c_str());
 	LOGMESSAGERENDER("Writing profile data to %s \n", path.string8().c_str());
 	std::ofstream stream(OsString(path), std::ofstream::out | std::ofstream::trunc);
 	ENSURE(stream.good());

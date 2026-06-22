@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -117,8 +117,8 @@ void CLogger::WriteMessage(const char* message, bool doRender = false)
 	std::lock_guard<std::mutex> lock(m_Mutex);
 
 	++m_NumberOfMessages;
-//	if (m_UseDebugPrintf)
-//		debug_printf("MESSAGE: %s\n", message);
+	if (m_UseDebugPrintf && doRender)
+		debug_printf("MESSAGE: %s\n", message);
 
 	m_MainLog << "<p>" << cmessage << "</p>\n";
 	m_MainLog.flush();

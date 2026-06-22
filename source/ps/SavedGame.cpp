@@ -166,7 +166,6 @@ Status SavedGames::Save(const CStrW& name, const CStrW& description, CSimulation
 	OsPath realPath;
 	WARN_RETURN_STATUS_IF_ERR(g_VFS->GetRealPath(filename, realPath));
 	LOGMESSAGERENDER("Saved game to '%s'", realPath.string8());
-	debug_printf("Saved game to '%s'\n", realPath.string8().c_str());
 
 	return INFO::OK;
 }

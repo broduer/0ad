@@ -88,6 +88,8 @@ class TestFileTransfer : public CxxTest::TestSuite
 public:
 	void test_transfer()
 	{
+		debug_printf_disabled = true;
+
 		// The client requests some data from the server.
 
 		Participant server;
@@ -131,6 +133,8 @@ public:
 
 		server.transferer.HandleMessageReceive(client.queues.acknowledgements.at(0));
 		CheckSizes(server.queues, 0, 1, 1, 0);
+
+		debug_printf_disabled = false;
 	}
 
 	void test_RequestType()
