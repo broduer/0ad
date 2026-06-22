@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -67,6 +67,7 @@ static const StatusDefinition debugStatusDefinitions[] = {
 };
 STATUS_ADD_DEFINITIONS(debugStatusDefinitions);
 
+bool debug_printf_disabled{false};
 
 // need to shoehorn printf-style variable params into
 // the OutputDebugString call.
@@ -152,6 +153,9 @@ bool debug_filter_allows(const char* text)
 #undef debug_printf	// allowing #defining it out
 void debug_printf(const char* fmt, ...)
 {
+	if (debug_printf_disabled)
+		return;
+
 	char buf[16384];
 
 	va_list ap;
