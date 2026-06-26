@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -278,9 +278,9 @@ Status debug_WriteCrashlog(const char* text);
 #define ENSURE(expr)\
 	do\
 	{\
-		static std::atomic<bool> suppress__{ false };\
-		if(!(expr))\
+		if(!(expr)) [[unlikely]] \
 		{\
+			static std::atomic<bool> suppress__{ false };\
 			switch(debug_OnAssertionFailure(WIDEN(#expr), &suppress__, WIDEN(__FILE__), __LINE__, __func__))\
 			{\
 			case ER_CONTINUE:\
