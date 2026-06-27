@@ -63,7 +63,7 @@ void CNetClientTurnManager::PostCommand(JS::HandleValue data)
 	// TODO: we should do this when the server stops sending our commands back to us
 }
 
-void CNetClientTurnManager::NotifyFinishedOwnCommands(u32 turn)
+void CNetClientTurnManager::NotifyFinishedOwnCommands(turn_id_t turn)
 {
 	NETCLIENTTURN_LOG("NotifyFinishedOwnCommands(%d)\n", turn);
 
@@ -79,7 +79,7 @@ void CNetClientTurnManager::NotifyFinishedOwnCommands(u32 turn)
 	m_NetClient.SendMessage(&msg);
 }
 
-void CNetClientTurnManager::NotifyFinishedUpdate(u32 turn, const UpdateCallback&)
+void CNetClientTurnManager::NotifyFinishedUpdate(turn_id_t turn, const UpdateCallback&)
 {
 	bool quick = !TurnNeedsFullHash(turn);
 	std::string hash;
@@ -110,10 +110,10 @@ void CNetClientTurnManager::OnDestroyConnection()
 void CNetClientTurnManager::OnSimulationMessage(CSimulationMessage* msg)
 {
 	// Command received from the server - store it for later execution
-	AddCommand(msg->m_Client, msg->m_Player, msg->m_Data, msg->m_Turn);
+	AddCommand(msg->m_Client, msg->m_Player, msg->m_Data, static_cast<turn_id_t>(msg->m_Turn));
 }
 
-void CNetClientTurnManager::OnSyncError(u32 turn, const CStr& expectedHash, const std::vector<CSyncErrorMessage::S_m_PlayerNames>& playerNames)
+void CNetClientTurnManager::OnSyncError(turn_id_t turn, const CStr& expectedHash, const std::vector<CSyncErrorMessage::S_m_PlayerNames>& playerNames)
 {
 	CStr expectedHashHex(Hexify(expectedHash));
 	NETCLIENTTURN_LOG("OnSyncError(%d, %hs)\n", turn, expectedHashHex.c_str());

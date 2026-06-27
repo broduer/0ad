@@ -150,7 +150,7 @@ u8* CSimulationMessage::Serialize(u8* pBuffer) const
 	CBufferBinarySerializer serializer(m_ScriptInterface, pos);
 	serializer.NumberU32_Unbounded("client", m_Client);
 	serializer.NumberI32_Unbounded("player", m_Player);
-	serializer.NumberU32_Unbounded("turn", m_Turn);
+	serializer.NumberI32_Unbounded("turn", m_Turn);
 
 	serializer.ScriptVal("command", const_cast<JS::PersistentRootedValue*>(&m_Data));
 	return serializer.GetBuffer();
@@ -165,7 +165,7 @@ const u8* CSimulationMessage::Deserialize(const u8* pStart, const u8* pEnd)
 	CStdDeserializer deserializer(m_ScriptInterface, stream);
 	deserializer.NumberU32_Unbounded("client", m_Client);
 	deserializer.NumberI32_Unbounded("player", m_Player);
-	deserializer.NumberU32_Unbounded("turn", m_Turn);
+	deserializer.NumberI32_Unbounded("turn", m_Turn);
 	deserializer.ScriptVal("command", &m_Data);
 	return pEnd;
 }
@@ -177,7 +177,7 @@ size_t CSimulationMessage::GetSerializedLength() const
 	CLengthBinarySerializer serializer(m_ScriptInterface);
 	serializer.NumberU32_Unbounded("client", m_Client);
 	serializer.NumberI32_Unbounded("player", m_Player);
-	serializer.NumberU32_Unbounded("turn", m_Turn);
+	serializer.NumberI32_Unbounded("turn", m_Turn);
 
 	// TODO: The cast can probably be removed if and when ScriptVal can take a JS::HandleValue instead of
 	// a JS::MutableHandleValue (relies on JSAPI change). Also search for other casts like this one in that case.

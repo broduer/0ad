@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,6 +21,7 @@
 #include "lib/code_annotation.h"
 #include "lib/types.h"
 #include "ps/CStr.h"
+#include "simulation2/helpers/SimulationCommand.h"
 
 #include <map>
 #include <string>
@@ -44,15 +45,15 @@ class CNetServerTurnManager
 public:
 	CNetServerTurnManager(CNetServerWorker& server);
 
-	void NotifyFinishedClientCommands(CNetServerSession& session, u32 turn);
+	void NotifyFinishedClientCommands(CNetServerSession& session, turn_id_t turn);
 
-	void NotifyFinishedClientUpdate(CNetServerSession& session, u32 turn, const CStr& hash);
+	void NotifyFinishedClientUpdate(CNetServerSession& session, turn_id_t turn, const CStr& hash);
 
 	/**
 	 * Inform the turn manager of a new client
 	 * @param observer - whether this client is an observer.
 	 */
-	void InitialiseClient(int client, u32 turn, bool observer);
+	void InitialiseClient(int client, turn_id_t turn, bool observer);
 
 	/**
 	 * Inform the turn manager that a previously-initialised client has left the game.
@@ -65,13 +66,13 @@ public:
 	 * Returns the latest turn for which all clients are ready;
 	 * they will have already been told to execute this turn.
 	 */
-	u32 GetReadyTurn() { return m_ReadyTurn; }
+	turn_id_t GetReadyTurn() { return m_ReadyTurn; }
 
 	/**
 	 * Returns the turn length that was used for the given turn.
 	 * Requires turn <= GetReadyTurn().
 	 */
-	u32 GetSavedTurnLength(u32 turn);
+	u32 GetSavedTurnLength(turn_id_t turn);
 
 private:
 	void CheckClientsReady();
@@ -80,9 +81,9 @@ private:
 	{
 		CStrW playerName;
 		// Latest turn for which all commands have been received.
-		u32 readyTurn;
+		turn_id_t readyTurn;
 		// Last known simulated turn.
-		u32 simulatedTurn;
+		turn_id_t simulatedTurn;
 		bool isObserver;
 		bool isOOS = false;
 	};
@@ -93,10 +94,10 @@ private:
 	bool m_HasSyncError = false;
 
 	// Map of turn -> {Client ID -> state hash}; old indexes <= min(m_ClientsSimulated) are deleted
-	std::map<u32, std::map<int, std::string>> m_ClientStateHashes;
+	std::map<turn_id_t, std::map<int, std::string>> m_ClientStateHashes;
 
 	/// The latest turn for which we have received all commands from all clients
-	u32 m_ReadyTurn;
+	turn_id_t m_ReadyTurn;
 
 	// Current turn length
 	u32 m_TurnLength;

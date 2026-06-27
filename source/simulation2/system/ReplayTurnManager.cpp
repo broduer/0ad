@@ -47,18 +47,18 @@ CReplayTurnManager::CReplayTurnManager(CSimulation2& simulation, IReplayLogger& 
 {
 }
 
-void CReplayTurnManager::StoreReplayCommand(u32 turn, int player, const std::string& command)
+void CReplayTurnManager::StoreReplayCommand(turn_id_t turn, int player, const std::string& command)
 {
 	// Using the pair we make sure that commands per turn will be processed in the correct order
 	m_ReplayCommands[turn].emplace_back(player, command);
 }
 
-void CReplayTurnManager::StoreReplayHash(u32 turn, const std::string& hash, bool quick)
+void CReplayTurnManager::StoreReplayHash(turn_id_t turn, const std::string& hash, bool quick)
 {
 	m_ReplayHash[turn] = std::make_pair(hash, quick);
 }
 
-void CReplayTurnManager::StoreReplayTurnLength(u32 turn, u32 turnLength)
+void CReplayTurnManager::StoreReplayTurnLength(turn_id_t turn, u32 turnLength)
 {
 	m_ReplayTurnLengths[turn] = turnLength;
 
@@ -67,12 +67,12 @@ void CReplayTurnManager::StoreReplayTurnLength(u32 turn, u32 turnLength)
 		m_TurnLength = m_ReplayTurnLengths[0];
 }
 
-void CReplayTurnManager::StoreFinalReplayTurn(u32 turn)
+void CReplayTurnManager::StoreFinalReplayTurn(turn_id_t turn)
 {
 	m_FinalTurn = turn;
 }
 
-void CReplayTurnManager::NotifyFinishedUpdate(u32 turn, const UpdateCallback& sendEventToAll)
+void CReplayTurnManager::NotifyFinishedUpdate(turn_id_t turn, const UpdateCallback& sendEventToAll)
 {
 	if (turn == 1 && m_FinalTurn == 0)
 		sendEventToAll(EventNameReplayFinished, std::nullopt);
@@ -83,7 +83,7 @@ void CReplayTurnManager::NotifyFinishedUpdate(u32 turn, const UpdateCallback& se
 	DoTurn(turn, sendEventToAll);
 
 	// Compare hash if it exists in the replay and if we didn't have an OOS already
-	std::map<u32, std::pair<std::string, bool>>::iterator turnHashIt = m_ReplayHash.find(turn);
+	std::map<turn_id_t, std::pair<std::string, bool>>::iterator turnHashIt = m_ReplayHash.find(turn);
 	if (m_HasSyncError || turnHashIt == m_ReplayHash.end())
 		return;
 
@@ -119,9 +119,9 @@ void CReplayTurnManager::NotifyFinishedUpdate(u32 turn, const UpdateCallback& se
 	sendEventToAll(EventNameReplayOutOfSync, paramData);
 }
 
-void CReplayTurnManager::DoTurn(u32 turn, const UpdateCallback& sendEventToAll)
+void CReplayTurnManager::DoTurn(turn_id_t turn, const UpdateCallback& sendEventToAll)
 {
-	debug_printf("Executing turn %u of %u\n", turn, m_FinalTurn);
+	debug_printf("Executing turn %d of %d\n", turn, m_FinalTurn);
 
 	m_TurnLength = m_ReplayTurnLengths[turn];
 

@@ -41,9 +41,9 @@ public:
 	void PostCommand(player_id_t playerid, JS::HandleValue data);
 
 protected:
-	void NotifyFinishedOwnCommands(u32 turn) override;
+	void NotifyFinishedOwnCommands(turn_id_t turn) override;
 
-	void NotifyFinishedUpdate(u32 turn, const UpdateCallback& sendEventToAll) override;
+	void NotifyFinishedUpdate(turn_id_t turn, const UpdateCallback& sendEventToAll) override;
 };
 
 #endif // INCLUDED_LOCALTURNMANAGER

@@ -101,7 +101,7 @@ public:
 
 	virtual ~CTurnManager() { }
 
-	void ResetState(u32 newCurrentTurn, u32 newReadyTurn);
+	void ResetState(turn_id_t newCurrentTurn, turn_id_t newReadyTurn);
 
 	/**
 	 * Set the current user's player ID, which will be added into command messages.
@@ -146,7 +146,7 @@ public:
 	 * Called when all commands for a given turn have been received.
 	 * This allows Update to progress to that turn.
 	 */
-	void FinishedAllCommands(u32 turn, u32 turnLength);
+	void FinishedAllCommands(turn_id_t turn, u32 turnLength);
 
 	/**
 	 * Enables the recording of state snapshots every @p numTurns,
@@ -163,52 +163,52 @@ public:
 	void QuickSave(JS::HandleValue GUIMetadata);
 	std::optional<JS::Value> TryQuickLoad();
 
-	u32 GetCurrentTurn() const { return m_CurrentTurn; }
+	turn_id_t GetCurrentTurn() const { return m_CurrentTurn; }
 
 	/**
 	 * @return how many turns are ready to be computed.
 	 * (used to detect players/observers that fall behind the live game.
 	 */
-	u32 GetPendingTurns() const { return m_ReadyTurn - m_CurrentTurn; }
+	turn_id_t GetPendingTurns() const { return m_ReadyTurn - m_CurrentTurn; }
 
 protected:
 	/**
 	 * Store a command to be executed at a given turn.
 	 */
-	void AddCommand(int client, int player, JS::HandleValue data, u32 turn);
+	void AddCommand(int client, int player, JS::HandleValue data, turn_id_t turn);
 
 	/**
 	 * Called when this client has finished sending all its commands scheduled for the given turn.
 	 */
-	virtual void NotifyFinishedOwnCommands(u32 turn) = 0;
+	virtual void NotifyFinishedOwnCommands(turn_id_t turn) = 0;
 
 	/**
 	 * Called when this client has finished a simulation update.
 	 */
-	virtual void NotifyFinishedUpdate(u32 turn, const UpdateCallback& sendEventToAll) = 0;
+	virtual void NotifyFinishedUpdate(turn_id_t turn, const UpdateCallback& sendEventToAll) = 0;
 
 	/**
 	 * Returns whether we should compute a complete state hash for the given turn,
 	 * instead of a quick less-complete hash.
 	 */
-	bool TurnNeedsFullHash(u32 turn) const;
+	bool TurnNeedsFullHash(turn_id_t turn) const;
 
 	CSimulation2& m_Simulation2;
 
 	/// The turn that we have most recently executed
-	u32 m_CurrentTurn;
+	turn_id_t m_CurrentTurn;
 
 	// Current command delay (commands are scheduled for m_CurrentTurn + m_CommandDelay)
 	u32 m_CommandDelay;
 
 	/// The latest turn for which we have received all commands from all clients
-	u32 m_ReadyTurn;
+	turn_id_t m_ReadyTurn;
 
 	// Current turn length
 	u32 m_TurnLength;
 
 	/// Commands queued at each turn (index 0 is for m_CurrentTurn+1)
-	std::deque<std::map<u32, std::vector<SimulationCommand>>> m_QueuedCommands;
+	std::deque<std::map<turn_id_t, std::vector<SimulationCommand>>> m_QueuedCommands;
 
 	int m_PlayerId;
 	uint m_ClientId;
@@ -220,7 +220,7 @@ protected:
 	IReplayLogger& m_Replay;
 
 	// The number of the last turn that is allowed to be executed (used for replays)
-	u32 m_FinalTurn;
+	turn_id_t m_FinalTurn;
 
 private:
 	size_t m_TimeWarpNumTurns; // 0 if disabled

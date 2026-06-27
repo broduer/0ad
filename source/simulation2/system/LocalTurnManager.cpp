@@ -42,12 +42,12 @@ void CLocalTurnManager::PostCommand(JS::HandleValue data)
 	AddCommand(m_ClientId, m_PlayerId, data, m_CurrentTurn + m_CommandDelay);
 }
 
-void CLocalTurnManager::NotifyFinishedOwnCommands(u32 turn)
+void CLocalTurnManager::NotifyFinishedOwnCommands(turn_id_t turn)
 {
 	FinishedAllCommands(turn, m_TurnLength);
 }
 
-void CLocalTurnManager::NotifyFinishedUpdate(u32 /*turn*/, const UpdateCallback&)
+void CLocalTurnManager::NotifyFinishedUpdate(turn_id_t /*turn*/, const UpdateCallback&)
 {
 #if 0 // this hurts performance and is only useful for verifying log replays
 	std::string hash;

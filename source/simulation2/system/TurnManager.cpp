@@ -48,14 +48,14 @@ const CStr CTurnManager::EventNameSavegameLoaded = "SavegameLoaded";
 CTurnManager::CTurnManager(CSimulation2& simulation, u32 defaultTurnLength, u32 commandDelay, int clientId, IReplayLogger& replay)
 	: m_Simulation2(simulation), m_CurrentTurn(0), m_CommandDelay(commandDelay), m_ReadyTurn(commandDelay - 1), m_TurnLength(defaultTurnLength),
 	m_PlayerId(-1), m_ClientId(clientId), m_DeltaSimTime(0), m_Replay(replay),
-	m_FinalTurn(std::numeric_limits<u32>::max()), m_TimeWarpNumTurns(0)
+	m_FinalTurn(std::numeric_limits<turn_id_t>::max()), m_TimeWarpNumTurns(0)
 {
 	Script::Request rq(m_Simulation2.GetScriptInterface());
 	m_QuickSaveMetadata.init(rq.cx);
 	m_QueuedCommands.resize(1);
 }
 
-void CTurnManager::ResetState(u32 newCurrentTurn, u32 newReadyTurn)
+void CTurnManager::ResetState(turn_id_t newCurrentTurn, turn_id_t newReadyTurn)
 {
 	m_CurrentTurn = newCurrentTurn;
 	m_ReadyTurn = newReadyTurn;
@@ -141,7 +141,7 @@ bool CTurnManager::Update(float simFrameLength, size_t maxTurns, const UpdateCal
 
 		// Put all the client commands into a single list, in a globally consistent order
 		std::vector<SimulationCommand> commands;
-		for (std::pair<const u32, std::vector<SimulationCommand>>& p : m_QueuedCommands[0])
+		for (std::pair<const turn_id_t, std::vector<SimulationCommand>>& p : m_QueuedCommands[0])
 			commands.insert(commands.end(), std::make_move_iterator(p.second.begin()), std::make_move_iterator(p.second.end()));
 
 		m_QueuedCommands.pop_front();
@@ -184,7 +184,7 @@ bool CTurnManager::UpdateFastForward()
 
 		// Put all the client commands into a single list, in a globally consistent order
 		std::vector<SimulationCommand> commands;
-		for (std::pair<const u32, std::vector<SimulationCommand>>& p : m_QueuedCommands[0])
+		for (std::pair<const turn_id_t, std::vector<SimulationCommand>>& p : m_QueuedCommands[0])
 			commands.insert(commands.end(), std::make_move_iterator(p.second.begin()), std::make_move_iterator(p.second.end()));
 
 		m_QueuedCommands.pop_front();
@@ -214,7 +214,7 @@ void CTurnManager::Interpolate(float simFrameLength, float realFrameLength)
 	m_Simulation2.Interpolate(simFrameLength, offset, realFrameLength);
 }
 
-void CTurnManager::AddCommand(int client, int player, JS::HandleValue data, u32 turn)
+void CTurnManager::AddCommand(int client, int player, JS::HandleValue data, turn_id_t turn)
 {
 	NETTURN_LOG("AddCommand(client=%d player=%d turn=%d current=%d, ready=%d)\n", client, player, turn, m_CurrentTurn, m_ReadyTurn);
 
@@ -239,7 +239,7 @@ void CTurnManager::AddCommand(int client, int player, JS::HandleValue data, u32 
 	m_QueuedCommands[turn - (m_CurrentTurn+1)][client].emplace_back(player, rq.cx, data);
 }
 
-void CTurnManager::FinishedAllCommands(u32 turn, u32 turnLength)
+void CTurnManager::FinishedAllCommands(turn_id_t turn, u32 turnLength)
 {
 	NETTURN_LOG("FinishedAllCommands(%d, %d)\n", turn, turnLength);
 
@@ -248,7 +248,7 @@ void CTurnManager::FinishedAllCommands(u32 turn, u32 turnLength)
 	m_TurnLength = turnLength;
 }
 
-bool CTurnManager::TurnNeedsFullHash(u32 turn) const
+bool CTurnManager::TurnNeedsFullHash(turn_id_t turn) const
 {
 	// Check immediately for errors caused by e.g. inconsistent game versions
 	// (The hash is computed after the first sim update, so we start at turn == 1)

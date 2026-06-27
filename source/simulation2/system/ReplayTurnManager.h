@@ -40,18 +40,18 @@ class CReplayTurnManager : public CLocalTurnManager
 public:
 	CReplayTurnManager(CSimulation2& simulation, IReplayLogger& replay);
 
-	void StoreReplayCommand(u32 turn, int player, const std::string& command);
+	void StoreReplayCommand(turn_id_t turn, int player, const std::string& command);
 
-	void StoreReplayTurnLength(u32 turn, u32 turnLength);
+	void StoreReplayTurnLength(turn_id_t turn, u32 turnLength);
 
-	void StoreReplayHash(u32 turn, const std::string& hash, bool quick);
+	void StoreReplayHash(turn_id_t turn, const std::string& hash, bool quick);
 
-	void StoreFinalReplayTurn(u32 turn);
+	void StoreFinalReplayTurn(turn_id_t turn);
 
 private:
-	void NotifyFinishedUpdate(u32 turn, const UpdateCallback& sendEventToAll) override;
+	void NotifyFinishedUpdate(turn_id_t turn, const UpdateCallback& sendEventToAll) override;
 
-	void DoTurn(u32 turn, const UpdateCallback& sendEventToAll);
+	void DoTurn(turn_id_t turn, const UpdateCallback& sendEventToAll);
 
 	static const CStr EventNameReplayFinished;
 	static const CStr EventNameReplayOutOfSync;
@@ -59,13 +59,13 @@ private:
 	bool m_HasSyncError = false;
 
 	// Contains the commands of every player on each turn
-	std::map<u32, std::vector<std::pair<player_id_t, std::string>>> m_ReplayCommands;
+	std::map<turn_id_t, std::vector<std::pair<player_id_t, std::string>>> m_ReplayCommands;
 
 	// Contains the length of every turn
-	std::map<u32, u32> m_ReplayTurnLengths;
+	std::map<turn_id_t, u32> m_ReplayTurnLengths;
 
 	// Contains all replay hash values and weather or not the quick hash method was used
-	std::map<u32, std::pair<std::string, bool>> m_ReplayHash;
+	std::map<turn_id_t, std::pair<std::string, bool>> m_ReplayHash;
 };
 
 #endif // INCLUDED_REPLAYTURNMANAGER

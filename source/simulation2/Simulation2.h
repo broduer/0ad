@@ -22,6 +22,7 @@
 #include "lib/file/vfs/vfs_path.h"
 #include "lib/status.h"
 #include "ps/Loader.h"
+#include "simulation2/helpers/SimulationCommand.h"
 #include "simulation2/system/DebugOptions.h"
 #include "simulation2/system/Entity.h"
 
@@ -240,7 +241,7 @@ public:
 	/**
 	 * Activate the rejoin-test feature for turn @param turn.
 	 */
-	void ActivateRejoinTest(int turn);
+	void ActivateRejoinTest(turn_id_t turn);
 
 	std::string GenerateSchema();
 

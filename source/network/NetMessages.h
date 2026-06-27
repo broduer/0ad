@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@
 
 #define PS_PROTOCOL_MAGIC                         0x5073013f	// 'P', 's', 0x01, '?'
 #define PS_PROTOCOL_MAGIC_RESPONSE                0x50630121	// 'P', 'c', 0x01, '!'
-#define PS_PROTOCOL_VERSION                       0x01010019	// Arbitrary protocol
+#define PS_PROTOCOL_VERSION                       0x0101001A	// Arbitrary protocol
 #define PS_DEFAULT_PORT                           0x5073		// 'P', 's'
 
 // Set when lobby authentication is required. Used in the SrvHandshakeResponseMessage.
@@ -231,7 +231,7 @@ START_NMT_CLASS_(ClientPaused, NMT_CLIENT_PAUSED)
 END_NMT_CLASS()
 
 START_NMT_CLASS_(LoadedGame, NMT_LOADED_GAME)
-	NMT_FIELD_INT(m_CurrentTurn, u32, 4)
+	NMT_FIELD_INT(m_CurrentTurn, i32, 4)
 END_NMT_CLASS()
 
 START_NMT_CLASS_(GameStart, NMT_GAME_START)
@@ -243,17 +243,17 @@ START_NMT_CLASS_(GameSavedStart, NMT_SAVED_GAME_START)
 END_NMT_CLASS()
 
 START_NMT_CLASS_(EndCommandBatch, NMT_END_COMMAND_BATCH)
-	NMT_FIELD_INT(m_Turn, u32, 4)
+	NMT_FIELD_INT(m_Turn, i32, 4)
 	NMT_FIELD_INT(m_TurnLength, u32, 2)
 END_NMT_CLASS()
 
 START_NMT_CLASS_(SyncCheck, NMT_SYNC_CHECK)
-	NMT_FIELD_INT(m_Turn, u32, 4)
+	NMT_FIELD_INT(m_Turn, i32, 4)
 	NMT_FIELD(CStr, m_Hash)
 END_NMT_CLASS()
 
 START_NMT_CLASS_(SyncError, NMT_SYNC_ERROR)
-	NMT_FIELD_INT(m_Turn, u32, 4)
+	NMT_FIELD_INT(m_Turn, i32, 4)
 	NMT_FIELD(CStr, m_HashExpected)
 	NMT_START_ARRAY(m_PlayerNames)
 		NMT_FIELD(CStrW, m_Name)

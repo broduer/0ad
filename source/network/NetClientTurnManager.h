@@ -49,12 +49,12 @@ public:
 	 */
 	void OnDestroyConnection();
 
-	void OnSyncError(u32 turn, const CStr& expectedHash, const std::vector<CSyncErrorMessage::S_m_PlayerNames>& playerNames);
+	void OnSyncError(turn_id_t turn, const CStr& expectedHash, const std::vector<CSyncErrorMessage::S_m_PlayerNames>& playerNames);
 
 private:
-	void NotifyFinishedOwnCommands(u32 turn) override;
+	void NotifyFinishedOwnCommands(turn_id_t turn) override;
 
-	void NotifyFinishedUpdate(u32 turn, const UpdateCallback& sendEventToAll) override;
+	void NotifyFinishedUpdate(turn_id_t turn, const UpdateCallback& sendEventToAll) override;
 
 	CNetClient& m_NetClient;
 };

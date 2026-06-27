@@ -92,13 +92,13 @@ public:
 			return serializationTestOption ? serializationTestOption->turn :
 				std::max(CConfigDB::GetIfInitialised("serializationtest", -1), -1);
 		}()},
-		m_RejoinTestTurn{[&]() -> std::optional<int>
+		m_RejoinTestTurn{[&]() -> std::optional<turn_id_t>
 		{
 			const auto* rejoinTestOption{
 				std::get_if<SimulationDebugOptions::RejoinTest>(&debugOptions.test)};
 			if (rejoinTestOption)
 				return rejoinTestOption->turn;
-			const int configVal{CConfigDB::GetIfInitialised("rejointest", -1)};
+			const turn_id_t configVal{CConfigDB::GetIfInitialised("rejointest", -1)};
 			if (configVal >= 0)
 				return configVal;
 			return std::nullopt;
@@ -163,17 +163,17 @@ public:
 
 	std::set<VfsPath> m_LoadedScripts;
 
-	uint32_t m_TurnNumber;
+	turn_id_t m_TurnNumber;
 
 	bool m_EnableOOSLog{false};
 	OsPath m_OOSLogPath;
 
 	// Functions and data for the serialization test mode: (see Update() for relevant comments)
 
-	std::optional<int> m_SerializationTestTurn;
+	std::optional<turn_id_t> m_SerializationTestTurn;
 	bool m_TestingSerialization{false};
 	bool m_EnableSerializationTest{false};
-	std::optional<int> m_RejoinTestTurn;
+	std::optional<turn_id_t> m_RejoinTestTurn;
 	bool m_TestingRejoin{false};
 
 	// Secondary simulation (NB: order matters for destruction).
@@ -383,7 +383,7 @@ void CSimulation2Impl::InitRNGSeedAI()
 void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationCommand>& commands)
 {
 	PROFILE3("sim update");
-	PROFILE2_ATTR("turn %d", (int)m_TurnNumber);
+	PROFILE2_ATTR("turn %d", m_TurnNumber);
 
 	fixed turnLengthFixed = fixed::FromInt(turnLength) / 1000;
 
@@ -408,11 +408,11 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 	const Script::Interface& scriptInterface = m_ComponentManager.GetScriptInterface();
 
 	const bool startSerializationTest = m_SerializationTestTurn.has_value() &&
-		std::cmp_equal(m_SerializationTestTurn.value(), m_TurnNumber);
+		m_SerializationTestTurn.value() == m_TurnNumber;
 	if (startSerializationTest)
 		m_TestingSerialization = true;
 	const bool startRejoinTest = m_RejoinTestTurn.has_value() &&
-		static_cast<int64_t>(m_RejoinTestTurn.value()) == m_TurnNumber;
+		m_RejoinTestTurn.value() == m_TurnNumber;
 	if (startRejoinTest)
 		m_TestingRejoin = true;
 
@@ -891,11 +891,11 @@ bool CSimulation2::DeserializeState(std::istream& stream)
 	return m->m_ComponentManager.DeserializeState(stream);
 }
 
-void CSimulation2::ActivateRejoinTest(int turn)
+void CSimulation2::ActivateRejoinTest(turn_id_t turn)
 {
 	if (m->m_RejoinTestTurn.has_value())
 		return;
-	LOGMESSAGERENDER("Rejoin test will activate in %i turns", turn - m->m_TurnNumber);
+	LOGMESSAGERENDER("Rejoin test will activate in %d turns", turn - m->m_TurnNumber);
 	m->m_RejoinTestTurn = turn;
 }
 

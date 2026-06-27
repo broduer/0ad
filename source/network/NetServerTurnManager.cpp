@@ -27,6 +27,7 @@
 #include "network/NetServerSession.h"
 #include "ps/CLogger.h"
 #include "ps/ConfigDB.h"
+#include "simulation2/helpers/SimulationCommand.h"
 #include "simulation2/system/TurnManager.h"
 
 #include <limits>
@@ -50,7 +51,7 @@ CNetServerTurnManager::CNetServerTurnManager(CNetServerWorker& server)
 		m_SavedTurnLengths.push_back(m_TurnLength);
 }
 
-void CNetServerTurnManager::NotifyFinishedClientCommands(CNetServerSession& session, u32 turn)
+void CNetServerTurnManager::NotifyFinishedClientCommands(CNetServerSession& session, turn_id_t turn)
 {
 	int client = session.GetHostID();
 
@@ -105,11 +106,11 @@ void CNetServerTurnManager::CheckClientsReady()
 	msg.m_Turn = m_ReadyTurn;
 	m_NetServer.Multicast(&msg, { NSS_INGAME });
 
-	ENSURE(m_SavedTurnLengths.size() == m_ReadyTurn);
+	ENSURE(std::cmp_equal(m_SavedTurnLengths.size(), m_ReadyTurn));
 	m_SavedTurnLengths.push_back(m_TurnLength);
 }
 
-void CNetServerTurnManager::NotifyFinishedClientUpdate(CNetServerSession& session, u32 turn, const CStr& hash)
+void CNetServerTurnManager::NotifyFinishedClientUpdate(CNetServerSession& session, turn_id_t turn, const CStr& hash)
 {
 
 	int client = session.GetHostID();
@@ -138,13 +139,13 @@ void CNetServerTurnManager::NotifyFinishedClientUpdate(CNetServerSession& sessio
 	m_ClientStateHashes[turn][client] = hash;
 
 	// Find the newest turn which we know all clients have simulated
-	u32 newest = std::numeric_limits<u32>::max();
+	turn_id_t newest = std::numeric_limits<turn_id_t>::max();
 	for (const std::pair<const int, Client>& clientData : m_ClientsData)
 		if (clientData.second.simulatedTurn < newest)
 			newest = clientData.second.simulatedTurn;
 
 	// For every set of state hashes that all clients have simulated, check for OOS
-	for (const std::pair<const u32, std::map<int, std::string>>& clientStateHash : m_ClientStateHashes)
+	for (const std::pair<const turn_id_t, std::map<int, std::string>>& clientStateHash : m_ClientStateHashes)
 	{
 		if (clientStateHash.first > newest)
 			break;
@@ -187,7 +188,7 @@ void CNetServerTurnManager::NotifyFinishedClientUpdate(CNetServerSession& sessio
 	m_ClientStateHashes.erase(m_ClientStateHashes.begin(), m_ClientStateHashes.lower_bound(newest+1));
 }
 
-void CNetServerTurnManager::InitialiseClient(int client, u32 turn, bool observer)
+void CNetServerTurnManager::InitialiseClient(int client, turn_id_t turn, bool observer)
 {
 	NETSERVERTURN_LOG("InitialiseClient(client=%d, turn=%d)\n", client, turn);
 
@@ -206,7 +207,7 @@ void CNetServerTurnManager::UninitialiseClient(int client)
 	bool checkOOS = m_ClientsData[client].isOOS;
 	m_ClientsData.erase(client);
 
-	for (std::pair<const u32, std::map<int, std::string>>& clientStateHash : m_ClientStateHashes)
+	for (std::pair<const turn_id_t, std::map<int, std::string>>& clientStateHash : m_ClientStateHashes)
 		clientStateHash.second.erase(client);
 
 	// Check whether we're ready for the next turn now that we're not
@@ -228,8 +229,8 @@ void CNetServerTurnManager::SetTurnLength(u32 msecs)
 	m_TurnLength = msecs;
 }
 
-u32 CNetServerTurnManager::GetSavedTurnLength(u32 turn)
+u32 CNetServerTurnManager::GetSavedTurnLength(turn_id_t turn)
 {
 	ENSURE(turn <= m_ReadyTurn);
-	return m_SavedTurnLengths.at(turn);
+	return m_SavedTurnLengths.at(static_cast<size_t>(turn));
 }

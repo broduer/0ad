@@ -49,6 +49,7 @@
 #include "scriptinterface/Context.h"
 #include "scriptinterface/Interface.h"
 #include "scriptinterface/Request.h"
+#include "simulation2/helpers/SimulationCommand.h"
 #include "simulation2/system/TurnManager.h"
 
 #include <algorithm>
@@ -1172,9 +1173,9 @@ bool CNetServerWorker::OnSimulationCommand(CNetServerSession* session, CFsmEvent
 	server.Multicast(message, { NSS_INGAME });
 
 	// Save all the received commands
-	if (server.m_SavedCommands.size() < message->m_Turn + 1)
-		server.m_SavedCommands.resize(message->m_Turn + 1);
-	server.m_SavedCommands[message->m_Turn].push_back(*message);
+	if (server.m_SavedCommands.size() < static_cast<size_t>(message->m_Turn) + 1)
+		server.m_SavedCommands.resize(static_cast<size_t>(message->m_Turn) + 1);
+	server.m_SavedCommands[static_cast<size_t>(message->m_Turn)].push_back(*message);
 
 	// TODO: we shouldn't send the message back to the client that first sent it
 	return true;
@@ -1396,14 +1397,14 @@ bool CNetServerWorker::OnJoinSyncingLoadedGame(CNetServerSession* session, CFsmE
 
 	CLoadedGameMessage* message = (CLoadedGameMessage*)event->GetParamRef();
 
-	u32 turn = message->m_CurrentTurn;
-	u32 readyTurn = server.m_ServerTurnManager->GetReadyTurn();
+	turn_id_t turn = message->m_CurrentTurn;
+	turn_id_t readyTurn = server.m_ServerTurnManager->GetReadyTurn();
 
 	// Send them all commands received since their saved state,
 	// and turn-ended messages for any turns that have already been processed
-	for (size_t i = turn + 1; i < std::max(readyTurn+1, (u32)server.m_SavedCommands.size()); ++i)
+	for (turn_id_t i = turn + 1; i < std::max(readyTurn + 1, static_cast<turn_id_t>(server.m_SavedCommands.size())); ++i)
 	{
-		if (i < server.m_SavedCommands.size())
+		if (static_cast<size_t>(i) < server.m_SavedCommands.size())
 			for (size_t j = 0; j < server.m_SavedCommands[i].size(); ++j)
 				session->SendMessage(&server.m_SavedCommands[i][j]);
 
