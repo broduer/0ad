@@ -22,7 +22,7 @@ BaseAI.prototype.Deserialize = function(data, sharedScript)
 {
 };
 
-BaseAI.prototype.Init = function(state, playerID, sharedAI)
+BaseAI.prototype.Init = function(playerID, sharedAI)
 {
 	PlayerID = playerID;
 

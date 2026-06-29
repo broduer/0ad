@@ -92,7 +92,7 @@ PetraBot.prototype.CustomInit = function(gameState)
 PetraBot.prototype.OnUpdate = function(sharedScript)
 {
 	if (this.isDeserialized)
-		this.Init(state, playerID, sharedAI);
+		this.Init(PlayerID, sharedScript);
 
 	if (this.gameFinished || this.gameState.playerData.state == "defeated")
 		return;

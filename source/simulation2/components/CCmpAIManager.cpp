@@ -217,11 +217,11 @@ private:
 			Script::Request rq(m_ScriptInterface);
 			Script::Function::CallVoid(rq, m_Obj, "HandleMessage", state, playerID, SharedAI);
 		}
-		void InitAI(JS::HandleValue state, JS::HandleValue SharedAI)
+		void InitAI(JS::HandleValue SharedAI)
 		{
 			m_Commands.clear();
 			Script::Request rq(m_ScriptInterface);
-			Script::Function::CallVoid(rq, m_Obj, "Init", state, m_Player, SharedAI);
+			Script::Function::CallVoid(rq, m_Obj, "Init", m_Player, SharedAI);
 		}
 
 		CAIWorker& m_Worker;
@@ -512,7 +512,7 @@ public:
 			for (size_t i = 0; i < m_Players.size(); ++i)
 			{
 				if (m_HasSharedComponent && m_Players[i]->m_UseSharedComponent)
-					m_Players[i]->InitAI(state, m_SharedAIObj);
+					m_Players[i]->InitAI(m_SharedAIObj);
 			}
 		}
 
