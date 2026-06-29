@@ -32,6 +32,7 @@
 #include "simulation2/components/ICmpVision.h"
 #include "simulation2/helpers/Player.h"
 #include "simulation2/helpers/Position.h"
+#include "simulation2/helpers/Los.h"
 #include "simulation2/system/Component.h"
 #include "simulation2/system/ComponentTest.h"
 #include "simulation2/system/Entity.h"
@@ -330,5 +331,40 @@ public:
 		// Big range.
 		range = fixed::FromInt(260);
 		TS_ASSERT_EQUALS(cmp->GetEffectiveParabolicRange(source, target, range, yOrigin), fixed::FromFloat(264.952820f));
+	}
+
+	void test_ExploreCircle()
+	{
+		ComponentTestHelper test(*g_ScriptContext);
+
+		ICmpRangeManager* cmp = test.Add<ICmpRangeManager>(CID_RangeManager, "", SYSTEM_ENTITY);
+
+		// Set up map bounds (256x256)
+		cmp->SetBounds(entity_pos_t::FromInt(0), entity_pos_t::FromInt(0), entity_pos_t::FromInt(256), entity_pos_t::FromInt(256));
+		cmp->Verify();
+
+		// Initially, no tiles should be explored
+		TS_ASSERT_EQUALS(cmp->GetPercentMapExplored(1), 0);
+
+		// Explore a circle at the center of the map with radius 50
+		cmp->ExploreCircle(1, entity_pos_t::FromInt(128), entity_pos_t::FromInt(128), fixed::FromInt(50));
+
+		// Check that some tiles were explored (not 0%, not 100%)
+		u8 percentExplored = cmp->GetPercentMapExplored(1);
+		TS_ASSERT(percentExplored > 0 && percentExplored < 100);
+
+		// Test invalid player (should do nothing)
+		cmp->ExploreCircle(0, entity_pos_t::FromInt(128), entity_pos_t::FromInt(128), fixed::FromInt(50));
+		cmp->ExploreCircle(99, entity_pos_t::FromInt(128), entity_pos_t::FromInt(128), fixed::FromInt(50));
+		// No crash, no changes - verify still works
+		cmp->Verify();
+
+		// Explore the entire map
+		cmp->ExploreCircle(1, entity_pos_t::FromInt(128), entity_pos_t::FromInt(128), fixed::FromInt(1000));
+
+		// The entire map should be explored
+		TS_ASSERT_EQUALS(cmp->GetPercentMapExplored(1), 100);
+
+		cmp->Verify();
 	}
 };
