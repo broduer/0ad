@@ -29,6 +29,7 @@
   </Identity>
   <UnitAI>
     <CanPatrol>true</CanPatrol>
+    <DefaultStance>defensive</DefaultStance>
   </UnitAI>
   <VisualActor>
     <Actor>units/spartans/female_citizen.xml</Actor>

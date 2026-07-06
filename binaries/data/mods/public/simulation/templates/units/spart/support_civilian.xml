@@ -27,6 +27,10 @@
     <SpecificName>Heilōs</SpecificName>
     <Icon>units/spart/support_civilian.png</Icon>
   </Identity>
+  <UnitAI>
+    <DefaultStance>defensive</DefaultStance>
+    <CanPatrol>true</CanPatrol>
+  </UnitAI>
   <VisualActor>
     <Actor>units/spartans/citizen_{phenotype}.xml</Actor>
   </VisualActor>
