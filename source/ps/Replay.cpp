@@ -85,7 +85,14 @@ void CReplayLogger::StartGame(JS::MutableHandleValue attribs)
 	Script::ToJSVal(rq, &mods, g_Mods.GetEnabledModsData());
 	Script::SetProperty(rq, attribs, "mods", mods);
 
-	m_Directory = createDateIndexSubdirectory(VisualReplay::GetDirectoryPath());
+	std::wstring matchID;
+	Script::GetProperty(rq, attribs, "matchID", matchID);
+	ENSURE(!matchID.empty());
+
+	double startTime = 0;
+	Script::GetProperty(rq, attribs, "startTime", startTime);
+
+	m_Directory = createReplaySubdirectory(VisualReplay::GetDirectoryPath(), matchID, startTime);
 	debug_printf("FILES| Replay written to '%s'\n", m_Directory.string8().c_str());
 
 	m_Stream = new std::ofstream(OsString(m_Directory / L"commands.txt"), std::ofstream::out | std::ofstream::trunc);
@@ -95,12 +102,9 @@ void CReplayLogger::StartGame(JS::MutableHandleValue attribs)
 void CReplayLogger::Turn(u32 n, u32 turnLength, std::vector<SimulationCommand>& commands)
 {
 	Script::Request rq(m_ScriptInterface);
-
 	*m_Stream << "turn " << n << " " << turnLength << "\n";
-
 	for (SimulationCommand& command : commands)
 		*m_Stream << "cmd " << command.player << " " << Script::StringifyJSON(rq, &command.data, false) << "\n";
-
 	*m_Stream << "end\n";
 	m_Stream->flush();
 }

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -34,6 +34,8 @@ const wchar_t* ErrorString(int err);
 CStr GetStatusAsString(Status status);
 
 OsPath createDateIndexSubdirectory(const OsPath& parentDir);
+
+OsPath createReplaySubdirectory(const OsPath& parentDir, const std::wstring& matchID, double startTimeMillis);
 
 Status tex_write(Tex* t, const VfsPath& filename);
 

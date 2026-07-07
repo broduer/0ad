@@ -33,8 +33,10 @@
 #include "ps/Filesystem.h"
 #include "ps/Pyrogenesis.h"
 
+#include <chrono>
 #include <ctime>
 #include <filesystem>
+#include <fmt/format.h>
 #include <iomanip>
 #include <memory>
 #include <sstream>
@@ -117,6 +119,26 @@ OsPath createDateIndexSubdirectory(const OsPath& parentDir)
 	} while(tries <= maxTries);
 
 	return path;
+}
+
+OsPath createReplaySubdirectory(const OsPath& parentDir, const std::wstring& matchID, double startTimeMillis)
+{
+	using namespace std::chrono;
+
+	const system_clock::time_point timePoint{milliseconds(static_cast<i64>(startTimeMillis))};
+	const year_month_day ymd{floor<days>(timePoint)};
+	const std::string baseName = fmt::format("{:04}-{:02}-{:02}_{}",
+		static_cast<int>(ymd.year()), static_cast<unsigned>(ymd.month()), static_cast<unsigned>(ymd.day()),
+		utf8_from_wstring(matchID));
+
+	for (int i = 0; ; ++i)
+	{
+		const OsPath path = parentDir / (i == 0 ? baseName : fmt::format("{}_{:04}", baseName, i));
+		if (DirectoryExists(path) || std::filesystem::is_regular_file(path.string()))
+			continue;
+		ENSURE(CreateDirectories(path, 0700) == INFO::OK);
+		return path;
+	}
 }
 
 std::string Hexify(const std::string& s)
