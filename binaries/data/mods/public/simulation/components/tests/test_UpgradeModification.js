@@ -148,8 +148,10 @@ TS_ASSERT_UNEVAL_EQUALS(parsed_template.upgrade.options[0].cost, { "stone": 100,
 parsed_template = g_TemplateHelper.computeDataFromPlayer(template, {}, Resources, playerID, civCode, ["Upgrade"]);
 TS_ASSERT_UNEVAL_EQUALS(parsed_template.upgrade.options[0].cost, { "stone": 100, "wood": 50, "time": 100 });
 
-// T3: Check that the value is correct within the Update Component.
-TS_ASSERT_UNEVAL_EQUALS(cmpUpgrade.GetUpgrades()[0].cost, { "stone": 100, "wood": 50, "time": 100 });
+// T3: Check that the value is correct within the Upgrade Component.
+const entity = template.Upgrade.Tower.Entity.replace("{civ}", civCode);
+TS_ASSERT_UNEVAL_EQUALS(cmpUpgrade.GetResourceCosts(entity), { "stone": 100, "wood": 50 });
+TS_ASSERT_EQUALS(cmpUpgrade.GetUpgradeTime(entity), 100);
 
 /**
  * Tell the Upgrade component to start the Upgrade,
@@ -167,8 +169,9 @@ parsed_template = g_TemplateHelper.computeDataFromPlayer(template, {}, Resources
 TS_ASSERT_UNEVAL_EQUALS(parsed_template.upgrade.options[0].cost, { "stone": 160, "wood": 25, "time": 90 });
 
 // T6: The upgrade component should still be using the old resource cost (but new time cost) for the upgrade in progress...
-TS_ASSERT_UNEVAL_EQUALS(cmpUpgrade.GetUpgrades()[0].cost, { "stone": 100, "wood": 50, "time": 90 });
+TS_ASSERT_UNEVAL_EQUALS(cmpUpgrade.GetResourceCosts(entity), { "stone": 100, "wood": 50 });
+TS_ASSERT_EQUALS(cmpUpgrade.GetUpgradeTime(entity), 90);
 
 // T7: ...but with the upgrade cancelled, it now uses the modified value.
 cmpUpgrade.CancelUpgrade(playerID);
-TS_ASSERT_UNEVAL_EQUALS(cmpUpgrade.GetUpgrades()[0].cost, { "stone": 160, "wood": 25, "time": 90 });
+TS_ASSERT_UNEVAL_EQUALS(cmpUpgrade.GetResourceCosts(entity), { "stone": 160, "wood": 25 });

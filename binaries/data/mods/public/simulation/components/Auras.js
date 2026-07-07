@@ -26,23 +26,6 @@ Auras.prototype.GetModifierIdentifier = function(name)
 	return "aura/" + name;
 };
 
-Auras.prototype.GetDescriptions = function()
-{
-	var ret = {};
-	for (const auraID of this.GetAuraNames())
-	{
-		const aura = AuraTemplates.Get(auraID);
-		ret[auraID] = {
-			"name": {
-				"generic": aura.auraName
-			},
-			"description": aura.auraDescription || null,
-			"radius": this.GetRange(auraID) || null
-		};
-	}
-	return ret;
-};
-
 Auras.prototype.GetAuraNames = function()
 {
 	return this.template._string.split(/\s+/);

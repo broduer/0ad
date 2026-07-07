@@ -128,33 +128,6 @@ Upgrade.prototype.CanUpgradeTo = function(template)
 	return this.upgradeTemplates[template] !== undefined;
 };
 
-Upgrade.prototype.GetUpgrades = function()
-{
-	const ret = [];
-
-	for (const option in this.upgradeTemplates)
-	{
-		const choice = this.template[this.upgradeTemplates[option]];
-
-		let cost = {};
-		if (choice.Cost)
-			cost = this.GetResourceCosts(option);
-		if (choice.Time)
-			cost.time = this.GetUpgradeTime(option);
-
-		const hasCost = choice.Cost || choice.Time;
-		ret.push({
-			"entity": option,
-			"icon": choice.Icon || undefined,
-			"cost": hasCost ? cost : undefined,
-			"tooltip": choice.Tooltip || undefined,
-			"requirements": this.GetRequirements(option),
-		});
-	}
-
-	return ret;
-};
-
 Upgrade.prototype.CancelTimer = function()
 {
 	if (!this.timer)
