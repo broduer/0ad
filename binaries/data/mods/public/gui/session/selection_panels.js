@@ -825,7 +825,7 @@ g_SelectionPanels.Research = {
 				return -1;
 
 			// Make sure to account for the other buttons placed before the unit training ones.
-			return indices[0] + ["Construction", "Pack", "Gate", "Upgrade"].reduce((total, panel) =>
+			return indices[0] + ["Pack", "Gate", "Upgrade"].reduce((total, panel) =>
 				total + g_unitPanelButtons[panel], 0
 			);
 
