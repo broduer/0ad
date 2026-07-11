@@ -790,6 +790,12 @@ g_SelectionPanels.Research = {
 			if (!template.placeBelow || getNumberOfRightPanelButtons() > data.rowLength)
 				return -1;
 
+			if (typeof template.placeBelow != "string")
+			{
+				error("Found an invalid 'placeBelow' value in " + techName + ". It has to be a string, but isn't.");
+				return -1;
+			}
+
 			const indices = [];
 			if (template.placeBelow === "{UnlockedUnit}")
 			{
