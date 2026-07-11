@@ -1086,7 +1086,7 @@ g_SelectionPanels.Research = {
 			if (position >= 2 * baseData.rowLength)
 				this.bottomRowButtonCount++;
 
-			// The panel is a bit higher than 4 * baseData.rowLength, which allows us to visibility anchor the buttons
+			// The panel is a bit higher than 4 rows of buttons, which allows us to visibility anchor the ones
 			// in the bottom row to the bottom by moving them down those few pixels. Else the gap would be at the bottom.
 			// This creates a small spatial separation between the "generic" techs in the bottom row and the "specific"
 			// techs above them.
