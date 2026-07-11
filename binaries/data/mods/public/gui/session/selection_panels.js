@@ -861,7 +861,8 @@ g_SelectionPanels.Research = {
 			Engine.GetGUIObjectByName("unitResearchHorizontalPairIcon[" + data.i + "]").hidden = true;
 
 			// When it's not "active", it's grayed out.
-			const buttonActive = this.buildButton(data, techName, template, position, playerState, data.button, data.icon);
+			const buttonActive = this.buildButton(data, techName, template, position, placeInBottomRow, playerState,
+				data.button, data.icon);
 			this.buildAffectsIcon(data.i, !placeInBottomRow, buttonActive);
 
 			return true;
@@ -877,23 +878,22 @@ g_SelectionPanels.Research = {
 			// Possible placements of tech pair with descending preference:
 			// 	- Vertically below a single unit.
 			//  - Horizontally below two adjacent units.
+			//  - Vertically in the second-to-bottom and bottom rows.
 			//  - Horizontally adjacent below no unit in the bottom row.
 
 			// Only ever place either below a unit, if the other can be too and below the same or an adjacent one.
-			let placeInBottomRow = firstPosition == -1 || secondPosition == -1 || Math.abs(firstPosition - secondPosition) > 1;
-			let placeHorizontally = true;
-			if (!placeInBottomRow && firstPosition === secondPosition)
+			let placeAtTheBottom = firstPosition == -1 || secondPosition == -1 || Math.abs(firstPosition - secondPosition) > 1;
+			let placeHorizontally = firstPosition != secondPosition;
+			if (!placeAtTheBottom && firstPosition === secondPosition)
 			{
 				// Both want to be placed under the same unit.
 				// Try to place the pair vertically by moving the second one down to the third (second-to-bottom) row,
 				// below the first one.
 				secondPosition += data.rowLength;
 				if (this.occupiedPositions.has(firstPosition) || this.occupiedPositions.has(secondPosition))
-					placeInBottomRow = true;
-				else
-					placeHorizontally = false;
+					placeAtTheBottom = true;
 			}
-			else if (!placeInBottomRow && (this.occupiedPositions.has(firstPosition) || this.occupiedPositions.has(secondPosition)))
+			else if (!placeAtTheBottom && (this.occupiedPositions.has(firstPosition) || this.occupiedPositions.has(secondPosition)))
 			{
 				// At least one of the two respective positions in the second (third-to-bottom) row is occupied.
 				// So try move both to the third.
@@ -902,18 +902,30 @@ g_SelectionPanels.Research = {
 				if (this.occupiedPositions.has(firstPosition) || this.occupiedPositions.has(secondPosition))
 					// Neither the two positions in the second row nor the third row below the target training buttons
 					// are available.
-					placeInBottomRow = true;
+					placeAtTheBottom = true;
 			}
 
-			if (placeInBottomRow)
+			if (placeAtTheBottom)
 			{
-				// Try to move both to the bottom row.
-				if (this.bottomRowButtonCount >= data.rowLength - 1)
-					// Not enough space in the bottom row for both of them. We can't display them.
-					return false;
+				if (this.bottomRowButtonCount >= data.rowLength)
+					return false; // Bottom row is full, we can't display it.
 
-				firstPosition = this.bottomRowButtonCount + data.rowLength * 2;
-				secondPosition = firstPosition + 1;
+				// Try to place them vertically in the third (second-to-bottom) and the fourth (bottom) rows.
+				firstPosition = this.bottomRowButtonCount + data.rowLength * 1;
+				secondPosition = this.bottomRowButtonCount + data.rowLength * 2;
+				if (this.occupiedPositions.has(firstPosition)) // (secondPosition is guaranteed to be available)
+				{
+					// As a last resort, try to move both to the bottom row.
+					if (this.bottomRowButtonCount >= data.rowLength - 1)
+						// Not enough space in the bottom row for both of them. We can't display them.
+						return false;
+
+					// No need to check this.occupiedPositions, when reaching this, these are guaranteed to be available.
+					firstPosition = this.bottomRowButtonCount + data.rowLength * 2;
+					secondPosition = firstPosition + 1;
+
+					placeHorizontally = true;
+				}
 			}
 
 			// Note: the button indices here aren't related to positioning at all.
@@ -925,14 +937,14 @@ g_SelectionPanels.Research = {
 			const secondIcon = Engine.GetGUIObjectByName("unitResearchIcon[" + secondButtonIndex + "]");
 
 			// When it's not "active", it's grayed out.
-			const firstButtonActive = this.buildButton(data, firstTechName, firstTemplate, firstPosition, playerState,
-				firstButton, firstIcon);
-			this.buildAffectsIcon(firstButtonIndex, !placeInBottomRow, firstButtonActive);
+			const firstButtonActive = this.buildButton(data, firstTechName, firstTemplate, firstPosition, placeAtTheBottom,
+				playerState, firstButton, firstIcon);
+			this.buildAffectsIcon(firstButtonIndex, !placeAtTheBottom, firstButtonActive);
 
 			// When it's not "active", it's grayed out.
-			const secondButtonActive = this.buildButton(data, secondTechName, secondTemplate, secondPosition, playerState,
-				secondButton, secondIcon);
-			this.buildAffectsIcon(secondButtonIndex, !placeInBottomRow && placeHorizontally, secondButtonActive);
+			const secondButtonActive = this.buildButton(data, secondTechName, secondTemplate, secondPosition, placeAtTheBottom,
+				playerState, secondButton, secondIcon);
+			this.buildAffectsIcon(secondButtonIndex, !placeAtTheBottom && placeHorizontally, secondButtonActive);
 
 			this.buildPairIcon(false, firstButtonIndex, placeHorizontally && secondPosition > firstPosition, firstButtonActive);
 			this.buildPairIcon(false, secondButtonIndex, placeHorizontally && secondPosition < firstPosition, secondButtonActive);
@@ -968,7 +980,7 @@ g_SelectionPanels.Research = {
 						enable ? "vertical_tech_pair.png" : "vertical_tech_pair_disabled.png" :
 						enable ? "horizontal_tech_pair.png" : "horizontal_tech_pair_disabled.png");
 		},
-		"buildButton": function(baseData, techName, template, position, playerState, button, icon)
+		"buildButton": function(baseData, techName, template, position, anchorToBottom, playerState, button, icon)
 		{
 			// Make sure to not modify the original template.
 			const adaptedTemplate = clone(template);
@@ -1090,7 +1102,7 @@ g_SelectionPanels.Research = {
 			// in the bottom row to the bottom by moving them down those few pixels. Else the gap would be at the bottom.
 			// This creates a small spatial separation between the "generic" techs in the bottom row and the "specific"
 			// techs above them.
-			const vOffset = position >= baseData.rowLength * 2 ? 6 : 0;
+			const vOffset = anchorToBottom ? 6 : 0;
 			setPanelObjectPosition(button, position, baseData.rowLength, 1, 1, vOffset);
 
 			return isActive;

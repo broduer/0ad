@@ -57,8 +57,8 @@
   <ProductionQueue/>
   <Researcher>
     <Technologies datatype="tokens">
-      pair_unlock_civil_engineering_han
       pair_unlock_civil_service_han
+      pair_unlock_civil_engineering_han
       unlock_spies
       spy_counter
     </Technologies>
