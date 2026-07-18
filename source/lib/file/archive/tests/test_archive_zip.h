@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -34,6 +34,7 @@
 #include <cstdint>
 #include <iterator>
 #include <string>
+#include <filesystem>
 
 namespace
 {
@@ -48,7 +49,7 @@ class TestArchiveZip : public CxxTest::TestSuite
 public:
 	void setUp()
 	{
-		if(DirectoryExists(MOD_PATH))
+		if(std::filesystem::is_directory(MOD_PATH.string()))
 			DeleteDirectory(MOD_PATH);
 	}
 

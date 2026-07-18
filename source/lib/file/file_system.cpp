@@ -34,20 +34,6 @@
 #include <chrono>
 #include <filesystem>
 
-bool DirectoryExists(const OsPath& path)
-{
-	try
-	{
-		return std::filesystem::is_directory(path.string());
-	}
-	catch (std::filesystem::filesystem_error& err)
-	{
-		debug_printf("DirectoryExists: failed to check if directory '%s' exists, reason: %s\n", path.string8().c_str(), err.what());
-	}
-	return false;
-}
-
-
 Status GetFileInfo(const OsPath& pathname, CFileInfo* pPtrInfo)
 {
 	try

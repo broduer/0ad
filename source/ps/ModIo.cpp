@@ -341,7 +341,7 @@ void ModIo::StartDownloadMod(u32 idx)
 	const Paths paths(g_CmdLineArgs);
 	const OsPath modUserPath = paths.UserData()/"mods";
 	const OsPath modPath = modUserPath/m_ModData[idx].properties["name_id"];
-	if (!DirectoryExists(modPath) && INFO::OK != CreateDirectories(modPath, 0700, false))
+	if (!std::filesystem::is_directory(modPath.string()) && INFO::OK != CreateDirectories(modPath, 0700, false))
 	{
 		m_DownloadProgressData.status = DownloadProgressStatus::FAILED_DOWNLOADING;
 		m_DownloadProgressData.error = fmt::sprintf(

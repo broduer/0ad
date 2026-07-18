@@ -449,7 +449,7 @@ bool VisualReplay::DeleteReplay(const OsPath& replayDirectory)
 		return false;
 
 	const OsPath directory = GetDirectoryPath() / replayDirectory;
-	return DirectoryExists(directory) && DeleteDirectory(directory) == INFO::OK;
+	return std::filesystem::is_directory(directory.string()) && DeleteDirectory(directory) == INFO::OK;
 }
 
 JS::Value VisualReplay::GetReplayAttributes(const Script::Interface& scriptInterface, const OsPath& directoryName)

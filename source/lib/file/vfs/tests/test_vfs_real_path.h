@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -28,6 +28,7 @@
 #include "lib/path.h"
 #include "lib/types.h"
 
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -45,7 +46,7 @@ class TestVfsPopulate : public CxxTest::TestSuite
 
 	void deinitVfs()
 	{
-		if(DirectoryExists(TEST_FOLDER))
+		if(std::filesystem::is_directory(TEST_FOLDER.string()))
 			DeleteDirectory(TEST_FOLDER);
 
 		g_VFS.reset();
@@ -53,7 +54,7 @@ class TestVfsPopulate : public CxxTest::TestSuite
 
 	void createRealDir(const OsPath& path)
 	{
-		if(DirectoryExists(path))
+		if(std::filesystem::is_directory(path.string()))
 			DeleteDirectory(path);
 		CreateDirectories(path, 0700, false);
 	}

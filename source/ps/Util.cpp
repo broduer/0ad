@@ -108,7 +108,7 @@ OsPath createDateIndexSubdirectory(const OsPath& parentDir)
 		sprintf_s(directory, ARRAY_SIZE(directory), "%04d-%02d-%02d_%04d", now->tm_year+1900, now->tm_mon+1, now->tm_mday, ++i);
 		path = parentDir / CStr(directory);
 
-		if (DirectoryExists(path) || std::filesystem::is_regular_file(path.string()))
+		if (std::filesystem::is_directory(path.string()) || std::filesystem::is_regular_file(path.string()))
 			continue;
 
 		if (CreateDirectories(path, 0700, ++tries > maxTries) == INFO::OK)

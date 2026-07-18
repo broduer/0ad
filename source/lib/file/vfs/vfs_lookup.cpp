@@ -119,7 +119,7 @@ Status vfs_Lookup(const VfsPath& pathname, VfsDirectory* startDirectory, VfsDire
 			// Only actually create the directory if we're in LOOKUP_ADD mode.
 			if (addMissingDirectories)
 				RETURN_STATUS_IF_ERR(CreateDirectory(currentPath));
-			else if (!DirectoryExists(currentPath))
+			else if (!std::filesystem::is_directory(currentPath.string()))
 				return ERR::VFS_DIR_NOT_FOUND;
 
 			// Propagate priority and flags to the subdirectory.

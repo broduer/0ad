@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -33,6 +33,7 @@
 #include "ps/XML/RelaxNG.h"
 
 #include <cstddef>
+#include <filesystem>
 #include <memory>
 #include <string>
 
@@ -60,9 +61,9 @@ class TestMeshManager : public CxxTest::TestSuite
 
 		// Make sure the required directories doesn't exist when we start,
 		// in case the previous test aborted and left them full of junk
-		if(DirectoryExists(MOD_PATH))
+		if(std::filesystem::is_directory(MOD_PATH.string()))
 			DeleteDirectory(MOD_PATH);
-		if(DirectoryExists(CACHE_PATH))
+		if(std::filesystem::is_directory(CACHE_PATH.string()))
 			DeleteDirectory(CACHE_PATH);
 
 		g_VFS = CreateVfs();

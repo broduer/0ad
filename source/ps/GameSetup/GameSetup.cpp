@@ -170,7 +170,7 @@ void MountMods(const Paths& paths, const std::vector<CStr>& mods)
 
 		OsPath modName(mods[i]);
 		// Only mount mods from the user path if they don't exist in the 'rdata' path.
-		if (DirectoryExists(modPath / modName / ""))
+		if (std::filesystem::is_directory((modPath / modName / "").string()))
 			g_VFS->Mount(L"", modPath / modName / "", baseFlags, priority);
 		else
 			g_VFS->Mount(L"", modUserPath / modName / "", userFlags, priority);

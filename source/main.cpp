@@ -555,7 +555,7 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 			debug_printf("ERROR: The requested replay file '%s' does not exist!\n", replayFile.string8().c_str());
 			return;
 		}
-		if (DirectoryExists(replayFile))
+		if (std::filesystem::is_directory(replayFile.string()))
 		{
 			debug_printf("ERROR: The requested replay file '%s' is a directory!\n", replayFile.string8().c_str());
 			return;
@@ -576,7 +576,7 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 			debug_printf("ERROR: The mod file '%s' does not exist!\n", modPath.string8().c_str());
 			continue;
 		}
-		if (DirectoryExists(modPath))
+		if (std::filesystem::is_directory(modPath.string()))
 		{
 			debug_printf("ERROR: The mod file '%s' is a directory!\n", modPath.string8().c_str());
 			continue;

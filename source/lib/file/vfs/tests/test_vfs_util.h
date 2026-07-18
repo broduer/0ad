@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -30,6 +30,7 @@
 #include "lib/path.h"
 #include "lib/types.h"
 
+#include <filesystem>
 #include <memory>
 
 static OsPath MOD_PATH(DataDir() / "mods" / "_test.vfs" / "");
@@ -45,9 +46,9 @@ class TestVfsUtil : public CxxTest::TestSuite
 
 		// Make sure the required directories doesn't exist when we start,
 		// in case the previous test aborted and left them full of junk
-		if(DirectoryExists(MOD_PATH))
+		if(std::filesystem::is_directory(MOD_PATH.string()))
 			DeleteDirectory(MOD_PATH);
-		if(DirectoryExists(CACHE_PATH))
+		if(std::filesystem::is_directory(CACHE_PATH.string()))
 			DeleteDirectory(CACHE_PATH);
 
 		g_VFS = CreateVfs();

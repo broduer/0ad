@@ -639,7 +639,7 @@ void CSimulation2Impl::DumpState()
 	const OsPath path = m_OOSLogPath / name.str();
 	std::ofstream file (OsString(path), std::ofstream::out | std::ofstream::trunc);
 
-	if (!DirectoryExists(m_OOSLogPath))
+	if (!std::filesystem::is_directory(m_OOSLogPath.string()))
 	{
 		LOGWARNING("OOS-log directory %s was deleted, creating it again.", m_OOSLogPath.string8().c_str());
 		CreateDirectories(m_OOSLogPath, 0700);

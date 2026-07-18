@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -40,6 +40,7 @@
 #include "lib/path.h"
 
 #include <ctime>
+#include <filesystem>
 #include <map>
 #include <mutex>
 #include <utility>
@@ -65,7 +66,7 @@ public:
 		ENSURE(path.IsDirectory());
 
 		std::lock_guard<std::mutex> lock(vfs_mutex);
-		if(!DirectoryExists(path))
+		if(!std::filesystem::is_directory(path.string()))
 		{
 			if(flags & VFS_MOUNT_MUST_EXIST)
 				return ERR::VFS_DIR_NOT_FOUND;	// NOWARN
