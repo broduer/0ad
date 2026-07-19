@@ -228,14 +228,14 @@ Input::Reaction CGUI::HandleEvent(const SDL_Event& ev)
 
 			#if OS_MACOSX
 			{
-				
+
 				#if SDL_MAJOR_VERSION >= 3
 					// need integer_x/integer_y
 					static_assert(SDL_VERSION_ATLEAST(3, 2, 12));
-					
+
 					// check if the shift key is pressed
 					int shiftKey = SDL_GetModState() & SDL_KMOD_SHIFT;
-					bool isPrecise = 
+					bool isPrecise =
 					(
 						std::fabs(x) > 1e-3
 						&& ((x != static_cast<float>(ev.wheel.integer_x)) || std::fabs(x) < 0.99f)
@@ -252,10 +252,10 @@ Input::Reaction CGUI::HandleEvent(const SDL_Event& ev)
 					int shiftKey = SDL_GetModState() & KMOD_SHIFT;
 					bool isPrecise =
 					(
-						((x != 0) || std::fabs(ev.wheel.preciseX) > 1e-3) 
+						((x != 0) || std::fabs(ev.wheel.preciseX) > 1e-3)
 						&& ((ev.wheel.preciseX != static_cast<float>(ev.wheel.x)) || std::fabs(ev.wheel.preciseX) < 0.99f)
 					) || (
-						((y != 0) || std::fabs(ev.wheel.preciseY) > 1e-3) 
+						((y != 0) || std::fabs(ev.wheel.preciseY) > 1e-3)
 						&& ((ev.wheel.preciseY != static_cast<float>(ev.wheel.y)) || std::fabs(ev.wheel.preciseY) < 0.99f)
 					);
 				#endif
