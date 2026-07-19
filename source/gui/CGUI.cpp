@@ -217,14 +217,40 @@ Input::Reaction CGUI::HandleEvent(const SDL_Event& ev)
 		}
 		else if (ev.type == SDL_MOUSEWHEEL && pNearest)
 		{
-			if (ev.wheel.y < 0)
+			int x = ev.wheel.x;
+			int y = ev.wheel.y;
+			#if OS_MACOSX
+			{
+				// check if the shift key is pressed
+				int shift_key = (SDL_GetModState() & KMOD_SHIFT);
+				// indicates if the event comes from the external mouse rather than the trackpad. Trackpad/magic
+				// events are 'precise', ie. their step is lower than 1.
+				// There is in SDL/macOS no way
+				// to distinguish the source of the event, all event have a field 'which' that is 'SDL_MOUSEID'.
+				 bool isPrecise =
+					(
+						((x != 0) || std::fabs(ev.wheel.preciseX) > 1e-3) 
+						&& ((ev.wheel.preciseX != (float)ev.wheel.x) || std::fabs(ev.wheel.preciseX) < 0.99f)
+					) || (
+						((y != 0) || std::fabs(ev.wheel.preciseY) > 1e-3) 
+						&& ((ev.wheel.preciseY != (float)ev.wheel.y) || std::fabs(ev.wheel.preciseY) < 0.99f)
+					);
+				
+				// if mouse and shift, on macOS we need to revert x and y to get back to the conventional definition.
+				if(!isPrecise && shift_key) {
+					std::swap(x, y);
+				}
+			}
+			#endif
+
+			if (y < 0)
 				ret = pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_DOWN, EventNameMouseWheelDown);
-			else if (ev.wheel.y > 0)
+			else if (y > 0)
 				ret = pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_UP, EventNameMouseWheelUp);
 
-			if (ev.wheel.x < 0)
+			if (x < 0)
 				ret = pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_LEFT, EventNameMouseWheelLeft);
-			else if (ev.wheel.x > 0)
+			else if (x > 0)
 				ret = pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_RIGHT, EventNameMouseWheelRight);
 		}
 		else if (ev.type == SDL_MOUSEBUTTONUP)
