@@ -60,6 +60,7 @@
 #include <js/CallAndConstruct.h>
 #include <js/Promise.h>
 #include <optional>
+#include <SDL_version.h>
 #include <SDL_events.h>
 #include <SDL_mouse.h>
 #include <stdexcept>
@@ -217,27 +218,49 @@ Input::Reaction CGUI::HandleEvent(const SDL_Event& ev)
 		}
 		else if (ev.type == SDL_MOUSEWHEEL && pNearest)
 		{
-			int x = ev.wheel.x;
-			int y = ev.wheel.y;
+			#if SDL_MAJOR_VERSION >= 3
+				float x = ev.wheel.x;
+				float y = ev.wheel.y;
+			#else
+				int x = ev.wheel.x;
+				int y = ev.wheel.y;
+			#endif
+
 			#if OS_MACOSX
 			{
-				// check if the shift key is pressed
-				int shift_key = (SDL_GetModState() & KMOD_SHIFT);
-				// indicates if the event comes from the external mouse rather than the trackpad. Trackpad/magic
-				// events are 'precise', ie. their step is lower than 1.
-				// There is in SDL/macOS no way
-				// to distinguish the source of the event, all event have a field 'which' that is 'SDL_MOUSEID'.
-				 bool isPrecise =
+				
+				#if SDL_MAJOR_VERSION >= 3
+					// need integer_x/integer_y
+					static_assert(SDL_VERSION_ATLEAST(3, 2, 12));
+					
+					// check if the shift key is pressed
+					int shiftKey = SDL_GetModState() & SDL_KMOD_SHIFT;
+					bool isPrecise = 
+					(
+						std::fabs(x) > 1e-3
+						&& ((x != static_cast<float>(ev.wheel.integer_x)) || std::fabs(x) < 0.99f)
+					) || (
+						std::fabs(y) > 1e-3
+						&& ((y != static_cast<float>(ev.wheel.integer_y)) || std::fabs(y) < 0.99f)
+					);
+
+				#else
+					// indicates if the event comes from the external mouse rather than the trackpad. Trackpad/magic
+					// events are 'precise', ie. their step is lower than 1.
+					// There is in SDL/macOS no way
+					// to distinguish the source of the event, all event have a field 'which' that is 'SDL_MOUSEID'.
+					int shiftKey = SDL_GetModState() & KMOD_SHIFT;
+					bool isPrecise =
 					(
 						((x != 0) || std::fabs(ev.wheel.preciseX) > 1e-3) 
-						&& ((ev.wheel.preciseX != (float)ev.wheel.x) || std::fabs(ev.wheel.preciseX) < 0.99f)
+						&& ((ev.wheel.preciseX != static_cast<float>(ev.wheel.x)) || std::fabs(ev.wheel.preciseX) < 0.99f)
 					) || (
 						((y != 0) || std::fabs(ev.wheel.preciseY) > 1e-3) 
-						&& ((ev.wheel.preciseY != (float)ev.wheel.y) || std::fabs(ev.wheel.preciseY) < 0.99f)
+						&& ((ev.wheel.preciseY != static_cast<float>(ev.wheel.y)) || std::fabs(ev.wheel.preciseY) < 0.99f)
 					);
-				
-				// if mouse and shift, on macOS we need to revert x and y to get back to the conventional definition.
-				if(!isPrecise && shift_key) {
+				#endif
+				// on macOS: if mouse and shift, we need to inverse x and y to get back to the conventional definition.
+				if(!isPrecise && shiftKey) {
 					std::swap(x, y);
 				}
 			}
