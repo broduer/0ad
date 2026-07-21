@@ -549,7 +549,7 @@ UnitAI.prototype.UnitFsmSpec = {
 						"x": msg.data.lastPos.x,
 						"z": msg.data.lastPos.z,
 						"type": msg.data.type,
-						"template": msg.data.template
+						"stance": msg.data.stance
 					});
 				return ACCEPT_ORDER;
 			}
@@ -875,7 +875,7 @@ UnitAI.prototype.UnitFsmSpec = {
 								"x": data.lastPos.x,
 								"z": data.lastPos.z,
 								"type": data.type,
-								"template": data.template
+								"stance": data.stance
 							});
 					}
 					return ACCEPT_ORDER;
@@ -916,7 +916,7 @@ UnitAI.prototype.UnitFsmSpec = {
 				return ACCEPT_ORDER;
 			}
 
-			this.CallMemberFunction("GatherNearPosition", [msg.data.x, msg.data.z, msg.data.type, msg.data.template, false]);
+			this.CallMemberFunction("GatherNearPosition", [msg.data.x, msg.data.z, msg.data.type, msg.data.stance, false]);
 
 			this.SetNextState("MEMBER");
 			return ACCEPT_ORDER;
@@ -2718,8 +2718,8 @@ UnitAI.prototype.UnitFsmSpec = {
 				{
 					const previousForced = this.order.data.force;
 					const previousTarget = this.order.data.target;
-					const resourceTemplate = this.order.data.template;
 					const resourceType = this.order.data.type;
+					const resourceStance = this.order.data.stance;
 
 					// Give up on this order and try our next queued order
 					// but first check what is our next order and, if needed, insert a returnResource order
@@ -2745,14 +2745,18 @@ UnitAI.prototype.UnitFsmSpec = {
 					if (!cmpPosition || !cmpPosition.IsInWorld())
 						return true;
 
-					const filter = (ent, type, template) =>
+					const filter = (ent, type) =>
 					{
 						if (previousTarget == ent)
 							return false;
 
+						// If hunting/corraling, check the animal's stance.
 						// Don't switch to a different type of huntable animal.
-						return type.specific == resourceType.specific &&
-						    (type.specific != "meat" || resourceTemplate == template);
+						if (type.specific == "meat")
+							return Engine.QueryInterface(ent, IID_UnitAI)?.GetStanceName() == resourceStance;
+
+						// For non-meat resources, just check the type
+						return type.specific == resourceType.specific;
 					};
 
 					// Current position is often next to a dropsite.
@@ -2781,7 +2785,7 @@ UnitAI.prototype.UnitFsmSpec = {
 					// Using the default relaxed range check since that is used in the WALKING-state.
 					if (!this.CheckPointRangeExplicit(initPos.x, initPos.z, 0, this.DefaultRelaxedMaxRange))
 					{
-						this.GatherNearPosition(initPos.x, initPos.z, resourceType, resourceTemplate);
+						this.GatherNearPosition(initPos.x, initPos.z, resourceType, resourceStance);
 						return true;
 					}
 
@@ -5866,17 +5870,16 @@ UnitAI.prototype.PerformGather = function(target, queued, force, pushFront = fal
 	else
 		error("CanGather allowed gathering from invalid entity");
 
-	// Also save the target entity's template, so that if it's an animal,
+	// Save the animal's stance if it's a huntable animal
 	// we won't go from hunting slow safe animals to dangerous fast ones
-	var cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
-	var template = cmpTemplateManager.GetCurrentTemplateName(target);
-	if (template.indexOf("resource|") != -1)
-		template = template.slice(9);
+	const stance = type?.specific == "meat" ?
+		Engine.QueryInterface(target, IID_UnitAI)?.GetStanceName() :
+		undefined;
 
 	const order = {
 		"target": target,
 		"type": type,
-		"template": template,
+		"stance": stance,  // Used for meat/animals
 		"force": force,
 	};
 
@@ -5907,13 +5910,10 @@ UnitAI.prototype.PerformGather = function(target, queued, force, pushFront = fal
  * Adds gather-near-position order to the queue, not forced, so it can be
  * interrupted by attacks.
  */
-UnitAI.prototype.GatherNearPosition = function(x, z, type, template, queued, pushFront)
+UnitAI.prototype.GatherNearPosition = function(x, z, type, stance, queued, pushFront)
 {
-	if (template.indexOf("resource|") != -1)
-		template = template.slice(9);
-
 	if (this.IsFormationController() || Engine.QueryInterface(this.entity, IID_ResourceGatherer))
-		this.AddOrder("GatherNearPosition", { "type": type, "template": template, "x": x, "z": z, "force": false }, queued, pushFront);
+		this.AddOrder("GatherNearPosition", { "type": type, "stance": stance, "x": x, "z": z, "force": false }, queued, pushFront);
 	else
 		this.AddOrder("Walk", { "x": x, "z": z, "force": false }, queued, pushFront);
 };
