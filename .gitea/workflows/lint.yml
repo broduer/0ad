@@ -9,36 +9,27 @@ env:
   HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.after }}
 
 jobs:
+  clang-tidy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 100
+
+      - uses: ./.gitea/actions/tools
+
+      - name: Fetch the base branch, so we can use `git diff`
+        run: git fetch origin ${{ env.BASE_SHA }}
+
+      - name: Run clang-tidy on the diff
+        run: ./source/tools/lint/clang-tidy/run-clang-tidy-diff.sh  ${{ env.BASE_SHA }}..
+
   cppcheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # cache only works for items in workspace, so configure apt to allow for caching.
-      - name: Setup apt cache locations
-        id: apt-cache-location
-        run: |
-          mkdir -p apt-cache/archives/partial
-          mkdir -p apt-lists/partial
-          mkdir -p apt-lists/auxfiles
-          sudo echo "Dir::Cache \"$(realpath apt-cache)\";" >/etc/apt/apt.conf.d/99cachelocation
-          sudo echo "Dir::State::lists \"$(realpath apt-lists)\";" >>/etc/apt/apt.conf.d/99cachelocation
-
-      - name: Cache apt pkg db and and deb files
-        id: apt-cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            apt-cache
-            apt-lists
-          key: ${{ runner.os }}-apt-cache-4
-
-      - name: Update package db
-        if: steps.apt-cache.outputs.cache-hit != 'true'
-        run: sudo apt-get update
-
-      - name: Install cppcheck
-        run: sudo apt-get --assume-yes --no-install-recommends install cppcheck
+      - uses: ./.gitea/actions/tools
 
       - name: Fetch the base branch, so we can use `git diff`
         run: git fetch origin ${{ env.BASE_SHA }}

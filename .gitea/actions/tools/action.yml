@@ -1,0 +1,44 @@
+---
+name: tools
+desctription: "Install tools needed for linting"
+
+runs:
+  using: 'composite'
+  steps:
+    # cache only works for items in workspace, so configure apt to allow for caching.
+    - name: Setup apt cache locations
+      id: apt-cache-location
+      run: |
+        mkdir -p apt-cache/archives/partial
+        mkdir -p apt-lists/partial
+        mkdir -p apt-lists/auxfiles
+        sudo echo "Dir::Cache \"$(realpath apt-cache)\";" >/etc/apt/apt.conf.d/99cachelocation
+        sudo echo "Dir::State::lists \"$(realpath apt-lists)\";" \
+          >>/etc/apt/apt.conf.d/99cachelocation
+
+    - name: Cache apt pkg db and and deb files
+      id: apt-cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          apt-cache
+          apt-lists
+          libraries/source/premake-core/
+        key: ${{ runner.os }}-apt-cache-7
+
+    - name: Update package db
+      if: steps.apt-cache.outputs.cache-hit != 'true'
+      run: sudo apt-get update
+
+    - name: Install clang-tidy
+      run: sudo apt-get --assume-yes --no-install-recommends install clang-tidy-20
+
+    - name: Install cppcheck
+      run: sudo apt-get --assume-yes --no-install-recommends install cppcheck
+
+    - name: Build premake
+      run: |
+        # If false update this check and the cache key above.
+        [ $(sed -n -e 's/^PV=\(.*$\)/\1/p' libraries/source/premake-core/build.sh) \
+          = "55fc4b2deac045ca06dc23d98426423356c507c1" ] || exit 1
+        ./libraries/source/premake-core/build.sh
