@@ -17,6 +17,7 @@ class SessionMessageBox
 				"title": this.Title,
 				"message": this.Caption,
 				"buttonCaptions": this.Buttons ? this.Buttons.map(button => button.caption) : undefined,
+				"buttonTooltips": this.Buttons ? this.Buttons.map(button => button.tooltip) : undefined,
 			});
 
 		this.closeSession = closeSession;

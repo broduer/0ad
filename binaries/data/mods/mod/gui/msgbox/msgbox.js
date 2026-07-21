@@ -25,6 +25,11 @@ export function init(data)
 
 	const mbButton = [];
 	const closePromise = setButtonCaptionsAndVisibility(mbButton, captions, mbCancelHotkey, "mbButton");
+	if (data.buttonTooltips)
+		data.buttonTooltips.forEach((tooltip, i) =>
+		{
+			mbButton[i].tooltip = tooltip || "";
+		});
 	distributeButtonsHorizontally(mbButton, captions);
 
 	return closePromise;
