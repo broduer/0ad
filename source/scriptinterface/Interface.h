@@ -33,6 +33,7 @@
 #include <js/Value.h>
 #include <js/ValueArray.h>
 #include <memory>
+#include <random>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -44,7 +45,6 @@ class Path;
 namespace Script { class Context; }
 namespace Script { class ModuleLoader; }
 namespace Script { struct Interface_impl; }
-namespace boost { namespace random { class rand48; } }
 struct JSClass;
 struct JSContext;
 struct JSFunctionSpec;
@@ -185,7 +185,7 @@ public:
 	/**
 	 * Replace the default JS random number generator with a seeded, network-synced one.
 	 */
-	bool ReplaceNondeterministicRNG(boost::random::rand48& rng);
+	bool ReplaceNondeterministicRNG(std::mt19937_64& rng);
 
 	/**
 	 * Call a constructor function, equivalent to JS "new ctor(arg)".

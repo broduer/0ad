@@ -245,7 +245,7 @@ public:
 		TS_ASSERT(script.Eval("Math.random()", d2));
 		TS_ASSERT_DIFFERS(d1, d2);
 
-		boost::rand48 rng;
+		std::mt19937_64 rng;
 		script.ReplaceNondeterministicRNG(rng);
 		rng.seed((u64)0);
 		TS_ASSERT(script.Eval("Math.random()", d1));

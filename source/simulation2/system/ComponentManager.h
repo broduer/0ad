@@ -26,13 +26,13 @@
 #include "simulation2/system/DynamicSubscription.h"
 #include "simulation2/system/Entity.h"
 
-#include <boost/random/linear_congruential.hpp>
 #include <iosfwd>
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
 #include <js/Value.h>
 #include <map>
 #include <memory>
+#include <random>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -363,7 +363,7 @@ private:
 	entity_id_t m_NextEntityId;
 	entity_id_t m_NextLocalEntityId;
 
-	boost::rand48 m_RNG;
+	std::mt19937_64 m_RNG;
 
 	friend class TestComponentManager;
 };

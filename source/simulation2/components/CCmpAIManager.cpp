@@ -67,7 +67,6 @@
 #include "simulation2/serialization/StdSerializer.h"
 #include "simulation2/system/Component.h"
 
-#include <boost/random/linear_congruential.hpp>
 #include <cstring>
 #include <js/Array.h>
 #include <js/GCAPI.h>
@@ -80,6 +79,7 @@
 #include <js/experimental/TypedData.h>
 #include <map>
 #include <memory>
+#include <random>
 #include <set>
 #include <sstream>
 #include <string>
@@ -662,7 +662,7 @@ public:
 
 		std::stringstream rngStream;
 		rngStream << m_RNG;
-		serializer.StringASCII("rng", rngStream.str(), 0, 32);
+		serializer.StringASCII("rng", rngStream.str(), 0, std::numeric_limits<std::uint32_t>::max());
 
 		serializer.NumberU32_Unbounded("turn", m_TurnNum);
 
@@ -712,7 +712,7 @@ public:
 
 		std::string rngString;
 		std::stringstream rngStream;
-		deserializer.StringASCII("rng", rngString, 0, 32);
+		deserializer.StringASCII("rng", rngString, 0, std::numeric_limits<std::uint32_t>::max());
 		rngStream << rngString;
 		rngStream >> m_RNG;
 
@@ -829,7 +829,7 @@ private:
 	}
 
 	std::shared_ptr<Script::Interface> m_ScriptInterface;
-	boost::rand48 m_RNG;
+	std::mt19937_64 m_RNG;
 	u32 m_TurnNum;
 
 	JS::PersistentRootedValue m_EntityTemplates;

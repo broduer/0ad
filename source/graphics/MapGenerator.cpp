@@ -48,7 +48,6 @@
 #include "simulation2/helpers/MapEdgeTiles.h"
 #include "simulation2/system/Component.h"
 
-#include <boost/random/linear_congruential.hpp>
 #include <cstddef>
 #include <fmt/format.h>
 #include <js/Interrupt.h>
@@ -57,6 +56,7 @@
 #include <js/TypeDecls.h>
 #include <js/Value.h>
 #include <jsapi.h>
+#include <random>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -378,7 +378,7 @@ Script::StructuredClone RunMapGenerationScript(const StopToken stopToken, std::a
 		!Script::GetProperty(rq, settingsVal, "Seed", seed))
 		LOGWARNING("RunMapGenerationScript: No seed value specified - using 0");
 
-	boost::rand48 mapGenRNG{seed};
+	std::mt19937_64 mapGenRNG{seed};
 	scriptInterface.ReplaceNondeterministicRNG(mapGenRNG);
 
 	CMapGenerationCallbacks callbackData{stopToken, scriptInterface, flags};

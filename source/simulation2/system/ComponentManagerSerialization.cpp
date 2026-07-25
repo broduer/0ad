@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -40,14 +40,14 @@
 #include <utility>
 #include <vector>
 
-std::string SerializeRNG(const boost::random::rand48& rng)
+std::string SerializeRNG(const std::mt19937_64& rng)
 {
 	std::stringstream s;
 	s << rng;
 	return s.str();
 }
 
-void DeserializeRNG(const std::string& str, boost::random::rand48& rng)
+void DeserializeRNG(const std::string& str, std::mt19937_64& rng)
 {
 	std::stringstream s;
 	s << str;
@@ -58,7 +58,7 @@ bool CComponentManager::DumpDebugState(std::ostream& stream, bool includeDebugIn
 {
 	CDebugSerializer serializer(m_ScriptInterface, stream, includeDebugInfo);
 
-	serializer.StringASCII("rng", SerializeRNG(m_RNG), 0, 32);
+	serializer.StringASCII("rng", SerializeRNG(m_RNG), 0, std::numeric_limits<std::uint32_t>::max());
 
 	serializer.TextLine("entities:");
 
@@ -115,7 +115,7 @@ bool CComponentManager::ComputeStateHash(std::string& outHash, bool quick) const
 
 	CHashSerializer serializer(m_ScriptInterface);
 
-	serializer.StringASCII("rng", SerializeRNG(m_RNG), 0, 32);
+	serializer.StringASCII("rng", SerializeRNG(m_RNG), 0, std::numeric_limits<std::uint32_t>::max());
 	serializer.NumberU32_Unbounded("next entity id", m_NextEntityId);
 
 	std::map<ComponentTypeId, std::map<entity_id_t, IComponent*> >::const_iterator cit = m_ComponentsByTypeId.begin();
@@ -185,7 +185,7 @@ bool CComponentManager::SerializeState(std::ostream& stream) const
 	ENSURE(m_DestructionQueue.empty() || std::find_if(m_DestructionQueue.begin(), m_DestructionQueue.end(),
 	       [](entity_id_t ent) { return !ENTITY_IS_LOCAL(ent); }) == m_DestructionQueue.end());
 
-	serializer.StringASCII("rng", SerializeRNG(m_RNG), 0, 32);
+	serializer.StringASCII("rng", SerializeRNG(m_RNG), 0, std::numeric_limits<std::uint32_t>::max());
 	serializer.NumberU32_Unbounded("next entity id", m_NextEntityId);
 
 	std::map<ComponentTypeId, std::map<entity_id_t, IComponent*> >::const_iterator cit;
@@ -303,7 +303,7 @@ bool CComponentManager::DeserializeState(std::istream& stream)
 		InitSystemEntity();
 
 		std::string rng;
-		deserializer.StringASCII("rng", rng, 0, 32);
+		deserializer.StringASCII("rng", rng, 0, std::numeric_limits<std::uint32_t>::max());
 		DeserializeRNG(rng, m_RNG);
 
 		deserializer.NumberU32_Unbounded("next entity id", m_NextEntityId); // TODO: use sensible bounds

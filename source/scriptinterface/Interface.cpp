@@ -93,7 +93,7 @@ struct Interface_impl
 		JS::PersistentRootedObject m_glob; // global scope object
 
 	public:
-		boost::rand48* m_rng;
+		std::mt19937_64* m_rng;
 		JS::PersistentRootedObject m_nativeScope; // native function scope object
 	ModuleLoader m_ModuleLoader;
 };
@@ -297,7 +297,7 @@ void ProfileAttribute(const std::string& attr)
 // boost::uniform_real is apparently buggy in Boost pre-1.47 - for integer generators
 // it returns [min,max], not [min,max). The bug was fixed in 1.47.
 // We need consistent behaviour, so manually implement the correct version:
-static double generate_uniform_real(boost::rand48& rng, double min, double max)
+static double generate_uniform_real(std::mt19937_64& rng, double min, double max)
 {
 	while (true)
 	{
@@ -474,7 +474,7 @@ bool Interface::LoadGlobalScripts()
 	return true;
 }
 
-bool Interface::ReplaceNondeterministicRNG(boost::rand48& rng)
+bool Interface::ReplaceNondeterministicRNG(std::mt19937_64& rng)
 {
 	Request rq(this);
 	JS::RootedValue math(rq.cx);

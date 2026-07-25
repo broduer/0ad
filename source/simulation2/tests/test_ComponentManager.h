@@ -39,11 +39,6 @@
 #include <sstream>
 #include <string>
 
-#define TS_ASSERT_STREAM(stream, len, buffer) \
-	TS_ASSERT_EQUALS(stream.str().length(), (size_t)len); \
-	TS_ASSERT_SAME_DATA(stream.str().data(), buffer, len)
-
-
 #define TS_ASSERT_THROWS_PSERROR(e, t, s) \
 	TS_ASSERT_THROWS_EQUALS(e, const t& ex, std::string(ex.what()), s)
 
@@ -677,8 +672,10 @@ public:
 
 		std::stringstream debugStream;
 		TS_ASSERT(man.DumpDebugState(debugStream, true));
-		TS_ASSERT_STR_EQUALS(debugStream.str(),
-				"rng: \"78606\"\n"
+		const std::string debugString{debugStream.str()};
+		// Cut away the rng because it's to large
+		const std::string stringNoRandom{debugString.substr(debugString.find('\n') + 1)};
+		TS_ASSERT_STR_EQUALS(stringNoRandom,
 				"entities:\n"
 				"- id: 10\n"
 				"  Test1A:\n"
@@ -700,14 +697,13 @@ public:
 		std::string hash;
 		TS_ASSERT(man.ComputeStateHash(hash, false));
 		TS_ASSERT_EQUALS(hash.length(), (size_t)16);
-		TS_ASSERT_SAME_DATA(hash.data(), "\x3c\x25\x6e\x22\x58\x23\x09\x58\x38\xca\xb2\x1e\x0b\x8c\xac\xcf", 16);
-		// echo -en "\x05\x00\x00\x0078606\x02\0\0\0\x01\0\0\0\x0a\0\0\0\xf8\x2a\0\0\x14\0\0\0\xd2\x04\0\0\x04\0\0\0\x0a\0\0\0\x08\x52\0\0" | md5sum | perl -pe 's/([0-9a-f]{2})/\\x$1/g'
-		//           ^^^^^^^^ rng ^^^^^^^^ ^^next^^ ^^Test1A^^ ^^^ent1^^ ^^^11000^^^ ^^^ent2^^ ^^^1234^^^ ^^Test2A^^ ^^ent1^^ ^^^21000^^^
+		// This is only a regression test
+		TS_ASSERT_SAME_DATA(hash.data(), "\x18\x4b\x60\x0e\xb0\x3f\x04\xcd\xec\x16\x36\x64\x44\xB2\x22\x15", 16);
 
 		std::stringstream stateStream;
 		TS_ASSERT(man.SerializeState(stateStream));
-		TS_ASSERT_STREAM(stateStream, 73,
-				"\x05\x00\x00\x00\x37\x38\x36\x30\x36" // RNG
+		const std::string stateString{stateStream.str()};
+		TS_ASSERT_SAME_DATA(stateString.substr(stateString.size() - 64).data(),
 				"\x02\x00\x00\x00" // next entity ID
 				"\x00\x00\x00\x00" // num system component types
 				"\x02\x00\x00\x00" // num component types
@@ -720,8 +716,8 @@ public:
 				"\x06\x00\x00\x00Test2A"
 				"\x01\x00\x00\x00" // num ents
 				"\x0a\x00\x00\x00" // ent1
-				"\x08\x52\x00\x00" // 21000
-		);
+				"\x08\x52\x00\x00", // 21000
+		64);
 
 		CSimContext context2;
 		CComponentManager man2(context2, *g_ScriptContext);
@@ -778,9 +774,11 @@ public:
 
 		std::stringstream debugStream;
 		TS_ASSERT(man.DumpDebugState(debugStream, true));
-		TS_ASSERT_STR_EQUALS(debugStream.str(),
-				"rng: \"78606\"\n\
-entities:\n\
+		const std::string debugString{debugStream.str()};
+		// Cut away the rng because it's to large
+		const std::string stringNoRandom{debugString.substr(debugString.find('\n') + 1)};
+		TS_ASSERT_STR_EQUALS(stringNoRandom,
+				"entities:\n\
 - id: 1\n\
   TestScript1_values:\n\
     comp: {\n\
