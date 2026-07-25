@@ -17,7 +17,6 @@
 
 #include "lib/self_test.h"
 
-#include "graphics/MapReader.h"
 #include "graphics/Terrain.h"
 #include "lib/config2.h"
 #include "lib/debug.h"
@@ -26,6 +25,7 @@
 #include "lib/path.h"
 #include "lib/timer.h"
 #include "lib/types.h"
+#include "map/Reader.h"
 #include "maths/Fixed.h"
 #include "ps/CLogger.h"
 #include "ps/Filesystem.h"

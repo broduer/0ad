@@ -17,14 +17,11 @@
 
 #include "precompiled.h"
 
-#include "MapReader.h"
+#include "Reader.h"
 
 #include "graphics/Camera.h"
 #include "graphics/Color.h"
-#include "graphics/Entity.h"
 #include "graphics/GameView.h"
-#include "graphics/MapGenerator.h"
-#include "graphics/MapIO.h"
 #include "graphics/MiniPatch.h"
 #include "graphics/Patch.h"
 #include "graphics/Terrain.h"
@@ -36,6 +33,9 @@
 #include "lib/path.h"
 #include "lib/timer.h"
 #include "lib/utf8.h"
+#include "map/Entity.h"
+#include "map/Generator.h"
+#include "map/IO.h"
 #include "maths/Fixed.h"
 #include "maths/FixedVector3D.h"
 #include "maths/MathUtil.h"

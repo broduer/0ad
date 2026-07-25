@@ -17,12 +17,11 @@
 
 #include "precompiled.h"
 
-#include "MapWriter.h"
+#include "Writer.h"
 
 #include "graphics/Camera.h"
 #include "graphics/Color.h"
 #include "graphics/LightEnv.h"
-#include "graphics/MapIO.h"
 #include "graphics/MiniPatch.h"
 #include "graphics/Patch.h"
 #include "graphics/Terrain.h"
@@ -31,6 +30,7 @@
 #include "lib/path.h"
 #include "lib/posix/posix_types.h"
 #include "lib/types.h"
+#include "map/IO.h"
 #include "maths/Fixed.h"
 #include "maths/FixedVector3D.h"
 #include "maths/MathUtil.h"

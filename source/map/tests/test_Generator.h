@@ -17,12 +17,12 @@
 
 #include "lib/self_test.h"
 
-#include "graphics/MapGenerator.h"
 #include "lib/debug.h"
 #include "lib/file/vfs/vfs.h"
 #include "lib/file/vfs/vfs_path.h"
 #include "lib/file/vfs/vfs_util.h"
 #include "lib/path.h"
+#include "map/Generator.h"
 #include "ps/CLogger.h"
 #include "ps/Filesystem.h"
 #include "ps/Future.h"

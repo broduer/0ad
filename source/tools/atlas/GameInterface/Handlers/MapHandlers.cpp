@@ -21,8 +21,6 @@
 
 #include "graphics/GameView.h"
 #include "graphics/LOSTexture.h"
-#include "graphics/MapIO.h"
-#include "graphics/MapWriter.h"
 #include "graphics/MiniMapTexture.h"
 #include "graphics/MiniPatch.h"
 #include "graphics/Patch.h"
@@ -37,6 +35,8 @@
 #include "lib/posix/posix_types.h"
 #include "lib/status.h"
 #include "lib/types.h"
+#include "map/IO.h"
+#include "map/Writer.h"
 #include "maths/Fixed.h"
 #include "maths/FixedVector3D.h"
 #include "maths/MathUtil.h"

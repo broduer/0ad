@@ -19,7 +19,6 @@
 
 #include "Simulation2.h"
 
-#include "graphics/MapReader.h"
 #include "graphics/Terrain.h"
 #include "lib/debug.h"
 #include "lib/file/file_system.h"
@@ -30,6 +29,7 @@
 #include "lib/timer.h"
 #include "lib/types.h"
 #include "lib/utf8.h"
+#include "map/Reader.h"
 #include "maths/Fixed.h"
 #include "maths/MathUtil.h"
 #include "ps/CLogger.h"

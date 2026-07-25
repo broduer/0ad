@@ -17,7 +17,6 @@
 
 #include "lib/self_test.h"
 
-#include "graphics/MapReader.h"
 #include "graphics/Terrain.h"
 #include "lib/debug.h"
 #include "lib/file/file_system.h"
@@ -27,6 +26,7 @@
 #include "lib/posix/posix_types.h"
 #include "lib/timer.h"
 #include "lib/types.h"
+#include "map/Reader.h"
 #include "maths/Fixed.h"
 #include "maths/FixedVector2D.h"
 #include "ps/Filesystem.h"

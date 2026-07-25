@@ -943,6 +943,18 @@ function setup_all_libs ()
 
 
 	source_dirs = {
+		"map",
+	}
+	extern_libs = {
+		"boost",
+		"fmt",
+		"libxml2",
+		"spidermonkey",
+	}
+	setup_static_lib_project("map", source_dirs, extern_libs, {})
+
+
+	source_dirs = {
 		"tools/atlas/GameInterface",
 		"tools/atlas/GameInterface/Handlers"
 	}

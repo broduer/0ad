@@ -18,12 +18,11 @@
 #ifndef INCLUDED_MAPREADER
 #define INCLUDED_MAPREADER
 
-#include "MapIO.h"
-
 #include "graphics/LightEnv.h"
 #include "lib/file/vfs/vfs_path.h"
 #include "lib/posix/posix_types.h"
 #include "lib/types.h"
+#include "map/IO.h"
 #include "maths/Vector3D.h"
 #include "ps/CStr.h"
 #include "ps/Errors.h"

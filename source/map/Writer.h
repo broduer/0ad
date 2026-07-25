@@ -18,8 +18,8 @@
 #ifndef INCLUDED_MAPWRITER
 #define INCLUDED_MAPWRITER
 
-#include "MapIO.h"
 #include "lib/file/vfs/vfs_path.h"
+#include "map/IO.h"
 #include "ps/CStr.h"
 
 #include <vector>

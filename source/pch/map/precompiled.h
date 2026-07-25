@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,23 +15,5 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef INCLUDED_RMS_ENTITY
-#define INCLUDED_RMS_ENTITY
+#include "lib/precompiled.h"	// common precompiled header
 
-#include "lib/code_annotation.h"
-#include "lib/types.h"
-#include "maths/FixedVector3D.h"
-
-#include <string>
-
-// Struct for parsing random map data
-struct Entity
-{
-	std::wstring templateName;
-	u16 entityID;
-	u16 playerID;
-	CFixedVector3D position;
-	CFixedVector3D rotation;
-};
-
-#endif

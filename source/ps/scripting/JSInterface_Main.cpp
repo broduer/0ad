@@ -20,12 +20,12 @@
 #include "JSInterface_Main.h"
 
 #include "graphics/FontMetrics.h"
-#include "graphics/MapReader.h"
 #include "lib/code_generation.h"
 #include "lib/file/vfs/vfs_path.h"
 #include "lib/frequency_filter.h"
 #include "lib/sysdep/sysdep.h"
 #include "lib/types.h"
+#include "map/Reader.h"
 #include "maths/MD5.h"
 #include "maths/Size2D.h"
 #include "ps/CLogger.h"

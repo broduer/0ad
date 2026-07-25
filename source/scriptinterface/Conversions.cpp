@@ -19,8 +19,8 @@
 
 #include "Conversions.h"
 
-#include "graphics/Entity.h"
 #include "lib/path.h"
+#include "map/Entity.h"
 #include "ps/CStr.h"
 #include "scriptinterface/Exceptions.h"
 #include "scriptinterface/Request.h"

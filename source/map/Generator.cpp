@@ -17,9 +17,8 @@
 
 #include "precompiled.h"
 
-#include "MapGenerator.h"
+#include "Generator.h"
 
-#include "graphics/MapIO.h"
 #include "graphics/Patch.h"
 #include "graphics/Terrain.h"
 #include "lib/code_annotation.h"
@@ -29,6 +28,7 @@
 #include "lib/posix/posix_types.h"
 #include "lib/status.h"
 #include "lib/utf8.h"
+#include "map/IO.h"
 #include "maths/MathUtil.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
