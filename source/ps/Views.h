@@ -18,11 +18,11 @@
 #ifndef PS_VIEWS_H
 #define PS_VIEWS_H
 
-#include <concepts>
 #include <cstddef>
 #include <iterator>
 #include <ranges>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 
 namespace PS::Views
@@ -39,35 +39,37 @@ struct ViewClosure
 
 	explicit constexpr ViewClosure(Args... args) : m_Args(std::move(args)...) {}
 
-    template <std::ranges::range R>
+    template <typename R>
     constexpr auto operator()(R&& base) const
 	{
-        return View<std::views::all_t<R>>(std::views::all(std::forward<R>(base)), std::get<Args>(m_Args)...);
+        return View(std::forward<R>(base), std::get<Args>(m_Args)...);
     }
 };
 
-template <std::ranges::range R, template <typename> typename View, typename... Args>
+template <typename R, template <typename> typename View, typename... Args>
+	requires requires(R&& r) { std::ranges::begin(r); std::ranges::end(r); }
 constexpr auto operator|(R&& base, const ViewClosure<View, Args...>& closure) {
     return closure(std::forward<R>(base));
 }
 
 // Enumerate View
-template <std::ranges::range R>
-class EnumerateView : std::ranges::view_interface<EnumerateView<R>>
+template <typename R>
+class EnumerateView
 {
 private:
     R m_Base;
     std::ptrdiff_t m_Offset = 0;
 
+	template <typename RefR>
     class iterator
 	{
 	public:
-        using value_type = std::pair<std::ptrdiff_t, std::ranges::range_reference_t<R>>;
+        using value_type = std::pair<std::ptrdiff_t, std::ranges::range_reference_t<RefR>>;
         using difference_type = std::ptrdiff_t;
         using iterator_concept = std::input_iterator_tag;
 
         iterator() = default;
-        iterator(std::ranges::iterator_t<R> it, std::ptrdiff_t idx)
+        iterator(std::ranges::iterator_t<RefR> it, std::ptrdiff_t idx)
             : m_Iter(std::move(it)), m_Index(idx) {}
 
         value_type operator*() const { return {m_Index, *m_Iter}; }
@@ -92,7 +94,7 @@ private:
         }
 
 	private:
-        std::ranges::iterator_t<R> m_Iter;
+        std::ranges::iterator_t<RefR> m_Iter;
         std::ptrdiff_t m_Index{0};
     };
 
@@ -101,11 +103,11 @@ public:
     explicit EnumerateView(R base, std::ptrdiff_t offset = 0)
         : m_Base(std::move(base)), m_Offset(offset) {}
 
-    iterator begin() { return {std::ranges::begin(m_Base), m_Offset}; }
-    iterator end() { return {std::ranges::end(m_Base), 0}; }
+    auto begin() { return iterator<R>{std::ranges::begin(m_Base), m_Offset}; }
+    auto end() { return iterator<R>{std::ranges::end(m_Base), 0}; }
 
-    iterator begin() const { return {std::ranges::begin(m_Base), m_Offset}; }
-    iterator end() const { return {std::ranges::end(m_Base), 0}; }
+    auto begin() const { return iterator<const R>{std::ranges::begin(m_Base), m_Offset}; }
+    auto end() const { return iterator<const R>{std::ranges::end(m_Base), 0}; }
 };
 
 struct EnumerateFunctor
@@ -115,10 +117,11 @@ struct EnumerateFunctor
         return ViewClosure<EnumerateView, std::ptrdiff_t>{offset};
     }
 
-    template <std::ranges::range R>
+    template <typename R>
+		requires requires(R&& r) { std::ranges::begin(r); std::ranges::end(r); }
     constexpr auto operator()(R&& base, std::ptrdiff_t offset = 0) const
 	{
-        return EnumerateView<std::views::all_t<R>>(std::views::all(std::forward<R>(base)), offset);
+        return EnumerateView<std::remove_cvref_t<R>>(std::forward<R>(base), offset);
     }
 };
 
