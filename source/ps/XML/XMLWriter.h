@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -65,6 +65,8 @@
 #include "lib/file/vfs/vfs_path.h"
 #include "ps/CStr.h"
 
+#include <string_view>
+
 class XMBElement;
 class XMBData;
 class XMLWriter_Element;
@@ -89,11 +91,11 @@ private:
 
 	void ElementXMB(const XMBData& xmb, XMBElement el);
 
-	void ElementStart(XMLWriter_Element* element, const char* name);
+	void ElementStart(XMLWriter_Element* element, const std::string_view name);
 	void ElementText(const char* text, bool cdata);
-	template <typename T> void ElementAttribute(const char* name, const T& value, bool newelement);
+	template <typename T> void ElementAttribute(const std::string_view name, const T& value, bool newelement);
 	void ElementClose();
-	void ElementEnd(const char* name, int type);
+	void ElementEnd(const std::string_view name, int type);
 
 	CStr8 Indent();
 
@@ -107,12 +109,12 @@ private:
 class XMLWriter_Element
 {
 public:
-	XMLWriter_Element(XMLWriter_File& file, const char* name);
+	XMLWriter_Element(XMLWriter_File& file, const std::string_view name);
 	~XMLWriter_Element();
 
 	template <typename constCharPtr> void Text(constCharPtr text, bool cdata);
-	template <typename T> void Attribute(const char* name, T value) { m_File->ElementAttribute(name, value, false); }
-	template <typename T> void Setting(const char* name, T value) { m_File->ElementAttribute(name, value, true); }
+	template <typename T> void Attribute(const std::string_view name, T value) { m_File->ElementAttribute(name, value, false); }
+	template <typename T> void Setting(const std::string_view name, T value) { m_File->ElementAttribute(name, value, true); }
 	void Close(int type);
 
 private:

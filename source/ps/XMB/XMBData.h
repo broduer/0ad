@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -116,9 +116,6 @@ public:
 	int GetAttributeID(const char* Name) const;
 
 	// Returns element/attribute string for a given internal ID.
-	const char* GetElementString(const int ID) const;
-	const char* GetAttributeString(const int ID) const;
-
 	std::string_view GetElementStringView(const int ID) const;
 	std::string_view GetAttributeStringView(const int ID) const;
 

@@ -57,7 +57,7 @@ CTerrainPropertiesPtr CTerrainProperties::FromXML(const CTerrainPropertiesPtr& p
 		return CTerrainPropertiesPtr();
 
 	XMBElement root = XeroFile.GetRoot();
-	CStr rootName = XeroFile.GetElementString(root.GetNodeName());
+	const std::string_view rootName{XeroFile.GetElementStringView(root.GetNodeName())};
 
 	// Check that we've got the right kind of xml document
 	if (rootName != "Terrains")
@@ -88,7 +88,7 @@ CTerrainPropertiesPtr CTerrainProperties::FromXML(const CTerrainPropertiesPtr& p
 		{
 			LOGWARNING("TerrainProperties: Loading %s: Unexpected node %s\n",
 				pathname.string8(),
-				XeroFile.GetElementString(child.GetNodeName()));
+				XeroFile.GetElementStringView(child.GetNodeName()));
 			// Keep reading - typos shouldn't be showstoppers
 		}
 	}

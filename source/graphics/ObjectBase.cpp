@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -203,7 +203,7 @@ bool CObjectBase::LoadVariant(const CXeromyces& XeroFile, const XMBElement& vari
 
 	if (variant.GetNodeName() != el_variant)
 	{
-		LOGERROR("Invalid variant format (unrecognized root element '%s')", XeroFile.GetElementString(variant.GetNodeName()));
+		LOGERROR("Invalid variant format (unrecognized root element '%s')", XeroFile.GetElementStringView(variant.GetNodeName()));
 		return false;
 	}
 
@@ -849,7 +849,7 @@ bool CActorDef::Load(const VfsPath& pathname)
 	if (root.GetNodeName() != el_actor && root.GetNodeName() != el_qualitylevels)
 	{
 		LOGERROR("Invalid actor format (actor '%s', unrecognized root element '%s')",
-				 pathname.string8().c_str(), XeroFile.GetElementString(root.GetNodeName()));
+				 pathname.string8().c_str(), XeroFile.GetElementStringView(root.GetNodeName()));
 		return false;
 	}
 

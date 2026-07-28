@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -130,10 +130,10 @@ void XMLWriter_File::XMB(const XMBData& xmb)
 
 void XMLWriter_File::ElementXMB(const XMBData& xmb, XMBElement el)
 {
-	XMLWriter_Element writer(*this, xmb.GetElementString(el.GetNodeName()));
+	XMLWriter_Element writer(*this, xmb.GetElementStringView(el.GetNodeName()));
 
 	XERO_ITER_ATTR(el, attr)
-		writer.Attribute(xmb.GetAttributeString(attr.Name), attr.Value);
+		writer.Attribute(xmb.GetAttributeStringView(attr.Name), attr.Value);
 
 	XERO_ITER_EL(el, child)
 		ElementXMB(xmb, child);
@@ -152,7 +152,7 @@ CStr XMLWriter_File::Indent()
 	return std::string(m_Indent, '\t');
 }
 
-void XMLWriter_File::ElementStart(XMLWriter_Element* element, const char* name)
+void XMLWriter_File::ElementStart(XMLWriter_Element* element, const std::string_view name)
 {
 	if (m_LastElement) m_LastElement->Close(EL_SUBEL);
 	m_LastElement = element;
@@ -173,7 +173,7 @@ void XMLWriter_File::ElementClose()
 	m_Data += ">";
 }
 
-void XMLWriter_File::ElementEnd(const char* name, int type)
+void XMLWriter_File::ElementEnd(const std::string_view name, int type)
 {
 	--m_Indent;
 	m_LastElement = NULL;
@@ -218,16 +218,16 @@ void XMLWriter_File::ElementText(const char* text, bool cdata)
 }
 
 
-XMLWriter_Element::XMLWriter_Element(XMLWriter_File& file, const char* name)
+XMLWriter_Element::XMLWriter_Element(XMLWriter_File& file, const std::string_view name)
 	: m_File(&file), m_Name(name), m_Type(EL_ATTR)
 {
-	m_File->ElementStart(this, name);
+	m_File->ElementStart(this, m_Name);
 }
 
 
 XMLWriter_Element::~XMLWriter_Element()
 {
-	m_File->ElementEnd(m_Name.c_str(), m_Type);
+	m_File->ElementEnd(m_Name, m_Type);
 }
 
 
@@ -256,7 +256,7 @@ template <> void XMLWriter_Element::Text<const wchar_t*>(const wchar_t* text, bo
 
 //
 
-template <> void XMLWriter_File::ElementAttribute<const char*>(const char* name, const char* const& value, bool newelement)
+template <> void XMLWriter_File::ElementAttribute<const char*>(const std::string_view name, const char* const& value, bool newelement)
 {
 	if (newelement)
 	{
@@ -282,51 +282,51 @@ template <> void XMLWriter_File::ElementAttribute<const char*>(const char* name,
 // be converted into a basic type by whatever is making use of XMLWriter,
 // to keep game-related logic out of the not-directly-game-related code here.
 
-template <> void XMLWriter_File::ElementAttribute<CStr>(const char* name, const CStr& value, bool newelement)
+template <> void XMLWriter_File::ElementAttribute<CStr>(const std::string_view name, const CStr& value, bool newelement)
 {
 	ElementAttribute(name, value.c_str(), newelement);
 }
-template <> void XMLWriter_File::ElementAttribute<std::string>(const char* name, const std::string& value, bool newelement)
+template <> void XMLWriter_File::ElementAttribute<std::string>(const std::string_view name, const std::string& value, bool newelement)
 {
 	ElementAttribute(name, value.c_str(), newelement);
 }
 // Encode Unicode strings as UTF-8
-template <> void XMLWriter_File::ElementAttribute<CStrW>(const char* name, const CStrW& value, bool newelement)
+template <> void XMLWriter_File::ElementAttribute<CStrW>(const std::string_view name, const CStrW& value, bool newelement)
 {
 	ElementAttribute(name, value.ToUTF8(), newelement);
 }
-template <> void XMLWriter_File::ElementAttribute<std::wstring>(const char* name, const std::wstring& value, bool newelement)
+template <> void XMLWriter_File::ElementAttribute<std::wstring>(const std::string_view name, const std::wstring& value, bool newelement)
 {
 	ElementAttribute(name, utf8_from_wstring(value).c_str(), newelement);
 }
 
-template <> void XMLWriter_File::ElementAttribute<fixed>(const char* name, const fixed& value, bool newelement)
+template <> void XMLWriter_File::ElementAttribute<fixed>(const std::string_view name, const fixed& value, bool newelement)
 {
 	ElementAttribute(name, value.ToString().c_str(), newelement);
 }
 
-template <> void XMLWriter_File::ElementAttribute<int>(const char* name, const int& value, bool newelement)
+template <> void XMLWriter_File::ElementAttribute<int>(const std::string_view name, const int& value, bool newelement)
 {
 	std::stringstream ss;
 	ss << value;
 	ElementAttribute(name, ss.str().c_str(), newelement);
 }
 
-template <> void XMLWriter_File::ElementAttribute<unsigned int>(const char* name, const unsigned int& value, bool newelement)
+template <> void XMLWriter_File::ElementAttribute<unsigned int>(const std::string_view name, const unsigned int& value, bool newelement)
 {
 	std::stringstream ss;
 	ss << value;
 	ElementAttribute(name, ss.str().c_str(), newelement);
 }
 
-template <> void XMLWriter_File::ElementAttribute<float>(const char* name, const float& value, bool newelement)
+template <> void XMLWriter_File::ElementAttribute<float>(const std::string_view name, const float& value, bool newelement)
 {
 	std::stringstream ss;
 	ss << value;
 	ElementAttribute(name, ss.str().c_str(), newelement);
 }
 
-template <> void XMLWriter_File::ElementAttribute<double>(const char* name, const double& value, bool newelement)
+template <> void XMLWriter_File::ElementAttribute<double>(const std::string_view name, const double& value, bool newelement)
 {
 	std::stringstream ss;
 	ss << value;

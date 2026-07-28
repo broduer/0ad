@@ -150,7 +150,7 @@ public:
 	 * For example a CRect(10,10,20,20) is created from "10 10 20 20".
 	 * @return false if the setting does not exist or the conversion fails, otherwise true.
 	 */
-	bool SetSettingFromString(const CStr& Setting, const CStrW& Value, const bool SendMessage);
+	bool SetSettingFromString(const std::string_view setting, const CStrW& value, const bool sendMessage);
 
 	/**
 	 * Returns whether this object is set to be hidden or ghost.
@@ -500,7 +500,7 @@ protected:
 	/**
 	 * Settings pool, all an object's settings are located here
 	 */
-	std::map<CStr, IGUISetting*> m_Settings;
+	std::map<CStr, IGUISetting*, std::less<>> m_Settings;
 
 	// An object can't function stand alone
 	CGUI& m_pGUI;

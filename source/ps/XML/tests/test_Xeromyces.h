@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -33,7 +33,7 @@ public:
 		CXeromycesEngine xeromycesEngine;
 		CXeromyces xero;
 		TS_ASSERT_EQUALS(xero.LoadString("<test><foo>bar</foo></test>"), PSRETURN_OK);
-		TS_ASSERT_STR_EQUALS(xero.GetElementString(xero.GetRoot().GetNodeName()), "test");
+		TS_ASSERT_STR_EQUALS(xero.GetElementStringView(xero.GetRoot().GetNodeName()), "test");
 	}
 
 	void test_LoadString_invalid()

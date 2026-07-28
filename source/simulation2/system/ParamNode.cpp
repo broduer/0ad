@@ -88,7 +88,7 @@ void CParamNode::ApplyLayer(const XMBData& xmb, const XMBElement& element, const
 {
 	ResetScriptVal();
 
-	std::string name = xmb.GetElementString(element.GetNodeName());
+	const std::string name{xmb.GetElementStringView(element.GetNodeName())};
 	CStr value = element.GetText();
 
 	bool hasSetValue = false;
@@ -238,7 +238,7 @@ void CParamNode::ApplyLayer(const XMBData& xmb, const XMBElement& element, const
 		node.ApplyLayer(xmb, child, sourceIdentifier);
 		if (filtering)
 		{
-			std::string childname = xmb.GetElementString(child.GetNodeName());
+			const std::string childname{xmb.GetElementStringView(child.GetNodeName())};
 			if (node.m_Childs.find(childname) != node.m_Childs.end())
 				childs[childname] = std::move(node.m_Childs[childname]);
 		}
@@ -254,8 +254,10 @@ void CParamNode::ApplyLayer(const XMBData& xmb, const XMBElement& element, const
 		if (attr.Name == at_replace || attr.Name == at_op || attr.Name == at_merge || attr.Name == at_filtered)
 			continue;
 		// Add any others
-		const char* attrName(xmb.GetAttributeString(attr.Name));
-		node.m_Childs[CStr("@") + attrName].m_Value = attr.Value;
+		const std::string_view attrNameSuffix{xmb.GetAttributeStringView(attr.Name)};
+		std::string attributeName{"@"};
+		attributeName += attrNameSuffix;
+		node.m_Childs[attributeName].m_Value = attr.Value;
 	}
 }
 

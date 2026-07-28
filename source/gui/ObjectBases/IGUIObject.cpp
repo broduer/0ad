@@ -122,15 +122,15 @@ bool IGUIObject::SettingExists(const CStr& Setting) const
 	return m_Settings.find(Setting) != m_Settings.end();
 }
 
-bool IGUIObject::SetSettingFromString(const CStr& Setting, const CStrW& Value, const bool SendMessage)
+bool IGUIObject::SetSettingFromString(const std::string_view setting, const CStrW& value, const bool sendMessage)
 {
-	const std::map<CStr, IGUISetting*>::iterator it = m_Settings.find(Setting);
+	const std::map<CStr, IGUISetting*>::iterator it = m_Settings.find(setting);
 	if (it == m_Settings.end())
 	{
-		LOGERROR("GUI object '%s' has no property called '%s', can't set parse and set value '%s'", GetPresentableName().c_str(), Setting.c_str(), Value.ToUTF8().c_str());
+		LOGERROR("GUI object '%s' has no property called '%s', can't set parse and set value '%s'", GetPresentableName(), setting, value.ToUTF8());
 		return false;
 	}
-	return it->second->FromString(Value, SendMessage);
+	return it->second->FromString(value, sendMessage);
 }
 
 void IGUIObject::SettingChanged(const CStr& Setting, const bool SendMessage)

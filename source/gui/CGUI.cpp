@@ -749,7 +749,7 @@ void CGUI::Xeromyces_ReadObject(const XMBData& xmb, XMBElement element, IGUIObje
 		if (attr.Name == attr_z)
 			ManuallySetZ = true;
 
-		object->SetSettingFromString(xmb.GetAttributeString(attr.Name), attr.Value.FromUTF8(), false);
+		object->SetSettingFromString(xmb.GetAttributeStringView(attr.Name), attr.Value.FromUTF8(), false);
 	}
 
 	// Check if name isn't set, generate an internal name in that case.

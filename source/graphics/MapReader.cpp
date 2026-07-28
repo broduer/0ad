@@ -1166,7 +1166,7 @@ void CXMLReader::ReadXML()
 {
 	for (XMBElement node : nodes)
 	{
-		CStr name = xmb_file.GetElementString(node.GetNodeName());
+		const std::string_view name{xmb_file.GetElementStringView(node.GetNodeName())};
 		if (name == "Terrain")
 		{
 			ReadTerrain(node);
@@ -1202,7 +1202,7 @@ void CXMLReader::ReadXML()
 		}
 		else
 		{
-			debug_printf("Invalid XML element in map file: %s\n", name.c_str());
+			LOGERROR("Invalid XML element in map file: %s\n", name);
 			debug_warn(L"Invalid map XML data");
 		}
 	}
@@ -1270,7 +1270,7 @@ PS::Loader::Task CMapReader::ReadXMLEntities()
 	std::size_t completedJobs{0};
 	for (XMBElement node : m_XmlReader->nodes)
 	{
-		CStr name = m_XmlReader->xmb_file.GetElementString(node.GetNodeName());
+		const std::string_view name{m_XmlReader->xmb_file.GetElementStringView(node.GetNodeName())};
 		if (name != "Entities")
 			continue;
 

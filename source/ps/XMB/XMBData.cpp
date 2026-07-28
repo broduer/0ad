@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -109,16 +109,6 @@ int XMBData::GetAttributeID(const char* Name) const
 	}
 	// Failed
 	return -1;
-}
-
-const char* XMBData::GetElementString(const int ID) const
-{
-	return reinterpret_cast<const char*>(m_ElementPointer + ID + 4);
-}
-
-const char* XMBData::GetAttributeString(const int ID) const
-{
-	return reinterpret_cast<const char*>(m_AttributePointer + ID + 4);
 }
 
 std::string_view XMBData::GetElementStringView(const int ID) const
