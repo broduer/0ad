@@ -26,24 +26,26 @@
 #include "scriptinterface/Request.h"
 
 #include <cstring>
+#include <fmt/format.h>
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
 #include <js/Value.h>
 #include <libxml/parser.h>
 #include <memory>
+#include <ranges>
 #include <string>
+#include <string_view>
 
 class TestXMBData : public CxxTest::TestSuite
 {
 private:
-	std::shared_ptr<u8> m_Buffer;
-
 	std::unique_ptr<Script::Interface> m_ScriptInterface;
 
-	CXeromyces parseXML(const char* doc)
+	CXeromyces parseXML(const std::string_view doc)
 	{
-		xmlDocPtr xmlDoc = xmlReadMemory(doc, int(strlen(doc)), "", NULL,
-			XML_PARSE_NONET|XML_PARSE_NOCDATA);
+		xmlDocPtr xmlDoc{xmlReadMemory(
+			doc.data(), doc.size(), "", nullptr,
+			XML_PARSE_NONET | XML_PARSE_NOCDATA)};
 		CXeromyces xmb;
 		bool ok = xmb.m_Data.LoadXMLDoc(xmlDoc);
 		xmlFreeDoc(xmlDoc);
@@ -53,7 +55,7 @@ private:
 		return xmb;
 	}
 
-	CXeromyces parseJS(const std::string rootName, const char* code)
+	CXeromyces parseJS(const std::string rootName, const std::string_view code)
 	{
 		Script::Request rq(*m_ScriptInterface);
 		JS::RootedValue val(rq.cx);
@@ -74,7 +76,6 @@ private:
 	void tearDown()
 	{
 		m_ScriptInterface.reset();
-		m_Buffer.reset();
 	}
 
 public:
@@ -202,5 +203,177 @@ public:
 		TS_ASSERT_EQUALS(text[1], 0x00E1);
 		TS_ASSERT_EQUALS(text[2], 0x0088);
 		TS_ASSERT_EQUALS(text[3], 0x00B4);
+	}
+
+	void test_empty_element()
+	{
+		XMBElement element;
+
+		TS_ASSERT_EQUALS(CStr(element.GetText()), "");
+
+		TS_ASSERT_EQUALS(element.GetNodeName(), -1);
+		TS_ASSERT_EQUALS(element.GetLineNumber(), -1);
+
+		TS_ASSERT(element.GetChildNodes().empty());
+		TS_ASSERT(element.GetAttributes().empty());
+	}
+
+	void checkManyChildren(const CXeromyces& xmb, const uint32_t numberOfElements)
+	{
+		TS_ASSERT_EQUALS(xmb.GetElementStringView(xmb.GetRoot().GetNodeName()), "elements");
+
+		TS_ASSERT_EQUALS(xmb.GetRoot().GetChildNodes().size(), numberOfElements);
+		for (XMBElement child : xmb.GetRoot().GetChildNodes())
+		{
+			TS_ASSERT_EQUALS(xmb.GetElementStringView(child.GetNodeName()), "a");
+			TS_ASSERT_EQUALS(child.GetText(), "test");
+		}
+	}
+
+	void test_many_children()
+	{
+		constexpr uint32_t startIndex{0};
+		constexpr uint32_t numberOfElements{65537};
+
+		std::string sourceXML{"<?xml version=\"1.0\" encoding=\"utf-8\"?>"};
+		sourceXML += "<elements>";
+		// std::views::iota(0u, numberOfElements) doesn't compile on GCC and
+		// std::views::indices isn't available yet.
+		for (const uint32_t index : std::views::iota(startIndex, numberOfElements))
+			sourceXML += fmt::format("<a index=\"{}\">test</a>", index);
+		sourceXML += "</elements>";
+
+		std::string sourceJS;
+		sourceJS += "({ ";
+		for (const uint32_t index : std::views::iota(startIndex, numberOfElements))
+		{
+			if (index)
+				sourceJS += ", ";
+			sourceJS += fmt::format("'a@{0}@': {{ '_string': 'test', 'index': '{0}' }}", index);
+		}
+		sourceJS += " })";
+
+		checkManyChildren(parseXML(sourceXML), numberOfElements);
+		checkManyChildren(parseJS("elements", sourceJS), numberOfElements);
+	}
+
+	void checkLongNames(const CXeromyces& xmb,
+		const std::string_view elementName, const std::string_view elementText,
+		const std::string_view attributeName, const std::string_view attributeValue)
+	{
+		TS_ASSERT_EQUALS(xmb.GetElementStringView(xmb.GetRoot().GetNodeName()), "elements");
+
+		TS_ASSERT_EQUALS(xmb.GetRoot().GetChildNodes().size(), 1);
+		XMBElement child{xmb.GetRoot().GetChildNodes()[0]};
+		TS_ASSERT_EQUALS(xmb.GetElementStringView(child.GetNodeName()), elementName);
+		TS_ASSERT_EQUALS(child.GetText(), elementText);
+		TS_ASSERT_EQUALS(child.GetAttributes().size(), 1);
+		TS_ASSERT_EQUALS(xmb.GetAttributeStringView(child.GetAttributes()[0].Name), attributeName);
+		TS_ASSERT_EQUALS(child.GetAttributes()[0].Value, attributeValue);
+	}
+
+	void test_long_names()
+	{
+		const std::string longElementName(254, 'a');
+		const std::string longElementText(1022, 'b');
+		const std::string longAttributeName(254, 'c');
+		const std::string longAttributeValue(510, 'd');
+
+		const std::string sourceXML{fmt::format(
+			"<?xml version=\"1.0\" encoding=\"iso-8859-1\"?><elements><{0} {1}=\"{2}\">{3}</{0}></elements>",
+			longElementName, longAttributeName, longAttributeValue, longElementText)};
+		const std::string sourceJS{fmt::format(
+			"({{ '{}': {{ '@{}': '{}', '_string': '{}' }} }})",
+			longElementName, longAttributeName, longAttributeValue, longElementText)};
+		checkLongNames(parseXML(sourceXML), longElementName, longElementText, longAttributeName, longAttributeValue);
+		checkLongNames(parseJS("elements", sourceJS), longElementName, longElementText, longAttributeName, longAttributeValue);
+	}
+
+	template<bool xml>
+	std::string generateDeepHierarchySource(uint32_t depth, uint32_t start)
+	{
+		if (depth > 10)
+			return {};
+
+		std::string result;
+		for (const uint32_t index : std::views::iota(0u, 2u))
+		{
+			if constexpr (!xml)
+				result += ", ";
+
+			const std::string elementName{fmt::format("{}{}", std::string(depth + 1, 'a' + depth), start + index)};
+			const std::string attribute0Name{fmt::format("attr0{}", depth)};
+			const std::string attribute1Name{fmt::format("attr1{}", start + index)};
+
+			if constexpr (xml)
+				result += fmt::format("<{0} {1}=\"{2}\" {3}=\"{0}\">", elementName, attribute0Name, elementName, attribute1Name);
+			else
+				result += fmt::format("'{0}': {{ '@{1}': '{2}', '@{3}': '{0}'", elementName, attribute0Name, elementName, attribute1Name);
+			result += generateDeepHierarchySource<xml>(depth + 1, (start + index) * 2);
+			if constexpr (xml)
+				result += fmt::format("</{}>", elementName);
+			else
+				result += "}";
+		}
+		return result;
+	}
+
+	void checkDeepHierarchy(const CXeromyces& xmb, XMBElement node, uint32_t depth, uint32_t start)
+	{
+		if (depth > 10)
+		{
+			TS_ASSERT(node.GetChildNodes().empty());
+			return;
+		}
+
+		TS_ASSERT_EQUALS(node.GetChildNodes().size(), 2);
+		for (const uint32_t index : std::views::iota(0u, 2u))
+		{
+			XMBElement child{node.GetChildNodes()[index]};
+
+			const std::string elementName{fmt::format("{}{}", std::string(depth + 1, 'a' + depth), start + index)};
+			const std::string attribute0Name{fmt::format("attr0{}", depth)};
+			const std::string attribute1Name{fmt::format("attr1{}", start + index)};
+
+			TS_ASSERT_EQUALS(xmb.GetElementStringView(child.GetNodeName()), elementName);
+			TS_ASSERT_EQUALS(child.GetAttributes().size(), 2);
+
+			// We assume the order of attributes isn't going to be changed.
+			TS_ASSERT_EQUALS(xmb.GetAttributeStringView(child.GetAttributes()[0].Name), attribute0Name);
+			TS_ASSERT_EQUALS(xmb.GetAttributeStringView(child.GetAttributes()[1].Name), attribute1Name);
+			TS_ASSERT_EQUALS(child.GetAttributes()[0].Value, elementName);
+			TS_ASSERT_EQUALS(child.GetAttributes()[1].Value, elementName);
+
+			checkDeepHierarchy(xmb, child, depth + 1, (start + index) * 2);
+		}
+	}
+
+	void checkDeepHierarchy(const CXeromyces& xmb)
+	{
+		TS_ASSERT_EQUALS(xmb.GetElementStringView(xmb.GetRoot().GetNodeName()), "elements");
+
+		checkDeepHierarchy(xmb, xmb.GetRoot(), 0, 0);
+	}
+
+	void test_deep_heirarchy()
+	{
+		const std::string sourceXML{fmt::format(
+			"<?xml version=\"1.0\" encoding=\"iso-8859-1\"?><elements>{}</elements>",
+			generateDeepHierarchySource<true>(0, 0))};
+		const std::string sourceJS{fmt::format(
+			"({{ '_string': ''{} }})",
+			generateDeepHierarchySource<false>(0, 0))};
+
+		checkDeepHierarchy(parseXML(sourceXML));
+		checkDeepHierarchy(parseJS("elements", sourceJS));
+	}
+
+	void test_text_surrounding_spaces()
+	{
+		CXeromyces xmb{parseXML("<?xml version=\"1.0\" encoding=\"utf-8\"?><elements>test</elements>")};
+		TS_ASSERT_EQUALS(xmb.GetRoot().GetText(), "test");
+
+		CXeromyces xmb2{parseXML("<?xml version=\"1.0\" encoding=\"utf-8\"?><elements> \n test \n </elements>")};
+		TS_ASSERT_EQUALS(xmb2.GetRoot().GetText(), "test");
 	}
 };
