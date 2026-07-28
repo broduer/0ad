@@ -1082,6 +1082,7 @@ bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent<CNet
 	authenticateResult.m_HostID = newHostID;
 	authenticateResult.m_Message = L"Logged in";
 	authenticateResult.m_IsController = 0;
+	authenticateResult.m_HostName = L"";
 
 	if (message->m_ControllerSecret == server.m_ControllerSecret)
 	{
@@ -1092,6 +1093,14 @@ bool CNetServerWorker::OnAuthenticate(CNetServerSession* session, CFsmEvent<CNet
 		}
 		// TODO: we could probably handle having several controllers, or swapping?
 	}
+
+	const auto controller = std::find_if(server.m_Sessions.begin(), server.m_Sessions.end(),
+		[&server](const auto& controllerSession)
+		{
+			return controllerSession->GetGUID() == server.m_ControllerGUID;
+		});
+	if (controller != server.m_Sessions.end())
+		authenticateResult.m_HostName = (*controller)->GetUserName();
 
 	session->SendMessage(&authenticateResult);
 

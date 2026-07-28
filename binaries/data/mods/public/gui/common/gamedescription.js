@@ -184,6 +184,11 @@ function formatPlayerInfo(playerDataArray, playerStates)
 function getGameDescription(initAttributes, mapCache)
 {
 	const titles = [];
+	const hostDescription = initAttributes.hostName ?
+		sprintf(translate("Host: %(playername)s"), {
+			"playername": escapeText(initAttributes.hostName)
+		}) : "";
+
 	if (!initAttributes.settings.VictoryConditions.length)
 		titles.push({
 			"label": translateWithContext("victory condition", "Endless Game"),
@@ -427,12 +432,14 @@ function getGameDescription(initAttributes, mapCache)
 			"value": initAttributes.settings.RatingEnabled === true ? ratingDescription : translateWithContext("game setup option", "disabled")
 		});
 
-	return titles.map(title => sprintf(translate("%(label)s %(details)s"), {
+	const settingsDescription = titles.map(title => sprintf(translate("%(label)s %(details)s"), {
 		"label": coloredText(title.label, g_DescriptionHighlight),
 		"details":
 			title.value === true ? translateWithContext("game setup option", "enabled") :
 				title.value || translateWithContext("game setup option", "disabled")
 	})).join("\n");
+
+	return hostDescription + (hostDescription && settingsDescription ? "\n" : "") + settingsDescription;
 }
 
 /**

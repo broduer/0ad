@@ -757,6 +757,7 @@ bool CNetClient::OnAuthenticate(CNetClient* client, CFsmEvent<CNetMessage*>* eve
 		"type", "netstatus",
 		"status", "authenticated",
 		"rejoining", client->m_Rejoin,
+		"hostName", message->m_HostName,
 		"savedGame", message->m_Code == ARC_OK_SAVED_GAME);
 
 	return true;

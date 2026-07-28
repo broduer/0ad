@@ -398,7 +398,8 @@ async function handleAuthenticated(message, loadSavedGame)
 		"argument": {
 			"savedGame": savegameID, // Undefined or the savegame ID
 			"serverName": g_ServerName,
-			"hasPassword": g_ServerHasPassword
+			"hasPassword": g_ServerHasPassword,
+			"hostName": message.hostName
 		}
 	};
 }
