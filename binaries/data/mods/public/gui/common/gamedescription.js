@@ -184,10 +184,12 @@ function formatPlayerInfo(playerDataArray, playerStates)
 function getGameDescription(initAttributes, mapCache)
 {
 	const titles = [];
+	const gameDescription = initAttributes.gameName ?
+		coloredText(translate("Game:"), g_DescriptionHighlight) + " " +
+		escapeText(initAttributes.gameName) : "";
 	const hostDescription = initAttributes.hostName ?
-		sprintf(translate("Host: %(playername)s"), {
-			"playername": escapeText(initAttributes.hostName)
-		}) : "";
+		coloredText(translate("Host:"), g_DescriptionHighlight) + " " +
+		escapeText(initAttributes.hostName) : "";
 
 	if (!initAttributes.settings.VictoryConditions.length)
 		titles.push({
@@ -439,7 +441,8 @@ function getGameDescription(initAttributes, mapCache)
 				title.value || translateWithContext("game setup option", "disabled")
 	})).join("\n");
 
-	return hostDescription + (hostDescription && settingsDescription ? "\n" : "") + settingsDescription;
+	const descriptions = [gameDescription, hostDescription, settingsDescription].filter(description => description);
+	return descriptions.join("\n");
 }
 
 /**
