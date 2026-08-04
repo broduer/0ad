@@ -55,7 +55,7 @@
   <GarrisonHolder>
     <Max>20</Max>
     <EjectHealth>0.075</EjectHealth>
-    <List datatype="tokens">Support Infantry Cavalry Siege</List>
+    <List datatype="tokens">Unit !Ship</List>
     <LoadingRange>6</LoadingRange>
   </GarrisonHolder>
   <Health>
