@@ -35,9 +35,9 @@ function _setMotionOverlay(ents, enabled, motionDebugOverlay, force = false)
 	{
 		resultSet.add(ent);
 		const entState = GetEntityState(ent);
-		if (entState?.unitAI?.formation)
+		if (entState?.unitAI?.formationController)
 		{
-			resultSet.add(entState.unitAI.formation);
+			resultSet.add(entState.unitAI.formationController);
 		}
 	}
 
@@ -519,8 +519,8 @@ EntitySelection.prototype.addFormationMembers = function(entities)
 	for (const entity of entities)
 	{
 		const entState = GetEntityState(+entity);
-		if (entState?.unitAI?.formation)
-			for (const member of GetEntityState(+entState.unitAI.formation).formation.members)
+		if (entState?.unitAI?.formationController)
+			for (const member of GetEntityState(+entState.unitAI.formationController).formation.members)
 				result.add(member);
 	}
 

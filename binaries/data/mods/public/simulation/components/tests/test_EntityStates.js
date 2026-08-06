@@ -599,7 +599,7 @@ const expectedDynamicStates = {
 			"hasWorkOrders": true,
 			"isGuarding": false,
 			"isIdle": true,
-			"formation": FORMATION_CONTROLLER_ENT_ID
+			"formationController": FORMATION_CONTROLLER_ENT_ID
 		},
 		"visibility": "visible"
 	},
@@ -622,7 +622,7 @@ const expectedDynamicStates = {
 			"hasWorkOrders": true,
 			"isGuarding": false,
 			"isIdle": true,
-			"formation": FORMATION_CONTROLLER_ENT_ID
+			"formationController": FORMATION_CONTROLLER_ENT_ID
 		},
 		"visibility": "visible"
 	}

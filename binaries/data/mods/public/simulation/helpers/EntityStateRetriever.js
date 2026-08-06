@@ -318,7 +318,7 @@ class EntityStateRetriever
 				"hasWorkOrders": cmpUnitAI.HasWorkOrders(),
 				"isGuarding": cmpUnitAI.IsGuardOf(),
 				"isIdle": cmpUnitAI.IsIdle(),
-				"formation": cmpUnitAI.GetFormationController()
+				"formationController": cmpUnitAI.GetFormationController()
 			};
 
 		const cmpUpgrade = Engine.QueryInterface(ent, IID_Upgrade);
