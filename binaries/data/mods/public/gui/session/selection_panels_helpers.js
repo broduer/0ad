@@ -45,45 +45,6 @@ function resourcesToAlphaMask(neededResources)
 	return "color:255 0 0 " + Math.min(125, Math.round(+totalCost / 10) + 50);
 }
 
-function getStanceDisplayName(name)
-{
-	switch (name)
-	{
-	case "violent":
-		return translateWithContext("stance", "Violent");
-	case "aggressive":
-		return translateWithContext("stance", "Aggressive");
-	case "defensive":
-		return translateWithContext("stance", "Defensive");
-	case "passive":
-		return translateWithContext("stance", "Passive");
-	case "standground":
-		return translateWithContext("stance", "Standground");
-	default:
-		warn("Internationalization: Unexpected stance found: " + name);
-		return name;
-	}
-}
-
-function getStanceTooltip(name)
-{
-	switch (name)
-	{
-	case "violent":
-		return translateWithContext("stance", "Attack nearby opponents, focus on attackers and chase while visible");
-	case "aggressive":
-		return translateWithContext("stance", "Attack nearby opponents");
-	case "defensive":
-		return translateWithContext("stance", "Attack nearby opponents, chase a short distance and return to the original location");
-	case "passive":
-		return translateWithContext("stance", "Flee if attacked");
-	case "standground":
-		return translateWithContext("stance", "Attack opponents in range, but don't move");
-	default:
-		return "";
-	}
-}
-
 /**
  * Format entity count/limit message for the tooltip
  */

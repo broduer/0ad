@@ -1192,17 +1192,18 @@ g_SelectionPanels.Stance = {
 	},
 	"getItems": function(unitEntStates)
 	{
-		if (unitEntStates.some(state => !state.unitAI || !hasClass(state, "Unit") || hasClass(state, "Animal")))
+		if (unitEntStates.some(state => !state.unitAI || !hasClass(state, "Unit") || hasClass(state, "Animal")) ||
+			unitEntStates.every(state => state.turretable && state.turretable.holder !== INVALID_ENTITY))
 			return [];
 
-		return unitEntStates[0].unitAI.selectableStances;
+		return Object.keys(this.stancesData);
 	},
 	"setupButton": function(data)
 	{
 		const unitIds = data.unitEntStates.map(state => state.id);
 		data.button.onPress = function() { performStance(unitIds, data.item); };
 
-		data.button.tooltip = getStanceDisplayName(data.item) + "\n" + bodyFont(getStanceTooltip(data.item));
+		data.button.tooltip = this.stancesData[data.item].Name + "\n" + bodyFont(this.stancesData[data.item].Tooltip);
 
 		data.guiSelection.hidden = !Engine.GuiInterfaceCall("IsStanceSelected", {
 			"ents": unitIds,
@@ -1213,6 +1214,28 @@ g_SelectionPanels.Stance = {
 
 		setPanelObjectPosition(data.button, data.i, data.rowLength);
 		return true;
+	},
+	"stancesData": {
+		"violent": {
+			"Name": translateWithContext("stance", "Violent"),
+			"Tooltip": translateWithContext("stance", "Attack nearby opponents, focus on attackers and chase while visible")
+		},
+		"aggressive": {
+			"Name": translateWithContext("stance", "Aggressive"),
+			"Tooltip": translateWithContext("stance", "Attack nearby opponents")
+		},
+		"defensive": {
+			"Name": translateWithContext("stance", "Defensive"),
+			"Tooltip": translateWithContext("stance", "Attack nearby opponents, chase a short distance and return to the original location")
+		},
+		"passive": {
+			"Name": translateWithContext("stance", "Passive"),
+			"Tooltip": translateWithContext("stance", "Flee if attacked")
+		},
+		"standground": {
+			"Name": translateWithContext("stance", "Standground"),
+			"Tooltip": translateWithContext("stance", "Attack opponents in range, but don't move")
+		}
 	}
 };
 

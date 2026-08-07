@@ -86,8 +86,7 @@ var g_Stances = {
 		"respondChase": true,
 		"respondChaseBeyondVision": true,
 		"respondStandGround": false,
-		"respondHoldGround": false,
-		"selectable": true
+		"respondHoldGround": false
 	},
 	"aggressive": {
 		"targetVisibleEnemies": true,
@@ -97,8 +96,7 @@ var g_Stances = {
 		"respondChase": true,
 		"respondChaseBeyondVision": false,
 		"respondStandGround": false,
-		"respondHoldGround": false,
-		"selectable": true
+		"respondHoldGround": false
 	},
 	"defensive": {
 		"targetVisibleEnemies": true,
@@ -108,8 +106,7 @@ var g_Stances = {
 		"respondChase": false,
 		"respondChaseBeyondVision": false,
 		"respondStandGround": false,
-		"respondHoldGround": true,
-		"selectable": true
+		"respondHoldGround": true
 	},
 	"passive": {
 		"targetVisibleEnemies": false,
@@ -119,8 +116,7 @@ var g_Stances = {
 		"respondChase": false,
 		"respondChaseBeyondVision": false,
 		"respondStandGround": false,
-		"respondHoldGround": false,
-		"selectable": true
+		"respondHoldGround": false
 	},
 	"standground": {
 		"targetVisibleEnemies": true,
@@ -130,8 +126,7 @@ var g_Stances = {
 		"respondChase": false,
 		"respondChaseBeyondVision": false,
 		"respondStandGround": true,
-		"respondHoldGround": false,
-		"selectable": true
+		"respondHoldGround": false
 	},
 	"skittish": {
 		"targetVisibleEnemies": false,
@@ -141,8 +136,7 @@ var g_Stances = {
 		"respondChase": false,
 		"respondChaseBeyondVision": false,
 		"respondStandGround": false,
-		"respondHoldGround": false,
-		"selectable": false
+		"respondHoldGround": false
 	},
 	"passive-defensive": {
 		"targetVisibleEnemies": false,
@@ -152,8 +146,7 @@ var g_Stances = {
 		"respondChase": false,
 		"respondChaseBeyondVision": false,
 		"respondStandGround": false,
-		"respondHoldGround": true,
-		"selectable": false
+		"respondHoldGround": true
 	},
 	"none": {
 		// Only to be used by AI or trigger scripts
@@ -164,8 +157,7 @@ var g_Stances = {
 		"respondChase": false,
 		"respondChaseBeyondVision": false,
 		"respondStandGround": false,
-		"respondHoldGround": false,
-		"selectable": false
+		"respondHoldGround": false
 	}
 };
 
@@ -6663,13 +6655,6 @@ UnitAI.prototype.GetQueryRange = function(iid)
 UnitAI.prototype.GetStance = function()
 {
 	return g_Stances[this.stance];
-};
-
-UnitAI.prototype.GetSelectableStances = function()
-{
-	if (this.IsTurret())
-		return [];
-	return Object.keys(g_Stances).filter(key => g_Stances[key].selectable);
 };
 
 UnitAI.prototype.GetStanceName = function()

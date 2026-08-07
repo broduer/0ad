@@ -549,7 +549,6 @@ AddMockToEnts([TEST_ENTITY_UNIT_1, TEST_ENTITY_UNIT_2], IID_UnitAI, {
 	"GetOrders": () => [{ "type": "Walk", "data": { "x": 11, "z": 22, "force": true, "relaxed": true } }],
 	"HasWorkOrders": () => true,
 	"IsGuardOf": () => false,
-	"GetSelectableStances": () => ["stance1", "stance2", "stance3", "stance4", "stance5"],
 	"IsIdle": () => true,
 	"GetFormationController": () => FORMATION_CONTROLLER_ENT_ID
 });
@@ -599,7 +598,6 @@ const expectedDynamicStates = {
 			"orders": [{ "type": "Walk", "data": { "x": 11, "z": 22, "force": true, "relaxed": true } }],
 			"hasWorkOrders": true,
 			"isGuarding": false,
-			"selectableStances": ["stance1", "stance2", "stance3", "stance4", "stance5"],
 			"isIdle": true,
 			"formation": FORMATION_CONTROLLER_ENT_ID
 		},
@@ -623,7 +621,6 @@ const expectedDynamicStates = {
 			"orders": [{ "type": "Walk", "data": { "x": 11, "z": 22, "force": true, "relaxed": true } }],
 			"hasWorkOrders": true,
 			"isGuarding": false,
-			"selectableStances": ["stance1", "stance2", "stance3", "stance4", "stance5"],
 			"isIdle": true,
 			"formation": FORMATION_CONTROLLER_ENT_ID
 		},

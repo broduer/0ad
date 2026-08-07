@@ -317,7 +317,6 @@ class EntityStateRetriever
 				"orders": cmpUnitAI.GetOrders(),
 				"hasWorkOrders": cmpUnitAI.HasWorkOrders(),
 				"isGuarding": cmpUnitAI.IsGuardOf(),
-				"selectableStances": cmpUnitAI.GetSelectableStances(),
 				"isIdle": cmpUnitAI.IsIdle(),
 				"formation": cmpUnitAI.GetFormationController()
 			};
