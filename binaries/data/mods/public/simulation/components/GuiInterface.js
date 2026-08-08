@@ -1445,8 +1445,7 @@ GuiInterface.prototype.SetWallPlacementPreview = function(player, cmd)
 			previewEntities[0].controlGroups = [startEntObstruction.GetControlGroup()];
 
 		// If we're snapping to merely a foundation, add an extra preview tower and also set it to the same control group.
-		const startEntState = this.GetEntityState(player, start.snappedEnt);
-		if (startEntState.foundation)
+		if (QueryMiragedInterface(start.snappedEnt, IID_Foundation))
 		{
 			const cmpPosition = Engine.QueryInterface(start.snappedEnt, IID_Position);
 			if (cmpPosition)
@@ -1502,8 +1501,7 @@ GuiInterface.prototype.SetWallPlacementPreview = function(player, cmd)
 			}
 
 			// If we're snapping to a foundation, add an extra preview tower and also set it to the same control group.
-			const endEntState = this.GetEntityState(player, end.snappedEnt);
-			if (endEntState.foundation)
+			if (QueryMiragedInterface(end.snappedEnt, IID_Foundation))
 			{
 				const cmpPosition = Engine.QueryInterface(end.snappedEnt, IID_Position);
 				if (cmpPosition)
