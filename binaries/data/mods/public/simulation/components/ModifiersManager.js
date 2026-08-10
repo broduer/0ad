@@ -198,7 +198,8 @@ ModifiersManager.prototype.OnGlobalPlayerEntityChanged = function(msg)
 
 	if (msg.from != INVALID_PLAYER && this.playerEntitiesCached.has(msg.from))
 	{
-		this.playerEntitiesCached.get(msg.from).forEach(propName => this.InvalidateCache(propName, msg.from));
+		const playerCache = this.playerEntitiesCached.get(msg.from);
+		playerCache.forEach((_, propName) => this.InvalidateCache(propName, msg.from, playerCache));
 		this.playerEntitiesCached.delete(msg.from);
 	}
 };

@@ -248,3 +248,52 @@ TS_ASSERT_EQUALS(ApplyValueModificationsToEntity("Test_D", 10, 5), 16);
 	Engine.PostMessage = oldPostMessage;
 	Engine.BroadcastMessage = oldBroadcastMessage;
 })();
+
+(function Test_PlayerEntityChangeInvalidatesCachedEntities()
+{
+	const PLAYER_ID = 1;
+	const OLD_PLAYER_ENTITY = 40;
+	const NEW_PLAYER_ENTITY = 41;
+	const TEST_ENTITY = 42;
+	const PROPERTY_NAME = "Test_PlayerEntityChange";
+
+	let playerEntity = OLD_PLAYER_ENTITY;
+	AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
+		"GetPlayerByID": () => playerEntity
+	});
+	AddMock(OLD_PLAYER_ENTITY, IID_Player, {
+		"GetPlayerID": () => PLAYER_ID
+	});
+	AddMock(NEW_PLAYER_ENTITY, IID_Player, {
+		"GetPlayerID": () => PLAYER_ID
+	});
+	AddMock(TEST_ENTITY, IID_Ownership, {
+		"GetOwner": () => PLAYER_ID
+	});
+	AddMock(TEST_ENTITY, IID_Identity, {
+		"GetClassesList": () => "Unit"
+	});
+
+	const cmp = ConstructComponent(SYSTEM_ENTITY, "ModifiersManager", {});
+	cmp.Init();
+	cmp.OnGlobalPlayerEntityChanged({
+		"player": PLAYER_ID,
+		"from": INVALID_ENTITY,
+		"to": OLD_PLAYER_ENTITY
+	});
+	cmp.AddModifier(PROPERTY_NAME, "old player modifier", [{
+		"affects": ["Unit"],
+		"add": 10
+	}], OLD_PLAYER_ENTITY);
+
+	TS_ASSERT_EQUALS(cmp.ApplyModifiers(PROPERTY_NAME, 5, TEST_ENTITY), 15);
+
+	playerEntity = NEW_PLAYER_ENTITY;
+	cmp.OnGlobalPlayerEntityChanged({
+		"player": PLAYER_ID,
+		"from": OLD_PLAYER_ENTITY,
+		"to": NEW_PLAYER_ENTITY
+	});
+
+	TS_ASSERT_EQUALS(cmp.ApplyModifiers(PROPERTY_NAME, 5, TEST_ENTITY), 5);
+})();
