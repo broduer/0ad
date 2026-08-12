@@ -662,20 +662,19 @@ function onSimulationUpdate()
 	g_EntityStates = {};
 	g_SimState = undefined;
 
+	Engine.ProfileStart("sdf");
+	const info = Engine.GuiInterfaceCall("GetAndClearTemplateChanges");
 	// Templates change depending on technologies and auras, so they have to be reloaded after such a change.
-	// g_TechnologyData data never changes, so it shouldn't be deleted.
-	const players = Engine.GuiInterfaceCall("GetPlayersWithModifiedTemplates");
-	for (const player of players)
-		g_TemplateData[player] = {};
-	if (players.size)
-		Engine.GuiInterfaceCall("ResetPlayersWithModifiedTemplates");
+	// g_TechnologyData data never changes, so it shouldn't be cleared.
+	if (info.playersWithModifiedTemplates)
+		for (const player of info.playersWithModifiedTemplates)
+			g_TemplateData[player] = {};
 
-	// Some changes may require re-rendering the selection.
-	if (Engine.GuiInterfaceCall("IsSelectionDirty"))
-	{
+	// Some changes require reloading some cached values even if the selection itself didn't change.
+	if (info.selectionDirty)
 		g_Selection.onChange();
-		Engine.GuiInterfaceCall("ResetSelectionDirty");
-	}
+
+	Engine.ProfileStop("sdf");
 
 	if (!GetSimState())
 		return;

@@ -37,7 +37,7 @@ GuiInterface.prototype.Init = function()
 	this.entsWithAuraAndStatusBars = new Set();
 	this.enabledVisualRangeOverlayTypes = {};
 	this.playersWithModifiedTemplates = new Set();
-	this.selectionDirty = {};
+	this.playersWithDirtySelection = new Set();
 	this.obstructionSnap = new ObstructionSnap();
 };
 
@@ -707,53 +707,50 @@ GuiInterface.prototype.GetNeededResources = function(player, data)
 	return cmpPlayer ? cmpPlayer.GetNeededResources(data.cost) : {};
 };
 
-/**
- * State of the templateData (player dependent): true when some template values have been modified
- * and need to be reloaded by the gui.
- */
 GuiInterface.prototype.OnTemplateModification = function(msg)
 {
+	// The GUI caches templates, which could become out-of-date now, so tell it
+	// to reload all of them for that player.
+	// TODO: Allow the GUI to do that more selectively by passing which values
+	// of which components have changed and letting it only reload the affected
+	// ones.
 	this.playersWithModifiedTemplates.add(msg.player);
-	this.selectionDirty[msg.player] = true;
+
+	this.playersWithDirtySelection.add(msg.player);
 };
 
-GuiInterface.prototype.GetPlayersWithModifiedTemplates = function(player)
-{
-	return this.playersWithModifiedTemplates;
-};
-
-GuiInterface.prototype.ResetPlayersWithModifiedTemplates = function()
-{
-	this.playersWithModifiedTemplates.clear();
-};
-
-/**
- * Some changes may require an update to the selection panel,
- * which is cached for efficiency. Inform the GUI it needs reloading.
- */
 GuiInterface.prototype.OnDisabledTemplatesChanged = function(msg)
 {
-	this.selectionDirty[msg.player] = true;
+	this.playersWithDirtySelection.add(msg.player);
 };
 
 GuiInterface.prototype.OnDisabledTechnologiesChanged = function(msg)
 {
-	this.selectionDirty[msg.player] = true;
+	this.playersWithDirtySelection.add(msg.player);
 };
 
+/**
+ * Some values about the selection (trainable entities for example) are cached
+ * by the GUI. Inform the GUI that it needs to reload them.
+ */
 GuiInterface.prototype.SetSelectionDirty = function(player)
 {
-	this.selectionDirty[player] = true;
+	this.playersWithDirtySelection.add(player);
 };
 
-GuiInterface.prototype.IsSelectionDirty = function(player)
+GuiInterface.prototype.GetAndClearTemplateChanges = function(player)
 {
-	return this.selectionDirty[player] || false;
-};
+	const ret = {};
+	if (this.playersWithModifiedTemplates.size)
+		ret.playersWithModifiedTemplates = new Set(this.playersWithModifiedTemplates);
 
-GuiInterface.prototype.ResetSelectionDirty = function()
-{
-	this.selectionDirty = {};
+	if (this.playersWithDirtySelection.has(player))
+		ret.selectionDirty = true;
+
+	this.playersWithModifiedTemplates.clear();
+	this.playersWithDirtySelection.clear();
+
+	return ret;
 };
 
 /**
@@ -2132,10 +2129,7 @@ GuiInterface.prototype.exposedFunctions = {
 
 	"GetTraderNumber": 1,
 	"GetTradingGoods": 1,
-	"GetPlayersWithModifiedTemplates": 1,
-	"ResetPlayersWithModifiedTemplates": 1,
-	"IsSelectionDirty": 1,
-	"ResetSelectionDirty": 1
+	"GetAndClearTemplateChanges": 1
 };
 
 GuiInterface.prototype.ScriptCall = function(player, name, args)
