@@ -43,6 +43,7 @@ class CNetClientSession;
 class CNetClientTurnManager;
 class JSTracer;
 class XmppClient;
+struct CreateSocketResult;
 
 namespace Script { class Interface; }
 
@@ -290,7 +291,7 @@ private:
 	 * Set up a connection to the remote networked server.
 	 * @return true on success, false on connection failure
 	 */
-	void SetupConnection();
+	void SetupConnection(const CreateSocketResult& socket);
 
 	/**
 	 * Take ownership of a session object, and use it for all network communication.

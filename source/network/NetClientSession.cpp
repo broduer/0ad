@@ -184,16 +184,12 @@ CNetClientSession::~CNetClientSession()
 	close(m_Impl->socketDescriptor);
 }
 
-bool CNetClientSession::Connect(const CStr& server, const std::uint16_t port)
+bool CNetClientSession::Connect(const CreateSocketResult& socket)
 {
 	ENSURE(!m_LoopRunning);
 
-	const auto [socketDescriptor, remoteAddress] = CreateSocket(server.c_str(), port,
-		addrinfo{ .ai_family{AF_UNSPEC} },
-		*[](int, const addrinfo&){ return true; });
-	m_Impl->socketDescriptor = socketDescriptor;
-
-	m_Impl->localAddress = ConnectSocket(socketDescriptor, remoteAddress);
+	m_Impl->socketDescriptor = socket.descriptor;
+	m_Impl->localAddress = ConnectSocket(socket.descriptor, socket.address);
 
 	ClientGnutlsInit(*m_Impl);
 
@@ -203,8 +199,8 @@ bool CNetClientSession::Connect(const CStr& server, const std::uint16_t port)
 			.addrlen{m_Impl->localAddress.length},
 		},
 		.remote{
-			.addr{const_cast<ngtcp2_sockaddr*>(&remoteAddress.address.sa)},
-			.addrlen{remoteAddress.length},
+			.addr{const_cast<ngtcp2_sockaddr*>(&socket.address.address.sa)},
+			.addrlen{socket.address.length},
 		}
 	};
 	ngtcp2_callbacks callbacks{InitCallbacks()};

@@ -77,7 +77,7 @@ function getDisconnectReason(id)
 	case 12: return translate("Error: Client commands were ready for an unexpected game turn.");
 	case 13: return translate("Error: Client simulated an unexpected game turn.");
 	case 14: return translate("Password is invalid.");
-	case 15: return translate("Could not find an unused port for the enet STUN client.");
+	case 15: return translate("Could not find an unused port for the STUN client.");
 	case 16: return translate("Could not find the STUN endpoint.");
 	case 17: return translate("Different game engine versions or different mods loaded.");
 

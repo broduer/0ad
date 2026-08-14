@@ -31,6 +31,7 @@ class CNetMessage;
 class CNetStatsTable;
 class CStr;
 struct CNetClientSessionImpl;
+struct CreateSocketResult;
 
 /**
  * @file
@@ -54,7 +55,7 @@ public:
 	CNetClientSession(CNetClient& client);
 	~CNetClientSession();
 
-	bool Connect(const CStr& server, const std::uint16_t port);
+	bool Connect(const CreateSocketResult& socket);
 
 	/**
 	 * The client NetSession is threaded to avoid getting timeouts if the main thread hangs.

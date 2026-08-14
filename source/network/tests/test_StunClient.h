@@ -18,11 +18,14 @@
 #include "lib/self_test.h"
 
 #include "lib/external_libraries/enet.h"
+#include "network/NetHost.h"
+#include "network/NetProtocol.h"
 #include "network/StunClient.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "ps/ConfigDB.h"
 
+#include <netdb.h>
 #include <string>
 
 class TestStunClient : public CxxTest::TestSuite
@@ -72,10 +75,11 @@ public:
 		std::uint16_t port;
 		g_ConfigDB.SetValueString(CFG_COMMAND, "lobby.stun.server", "lobby.wildfiregames.com");
 		g_ConfigDB.SetValueString(CFG_COMMAND, "lobby.stun.port", "3478");
-		ENetAddress addr { ENET_HOST_ANY, ENET_PORT_ANY };
-		ENetHost* host = enet_host_create(&addr, 1, 1, 0, 0);
-		StunClient::FindPublicIP(*host, ip, port);
-		LOGWARNING("{} {}", ip, port);
+
+		CreateSocketResult socket{CreateSocket("::1", 3478,
+			addrinfo{ .ai_flags{AF_UNSPEC} }, *[](int, const addrinfo&){ return true; })};
+		StunClient::FindPublicIP(socket.descriptor, ip, port);
+		LOGWARNING("{} {}", ip.c_str(), port);
 		CConfigDB::Shutdown();
 	}
 };

@@ -22,13 +22,11 @@
 #include "lib/byte_order.h"
 #include "lib/config2.h"
 #include "lib/debug.h"
-#include "lib/external_libraries/enet.h"
 #include "lib/status.h"
 #include "lib/utf8.h"
 #include "lobby/XmppClient.h"
 #include "network/NetClientSession.h"
 #include "network/NetClientTurnManager.h"
-#include "network/NetEnet.h"
 #include "network/NetFileTransfer.h"
 #include "network/NetMessage.h"
 #include "network/NetProtocol.h"
@@ -54,6 +52,7 @@
 #include <js/TracingAPI.h>
 #include <map>
 #include <memory>
+#include <netdb.h>
 #include <sstream>
 #include <utility>
 
@@ -73,7 +72,8 @@ CNetClient::CNetClient(CGame* game, std::string serverAddressOrHostname, std::ui
 	CNetClient{PrivateTag{}, game, std::move(serverAddressOrHostname), serverPort, username, hostJID,
 		std::move(hashedPassword), std::move(controllerSecret)}
 {
-	SetupConnection();
+	SetupConnection(CreateSocket(m_ServerAddressOrHostname.c_str(), m_ServerPort,
+		addrinfo{ .ai_flags{AF_UNSPEC} }, *[](int, const addrinfo&){ return true; }));
 }
 
 CNetClient::CNetClient(PrivateTag, CGame* game, std::string serverAddressOrHostname,
@@ -208,10 +208,10 @@ CNetClient::~CNetClient()
 }
 
 
-void CNetClient::SetupConnection()
+void CNetClient::SetupConnection(const CreateSocketResult& socket)
 {
 	CNetClientSession* session = new CNetClientSession(*this);
-	bool ok = session->Connect(m_ServerAddressOrHostname, m_ServerPort);
+	bool ok = session->Connect(socket);
 	SetAndOwnSession(session);
 	if (ok)
 		m_PollingThread = std::thread(Threading::HandleExceptions<CNetClientSession::RunNetLoop>::Wrapper, m_Session);
@@ -252,10 +252,13 @@ bool CNetClient::TryToConnectWithSTUN(std::string serverAddressOrHostname, std::
 		return false;
 	}
 
-	ENetAddress hostAddr{ ENET_HOST_ANY, ENET_PORT_ANY };
-	ENetHost* enetClient = PS::Enet::CreateHost(&hostAddr, 1, 1);
-
-	if (!enetClient)
+	CreateSocketResult socket;
+	try
+	{
+		socket = CreateSocket(m_ServerAddressOrHostname.c_str(), m_ServerPort,
+			addrinfo{ .ai_flags{AF_UNSPEC} }, *[](int, const addrinfo&){ return true; });
+	}
+	catch (...)
 	{
 		PushGuiMessage(
 			"type", "netstatus",
@@ -268,7 +271,7 @@ bool CNetClient::TryToConnectWithSTUN(std::string serverAddressOrHostname, std::
 	std::uint16_t port = 0;
 	if (!localNetwork)
 	{
-		if (!StunClient::FindPublicIP(*enetClient, ip, port))
+		if (!StunClient::FindPublicIP(socket.descriptor, ip, port))
 		{
 			PushGuiMessage(
 				"type", "netstatus",
@@ -289,6 +292,10 @@ bool CNetClient::TryToConnectWithSTUN(std::string serverAddressOrHostname, std::
 	}
 	else
 	{
+		sockaddr_in bindAddress{ .sin_family{AF_INET}, .sin_port{0}, .sin_addr{htonl(INADDR_ANY)} };
+		if (bind(socket.descriptor, &reinterpret_cast<sockaddr&>(bindAddress), sizeof(bindAddress)))
+			throw std::system_error{errno, std::generic_category(), "bind"};
+
 		// We may need to punch a hole through the local firewall, so fetch our local IP.
 		// NB: we'll ignore failures here, and hope that the firewall will be open to connection
 		// if we fail to fetch the local IP (which is unlikely anyways).
@@ -302,7 +309,11 @@ bool CNetClient::TryToConnectWithSTUN(std::string serverAddressOrHostname, std::
 			m_ServerAddressOrHostname = "127.0.0.1";
 			ip = "";
 		}
-		port = enetClient->address.port;
+		ngtcp2_sockaddr_union address;
+		socklen_t socketLength{sizeof(address)};
+		if (getsockname(socket.descriptor, &address.sa, &socketLength))
+			throw std::system_error{errno, std::generic_category(), "bind"};
+		port = ntohs(address.sa.sa_family == AF_INET ? address.in.sin_port : address.in6.sin6_port);
 	}
 
 	LOGMESSAGE("NetClient: connecting to server at {}:{}", m_ServerAddressOrHostname, m_ServerPort);
@@ -319,12 +330,13 @@ bool CNetClient::TryToConnectWithSTUN(std::string serverAddressOrHostname, std::
 
 		// Step 2: Send a message ourselves to the server so that the NAT, if any, routes incoming trafic correctly.
 		// TODO: verify if this step is necessary, since we'll try and connect anyways below.
-		StunClient::SendHolePunchingMessages(*enetClient, m_ServerAddressOrHostname, m_ServerPort);
+		StunClient::SendHolePunchingMessages(socket.descriptor, m_ServerAddressOrHostname,
+			m_ServerPort);
 	}
 
 	try
 	{
-		g_NetClient->SetupConnection();
+		g_NetClient->SetupConnection(socket);
 	}
 	catch (...)
 	{

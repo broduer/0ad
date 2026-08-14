@@ -22,11 +22,11 @@
 
 #include "lib/byte_order.h"
 #include "lib/code_annotation.h"
-#include "lib/external_libraries/enet.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "ps/ConfigDB.h"
 
+#include <arpa/inet.h>
 #include <bit>
 #include <cerrno>
 #include <chrono>
@@ -34,6 +34,8 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
+#include <netdb.h>
+#include <ranges>
 #include <thread>
 #include <type_traits>
 #include <vector>
@@ -76,12 +78,8 @@ const std::uint16_t m_AttrTypeXORMappedAddress = 0x0020;
  */
 std::uint8_t m_TransactionID[12];
 
-ENetAddress m_StunServer;
-
-/**
- * Public IP + port discovered via the STUN transaction.
- */
-ENetAddress m_PublicAddress;
+std::uint32_t m_PublicIp;
+std::uint16_t m_PublicPort;
 
 /**
  * Push integral type to a network-byte-order buffer.
@@ -124,7 +122,7 @@ bool GetFromBuffer(const std::vector<std::uint8_t>& buffer, std::uint32_t& offse
 	return true;
 }
 
-void SendStunRequest(ENetHost& transactionHost, ENetAddress addr)
+void SendStunRequest(const int socketDescriptor, const sockaddr* serverAddress, const socklen_t addrlen)
 {
 	std::vector<std::uint8_t> buffer;
 	AddToBuffer<std::uint16_t>(buffer, m_MethodTypeBinding);
@@ -138,10 +136,17 @@ void SendStunRequest(ENetHost& transactionHost, ENetAddress addr)
 		m_TransactionID[i] = random_byte;
 	}
 
-	ENetBuffer enetBuffer;
-	enetBuffer.data = buffer.data();
-	enetBuffer.dataLength = buffer.size();
-	enet_socket_send(transactionHost.socket, &addr, &enetBuffer, 1);
+	for (std::size_t i = 0; i < buffer.size();)
+	{
+		const ssize_t result{sendto(socketDescriptor, buffer.data(), buffer.size(), 0, serverAddress,
+			addrlen)};
+		if (result == -1)
+		{
+			throw std::runtime_error{fmt::format("Error sending STUN request: {}",
+				std::strerror(errno))};
+		}
+		i += result;
+	}
 }
 
 /**
@@ -149,21 +154,24 @@ void SendStunRequest(ENetHost& transactionHost, ENetAddress addr)
  * The request is sent through transactionHost, from which the answer
  * will be retrieved by ReceiveStunResponse and interpreted by ParseStunResponse.
  */
-bool CreateStunRequest(ENetHost& transactionHost)
+bool CreateStunRequest(const int socket)
 {
 	const std::string server_name{g_ConfigDB.Get("lobby.stun.server", std::string{})};
 	const int port{g_ConfigDB.Get("lobby.stun.port", 0)};
 
 	LOGMESSAGE("StunClient: Using STUN server {}:{}\n", server_name, port);
 
-	ENetAddress addr;
-	addr.port = port;
-	if (enet_address_set_host(&addr, server_name.c_str()) == -1)
-		return false;
+	addrinfo hints{};
+	// IPv4 servers can connect to a IPv6 socket.
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_DGRAM;
+	hints.ai_flags = AI_PASSIVE;
 
-	m_StunServer = addr;
-
-	StunClient::SendStunRequest(transactionHost, addr);
+	addrinfo* res;
+	if (getaddrinfo(server_name.c_str(), std::to_string(port).c_str(), &hints, &res))
+		return -1;
+	std::unique_ptr<addrinfo, decltype(&freeaddrinfo)> infoList{res, &freeaddrinfo};
+	StunClient::SendStunRequest(socket, res->ai_addr, res->ai_addrlen);
 
 	return true;
 }
@@ -171,29 +179,21 @@ bool CreateStunRequest(ENetHost& transactionHost)
 /**
  * Gets the response from the STUN server and checks it for its validity.
  */
-bool ReceiveStunResponse(ENetHost& transactionHost, std::vector<std::uint8_t>& buffer)
+bool ReceiveStunResponse(const int socket, std::vector<std::uint8_t>& buffer)
 {
 	// TransportAddress sender;
-	const int LEN = 2048;
-	char input_buffer[LEN];
+	std::array<char, 2048> inputBuffer{};
 
-	memset(input_buffer, 0, LEN);
-
-	ENetBuffer enetBuffer;
-	enetBuffer.data = input_buffer;
-	enetBuffer.dataLength = LEN;
-
-	ENetAddress sender = m_StunServer;
-	int len = enet_socket_receive(transactionHost.socket, &sender, &enetBuffer, 1);
+	ssize_t len{read(socket, inputBuffer.data(), inputBuffer.size())};
 
 	const int delay{g_ConfigDB.Get("lobby.stun.delay", 10)};
 	const int maxTries{g_ConfigDB.Get("lobby.stun.max_tries", 100)};
 
-	// Wait to receive the message because enet sockets are non-blocking
+	// Wait to receive the message.
 	for (int count = 0; len <= 0 && (count < maxTries || maxTries == -1); ++count)
 	{
 		std::this_thread::sleep_for(std::chrono::milliseconds(delay));
-		len = enet_socket_receive(transactionHost.socket, &sender, &enetBuffer, 1);
+		len = read(socket, inputBuffer.data(), inputBuffer.size());
 	}
 
 	if (len <= 0)
@@ -202,19 +202,10 @@ bool ReceiveStunResponse(ENetHost& transactionHost, std::vector<std::uint8_t>& b
 		return false;
 	}
 
-	if (memcmp(&sender, &m_StunServer, sizeof(m_StunServer)) != 0)
-		LOGERROR("ReceiveStunResponse: Received stun response from different address: {}.{}.{}.{}:{} "
-			"{}",
-			(sender.host >> 24) & 0xff,
-			(sender.host >> 16) & 0xff,
-			(sender.host >>  8) & 0xff,
-			(sender.host >>  0) & 0xff,
-			sender.port,
-			input_buffer);
-
 	// Convert to network string.
 	buffer.resize(len);
-	memcpy(buffer.data(), reinterpret_cast<std::uint8_t*>(input_buffer), len);
+	std::ranges::transform(inputBuffer | std::views::take(len), buffer.begin(),
+		[](const char elem){ return static_cast<std::uint8_t>(elem); });
 
 	return true;
 }
@@ -301,10 +292,8 @@ bool ParseStunResponse(const std::vector<std::uint8_t>& buffer)
 				ip ^= m_MagicCookie;
 			}
 
-			// ENetAddress takes a host byte-order port and network byte-order IP.
-			// Network byte order is big endian, so convert appropriately.
-			m_PublicAddress.host = to_be32(ip);
-			m_PublicAddress.port = port;
+			m_PublicIp = ip;
+			m_PublicPort = port;
 
 			break;
 		}
@@ -327,81 +316,107 @@ bool ParseStunResponse(const std::vector<std::uint8_t>& buffer)
 	return true;
 }
 
-bool STUNRequestAndResponse(ENetHost& transactionHost)
+bool STUNRequestAndResponse(const int socket)
 {
-	if (!CreateStunRequest(transactionHost))
+	if (!CreateStunRequest(socket))
 		return false;
 
 	std::vector<std::uint8_t> buffer;
-	return ReceiveStunResponse(transactionHost, buffer) &&
+	return ReceiveStunResponse(socket, buffer) &&
 	       ParseStunResponse(buffer);
 }
 
-bool FindPublicIP(ENetHost& transactionHost, CStr& ip, std::uint16_t& port)
+bool FindPublicIP(const int socket, CStr& ip, std::uint16_t& port)
 {
-	if (!STUNRequestAndResponse(transactionHost))
+	if (!STUNRequestAndResponse(socket))
 		return false;
 
-	// Convert m_IP to string
-	char ipStr[256] = "(error)";
-	enet_address_get_host_ip(&m_PublicAddress, ipStr, ARRAY_SIZE(ipStr));
+	ip.resize(INET_ADDRSTRLEN);
+	const in_addr ipAddress{htonl(m_PublicIp)};
+	if (!inet_ntop(AF_INET, &ipAddress, ip.data(), ip.size()))
+	{
+		LOGERROR("Invalid ip address: {}", std::strerror(errno));
+		return false;
+	}
 
-	ip = ipStr;
-	port = m_PublicAddress.port;
+	ip = ip.c_str();
+	port = m_PublicPort;
 
 	LOGMESSAGE("StunClient: external IP address is {}:{}", ip, port);
 
 	return true;
 }
 
-void SendHolePunchingMessages(ENetHost& enetClient, const std::string& serverAddress,
+void SendHolePunchingMessages(const int socketDescriptor, const std::string& serverAddress,
 	std::uint16_t serverPort)
 {
-	// Convert ip string to int64
-	ENetAddress addr;
-	addr.port = serverPort;
-	enet_address_set_host(&addr, serverAddress.c_str());
-
 	const int delay{g_ConfigDB.Get("lobby.fw_punch.delay", 200)};
 	const int numMsg{g_ConfigDB.Get("lobby.fw_punch.num_msg", 3)};
 
-	// Send an UDP message from enet host to ip:port
+	addrinfo hints{};
+	// IPv4 servers can connect to a IPv6 socket.
+	hints.ai_family = AF_INET6;
+	hints.ai_socktype = SOCK_DGRAM;
+	hints.ai_flags = AI_PASSIVE;
+
+	addrinfo* res;
+	if (const int error{getaddrinfo(serverAddress.c_str(), std::to_string(serverPort).c_str(),
+		&hints, &res)})
+	{
+		throw std::runtime_error{fmt::format("Unable to get host address: {}", std::strerror(error))};
+	}
+	std::unique_ptr<addrinfo, decltype(&freeaddrinfo)> infoList{res, &freeaddrinfo};
+
 	for (int i = 0; i < numMsg || numMsg == -1; ++i)
 	{
-		SendStunRequest(enetClient, addr);
+		SendStunRequest(socketDescriptor, res->ai_addr, res->ai_addrlen);
 		std::this_thread::sleep_for(std::chrono::milliseconds(delay));
 	}
 }
 
 bool FindLocalIP(CStr& ip)
 {
-	// Open an UDP socket.
-	ENetSocket socket = enet_socket_create(ENET_SOCKET_TYPE_DATAGRAM);
-
-	ENetAddress addr;
-	addr.port = 9; // Use the debug port (which we pick does not matter).
-	// Connect to a random address. It does not need to be valid, only to not be the loopback address.
-	if (enet_address_set_host(&addr, "100.0.100.0") == -1)
+	const int tempSocket{socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)};
+	if (tempSocket < 0)
+	{
+		LOGERROR("Creating socket: {}", std::strerror(errno));
 		return false;
+	}
 
-	// Connect the socket. Being UDP, there is no actual outgoing traffic, this just binds it
-	// to a valid port locally, allowing us to get the local IP of the machine.
-	if (enet_socket_connect(socket, &addr) == -1)
+	in_addr testIp;
+	if (inet_pton(AF_INET, "100.0.100.0", &testIp) != 1)
+	{
+		close(tempSocket);
+		LOGERROR("Converting IP-string to number: {}", std::strerror(errno));
 		return false;
-
-	// Fetch the local port & IP.
-	if (enet_socket_get_address(socket, &addr) == -1)
+	}
+	sockaddr_in testAddr{.sin_family{AF_INET}, .sin_port{2000}, .sin_addr{testIp}};
+	if (connect(tempSocket, &reinterpret_cast<sockaddr&>(testAddr), sizeof(testAddr)))
+	{
+		close(tempSocket);
+		LOGERROR("Connecting socket: {}", std::strerror(errno));
 		return false;
+	}
 
-	enet_socket_destroy(socket);
-
-	// Convert to a human readable string.
-	char buf[50];
-	if (enet_address_get_host_ip(&addr, buf, ARRAY_SIZE(buf)) == -1)
+	sockaddr_storage addr;
+	socklen_t addrLen{sizeof(addr)};
+	if(getsockname(tempSocket, &reinterpret_cast<sockaddr&>(addr), &addrLen))
+	{
+		close(tempSocket);
+		LOGERROR("Getting IP of socket: {}", std::strerror(errno));
 		return false;
+	}
 
-	ip = buf;
-
+	ip.resize(INET_ADDRSTRLEN);
+	const in_addr inAddress{reinterpret_cast<sockaddr_in&>(addr).sin_addr};
+	if (!inet_ntop(AF_INET, &inAddress, ip.data(), ip.size()))
+	{
+		close(tempSocket);
+		LOGERROR("Invalid ip address: {}", std::strerror(errno));
+		return false;
+	}
+	close(tempSocket);
+	ip = ip.c_str();
 	return true;
 }
 }

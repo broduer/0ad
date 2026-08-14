@@ -435,6 +435,8 @@ CNetServerWorker::CNetServerWorker(const bool continueSavedGame, std::uint16_t p
 
 	const CreateSocketResult socket{CreateSocket(nullptr, port,
 		addrinfo{ .ai_flags{AI_PASSIVE | AI_V4MAPPED }, .ai_family{AF_INET6} }, TestServerSocket)};
+	m_SocketDescriptor = socket.descriptor;
+	m_LocalPort = ntohs(socket.address.address.in6.sin6_port);
 	// Launch the worker thread
 	m_WorkerThread = std::thread(Threading::HandleExceptions<RunThread>::Wrapper, this,
 		std::move(initAttributes), socket);
@@ -1030,7 +1032,7 @@ void CNetServerWorker::KickPlayer(const CStrW& playerName, const bool ban)
 			m_BannedPlayers.push_back(m_LobbyAuth ? CStrW(playerName.substr(0, playerName.find(L" ("))) : playerName);
 
 		// Remember IP address
-		const auto ipAddress = (*it)->GetIPAddress();
+		const std::array<std::uint8_t, 16> ipAddress{(*it)->GetIPAddress()};
 		if (std::find(m_BannedIPs.begin(), m_BannedIPs.end(), ipAddress) == m_BannedIPs.end())
 			m_BannedIPs.push_back(ipAddress);
 	}
@@ -1892,9 +1894,9 @@ CNetServer::CNetServer(const bool continueSavedGame, std::uint16_t port, const b
 
 	// In lobby, we send our public ip and port on request to the players who want to connect.
 	// Thus we need to know our public IP and use STUN to get it.
-	// std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
-	// if (!m_Worker.m_Host || !StunClient::FindPublicIP(*m_Worker.m_Host, m_PublicIp, m_PublicPort))
-	// 	throw std::runtime_error{"Failed to resolve public IP-address."};
+	std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
+	if (!StunClient::FindPublicIP(m_Worker.m_SocketDescriptor, m_PublicIp, m_PublicPort))
+		throw std::runtime_error{"Failed to resolve public IP-address."};
 }
 
 bool CNetServer::UseLobbyAuth() const
@@ -1914,8 +1916,7 @@ std::uint16_t CNetServer::GetPublicPort() const
 
 std::uint16_t CNetServer::GetLocalPort() const
 {
-	std::lock_guard<std::mutex> lock(m_Worker.m_WorkerMutex);
-	return 0; // m_Worker.m_Host->address.port;
+	return m_Worker.m_LocalPort;
 }
 
 bool CNetServer::CheckPasswordAndIncrement(const std::string& username, const std::string& password, const std::string& salt)

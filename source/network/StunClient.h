@@ -19,31 +19,28 @@
 #ifndef STUNCLIENT_H
 #define STUNCLIENT_H
 
-#include "lib/external_libraries/enet.h"
-
 #include <string>
 
 class CStr8;
 
-typedef struct _ENetHost ENetHost;
-
 namespace StunClient
 {
 /**
- * Return the publicly accessible IP of the given ENet host/socket.
+ * Return the publicly accessible IP of the given socket.
  * This is done by contacting STUN server.
  * The return IP & port should only be considered valid for the give host/socket.
  */
-bool FindPublicIP(ENetHost& enetClient, CStr8& ip, std::uint16_t& port);
+bool FindPublicIP(int socketDescriptor, CStr8& ip, std::uint16_t& port);
 
 /**
- * Send a message to the target server with the given ENet host/socket.
- * This will open a port on the local gateway (if any) to receive trafic,
+ * Send a message to the target server with the given socket.
+ * This will open a port on the local gateway (if any) to receive traffic,
  * allowing the recipient to answer (thus 'punching a hole' in the NAT).
  * NB: this assumes consistent NAT, i.e. the outgoing port is always the same for the given client,
  * thus allowing the IP discovered via STUN to be sent to the target server.
  */
-void SendHolePunchingMessages(ENetHost& enetClient, const std::string& serverAddress, std::uint16_t serverPort);
+void SendHolePunchingMessages(const int socketDescriptor, const std::string& serverAddress,
+	std::uint16_t serverPort);
 
 /**
  * Return the local IP.

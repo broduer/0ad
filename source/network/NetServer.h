@@ -337,6 +337,9 @@ private:
 	std::thread m_WorkerThread;
 	mutable std::mutex m_WorkerMutex;
 
+	int m_SocketDescriptor;
+	std::uint16_t m_LocalPort;
+
 	// protected by m_WorkerMutex
 	bool m_Shutdown{false};
 
