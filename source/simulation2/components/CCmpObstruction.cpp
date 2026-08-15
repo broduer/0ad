@@ -367,7 +367,7 @@ public:
 					m_Tag = cmpObstructionManager->AddUnitShape(GetEntityId(),
 						data.x, data.z, m_Clearance, (flags_t)(m_Flags | (m_Moving ? ICmpObstructionManager::FLAG_MOVING : 0)), m_ControlGroup);
 				else
-					AddClusterShapes(data.x, data.x, data.a);
+					AddClusterShapes(data.x, data.z, data.a);
 			}
 			else if (!data.inWorld && m_Tag.valid())
 			{
