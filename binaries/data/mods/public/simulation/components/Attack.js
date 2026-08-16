@@ -492,17 +492,6 @@ Attack.prototype.GetBestAttackAgainst = function(target, allowCapture)
 	}).pop();
 };
 
-Attack.prototype.CompareEntitiesByPreference = function(a, b)
-{
-	const aPreference = this.GetPreference(a);
-	const bPreference = this.GetPreference(b);
-
-	if (aPreference === null && bPreference === null) return 0;
-	if (aPreference === null) return 1;
-	if (bPreference === null) return -1;
-	return aPreference - bPreference;
-};
-
 Attack.prototype.GetAttackName = function(type)
 {
 	return {

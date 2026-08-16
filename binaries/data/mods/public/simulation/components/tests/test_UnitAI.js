@@ -199,7 +199,6 @@ function TestFormationExiting(mode)
 		"GetPreference": function(t) { return 0; },
 		"GetTimers": function() { return { "prepare": 500, "repeat": 1000 }; },
 		"CanAttack": function(v) { return true; },
-		"CompareEntitiesByPreference": function(a, b) { return 0; },
 		"IsTargetInRange": () => true,
 		"StartAttacking": () => true
 	});
@@ -392,7 +391,6 @@ function TestMoveIntoFormationWhileAttacking()
 			"GetBestAttackAgainst": function(t) { return "melee"; },
 			"GetTimers": function() { return { "prepare": 500, "repeat": 1000 }; },
 			"CanAttack": function(v) { return true; },
-			"CompareEntitiesByPreference": function(a, b) { return 0; },
 			"IsTargetInRange": () => true,
 			"StartAttacking": () => true,
 			"StopAttacking": () => {}
