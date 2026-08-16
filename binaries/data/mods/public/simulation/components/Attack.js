@@ -833,7 +833,7 @@ Attack.prototype.PerformAttack = function(type, target)
 		const impactAnimationLifetime = this.template[type].Projectile.ImpactAnimationLifetime || 0;
 
 		// TODO: Use unit rotation to implement x/z offsets.
-		const deltaLaunchPoint = new Vector3D(0, +this.template[type].Projectile.LaunchPoint["@y"], 0);
+		const deltaLaunchPoint = new Vector3D(0, this.template[type].Projectile.LaunchPoint ? +this.template[type].Projectile.LaunchPoint["@y"] : 0, 0);
 		let launchPoint = Vector3D.add(selfPosition, deltaLaunchPoint);
 
 		const cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
