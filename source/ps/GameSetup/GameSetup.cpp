@@ -383,8 +383,6 @@ void ShutdownConfigAndSubsequent()
 
 	PROFILE2("shutdown misc");
 
-	CNetHost::Deinitialize();
-
 	// Should be destroyed last, since the above uses them.
 	delete &g_Profiler;
 	delete &g_ProfileViewer;
@@ -566,8 +564,6 @@ bool Init(const CmdLineArgs& args, int flags)
 		}
 		return false;
 	}
-
-	CNetHost::Initialize();
 
 #if CONFIG2_AUDIO
 	if (!args.Has("autostart-nonvisual") && !g_DisableAudio)

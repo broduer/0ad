@@ -23,17 +23,12 @@
 #ifndef NETHOST_H
 #define NETHOST_H
 
-#include "lib/external_libraries/enet.h"
 #include "ps/CStr.h"
 
 #include <map>
 #include <vector>
 
 class CNetMessage;
-
-typedef struct _ENetPeer ENetPeer;
-typedef struct _ENetPacket ENetPacket;
-typedef struct _ENetHost ENetHost;
 
 struct PlayerAssignment
 {
@@ -84,23 +79,6 @@ enum NetDisconnectReason
 	NDR_INCORRECT_SOFTWARE_VERSION
 };
 
-struct DestroyHost
-{
-	void operator()(ENetHost* host) const noexcept
-	{
-		enet_host_destroy(host);
-	}
-};
-
-struct DestroyPeer
-{
-	void operator()(ENetPeer* peer) const noexcept
-	{
-		// Disconnect immediately (we can't wait for acks)
-		enet_peer_disconnect_now(peer, NDR_SERVER_SHUTDOWN);
-	}
-};
-
 class CNetHost
 {
 public:
@@ -110,16 +88,5 @@ public:
 	 * Serialise the given message.
 	 */
 	static std::vector<std::uint8_t> CreatePacket(const CNetMessage* message);
-
-	/**
-	 * Initialize ENet.
-	 * This must be called before any other networking code.
-	 */
-	static void Initialize();
-
-	/**
-	 * Deinitialize ENet.
-	 */
-	static void Deinitialize();
 };
 #endif	// NETHOST_H

@@ -19,7 +19,6 @@
 
 #include "gui/GUIManager.h"
 #include "lib/debug.h"
-#include "lib/external_libraries/enet.h"
 #include "lib/file/file_system.h"
 #include "lib/file/vfs/vfs.h"
 #include "lib/path.h"
@@ -67,14 +66,10 @@ public:
 		TS_ASSERT_OK(g_VFS->Mount(L"", DataDir() / "mods" / "public" / "", VFS_MOUNT_MUST_EXIST));
 		TS_ASSERT_OK(g_VFS->Mount(L"cache", DataDir() / "_testcache" / "", 0, VFS_MAX_PRIORITY));
 		xeromycesEngine.emplace();
-
-		enet_initialize();
 	}
 
 	void tearDown()
 	{
-		enet_deinitialize();
-
 		xeromycesEngine.reset();
 		g_VFS.reset();
 		DeleteDirectory(DataDir()/"_testcache");

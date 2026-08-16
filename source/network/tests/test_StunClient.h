@@ -17,7 +17,6 @@
 
 #include "lib/self_test.h"
 
-#include "lib/external_libraries/enet.h"
 #include "network/NetHost.h"
 #include "network/NetProtocol.h"
 #include "network/StunClient.h"
@@ -31,17 +30,6 @@
 class TestStunClient : public CxxTest::TestSuite
 {
 public:
-	void setUp()
-	{
-		// Sets networking up in a cross-platform manner.
-		enet_initialize();
-	}
-
-	void tearDown()
-	{
-		enet_deinitialize();
-	}
-
 	void test_local_ip()
 	{
 		CStr ip;

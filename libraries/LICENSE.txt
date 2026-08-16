@@ -40,9 +40,6 @@ get-windows-libs.bat downloads a checkout of headers and precompiled
   win32/boost
     Boost Software License
 
-  win32/enet
-    MIT
-
   win32/fmt
     MIT
 

@@ -44,7 +44,6 @@ GNUTLS_VERSION="gnutls-3.8.4"
 # OS X only includes part of ICU, and only the dylib
 # NOTE: remember to also update LIB_URL below when changing version
 ICU_VERSION="icu4c-69_1"
-ENET_VERSION="enet-1.3.18"
 NGTCP2_VERSION="1.25.0"
 MINIUPNPC_VERSION="miniupnpc-2.2.8"
 SODIUM_VERSION="libsodium-1.0.20"
@@ -986,47 +985,6 @@ echo "Building ICU..."
 ) || die "Failed to build ICU"
 
 # --------------------------------------------------------------
-echo "Building ENet..."
-
-(
-	LIB_VERSION="${ENET_VERSION}"
-	LIB_ARCHIVE="$LIB_VERSION.tar.gz"
-	LIB_DIRECTORY="$LIB_VERSION"
-	LIB_URL="http://enet.bespin.org/download/"
-
-	mkdir -p enet
-	cd enet
-
-	if [ $force_rebuild = "true" ] || [ ! -e .already-built ] || [ "$(cat .already-built)" != "$LIB_VERSION" ]; then
-		INSTALL_DIR="$(pwd)"
-
-		rm -f .already-built
-		download_lib $LIB_URL $LIB_ARCHIVE || die
-
-		rm -rf $LIB_DIRECTORY bin include lib sbin share
-		tar -xf $LIB_ARCHIVE || die
-
-		(
-			cd $LIB_DIRECTORY || die
-			./configure \
-				CFLAGS="$CFLAGS" \
-				LDFLAGS="$LDFLAGS" \
-				"$HOST_PLATFORM" \
-				--prefix="${INSTALL_DIR}" \
-				--enable-shared=no || die
-			make clean || die
-			make "${JOBS}" || die
-			make install || die
-		) || die "ENet build failed"
-
-		cp -f lib/pkgconfig/* "$PC_PATH"
-		echo "$LIB_VERSION" >.already-built
-	else
-		already_built
-	fi
-) || die "Failed to build ENet"
-
-# --------------------------------------------------------------
 echo "Building ngtcp2..."
 
 (
@@ -1070,7 +1028,7 @@ echo "Building ngtcp2..."
 	else
 		already_built
 	fi
-) || die "Failed to build ENet"
+) || die "Failed to build ngtcp2"
 
 # --------------------------------------------------------------
 echo "Building MiniUPnPc..."

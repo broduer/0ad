@@ -15,7 +15,6 @@ build_curl=true
 build_libpng=true
 build_libjpeg=true
 build_libxml2=true
-build_enet=true
 build_js185=true
 
 JOBS=${JOBS:="-j4"}
@@ -37,10 +36,6 @@ fi
 
 if [ ! -e MysticTreeGames-Boost-for-Android-70838fc.tar.gz ]; then
 	wget https://github.com/MysticTreeGames/Boost-for-Android/tarball/70838fcfba930646cac724a77f5c626e930431f6 -O MysticTreeGames-Boost-for-Android-70838fc.tar.gz
-fi
-
-if [ ! -e enet-1.3.3.tar.gz ]; then
-	wget http://enet.bespin.org/download/enet-1.3.3.tar.gz
 fi
 
 if [ ! -e js185-1.0.0.tar.gz ]; then
@@ -129,16 +124,6 @@ if [ "$build_libxml2" = "true" ]; then
 	tar xvf files/libxml2-2.7.8.tar.gz -C temp/
 	patch temp/libxml2-2.7.8/Makefile.in <libxml2-android-build.patch
 	cd temp/libxml2-2.7.8
-	./configure --host=arm-linux-eabi --with-sysroot="$SYSROOT" --prefix="$SYSROOT"/usr/local CFLAGS="$CFLAGS"
-	make "$JOBS"
-	make install
-	cd -
-fi
-
-if [ "$build_enet" = "true" ]; then
-	rm -rf temp/enet-1.3.3
-	tar xvf files/enet-1.3.3.tar.gz -C temp/
-	cd temp/enet-1.3.3
 	./configure --host=arm-linux-eabi --with-sysroot="$SYSROOT" --prefix="$SYSROOT"/usr/local CFLAGS="$CFLAGS"
 	make "$JOBS"
 	make install

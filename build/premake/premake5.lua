@@ -730,7 +730,6 @@ function setup_all_libs ()
 	extern_libs = {
 		"cpp_httplib",
 		"spidermonkey",
-		"enet",
 		"ngtcp2",
 		"sdl",
 		"boost",	-- dragged in via server->simulation.h->random and NetSession.h->lockfree
@@ -802,7 +801,6 @@ function setup_all_libs ()
 		extern_libs = {
 			"spidermonkey",
 			"boost",
-			"enet",
 			"ngtcp2",
 			"gloox",
 			"icu",
@@ -884,7 +882,6 @@ function setup_all_libs ()
 		"libxml2",
 		"zlib",
 		"boost",
-		"enet",
 		"ngtcp2",
 		"libcurl",
 		"tinygettext",
@@ -972,7 +969,6 @@ function setup_all_libs ()
 		"spidermonkey",
 		"sdl",	-- key definitions
 		"boost",
-		"enet",
 		"ngtcp2",
 		"tinygettext",
 		"icu",
@@ -1108,7 +1104,6 @@ used_extern_libs = {
 	"cpp_httplib",
 	"cxxtest",
 	"comsuppw",
-	"enet",
 	"ngtcp2",
 	"libcurl",
 	"tinygettext",

@@ -34,7 +34,7 @@
 #endif
 
 // Win32 socket declarations aren't portable (e.g. problems with socklen_t)
-// => skip winsock.h; use curl or enet library instead.
+// => skip winsock.h; use curl library instead.
 #define _WINSOCKAPI_
 
 #define WIN32_LEAN_AND_MEAN

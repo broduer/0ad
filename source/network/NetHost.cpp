@@ -20,7 +20,6 @@
 #include "NetHost.h"
 
 #include "lib/debug.h"
-#include "lib/external_libraries/enet.h"
 #include "network/NetMessage.h"
 #include "ps/CLogger.h"
 
@@ -42,15 +41,4 @@ std::vector<std::uint8_t> CNetHost::CreatePacket(const CNetMessage* message)
 	message->Serialize(&buffer[0]);
 
 	return buffer;
-}
-
-void CNetHost::Initialize()
-{
-	int ret = enet_initialize();
-	ENSURE(ret == 0);
-}
-
-void CNetHost::Deinitialize()
-{
-	enet_deinitialize();
 }
