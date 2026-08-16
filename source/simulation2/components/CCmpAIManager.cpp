@@ -100,7 +100,7 @@ extern void QuitEngine(int exitStatus);
  * proved difficult and rather slow itself (and isn't threadable, obviously).
  * For these reasons, the design was changed to a single-thread, same-compartment, different-realm design.
  * The AI can therefore directly use the simulation data via the 'Sim' & 'SimEngine' globals.
- * As a result, a lof of the code is still designed to be "thread-ready", but this no longer matters.
+ * As a result, a lot of the code is still designed to be "thread-ready", but this no longer matters.
  *
  * TODO: despite the above, it would still be useful to allow the AI to run tasks asynchronously (and off-thread).
  * This could be implemented by having a separate JS runtime in a different thread,
