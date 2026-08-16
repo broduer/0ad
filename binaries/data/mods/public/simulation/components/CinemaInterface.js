@@ -9,6 +9,7 @@ CinemaInterface.prototype.Schema =
 
 CinemaInterface.prototype.Init = function()
 {
+	this.temporaryPathCount = 0;
 	this.queueEndedCallbacks = [];
 };
 
@@ -44,7 +45,8 @@ CinemaInterface.prototype.PlayExistingPath = function(pathName, callback = null)
  * be constructed on the go from the data provided.
  * If any cinema paths are already being played, the new path is appended to the queue.
  * @param {Object} path
- * @param {string} [path.name] - The name of the path.
+ * @param {string} [path.name] - The name of the path. If defined, the path won't be deleted after finishing, so it can
+ *  be played again in the future (by name).
  * @param {string} path.orientation - If "target", the property "targetNodes" can and must be specified.
  * @param {Object[]} path.positionNodes - The path along which the camera position is animated.
  * @param {number} paths.positionNodes[].deltaTime - How long the node is active.
@@ -66,6 +68,10 @@ CinemaInterface.prototype.PlayCustomPath = function(path, callback = null)
 	if (!cmpCinemaManager)
 		return;
 
+	if (!path.name)
+		// We simply assume that this name is available.
+		path.name = "_temporaryPath" + this.temporaryPathCount++;
+
 	cmpCinemaManager.AddPath(path);
 	this.PlayExistingPath(path.name, callback);
 };
@@ -75,6 +81,11 @@ CinemaInterface.prototype.OnCinemaQueueEnded = function()
 	const cmpTrigger = Engine.QueryInterface(SYSTEM_ENTITY, IID_Trigger);
 	if (!cmpTrigger)
 		return;
+
+	const cmpCinemaManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_CinemaManager);
+	if (cmpCinemaManager)
+		while (this.temporaryPathCount > 0)
+			cmpCinemaManager.DeletePath("_temporaryPath" + --this.temporaryPathCount);
 
 	for (const callback of this.queueEndedCallbacks)
 		if (callback.action in cmpTrigger)

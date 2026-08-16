@@ -5,7 +5,6 @@ Trigger.prototype.PlayFirstCutscene = function()
 
 	// This is a custom path not yet registered anywhere, we define it entirely here.
 	const secondCinemaPathData = {
-		"name": "path2",
 		"timescale": 1,
 		"orientation": "target",
 		"mode": "ease_inout",
