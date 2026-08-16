@@ -110,19 +110,33 @@ Turretable.prototype.OccupyTurret = function(target, turretPointName = "", eject
  */
 Turretable.prototype.LeaveTurret = function(forced = false)
 {
+	if (this.leavingTurret)
+		return true;
 	if (!this.holder)
 		return true;
 
 	if (!this.ejectable && !forced)
 		return false;
 
-	const pos = PositionHelper.GetSpawnPosition(this.holder, this.entity, forced);
+	const holder = this.holder;
+	const pos = PositionHelper.GetSpawnPosition(holder, this.entity, forced);
 	if (!pos)
 		return false;
 
-	const cmpTurretHolder = Engine.QueryInterface(this.holder, IID_TurretHolder);
+	// LeaveTurretPoint can have arbitrary side effects, including calling LeaveTurret
+	// again on this entity. Guard against that reentrancy (using an explicit flag rather
+	// than relying on INVALID_ENTITY being falsy), and clear the holder early so the
+	// entity can immediately re-occupy (e.g. when a rally point is set below).
+	this.leavingTurret = true;
+	delete this.holder;
+
+	const cmpTurretHolder = Engine.QueryInterface(holder, IID_TurretHolder);
 	if (!cmpTurretHolder || !cmpTurretHolder.LeaveTurretPoint(this.entity, forced))
+	{
+		this.holder = holder;
+		delete this.leavingTurret;
 		return false;
+	}
 
 	const cmpUnitMotionEntity = Engine.QueryInterface(this.entity, IID_UnitMotion);
 	if (cmpUnitMotionEntity)
@@ -135,7 +149,7 @@ Turretable.prototype.LeaveTurret = function(forced = false)
 		cmpPosition.JumpTo(pos.x, pos.z);
 		cmpPosition.SetHeightOffset(0);
 
-		const cmpHolderPosition = Engine.QueryInterface(this.holder, IID_Position);
+		const cmpHolderPosition = Engine.QueryInterface(holder, IID_Position);
 		if (cmpHolderPosition)
 			cmpPosition.SetYRotation(cmpHolderPosition.GetPosition().horizAngleTo(pos));
 	}
@@ -153,15 +167,13 @@ Turretable.prototype.LeaveTurret = function(forced = false)
 		cmpObstruction.SetActive(true);
 
 	Engine.PostMessage(this.entity, MT_TurretedStateChanged, {
-		"oldHolder": this.holder,
+		"oldHolder": holder,
 		"holderID": INVALID_ENTITY
 	});
 
-	const cmpRallyPoint = Engine.QueryInterface(this.holder, IID_RallyPoint);
+	delete this.leavingTurret;
 
-	// Need to delete this before ordering to a rally
-	// point else we may not occupy another turret point.
-	delete this.holder;
+	const cmpRallyPoint = Engine.QueryInterface(holder, IID_RallyPoint);
 
 	if (cmpRallyPoint)
 		cmpRallyPoint.OrderToRallyPoint(this.entity, ["occupy-turret"]);

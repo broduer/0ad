@@ -113,27 +113,41 @@ Garrisonable.prototype.Garrison = function(target)
  */
 Garrisonable.prototype.UnGarrison = function(forced = false)
 {
+	if (this.unGarrisoning)
+		return true;
 	if (!this.holder)
 		return true;
 
-	const pos = PositionHelper.GetSpawnPosition(this.holder, this.entity, forced);
+	const holder = this.holder;
+	const pos = PositionHelper.GetSpawnPosition(holder, this.entity, forced);
 	if (!pos)
 		return false;
 
-	const cmpGarrisonHolder = Engine.QueryInterface(this.holder, IID_GarrisonHolder);
+	// Eject can have arbitrary side effects, including calling UnGarrison again
+	// on this entity. Guard against that reentrancy (using an explicit flag rather
+	// than relying on INVALID_ENTITY being falsy), and clear the holder early so
+	// the entity can immediately re-garrison (e.g. when a rally point is set below).
+	this.unGarrisoning = true;
+	delete this.holder;
+
+	const cmpGarrisonHolder = Engine.QueryInterface(holder, IID_GarrisonHolder);
 	if (!cmpGarrisonHolder || !cmpGarrisonHolder.Eject(this.entity, forced))
+	{
+		this.holder = holder;
+		delete this.unGarrisoning;
 		return false;
+	}
 
 	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
 	if (cmpPosition)
 	{
 		cmpPosition.JumpTo(pos.x, pos.z);
 		cmpPosition.SetHeightOffset(0);
-	}
 
-	const cmpHolderPosition = Engine.QueryInterface(this.holder, IID_Position);
-	if (cmpHolderPosition)
-		cmpPosition.SetYRotation(cmpHolderPosition.GetPosition().horizAngleTo(pos));
+		const cmpHolderPosition = Engine.QueryInterface(holder, IID_Position);
+		if (cmpHolderPosition)
+			cmpPosition.SetYRotation(cmpHolderPosition.GetPosition().horizAngleTo(pos));
+	}
 
 	const cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
 	if (cmpUnitAI)
@@ -143,15 +157,13 @@ Garrisonable.prototype.UnGarrison = function(forced = false)
 	}
 
 	Engine.PostMessage(this.entity, MT_GarrisonedStateChanged, {
-		"oldHolder": this.holder,
+		"oldHolder": holder,
 		"holderID": INVALID_ENTITY
 	});
 
-	const cmpRallyPoint = Engine.QueryInterface(this.holder, IID_RallyPoint);
+	delete this.unGarrisoning;
 
-	// Need to delete this before ordering to a rally
-	// point else we may not garrison another entity.
-	delete this.holder;
+	const cmpRallyPoint = Engine.QueryInterface(holder, IID_RallyPoint);
 
 	if (cmpRallyPoint)
 		cmpRallyPoint.OrderToRallyPoint(this.entity, ["garrison"]);

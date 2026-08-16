@@ -56,3 +56,18 @@ TS_ASSERT(cmpGarrisonable.Garrison(garrisonHolderID));
 cmpGarrisonable.OnEntityRenamed({ "entity": garrisonableID, "newentity": newGarrisonableID });
 TS_ASSERT_UNEVAL_EQUALS(cmpGarrisonable.HolderID(), INVALID_ENTITY);
 TS_ASSERT_UNEVAL_EQUALS(cmpGarrisonableNew.HolderID(), garrisonHolderID);
+
+// Test ungarrisoning reentrancy: Eject re-enters UnGarrison while it is still in
+// progress. The nested call must be a no-op (return true) and the outer call must
+// complete, leaving the entity fully ungarrisoned.
+TS_ASSERT(cmpGarrisonable.Garrison(garrisonHolderID));
+TS_ASSERT_UNEVAL_EQUALS(cmpGarrisonable.HolderID(), garrisonHolderID);
+
+AddMock(garrisonHolderID, IID_GarrisonHolder, {
+	"Garrison": () => true,
+	"IsAllowedToGarrison": () => true,
+	"Eject": () => cmpGarrisonable.UnGarrison()
+});
+
+TS_ASSERT(cmpGarrisonable.UnGarrison());
+TS_ASSERT_UNEVAL_EQUALS(cmpGarrisonable.HolderID(), INVALID_ENTITY);
