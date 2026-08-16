@@ -239,14 +239,14 @@ public:
 		if (cmpRangeManager)
 			cmpRangeManager->SetLosRevealWholeMapForAll(m_WasMapRevealed);
 
-		GetSimContext().GetComponentManager().PostMessage(SYSTEM_ENTITY, CMessageCinemaQueueEnded());
-
 		m_ActivePathElapsedTime = fixed::Zero();
 		m_QueuePlayingElapsedTime = fixed::Zero();
 		m_PathQueueDuration = fixed::Zero();
 		for (const CCinemaPath& path : m_PathQueue)
 			m_PathQueueDuration += path.GetDuration();
 		m_IsPlayingPathQueue = false;
+
+		GetSimContext().GetComponentManager().PostMessage(SYSTEM_ENTITY, CMessageCinemaQueueEnded());
 	}
 
 	bool IsPlayingQueue() const override
