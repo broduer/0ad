@@ -122,7 +122,7 @@
 	<include file="gui/session/cinema/CinemaOverlay.xml"/>
 
 	<!-- Objects that make sense to sometimes still show while the primary overlays are hidden. -->
-	<object name="supplementaryOverlays">
+	<object name="supplementaryOverlays" z="80">
 		<include file="gui/session/NetworkStatusOverlay.xml"/>
 		<include file="gui/session/NetworkDelayOverlay.xml"/>
 		<include file="gui/session/PauseOverlay.xml"/>

@@ -76,6 +76,41 @@ CinemaInterface.prototype.PlayCustomPath = function(path, callback = null)
 	this.PlayExistingPath(path.name, callback);
 };
 
+/**
+ * Initiate a speech sequence and and display it to all players. It is comprised of one or more speech segments plus
+ * some additional options.
+ * @param {Object[]} speechSegments
+ * @param {number} [speechSegments[].speakingUnit] - The entity ID of the unit to be shown as speaking the lines.
+ * @param {string[]} speechSegments[].lines - The spoken/narrated text.
+ * @param {number[]} speechSegments[].lineDurations - The durations of the lines in milliseconds.
+ * @param {Object} [options]
+ * @param {boolean} [options.moveCameraToSpeakingUnit] - If true, the camera always jumps to (and follows) the speaking
+ *  unit.
+ * @param {boolean} [options.enableCutsceneMode] - If true, enables cutscene rendering mode as long as this sequence is
+ *  shown. This hides all informational overlays such as territory borders, selection rings, and range overlays, which
+ *  makes the scene feel more "pure", more like a movie.
+ */
+CinemaInterface.prototype.ShowSpeechSequence = function(speechSegments, options)
+{
+	if (!Array.isArray(speechSegments))
+		throw new TypeError("'speechSegments' must be an array.");
+
+	for (const segment of speechSegments)
+		if (!Array.isArray(segment.lines) || !Array.isArray(segment.lineDurations))
+			throw new TypeError("Each 'speechSegment' must define 'lines' and 'lineDurations' arrays.");
+		else if (segment.lines.length != segment.lineDurations.length)
+			throw new Error("The 'lines' and 'lineDurations' arrays of each 'speechSegment' must have the same length");
+
+	Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface)?.PushNotification({
+		"type": "speech-sequence",
+		"players": [0],
+		"moveCameraToSpeakingUnit": options?.moveCameraToSpeakingUnit,
+		"enableCutsceneMode": options?.enableCutsceneMode,
+		"speechSegments": speechSegments
+	});
+
+};
+
 CinemaInterface.prototype.OnCinemaQueueEnded = function()
 {
 	const cmpTrigger = Engine.QueryInterface(SYSTEM_ENTITY, IID_Trigger);

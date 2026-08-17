@@ -41,7 +41,7 @@
   "AISeed": 0,
   "AllyView": false,
   "CircularMap": false,
-  "Description": "Demo map for cinematic camera movements.",
+  "Description": "Demo map for cinematic camera movements with narration and dialogue between units.",
   "Keywords": [],
   "LockTeams": true,
   "Name": "Cinema Demo 2",

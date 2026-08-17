@@ -292,7 +292,7 @@ async function init(initData, hotloadData)
 	g_Ambient = new Ambient();
 	g_AutoFormation = new AutoFormation();
 	g_Chat = new Chat(g_PlayerViewControl, g_Cheats);
-	g_CinemaOverlay = new CinemaOverlay();
+	g_CinemaOverlay = new CinemaOverlay(hotloadData?.cinemaOverlay);
 	g_DeveloperOverlay = new DeveloperOverlay(g_PlayerViewControl, g_Selection);
 	g_DiplomacyDialog = new DiplomacyDialog(g_PlayerViewControl, g_DiplomacyColors);
 	g_GameSpeedControl = new GameSpeedControl(g_PlayerViewControl);
@@ -588,7 +588,8 @@ function getHotloadData()
 		"selection": g_Selection.selected,
 		"playerAssignments": g_PlayerAssignments,
 		"player": g_Players,
-		"tutorial": g_TutorialManager.getHotloadData()
+		"tutorial": g_TutorialManager.getHotloadData(),
+		"cinemaOverlay": g_CinemaOverlay.getHotloadData()
 	};
 }
 
@@ -694,6 +695,10 @@ function toggleGUI()
 	g_ShowGUI = !g_ShowGUI;
 	Engine.GetGUIObjectByName("primaryOverlays").hidden = !g_ShowGUI;
 	Engine.GetGUIObjectByName("supplementaryOverlays").hidden = !g_ShowGUI;
+
+	// This keeps the black bars, if shown at the moment.
+	var g_HasHiddenSilhouettes = false;
+	g_CinemaOverlay.overrideSpeechDisplayHidden(!g_ShowGUI);
 }
 
 // TODO: Use event subscription onSimulationUpdate, onEntitySelectionChange, onPlayerViewChange, ... instead

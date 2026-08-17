@@ -409,7 +409,7 @@
 		<image backcolor="255 255 255 32" size="2 3 3 100%-3"/>
 	</sprite>
 
-	<sprite name="iconBorder">
+	<sprite name="GoldenBorder">
 		<image backcolor="gold" size="0 0 100% 1"/>
 		<image backcolor="gold" size="100%-1 1 100% 100%"/>
 		<image backcolor="gold" size="0 100%-1 100% 100%"/>

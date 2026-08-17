@@ -273,6 +273,16 @@
 		text_valign="top"
 	/>
 
+    <style name="CinemaOverlayText"
+		font="sans-18"
+		textcolor="white"
+		text_valign="center"
+		scrollbar="true"
+		scrollbar_style="ModernScrollBar"
+		scroll_top="true"
+		buffer_zone="27"
+	/>
+
 	<!-- ================================  ================================ -->
 	<!-- Icon Styles -->
 	<!-- ================================  ================================ -->

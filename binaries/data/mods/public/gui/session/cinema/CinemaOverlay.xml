@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <object name="cinemaOverlay">
 	<object name="cinemaOverlayBarTop" type="image" sprite="color:black" size="0 0 100% 100"/>
-	<object name="cinemaOverlayBarBottom" type="image" sprite="color:black" size="0 100%-100 100% 100%"/>
+	<object name="cinemaOverlayBarBottom" type="image" sprite="color:black" size="0 100%-100 100% 100%">
+		<object name="cinemaOverlaySpeechDisplayParent">
+			<object name="cinemaOverlaySpeechDisplay">
+				<object name="cinemaOverlayTextContainer" type="image" size="20 20 100%-20 100%-20" sprite="GoldenBorder">
+					<object name="cinemaOverlayText" type="text" style="CinemaOverlayText" size="1 1 100%-1 100%-1"/>
+				</object>
+				<object name="cinemaOverlaySpeakingUnitDisplay" size="20 100%-258 214 100%-12">
+					<object size="50%-97 0 50%+97 194" type="image" sprite="GoldenBorder">
+						<object name="cinemaOverlayUnitIcon" type="image" size="1 1 100%-1 100%-1"/>
+					</object>
+					<object name="cinemaOverlayUnitName" type="text" size="0 203 100% 246" text_align="center" text_valign="center"/>
+				</object>
+			</object>
+		</object>
+	</object>
 </object>
+
