@@ -1260,3 +1260,146 @@ function TestAttackGroupBehavior()
 }
 
 TestAttackGroupBehavior();
+
+/**
+ * Shared setup for the group attack regression tests below.
+ * Returns a UnitAI that can attack and see anything, and whose movement
+ * success is controlled by the returned handle's "canMove" property.
+ */
+function SetupGroupAttacker(attacker)
+{
+	ResetState();
+
+	AddMock(SYSTEM_ENTITY, IID_Timer, {
+		"SetInterval": () => {},
+		"SetTimeout": () => {},
+		"CancelTimer": () => {}
+	});
+
+	AddMock(SYSTEM_ENTITY, IID_RangeManager, {
+		"CreateActiveQuery": () => 1,
+		"EnableActiveQuery": () => {},
+		"ResetActiveQuery": () => [],
+		"DisableActiveQuery": () => {},
+		"GetEntityFlagMask": () => 0
+	});
+
+	AddMock(SYSTEM_ENTITY, IID_ObstructionManager, {
+		"IsInTargetRange": () => false
+	});
+
+	const unitAI = ConstructComponent(attacker, "UnitAI", {
+		"FormationController": "false",
+		"DefaultStance": "aggressive"
+	});
+	unitAI.OnCreate();
+
+	const handle = { "canMove": true };
+
+	unitAI.CanAttack = () => true;
+	unitAI.CheckTargetVisible = () => true;
+	unitAI.GetBestAttackAgainst = () => "Melee";
+	unitAI.AbleToMove = () => true;
+	unitAI.StopMoving = () => {};
+	// Never in range, so we always want to approach.
+	unitAI.CheckTargetAttackRange = () => false;
+	unitAI.MoveToTargetAttackRange = () => handle.canMove;
+
+	handle.unitAI = unitAI;
+	return handle;
+}
+
+/**
+ * Regression test: dropping a target of a group attack must always remove it
+ * from the array, so that callers cannot pick the same one again and loop.
+ */
+function TestDropCurrentGroupTarget()
+{
+	const unitAI = SetupGroupAttacker(100).unitAI;
+
+	// The dropped target is removed and another one is selected.
+	const data = { "targetArray": [200, 201, 202], "currentTargetIndex": 1, "allowCapture": false };
+	TS_ASSERT(unitAI.DropCurrentGroupTarget(data));
+	TS_ASSERT_UNEVAL_EQUALS(data.targetArray, [200, 202]);
+	TS_ASSERT_EQUALS(data.target, 202);
+	TS_ASSERT_EQUALS(data.attackType, "Melee");
+
+	// An index left past the end of the array must still drop a target:
+	// splice is a silent no-op when out of bounds.
+	const stale = { "targetArray": [200, 201], "currentTargetIndex": 7, "allowCapture": false };
+	TS_ASSERT(unitAI.DropCurrentGroupTarget(stale));
+	TS_ASSERT_EQUALS(stale.targetArray.length, 1);
+
+	// Draining the array reports failure rather than handing back a target.
+	const last = { "targetArray": [200], "currentTargetIndex": 0, "allowCapture": false };
+	TS_ASSERT(!unitAI.DropCurrentGroupTarget(last));
+	TS_ASSERT_EQUALS(last.targetArray.length, 0);
+
+	// Not a group attack at all.
+	TS_ASSERT(!unitAI.DropCurrentGroupTarget({ "target": 200 }));
+}
+
+/**
+ * Regression test: a group attacker that cannot path to any of its targets
+ * must resolve its order instead of standing still in COMBAT.APPROACHING
+ * forever, which it did when the retry branch fell off the end of the handler.
+ */
+function TestGroupAttackUnreachableTargets()
+{
+	const handle = SetupGroupAttacker(100);
+	const unitAI = handle.unitAI;
+
+	unitAI.AttackGroup([200, 201, 202], 0, 1);
+	TS_ASSERT_EQUALS(unitAI.GetCurrentState(), "INDIVIDUAL.COMBAT.APPROACHING");
+
+	// The path failed, and nothing else in the array can be approached either.
+	handle.canMove = false;
+	unitAI.OnMotionUpdate({ "likelyFailure": true });
+
+	TS_ASSERT_EQUALS(unitAI.GetCurrentState(), "INDIVIDUAL.IDLE");
+	TS_ASSERT_EQUALS(unitAI.orderQueue.length, 0);
+}
+
+/**
+ * Regression test: a chase that fails to reach its target must give that
+ * target up. Leaving it in the array let FINDINGNEWTARGET hand back the very
+ * same entity, so the unit cycled ATTACKING -> CHASING -> FINDINGNEWTARGET
+ * indefinitely, issuing a path request each time around.
+ */
+function TestGroupAttackChaseDropsUnreachableTarget()
+{
+	const handle = SetupGroupAttacker(100);
+	const unitAI = handle.unitAI;
+
+	AddMock(100, IID_Attack, {
+		"StartAttacking": () => true,
+		"StopAttacking": () => {},
+		"GetBestAttackAgainst": () => "Melee",
+		"GetRange": () => ({ "min": 0, "max": 10 })
+	});
+
+	// Chase whatever we lose track of, and start off within attack range so
+	// that the order takes us straight to ATTACKING.
+	unitAI.ShouldChaseTargetedEntity = () => true;
+	unitAI.CheckTargetAttackRange = () => true;
+
+	unitAI.AttackGroup([200, 201, 202], 0, 1);
+	TS_ASSERT_EQUALS(unitAI.GetCurrentState(), "INDIVIDUAL.COMBAT.ATTACKING");
+	const chasedTarget = unitAI.order.data.target;
+
+	// The target moves out of range and we give chase.
+	unitAI.CheckTargetAttackRange = () => false;
+	unitAI.ProcessMessage("OutOfRange");
+	TS_ASSERT_EQUALS(unitAI.GetCurrentState(), "INDIVIDUAL.COMBAT.CHASING");
+
+	// The chase cannot get there: the target has to be dropped.
+	unitAI.OnMotionUpdate({ "likelyFailure": true });
+
+	TS_ASSERT(!unitAI.order.data.targetArray.includes(chasedTarget));
+	TS_ASSERT_EQUALS(unitAI.order.data.targetArray.length, 2);
+	TS_ASSERT(unitAI.order.data.target != chasedTarget);
+}
+
+TestDropCurrentGroupTarget();
+TestGroupAttackUnreachableTargets();
+TestGroupAttackChaseDropsUnreachableTarget();

@@ -2336,29 +2336,14 @@ UnitAI.prototype.UnitFsmSpec = {
 						return;
 					}
 
-					// Handle group attack case
-					// Remove current unreachable target from array
-					const currentIndex = this.order.data.currentTargetIndex;
-					if (currentIndex < this.order.data.targetArray.length)
-						this.order.data.targetArray.splice(currentIndex, 1);
+					// Handle group attack case: drop the target we could not reach
+					// and keep dropping until we find one we can actually approach.
+					// Every iteration removes an entry, so this terminates.
+					while (this.DropCurrentGroupTarget(this.order.data))
+						if (this.MoveToTargetAttackRange(this.order.data.target, this.order.data.attackType))
+							return;
 
-					// Try to find next valid target
-					if (this.order.data.targetArray.length === 0 || !this.FindAndSetNextTarget(this.order.data))
-					{
-						this.FinishOrder();
-						return;
-					}
-
-					this.order.data.attackType = this.GetBestAttackAgainst(this.order.data.target, this.order.data.allowCapture);
-
-					// Try approaching the new target
-					if (this.MoveToTargetAttackRange(this.order.data.target, this.order.data.attackType))
-						return;
-
-					// If we can't approach the new target either, remove it and continue
-					this.order.data.targetArray.splice(this.order.data.currentTargetIndex, 1);
-					if (this.order.data.targetArray.length === 0)
-						this.FinishOrder();
+					this.FinishOrder();
 				}
 			},
 
@@ -2456,21 +2441,13 @@ UnitAI.prototype.UnitFsmSpec = {
 						return;
 					}
 
-					// For group attacks, try next target instead of finding new ones
-					if (this.order.data.targetArray && this.order.data.currentTargetIndex !== undefined)
+					// For group attacks, move on to the next target rather than
+					// looking for entirely new ones: this one is out of range
+					// and we are not allowed to chase it.
+					if (this.DropCurrentGroupTarget(this.order.data))
 					{
-						const currentIndex = this.order.data.currentTargetIndex;
-
-						// Remove current target since it's out of range and we can't chase
-						this.order.data.targetArray.splice(currentIndex, 1);
-
-						// Try to find next valid target in sequence
-						if (this.order.data.targetArray.length > 0 && this.FindAndSetNextTarget(this.order.data))
-						{
-							this.order.data.attackType = this.GetBestAttackAgainst(this.order.data.target, this.order.data.allowCapture);
-							this.SetNextState("INDIVIDUAL.COMBAT.ATTACKING");
-							return;
-						}
+						this.SetNextState("INDIVIDUAL.COMBAT.ATTACKING");
+						return;
 					}
 
 					this.SetNextState("FINDINGNEWTARGET");
@@ -2478,27 +2455,12 @@ UnitAI.prototype.UnitFsmSpec = {
 
 				"TargetInvalidated": function()
 				{
-					// For group attacks, remove current target and move to next in array
-					if (this.order.data.targetArray && this.order.data.currentTargetIndex !== undefined)
+					// For group attacks, remove the current target and move on to
+					// the next one in the array.
+					if (this.DropCurrentGroupTarget(this.order.data))
 					{
-						// Remove the current target from the array
-						const currentIndex = this.order.data.currentTargetIndex;
-						if (currentIndex < this.order.data.targetArray.length)
-						{
-							this.order.data.targetArray.splice(currentIndex, 1);
-
-							// If we have more targets, continue with the next one
-							if (this.order.data.targetArray.length > 0)
-							{
-								// Try to find next valid target in sequence
-								if (this.FindAndSetNextTarget(this.order.data))
-								{
-									this.order.data.attackType = this.GetBestAttackAgainst(this.order.data.target, this.order.data.allowCapture);
-									this.SetNextState("INDIVIDUAL.COMBAT.ATTACKING");
-									return;
-								}
-							}
-						}
+						this.SetNextState("INDIVIDUAL.COMBAT.ATTACKING");
+						return;
 					}
 
 					// No more targets or not a group attack - use original behavior
@@ -2652,10 +2614,15 @@ UnitAI.prototype.UnitFsmSpec = {
 				{
 					if (msg.likelyFailure)
 					{
-						// If this is a group attack with pending targets, try the next one
-						if (this.order.data.targetArray && this.order.data.targetArray.length > 0)
+						// If this is a group attack, give up on the target we
+						// failed to reach and go for the next one. Dropping it is
+						// what stops us from picking the same one straight back up.
+						if (this.order.data.targetArray)
 						{
-							this.SetNextState("COMBAT.FINDINGNEWTARGET");
+							if (this.DropCurrentGroupTarget(this.order.data))
+								this.SetNextState("COMBAT.ATTACKING");
+							else
+								this.FinishOrder();
 							return;
 						}
 						// This also handles hunting.
@@ -7054,6 +7021,34 @@ UnitAI.prototype.AttackEntitiesByPreference = function(ents)
 	return this.RespondToTargetedEntities(entsWithoutPref);
 };
 
+/**
+ * Give up on the current target of a group attack and move on to the next
+ * viable one. Use this rather than splicing by hand: an out-of-bounds index
+ * makes splice a silent no-op, which would leave the abandoned target in the
+ * array and can keep us picking it over and over.
+ *
+ * @param {Object} data - The order data, holding targetArray and currentTargetIndex.
+ * @return {boolean} - Whether a new target was found. data.target, data.attackType
+ *	and data.currentTargetIndex are updated when it was.
+ */
+UnitAI.prototype.DropCurrentGroupTarget = function(data)
+{
+	if (!data.targetArray || data.currentTargetIndex === undefined)
+		return false;
+
+	if (data.targetArray.length)
+		data.targetArray.splice(Math.clamp(data.currentTargetIndex, 0, data.targetArray.length - 1), 1);
+
+	return this.FindAndSetNextTarget(data);
+};
+
+/**
+ * Select the target of a group attack we should be engaging, starting from
+ * data.currentTargetIndex and scanning outwards.
+ *
+ * @param {Object} data - The order data, holding targetArray and currentTargetIndex.
+ * @return {boolean} - Whether a viable target was found.
+ */
 UnitAI.prototype.FindAndSetNextTarget = function(data)
 {
 	if (!this.EnsureValidTargetIndex(data))
