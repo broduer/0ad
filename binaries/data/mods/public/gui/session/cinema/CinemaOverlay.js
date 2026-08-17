@@ -17,10 +17,7 @@ class CinemaOverlay
 		this.hotkeys = Engine.GetGUIObjectByName("hotkeys");
 
 		registerSimulationUpdateHandler(this.onSimulationUpdate.bind(this));
-		this.overlay.onWindowResized = () =>
-		{
-			this.recalculateBarSizes();
-		};
+		this.overlay.onWindowResized = this.recalculateBarSizes.bind(this);
 		this.overlay.hidden = true;
 		this.isCutsceneModeEnabled = Engine.Renderer_GetCutsceneModeEnabled();
 
