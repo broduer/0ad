@@ -4440,8 +4440,6 @@ UnitAI.prototype.PushOrderAfterForced = function(type, data)
 		}
 		this.PushOrder(type, data);
 	}
-
-	Engine.PostMessage(this.entity, MT_UnitAIOrderDataChanged, { "to": this.GetOrderData() });
 };
 
 /**
