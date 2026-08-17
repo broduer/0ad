@@ -1640,23 +1640,20 @@ UnitAI.prototype.UnitFsmSpec = {
 	"INDIVIDUAL": {
 		"Attacked": function(msg)
 		{
-			// First, check if we have a group attack order and the attacker is in our target array
+			// If we hold a group attack order and one of its targets is the one
+			// hitting us, engage it directly. Only do so from a state we can
+			// leave for combat, and only mutate the order once we know we will:
+			// acting on the new target is the whole point of retargeting.
+			const currentState = this.GetCurrentState();
 			if (this.order?.type === "Attack" &&
-				this.order.data?.targetArray?.includes(msg.data.attacker))
+				this.order.data?.targetArray?.includes(msg.data.attacker) &&
+				(currentState === "INDIVIDUAL.IDLE" || currentState === "INDIVIDUAL.WALKING"))
 			{
-				// Switch to attack the entity that's attacking us
 				this.order.data.target = msg.data.attacker;
 				this.order.data.attackType = this.GetBestAttackAgainst(msg.data.attacker, this.order.data.allowCapture);
+				this.order.data.currentTargetIndex = this.order.data.targetArray.indexOf(msg.data.attacker);
 
-				// Update the current target index
-				const currentIndex = this.order.data.targetArray.indexOf(msg.data.attacker);
-				if (currentIndex !== -1)
-					this.order.data.currentTargetIndex = currentIndex;
-
-				// Make sure we're in the right state to handle this
-				const currentState = this.GetCurrentState();
-				if (currentState === "INDIVIDUAL.IDLE" || currentState === "INDIVIDUAL.WALKING")
-					this.SetNextState("INDIVIDUAL.COMBAT.APPROACHING");
+				this.SetNextState("INDIVIDUAL.COMBAT.APPROACHING");
 				return;
 			}
 
@@ -2208,34 +2205,34 @@ UnitAI.prototype.UnitFsmSpec = {
 
 			"Attacked": function(msg)
 			{
-				// Check if we're doing a group attack and the attacker is in our target array
-				if (!this.order.data.targetArray ||
-						!this.order.data.targetArray.includes(msg.data.attacker) ||
-						msg.data.attacker === this.order.data.target)
-					return;
-
-				// Switch to attack the entity that's attacking us
-				this.order.data.target = msg.data.attacker;
-				this.order.data.attackType = this.GetBestAttackAgainst(msg.data.attacker, this.order.data.allowCapture);
-
-				// Update the current target index
-				const currentIndex = this.order.data.targetArray.indexOf(msg.data.attacker);
-				if (currentIndex !== -1)
-					this.order.data.currentTargetIndex = currentIndex;
-
-				// Re-evaluate our approach to the new target
-				if (this.CheckTargetAttackRange(this.order.data.target, this.order.data.attackType))
+				// If we're doing a group attack and the attacker is one of our own
+				// targets, switch to it rather than treating it as an interruption.
+				if (this.order.data.targetArray &&
+						this.order.data.targetArray.includes(msg.data.attacker) &&
+						msg.data.attacker !== this.order.data.target)
 				{
-					if (this.CanUnpack())
+					this.order.data.target = msg.data.attacker;
+					this.order.data.attackType = this.GetBestAttackAgainst(msg.data.attacker, this.order.data.allowCapture);
+
+					// Update the current target index
+					this.order.data.currentTargetIndex = this.order.data.targetArray.indexOf(msg.data.attacker);
+
+					// Re-evaluate our approach to the new target
+					if (this.CheckTargetAttackRange(this.order.data.target, this.order.data.attackType))
 					{
-						this.PushOrderFront("Unpack", { "force": true });
-						return;
+						if (this.CanUnpack())
+						{
+							this.PushOrderFront("Unpack", { "force": true });
+							return;
+						}
+						this.SetNextState("ATTACKING");
 					}
-					this.SetNextState("ATTACKING");
+					// Continue approaching the new target
+					else if (!this.MoveToTargetAttackRange(this.order.data.target, this.order.data.attackType))
+						this.FinishOrder();
+
+					return;
 				}
-				// Continue approaching the new target
-				else if (!this.MoveToTargetAttackRange(this.order.data.target, this.order.data.attackType))
-					this.FinishOrder();
 
 				// If we're already in combat mode, ignore anyone else who's attacking us
 				// unless it's a melee attack since they may be blocking our way to the target
