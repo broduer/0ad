@@ -747,7 +747,8 @@ private:
 
 	bool ShouldAlternatePathfinder() const
 	{
-		return (m_FailedMovements == ALTERNATE_PATH_TYPE_DELAY) || ((MAX_FAILED_MOVEMENTS - ALTERNATE_PATH_TYPE_DELAY) % ALTERNATE_PATH_TYPE_EVERY == 0);
+		return m_FailedMovements >= ALTERNATE_PATH_TYPE_DELAY &&
+			(m_FailedMovements - ALTERNATE_PATH_TYPE_DELAY) % ALTERNATE_PATH_TYPE_EVERY == 0;
 	}
 
 	bool InShortPathRange(const PathGoal& goal, const CFixedVector2D& pos) const
@@ -1202,8 +1203,11 @@ bool CCmpUnitMotion::PossiblyAtDestination() const
 			return false;
 
 		CFixedVector2D targetPos;
-		ComputeTargetPosition(targetPos);
+		if (!ComputeTargetPosition(targetPos))
+			return false;
 		CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
+		if (!cmpPosition || !cmpPosition->IsInWorld())
+			return false;
 		return (targetPos - cmpPosition->GetPosition2D()).CompareLength(Pathfinding::NAVCELL_SIZE) <= 0;
 	}
 
