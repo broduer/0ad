@@ -5719,6 +5719,7 @@ UnitAI.prototype.GetTargetPositions = function()
 		case "WalkToPointRange":
 		case "MoveIntoFormation":
 		case "GatherNearPosition":
+		case "CollectTreasureNearPosition":
 		case "Patrol":
 			targetPositions.push(new Vector2D(order.data.x, order.data.z));
 			break; // and continue the loop
