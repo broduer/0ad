@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -62,6 +62,10 @@ size_t os_cpu_NumProcessors()
 			ENSURE(res != -1);
 			numProcessors = (size_t)res;
 		}
+
+		// Affinity masks are uintptr_t; clamp to what fits.
+		if (numProcessors > os_cpu_MaxProcessors)
+			numProcessors = os_cpu_MaxProcessors;
 	}
 
 	return numProcessors;
