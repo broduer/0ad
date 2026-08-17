@@ -428,35 +428,24 @@ UnitAI.prototype.UnitFsmSpec = {
 		const isGroupAttack = !!msg.data.targetArray;
 
 		// For group attacks with invalid initial target, find one from the array
-		if (isGroupAttack && (!msg.data.target || msg.data.target === INVALID_ENTITY))
-		{
-			if (!this.FindAndSetNextTarget(msg.data))
-			{
-				this.FinishOrder();
-				return ACCEPT_ORDER;
-			}
-		}
+		if (isGroupAttack && (!msg.data.target || msg.data.target === INVALID_ENTITY) &&
+			!this.FindAndSetNextTarget(msg.data))
+			return this.FinishOrder();
 
 		// Get the attack type for the current target
 		const type = this.GetBestAttackAgainst(msg.data.target, msg.data.allowCapture);
 
 		if (!type)
 		{
-			// Current target can't be attacked
-			if (isGroupAttack)
+			// The current target can't be attacked. For a group attack we still
+			// have the rest of the array to fall back on.
+			// FindAndSetNextTarget sets msg.data.attackType for us.
+			if (isGroupAttack && this.FindAndSetNextTarget(msg.data) && msg.data.attackType)
 			{
-				if (this.FindAndSetNextTarget(msg.data))
-				{
-					msg.data.attackType = this.GetBestAttackAgainst(msg.data.target, msg.data.allowCapture);
-					if (msg.data.attackType)
-					{
-						this.SetNextState("INDIVIDUAL.COMBAT.ATTACKING");
-						return ACCEPT_ORDER;
-					}
-				}
+				this.SetNextState("INDIVIDUAL.COMBAT.ATTACKING");
+				return ACCEPT_ORDER;
 			}
-			this.FinishOrder();
-			return ACCEPT_ORDER;
+			return this.FinishOrder();
 		}
 
 		// Set attackType before range check
