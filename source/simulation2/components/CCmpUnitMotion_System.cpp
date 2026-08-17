@@ -159,9 +159,7 @@ void CCmpUnitMotionManager::HandleMessage(const CMessage& msg, bool /*global*/)
 	{
 		case MT_TerrainChanged:
 		{
-			CmpPtr<ICmpTerrain> cmpTerrain(GetSystemEntity());
-			if (cmpTerrain->GetVerticesPerSide() != m_MovingUnits.width())
-				ResetSubdivisions();
+			ResetSubdivisionsIfNeeded();
 			break;
 		}
 		case MT_TurnStart:
@@ -347,7 +345,7 @@ void CCmpUnitMotionManager::Serialize(ISerializer& serialize)
 void CCmpUnitMotionManager::Deserialize(const CParamNode& paramNode, IDeserializer& deserialize)
 {
 	Init(paramNode);
-	ResetSubdivisions();
+	ResetSubdivisionsIfNeeded();
 	Serializer(deserialize, "m_Units", m_Units);
 	Serializer(deserialize, "m_FormationControllers", m_FormationControllers);
 }
@@ -377,7 +375,7 @@ void CCmpUnitMotionManager::OnDeserialized()
 	}
 }
 
-void CCmpUnitMotionManager::ResetSubdivisions()
+void CCmpUnitMotionManager::ResetSubdivisionsIfNeeded()
 {
 	CmpPtr<ICmpTerrain> cmpTerrain(GetSystemEntity());
 	if (!cmpTerrain)
@@ -385,6 +383,9 @@ void CCmpUnitMotionManager::ResetSubdivisions()
 
 	size_t size = cmpTerrain->GetMapSize();
 	u16 gridSquareSize = static_cast<u16>(size / PUSHING_GRID_SIZE + 1);
+	// Grid::resize() always reallocates, so skip it if the size is unchanged.
+	if (gridSquareSize == m_MovingUnits.width() && gridSquareSize == m_MovingUnits.height())
+		return;
 	m_MovingUnits.resize(gridSquareSize, gridSquareSize);
 }
 
@@ -457,11 +458,11 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 		it->second.pos = it->second.initialPos;
 		it->second.speed = it->second.cmpUnitMotion->GetCurrentSpeed();
 		it->second.angle = it->second.initialAngle;
-		ENSURE(it->second.pos.X.ToInt_RoundToZero() / PUSHING_GRID_SIZE < m_MovingUnits.width() &&
-			   it->second.pos.Y.ToInt_RoundToZero() / PUSHING_GRID_SIZE < m_MovingUnits.height());
+		ENSURE(it->second.initialPos.X.ToInt_RoundToZero() / PUSHING_GRID_SIZE < m_MovingUnits.width() &&
+			   it->second.initialPos.Y.ToInt_RoundToZero() / PUSHING_GRID_SIZE < m_MovingUnits.height());
 		std::vector<EntityMap<MotionState>::iterator>& subdiv = m_MovingUnits.get(
-			it->second.pos.X.ToInt_RoundToZero() / PUSHING_GRID_SIZE,
-			it->second.pos.Y.ToInt_RoundToZero() / PUSHING_GRID_SIZE
+			it->second.initialPos.X.ToInt_RoundToZero() / PUSHING_GRID_SIZE,
+			it->second.initialPos.Y.ToInt_RoundToZero() / PUSHING_GRID_SIZE
 		);
 		subdiv.emplace_back(it);
 		assigned.emplace(&subdiv);
@@ -510,8 +511,8 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			ENSURE(!vec->empty());
 			std::vector< std::vector<EntityMap<MotionState>::iterator>* > consider = { vec };
 
-			int x = (*vec)[0]->second.pos.X.ToInt_RoundToZero() / PUSHING_GRID_SIZE;
-			int z = (*vec)[0]->second.pos.Y.ToInt_RoundToZero() / PUSHING_GRID_SIZE;
+			int x = (*vec)[0]->second.initialPos.X.ToInt_RoundToZero() / PUSHING_GRID_SIZE;
+			int z = (*vec)[0]->second.initialPos.Y.ToInt_RoundToZero() / PUSHING_GRID_SIZE;
 			if (x + 1 < m_MovingUnits.width())
 				consider.push_back(&m_MovingUnits.get(x + 1, z));
 			if (x > 0)

@@ -124,7 +124,7 @@ public:
 	// Turn-local state below, not serialised.
 
 	Grid<std::vector<EntityMap<MotionState>::iterator>> m_MovingUnits;
-	bool m_ComputingMotion;
+	bool m_ComputingMotion = false;
 
 	static std::string GetSchema()
 	{
@@ -157,7 +157,7 @@ public:
 
 private:
 	void OnDeserialized();
-	void ResetSubdivisions();
+	void ResetSubdivisionsIfNeeded();
 	void OnTurnStart();
 
 	void MoveUnits(fixed dt);
