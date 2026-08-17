@@ -2180,7 +2180,12 @@ UnitAI.prototype.UnitFsmSpec = {
 					return;
 
 				const cmpObstructionManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_ObstructionManager);
-				if (cmpObstructionManager.DistanceToTarget(this.entity, msg.data.target) > cmpObstructionManager.DistanceToTarget(this.entity, this.order.data.target))
+				const attackerDistance = cmpObstructionManager.DistanceToTarget(this.entity, msg.data.attacker);
+				// Negative distance means out-of-world, ignore.
+				if (attackerDistance < 0)
+					return;
+				const fleeingFromDistance = cmpObstructionManager.DistanceToTarget(this.entity, this.order.data.target);
+				if (attackerDistance > fleeingFromDistance && fleeingFromDistance >= 0)
 					return;
 
 				if (this.GetStance().targetAttackersAlways || !this.order || !this.order.data || !this.order.data.force)
