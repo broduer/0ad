@@ -256,6 +256,20 @@ Attack.prototype.GetRestrictedClasses = function(type)
 	return [];
 };
 
+/**
+ * Whether the target is a legal target for (one of) our attack type(s).
+ *
+ * This only tells whether the target is something we are allowed to attack:
+ * ownership, diplomacy, restricted classes, and whether we could ever get
+ * close enough to hit it (see CanEverReachTarget).
+ * It deliberately does not tell whether we could attack it right now: being in
+ * range is IsTargetInRange, and seeing the target is the caller's business
+ * (UnitAI.CheckTargetVisible, BuildingAI.CheckTargetVisible).
+ *
+ * @param {number} target - The target entity ID.
+ * @param {string[]} [wantedTypes] - If given, only consider those attack types.
+ * @return {boolean} - Whether we can attack the target.
+ */
 Attack.prototype.CanAttack = function(target, wantedTypes)
 {
 	const cmpFormation = Engine.QueryInterface(target, IID_Formation);
@@ -286,15 +300,6 @@ Attack.prototype.CanAttack = function(target, wantedTypes)
 	if (!cmpTargetPlayer || !cmpEntityPlayer)
 		return false;
 
-	// Must be visible or miraged / with retainInFog flag, not completely hidden
-	const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
-	if (cmpRangeManager)
-	{
-		const visibility = cmpRangeManager.GetLosVisibility(target, cmpEntityPlayer.GetPlayerID());
-		if (visibility == "hidden")
-			return false;
-	}
-
 	const types = this.GetAttackTypes(wantedTypes);
 	const entityOwner = cmpEntityPlayer.GetPlayerID();
 	const targetOwner = cmpTargetPlayer.GetPlayerID();
@@ -309,8 +314,7 @@ Attack.prototype.CanAttack = function(target, wantedTypes)
 		if (type == "Capture" && (!cmpCapturable || !cmpCapturable.CanCapture(entityOwner)))
 			continue;
 
-		// Check if the target is currently in range, or could ever be reached
-		if (!this.IsTargetInRange(target, type) && !this.CanEverReachTarget(target, type))
+		if (!this.CanEverReachTarget(target, type))
 			continue;
 
 		const restrictedClasses = this.GetRestrictedClasses(type);
@@ -337,7 +341,8 @@ Attack.prototype.CanAttack = function(target, wantedTypes)
  *    provide enough elevation to hit a "too high" target, but we don't check for that).
  *
  * Currently these checks are mostly useful to determine if we can reach turreted units
- * (e.g. on a wall, outpost...).
+ * (e.g. on a wall, outpost...), as those are, along with flying units, the only ones
+ * with a height offset.
  *
  * @param {number} targetId - The target entity ID.
  * @param {string} type - The attack type.
@@ -348,12 +353,9 @@ Attack.prototype.CanEverReachTarget = function(targetId, type)
 	const cmpThisPosition = Engine.QueryInterface(this.entity, IID_Position);
 	const cmpTargetPosition = Engine.QueryInterface(targetId, IID_Position);
 
-	const thisHeightOffset = cmpThisPosition.GetHeightOffset();
-	const targetHeightOffset = cmpTargetPosition.GetHeightOffset();
-
+	const heightDiff = cmpTargetPosition.GetHeightOffset() - cmpThisPosition.GetHeightOffset();
 	const range = this.GetRange(type);
 
-	// Find the closest horizontal distance we could ever get to the target.
 	// We first determine the closest horizontal distance we could ever get to the target,
 	// accounting for turreted units inside buildings:
 	//  - If the building blocks movement, we can only reach its exterior edge.
@@ -371,13 +373,15 @@ Attack.prototype.CanEverReachTarget = function(targetId, type)
 		}
 	}
 
+	// For non-parabolic attacks (e.g., "Melee" attack type), we check if the height offset
+	// is within max range at the closest possible horizontal distance (simple 3D distance check).
 	if (!range.parabolic)
-	{
-		// For non-parabolic attacks (e.g., "Melee" attack type), we check if the height offset
-		// is within max range at the closest possible horizontal distance (simple 3D distance check).
-		const heightDiff = Math.abs(targetHeightOffset - thisHeightOffset);
 		return Math.sqrt(closestDistance * closestDistance + heightDiff * heightDiff) <= range.max;
-	}
+
+	// Assume we'll be able to get in range of any entity at or below us if we're ranged,
+	// provided we can walk right up to it.
+	if (!closestDistance && heightDiff <= 0)
+		return true;
 
 	// For parabolic attacks (generally "Ranged" attack type), we use the parabolic formula
 	// to determine if the height offset is surmountable at the closest possible distance.
@@ -387,12 +391,8 @@ Attack.prototype.CanEverReachTarget = function(targetId, type)
 	if (!cmpRangeManager)
 		return true;
 
-	const yOrigin = this.GetAttackYOrigin(type);
-
-	const maxReachableHeightDiff = cmpRangeManager.GetMaxReachableParabolicHeight(
-		range.max, yOrigin, closestDistance);
-
-	return targetHeightOffset - thisHeightOffset <= maxReachableHeightDiff;
+	return heightDiff <= cmpRangeManager.GetMaxReachableParabolicHeight(
+		range.max, this.GetAttackYOrigin(type), closestDistance);
 };
 
 /**

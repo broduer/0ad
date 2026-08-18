@@ -2382,6 +2382,12 @@ UnitAI.prototype.UnitFsmSpec = {
 						return true;
 					}
 
+					if (!this.CheckTargetVisible(this.order.data.target))
+					{
+						this.ProcessMessage("TargetInvalidated");
+						return true;
+					}
+
 					if (!this.CheckTargetAttackRange(this.order.data.target, this.order.data.attackType))
 					{
 						if (this.CanPack())
@@ -5473,7 +5479,7 @@ UnitAI.prototype.GetBestAttackAgainst = function(target, allowCapture = this.DEF
  */
 UnitAI.prototype.AttackVisibleEntity = function(ents)
 {
-	var target = ents.find(entity => this.CanAttack(entity));
+	var target = ents.find(entity => this.CanAttack(entity) && this.CheckTargetVisible(entity));
 	if (!target)
 		return false;
 
@@ -5489,7 +5495,7 @@ UnitAI.prototype.AttackVisibleEntity = function(ents)
 UnitAI.prototype.AttackEntityInZone = function(ents)
 {
 	var target = ents.find(entity =>
-		this.CanAttack(entity) &&
+		this.CanAttack(entity) && this.CheckTargetVisible(entity) &&
 		this.CheckTargetDistanceFromHeldPosition(entity, IID_Attack, this.GetBestAttackAgainst(entity, true)) &&
 		(this.GetStance().respondChaseBeyondVision || this.CheckTargetIsInVisionRange(entity))
 	);

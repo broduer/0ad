@@ -378,20 +378,16 @@ BuildingAI.prototype.FireArrows = function()
 	else
 		targets = this.focusTargets;
 
-	// The obstruction manager performs approximate range checks.
-	// so we need to verify them here.
-	// TODO: perhaps an optional 'precise' mode to range queries would be more performant.
-	const cmpObstructionManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_ObstructionManager);
-	const range = cmpAttack.GetRange(attackType);
-	const yOrigin = cmpAttack.GetAttackYOrigin(attackType);
-
 	let firedArrows = 0;
 	let targetIndex = 0;
 	while (firedArrows < arrowsToFire && targetIndex < targets.length)
 	{
-
 		const selectedTarget = targets[targetIndex].entityId;
-		if (cmpAttack.CanAttack(selectedTarget, [attackType]))
+		// CanAttack only tells whether we could ever hit that target, and the
+		// range query is approximate, so check visibility and range here.
+		if (this.CheckTargetVisible(selectedTarget) &&
+			cmpAttack.CanAttack(selectedTarget, [attackType]) &&
+			cmpAttack.IsTargetInRange(selectedTarget, attackType))
 		{
 			cmpAttack.PerformAttack(attackType, selectedTarget);
 			PlaySound("attack_" + attackType.toLowerCase(), this.entity);

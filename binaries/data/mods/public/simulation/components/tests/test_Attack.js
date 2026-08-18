@@ -490,14 +490,6 @@ function testCanEverReachTarget()
 			"GetHeightOffset": () => 0,
 			"GetPosition": () => new Vector3D(1, 0, 2)
 		});
-		// Need RangeManager mock for IsTargetInRange (check 1) to work
-		AddMock(SYSTEM_ENTITY, IID_RangeManager, {
-			"GetEffectiveParabolicRange": () => 25,
-			"GetMaxReachableParabolicHeight": () => 15
-		});
-		AddMock(SYSTEM_ENTITY, IID_ObstructionManager, {
-			"IsInTargetRange": () => true
-		});
 		TS_ASSERT_EQUALS(cmpAttack.CanEverReachTarget(defender, "Ranged"), true);
 	}
 
@@ -513,10 +505,6 @@ function testCanEverReachTarget()
 		AddMock(SYSTEM_ENTITY, IID_RangeManager, {
 			"GetEffectiveParabolicRange": () => -1, // out of range
 			"GetMaxReachableParabolicHeight": () => 10
-		});
-
-		AddMock(SYSTEM_ENTITY, IID_ObstructionManager, {
-			"IsInTargetRange": () => false
 		});
 
 		// heightDiff = 20 - 0 = 20, maxReachableHeightDiff = 10 → unreachable
