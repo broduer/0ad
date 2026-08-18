@@ -91,7 +91,7 @@ Heal.prototype.GetHealableClasses = function()
  * @param {number} target - The target's entity ID.
  * @return {boolean} - Whether the target can be healed.
  */
-Heal.prototype.CanHeal = function(target)
+Heal.prototype.CouldHeal = function(target)
 {
 	const cmpHealth = Engine.QueryInterface(target, IID_Health);
 	if (!cmpHealth || cmpHealth.IsUnhealable() || !cmpHealth.IsInjured())
@@ -133,7 +133,7 @@ Heal.prototype.StartHealing = function(target, callerIID)
 	if (this.target)
 		this.StopHealing();
 
-	if (!this.CanHeal(target))
+	if (!this.CouldHeal(target))
 		return false;
 
 	const timings = this.GetTimers();
@@ -203,7 +203,7 @@ Heal.prototype.StopHealing = function(reason)
  */
 Heal.prototype.PerformHeal = function(data, lateness)
 {
-	if (!this.CanHeal(this.target))
+	if (!this.CouldHeal(this.target))
 	{
 		this.StopHealing("TargetInvalidated");
 		return;

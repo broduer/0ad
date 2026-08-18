@@ -56,7 +56,7 @@ AddMock(ent, IID_Turretable, {
 AddMock(newEnt, IID_Turretable, {
 	"IsTurreted": () => false,
 	"HolderID": () => 0,
-	"CanOccupy": (target) => true,
+	"CouldOccupy": (target) => true,
 	"LeaveTurret": () => true
 });
 

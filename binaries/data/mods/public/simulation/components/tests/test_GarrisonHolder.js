@@ -114,7 +114,7 @@ const testGarrisonAllowed = function()
 		TS_ASSERT_EQUALS(cmpGarrisonHolder.Garrison(entity), true);
 	TS_ASSERT_EQUALS(cmpGarrisonHolder.Garrison(largeUnitId), false);
 	TS_ASSERT_EQUALS(cmpGarrisonHolder.IsFull(), true);
-	TS_ASSERT_EQUALS(cmpGarrisonHolder.CanPickup(unitToGarrisonId), false);
+	TS_ASSERT_EQUALS(cmpGarrisonHolder.CouldPickup(unitToGarrisonId), false);
 
 	TS_ASSERT_EQUALS(cmpGarrisonHolder.UnloadTemplate("spart_infantry_archer_a", 2, false), true);
 	TS_ASSERT_UNEVAL_EQUALS(cmpGarrisonHolder.GetEntities(), [24, 25, 26, 27, 28, 29, 30, 31, 32]);
@@ -157,9 +157,9 @@ TS_ASSERT_UNEVAL_EQUALS(cmpGarrisonHolder.GetHealRate(), 1);
 TS_ASSERT_UNEVAL_EQUALS(cmpGarrisonHolder.GetAllowedClasses(), "Infantry+Cavalry");
 TS_ASSERT_EQUALS(cmpGarrisonHolder.GetCapacity(), 10);
 TS_ASSERT_EQUALS(cmpGarrisonHolder.GetGarrisonedEntitiesCount(), 0);
-TS_ASSERT_EQUALS(cmpGarrisonHolder.CanPickup(unitToGarrisonId), false);
+TS_ASSERT_EQUALS(cmpGarrisonHolder.CouldPickup(unitToGarrisonId), false);
 
-TS_ASSERT_EQUALS(cmpGarrisonHolder.CanPickup(enemyUnitId), false);
+TS_ASSERT_EQUALS(cmpGarrisonHolder.CouldPickup(enemyUnitId), false);
 TS_ASSERT_EQUALS(cmpGarrisonHolder.IsFull(), false);
 TS_ASSERT_EQUALS(cmpGarrisonHolder.IsAllowedToGarrison(enemyUnitId), false);
 TS_ASSERT_EQUALS(cmpGarrisonHolder.IsAllowedToGarrison(largeUnitId), true);

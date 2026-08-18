@@ -66,7 +66,7 @@ GarrisonHolder.prototype.LoadingRange = function()
 	return { "max": +this.template.LoadingRange, "min": 0 };
 };
 
-GarrisonHolder.prototype.CanPickup = function(ent)
+GarrisonHolder.prototype.CouldPickup = function(ent)
 {
 	if (!this.template.Pickup || this.IsFull())
 		return false;

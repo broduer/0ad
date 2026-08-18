@@ -45,7 +45,7 @@ AddMock(player, IID_Diplomacy, {
 	"IsEnemy": (id) => id === enemy,
 });
 
-TS_ASSERT(cmpTrader.CanTrade(ownMarket));
+TS_ASSERT(cmpTrader.CouldTrade(ownMarket));
 
 // We can't trade with our enemy.
 AddMock(enemy, IID_Player, {
@@ -60,7 +60,7 @@ AddMock(otherMarket, IID_Market, {
 	"HasType": (t) => t === "land"
 });
 
-TS_ASSERT(!cmpTrader.CanTrade(otherMarket));
+TS_ASSERT(!cmpTrader.CouldTrade(otherMarket));
 
 // But can with our ally.
 AddMock(ally, IID_Player, {
@@ -71,7 +71,7 @@ AddMock(otherMarket, IID_Ownership, {
 	"GetOwner": () => ally
 });
 
-TS_ASSERT(cmpTrader.CanTrade(otherMarket));
+TS_ASSERT(cmpTrader.CouldTrade(otherMarket));
 
 // Land traders shouldn't try to trade with naval-only markets.
 AddMock(trader, IID_Identity, {
@@ -82,7 +82,7 @@ AddMock(ownMarket, IID_Market, {
 	"HasType": (t) => t === "naval"
 });
 
-TS_ASSERT(!cmpTrader.CanTrade(ownMarket));
+TS_ASSERT(!cmpTrader.CouldTrade(ownMarket));
 
 // And Ships shouldn't try to trade with land markets.
 AddMock(trader, IID_Identity, {
@@ -93,4 +93,4 @@ AddMock(ownMarket, IID_Market, {
 	"HasType": (t) => t === "land"
 });
 
-TS_ASSERT(!cmpTrader.CanTrade(ownMarket));
+TS_ASSERT(!cmpTrader.CouldTrade(ownMarket));

@@ -321,7 +321,7 @@ ResourceGatherer.prototype.GetTargetGatherRate = function(target)
  * @param {number} target - The entity ID of the target to check.
  * @return {boolean} - Whether we can gather from the target.
  */
-ResourceGatherer.prototype.CanGather = function(target)
+ResourceGatherer.prototype.CouldGather = function(target)
 {
 	return this.GetTargetGatherRate(target) > 0;
 };
@@ -363,7 +363,7 @@ ResourceGatherer.prototype.IsCarryingAnythingExcept = function(exceptedType)
  * @param {boolean} checkCarriedResource - Whether we need to check the resource we are carrying.
  * @return {boolean} - Whether we can return carried resources.
  */
-ResourceGatherer.prototype.CanReturnResource = function(target, checkCarriedResource)
+ResourceGatherer.prototype.CouldReturnResource = function(target, checkCarriedResource)
 {
 	const cmpResourceDropsite = Engine.QueryInterface(target, IID_ResourceDropsite);
 	if (!cmpResourceDropsite)

@@ -270,7 +270,7 @@ Attack.prototype.GetRestrictedClasses = function(type)
  * @param {string[]} [wantedTypes] - If given, only consider those attack types.
  * @return {boolean} - Whether we can attack the target.
  */
-Attack.prototype.CanAttack = function(target, wantedTypes)
+Attack.prototype.CouldAttack = function(target, wantedTypes)
 {
 	const cmpFormation = Engine.QueryInterface(target, IID_Formation);
 	if (cmpFormation)
@@ -483,7 +483,7 @@ Attack.prototype.GetBestAttackAgainst = function(target, allowCapture)
 		return pref;
 	};
 
-	return types.filter(type => this.CanAttack(target, [type])).sort((a, b) =>
+	return types.filter(type => this.CouldAttack(target, [type])).sort((a, b) =>
 	{
 		const prefA = getPreferrence(a);
 		const prefB = getPreferrence(b);
@@ -613,7 +613,7 @@ Attack.prototype.StartAttacking = function(target, type, callerIID, force)
 	if (this.target)
 		this.StopAttacking();
 
-	if (!this.CanAttack(target, [type]))
+	if (!this.CouldAttack(target, [type]))
 		return false;
 
 	const cmpResistance = QueryMiragedInterface(target, IID_Resistance);
@@ -708,7 +708,7 @@ Attack.prototype.StopAttacking = function(reason)
  */
 Attack.prototype.Attack = function(type, lateness)
 {
-	if (!this.CanAttack(this.target, [type]))
+	if (!this.CouldAttack(this.target, [type]))
 	{
 		this.StopAttacking("TargetInvalidated");
 		return;

@@ -25,7 +25,7 @@ TreasureCollector.prototype.GetRange = function()
  * @param {number} target - Entity ID of the target.
  * @return {boolean} - Whether we can collect from the target.
  */
-TreasureCollector.prototype.CanCollect = function(target)
+TreasureCollector.prototype.CouldCollect = function(target)
 {
 	const cmpTreasure = Engine.QueryInterface(target, IID_Treasure);
 	return cmpTreasure && cmpTreasure.IsAvailable();

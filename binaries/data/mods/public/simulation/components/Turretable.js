@@ -54,13 +54,13 @@ Turretable.prototype.IsEjectable = function()
  * @param {number} target - The entity ID to check.
  * @return {boolean} - Whether we can occupy the turret.
  */
-Turretable.prototype.CanOccupy = function(target)
+Turretable.prototype.CouldOccupy = function(target)
 {
 	if (this.holder)
 		return false;
 
 	const cmpTurretHolder = Engine.QueryInterface(target, IID_TurretHolder);
-	return cmpTurretHolder && cmpTurretHolder.CanOccupy(this.entity);
+	return cmpTurretHolder && cmpTurretHolder.CouldOccupy(this.entity);
 };
 
 /**
@@ -72,7 +72,7 @@ Turretable.prototype.CanOccupy = function(target)
  */
 Turretable.prototype.OccupyTurret = function(target, turretPointName = "", ejectable = true)
 {
-	if (!this.CanOccupy(target))
+	if (!this.CouldOccupy(target))
 		return false;
 
 	const cmpTurretHolder = Engine.QueryInterface(target, IID_TurretHolder);

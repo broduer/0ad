@@ -71,7 +71,7 @@ Builder.prototype.GetRate = function()
  * @param {number} target - The target to check.
  * @return {boolean} - Whether we can build/repair the given target.
  */
-Builder.prototype.CanRepair = function(target)
+Builder.prototype.CouldRepair = function(target)
 {
 	const cmpFoundation = QueryMiragedInterface(target, IID_Foundation);
 	const cmpRepairable = QueryMiragedInterface(target, IID_Repairable);
@@ -92,7 +92,7 @@ Builder.prototype.StartRepairing = function(target, callerIID)
 	if (this.target)
 		this.StopRepairing();
 
-	if (!this.CanRepair(target))
+	if (!this.CouldRepair(target))
 		return false;
 
 	const cmpBuilderList = QueryBuilderListInterface(target);
@@ -153,7 +153,7 @@ Builder.prototype.StopRepairing = function(reason)
  */
 Builder.prototype.PerformBuilding = function(data, lateness)
 {
-	if (!this.CanRepair(this.target))
+	if (!this.CouldRepair(this.target))
 	{
 		this.StopRepairing("TargetInvalidated");
 		return;

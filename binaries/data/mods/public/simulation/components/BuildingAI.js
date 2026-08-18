@@ -383,10 +383,10 @@ BuildingAI.prototype.FireArrows = function()
 	while (firedArrows < arrowsToFire && targetIndex < targets.length)
 	{
 		const selectedTarget = targets[targetIndex].entityId;
-		// CanAttack only tells whether we could ever hit that target, and the
+		// CouldAttack only tells whether we could ever hit that target, and the
 		// range query is approximate, so check visibility and range here.
 		if (this.CheckTargetVisible(selectedTarget) &&
-			cmpAttack.CanAttack(selectedTarget, [attackType]) &&
+			cmpAttack.CouldAttack(selectedTarget, [attackType]) &&
 			cmpAttack.IsTargetInRange(selectedTarget, attackType))
 		{
 			cmpAttack.PerformAttack(attackType, selectedTarget);

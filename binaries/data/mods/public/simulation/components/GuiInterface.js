@@ -1958,7 +1958,7 @@ GuiInterface.prototype.GetTradingRouteGain = function(player, data)
 GuiInterface.prototype.GetTradingDetails = function(player, data)
 {
 	const cmpEntityTrader = Engine.QueryInterface(data.trader, IID_Trader);
-	if (!cmpEntityTrader || !cmpEntityTrader.CanTrade(data.target))
+	if (!cmpEntityTrader || !cmpEntityTrader.CouldTrade(data.target))
 		return null;
 
 	const firstMarket = cmpEntityTrader.GetFirstMarket();
@@ -1991,7 +1991,7 @@ GuiInterface.prototype.GetTradingDetails = function(player, data)
 GuiInterface.prototype.CanAttack = function(player, data)
 {
 	const cmpAttack = Engine.QueryInterface(data.entity, IID_Attack);
-	return cmpAttack && cmpAttack.CanAttack(data.target, data.types || undefined);
+	return cmpAttack && cmpAttack.CouldAttack(data.target, data.types || undefined);
 };
 
 /*

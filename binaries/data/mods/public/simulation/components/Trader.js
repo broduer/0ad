@@ -165,7 +165,7 @@ Trader.prototype.HasBothMarkets = function()
 	return this.markets.length >= 2;
 };
 
-Trader.prototype.CanTrade = function(target)
+Trader.prototype.CouldTrade = function(target)
 {
 	const cmpTargetMarket = QueryMiragedInterface(target, IID_Market);
 	if (!cmpTargetMarket)

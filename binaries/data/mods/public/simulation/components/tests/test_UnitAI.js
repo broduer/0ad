@@ -61,7 +61,7 @@ TestTargetEntityRenaming(
 	"INDIVIDUAL.GARRISON.APPROACHING", "INDIVIDUAL.IDLE",
 	(unitAI, player_ent, target_ent) =>
 	{
-		unitAI.CanGarrison = (target) => target == target_ent;
+		unitAI.CouldGarrison = (target) => target == target_ent;
 		unitAI.MoveToTargetRange = (target) => target == target_ent;
 		unitAI.AbleToMove = () => true;
 
@@ -81,7 +81,7 @@ TestTargetEntityRenaming(
 
 		QueryBuilderListInterface = () => {};
 		unitAI.CheckTargetRange = () => true;
-		unitAI.CanRepair = (target) => target == target_ent;
+		unitAI.CouldRepair = (target) => target == target_ent;
 
 		unitAI.Repair(target_ent, false, false);
 	}
@@ -198,7 +198,7 @@ function TestFormationExiting(mode)
 		"GetBestAttackAgainst": function(t) { return "melee"; },
 		"GetPreference": function(t) { return 0; },
 		"GetTimers": function() { return { "prepare": 500, "repeat": 1000 }; },
-		"CanAttack": function(v) { return true; },
+		"CouldAttack": function(v) { return true; },
 		"CompareEntitiesByPreference": function(a, b) { return 0; },
 		"IsTargetInRange": () => true,
 		"StartAttacking": () => true
@@ -391,7 +391,7 @@ function TestMoveIntoFormationWhileAttacking()
 			"GetFullAttackRange": function() { return { "max": 40, "min": 0 }; },
 			"GetBestAttackAgainst": function(t) { return "melee"; },
 			"GetTimers": function() { return { "prepare": 500, "repeat": 1000 }; },
-			"CanAttack": function(v) { return true; },
+			"CouldAttack": function(v) { return true; },
 			"CompareEntitiesByPreference": function(a, b) { return 0; },
 			"IsTargetInRange": () => true,
 			"StartAttacking": () => true,
@@ -522,7 +522,7 @@ function TestWalkAndFightTargets()
 	AddMock(ent+6, IID_Ownership, { "GetOwner": () => 2 });
 	AddMock(ent+7, IID_Ownership, { "GetOwner": () => 2 });
 
-	unitAI.CanAttack = function(target)
+	unitAI.CouldAttack = function(target)
 	{
 		return target !== ent+2 && target !== ent+7;
 	};
@@ -940,7 +940,7 @@ function TestFindAndSetNextTargetBehavior()
 	unitAI.OnCreate();
 
 	// Mock the visibility and attackability checks
-	unitAI.CanAttack = (target) =>
+	unitAI.CouldAttack = (target) =>
 	{
 		// Target 21 is always unattackable (e.g., garrisoned, dead, etc.)
 		return target !== 21;
@@ -1048,7 +1048,7 @@ function TestFindAndSetNextTargetBehavior()
 	{
 		const searchOrder = [];
 
-		unitAI.CanAttack = (target) =>
+		unitAI.CouldAttack = (target) =>
 		{
 			searchOrder.push(target);
 			return target == 20;

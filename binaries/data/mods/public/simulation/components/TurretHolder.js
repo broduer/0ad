@@ -98,7 +98,7 @@ class TurretHolder
 	 * @param {number} entity - The entity to check for.
 	 * @return {boolean} - Whether the entity is allowed to occupy any turret point.
 	 */
-	CanOccupy(entity)
+	CouldOccupy(entity)
 	{
 		return !!this.turretPoints.find(turretPoint => this.AllowedToOccupyTurretPoint(entity, turretPoint));
 	}
@@ -305,7 +305,7 @@ class TurretHolder
 	 * @param {number} ent - The entity ID of the turret to be potentially picked up.
 	 * @return {boolean} - Whether this entity can pick the specified entity up.
 	 */
-	CanPickup(ent)
+	CouldPickup(ent)
 	{
 		if (!this.template.Pickup || this.IsFull())
 			return false;

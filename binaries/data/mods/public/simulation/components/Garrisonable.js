@@ -67,7 +67,7 @@ Garrisonable.prototype.IsGarrisoned = function()
  * @param {number} target - The entity ID to check.
  * @return {boolean} - Whether we can garrison.
  */
-Garrisonable.prototype.CanGarrison = function(target)
+Garrisonable.prototype.CouldGarrison = function(target)
 {
 	if (this.holder)
 		return false;
@@ -82,7 +82,7 @@ Garrisonable.prototype.CanGarrison = function(target)
  */
 Garrisonable.prototype.Garrison = function(target)
 {
-	if (!this.CanGarrison(target))
+	if (!this.CouldGarrison(target))
 		return false;
 
 	const cmpGarrisonHolder = Engine.QueryInterface(target, IID_GarrisonHolder);

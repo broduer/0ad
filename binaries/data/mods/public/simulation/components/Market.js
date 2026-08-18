@@ -66,7 +66,7 @@ Market.prototype.UpdateTraders = function(onDestruction)
 			this.RemoveTrader(trader);
 			continue;
 		}
-		if (!cmpTrader.HasMarket(this.entity) || !onDestruction && cmpTrader.CanTrade(this.entity))
+		if (!cmpTrader.HasMarket(this.entity) || !onDestruction && cmpTrader.CouldTrade(this.entity))
 			continue;
 		// this trader can no more trade
 		this.RemoveTrader(trader);

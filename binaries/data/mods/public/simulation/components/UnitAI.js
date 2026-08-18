@@ -550,7 +550,7 @@ UnitAI.prototype.UnitFsmSpec = {
 		if (taskedResourceType && msg.data.type.generic != taskedResourceType)
 			this.UnitFsm.SwitchToNextState(this, "INDIVIDUAL.GATHER");
 
-		if (!this.CanGather(msg.data.target))
+		if (!this.CouldGather(msg.data.target))
 		{
 			this.SetNextState("INDIVIDUAL.GATHER.FINDINGNEWTARGET");
 			return ACCEPT_ORDER;
@@ -919,7 +919,7 @@ UnitAI.prototype.UnitFsmSpec = {
 			// TODO: on what should we base this range?
 			if (!this.CheckTargetRangeExplicit(msg.data.target, 0, 10))
 			{
-				if (!this.CanGather(msg.data.target) || !this.CheckTargetVisible(msg.data.target))
+				if (!this.CouldGather(msg.data.target) || !this.CheckTargetVisible(msg.data.target))
 					return this.FinishOrder();
 				// TODO: Should we issue a gather-near-position order
 				// if the target isn't gatherable/doesn't exist anymore?
@@ -1296,7 +1296,7 @@ UnitAI.prototype.UnitFsmSpec = {
 
 					// If the holder should pickup, warn it so it can take needed action.
 					const cmpHolder = Engine.QueryInterface(this.order.data.target, this.order.data.garrison ? IID_GarrisonHolder : IID_TurretHolder);
-					if (cmpHolder && cmpHolder.CanPickup(this.entity))
+					if (cmpHolder && cmpHolder.CouldPickup(this.entity))
 					{
 						this.pickup = this.order.data.target;       // temporary, deleted in "leave"
 						Engine.PostMessage(this.pickup, MT_PickupRequested, { "entity": this.entity, "iid": this.order.data.garrison ? IID_GarrisonHolder : IID_TurretHolder });
@@ -1407,7 +1407,7 @@ UnitAI.prototype.UnitFsmSpec = {
 					const target = this.order.data.target;
 					if (!this.CheckFormationTargetAttackRange(target))
 					{
-						if (this.CanAttack(target) && this.CheckTargetVisible(target))
+						if (this.CouldAttack(target) && this.CheckTargetVisible(target))
 						{
 							this.SetNextState("COMBAT.APPROACHING");
 							return true;
@@ -1425,7 +1425,7 @@ UnitAI.prototype.UnitFsmSpec = {
 					const target = this.order.data.target;
 					if (!this.CheckFormationTargetAttackRange(target))
 					{
-						if (this.CanAttack(target) && this.CheckTargetVisible(target))
+						if (this.CouldAttack(target) && this.CheckTargetVisible(target))
 						{
 							this.SetNextState("COMBAT.APPROACHING");
 							return;
@@ -1676,7 +1676,7 @@ UnitAI.prototype.UnitFsmSpec = {
 			}
 			// if we already are targeting another unit still alive, finish with it first
 			if (this.order && (this.order.type == "WalkAndFight" || this.order.type == "Attack"))
-				if (this.order.data.target != msg.data.attacker && this.CanAttack(msg.data.attacker))
+				if (this.order.data.target != msg.data.attacker && this.CouldAttack(msg.data.attacker))
 					return;
 
 			var cmpIdentity = Engine.QueryInterface(this.entity, IID_Identity);
@@ -1684,15 +1684,15 @@ UnitAI.prototype.UnitFsmSpec = {
 			if (cmpIdentity && cmpIdentity.HasClass("Support") &&
 			    cmpHealth && cmpHealth.IsInjured())
 			{
-				if (this.CanHeal(this.isGuardOf))
+				if (this.CouldHeal(this.isGuardOf))
 					this.PushOrderFront("Heal", { "target": this.isGuardOf, "force": false });
-				else if (this.CanRepair(this.isGuardOf))
+				else if (this.CouldRepair(this.isGuardOf))
 					this.PushOrderFront("Repair", { "target": this.isGuardOf, "autocontinue": false, "force": false });
 				return;
 			}
 
 			var cmpBuildingAI = Engine.QueryInterface(msg.data.attacker, IID_BuildingAI);
-			if (cmpBuildingAI && this.CanRepair(this.isGuardOf))
+			if (cmpBuildingAI && this.CouldRepair(this.isGuardOf))
 			{
 				this.PushOrderFront("Repair", { "target": this.isGuardOf, "autocontinue": false, "force": false });
 				return;
@@ -2129,9 +2129,9 @@ UnitAI.prototype.UnitFsmSpec = {
 						var cmpHealth = Engine.QueryInterface(this.isGuardOf, IID_Health);
 						if (cmpHealth && cmpHealth.IsInjured())
 						{
-							if (this.CanHeal(this.isGuardOf))
+							if (this.CouldHeal(this.isGuardOf))
 								this.PushOrderFront("Heal", { "target": this.isGuardOf, "force": false });
-							else if (this.CanRepair(this.isGuardOf))
+							else if (this.CouldRepair(this.isGuardOf))
 								this.PushOrderFront("Repair", { "target": this.isGuardOf, "autocontinue": false, "force": false });
 						}
 					}
@@ -2563,7 +2563,7 @@ UnitAI.prototype.UnitFsmSpec = {
 					// If the target is a formation, pick closest member.
 					if (cmpFormation)
 					{
-						const filter = (t) => this.CanAttack(t);
+						const filter = (t) => this.CouldAttack(t);
 						// As we're also setting this.order.data.target, if GetClosestMemberToEntity returns INVALID_ENTITY, this should prevent us from reentering
 						// here again right away, as cmpFormation would be null.
 						// Now we cannot have an infinite loop if ATTACKING send us to FINDINGNEWTARGET again.
@@ -3032,7 +3032,7 @@ UnitAI.prototype.UnitFsmSpec = {
 					"enter": function()
 					{
 						const cmpResourceGatherer = Engine.QueryInterface(this.entity, IID_ResourceGatherer);
-						if (this.CanReturnResource(this.order.data.target, true, cmpResourceGatherer) &&
+						if (this.CouldReturnResource(this.order.data.target, true, cmpResourceGatherer) &&
 							cmpResourceGatherer.IsTargetInRange(this.order.data.target))
 						{
 							cmpResourceGatherer.CommitResources(this.order.data.target);
@@ -3201,7 +3201,7 @@ UnitAI.prototype.UnitFsmSpec = {
 				"enter": function()
 				{
 					const cmpResourceGatherer = Engine.QueryInterface(this.entity, IID_ResourceGatherer);
-					if (this.CanReturnResource(this.order.data.target, true, cmpResourceGatherer) &&
+					if (this.CouldReturnResource(this.order.data.target, true, cmpResourceGatherer) &&
 						cmpResourceGatherer.IsTargetInRange(this.order.data.target))
 					{
 						cmpResourceGatherer.CommitResources(this.order.data.target);
@@ -3381,7 +3381,7 @@ UnitAI.prototype.UnitFsmSpec = {
 			"TRADING": {
 				"enter": function()
 				{
-					if (!this.CanTrade(this.order.data.target))
+					if (!this.CouldTrade(this.order.data.target))
 					{
 						this.FinishOrder();
 						return true;
@@ -3530,7 +3530,7 @@ UnitAI.prototype.UnitFsmSpec = {
 				const oldState = this.GetCurrentState();
 
 				const cmpResourceGatherer = Engine.QueryInterface(this.entity, IID_ResourceGatherer);
-				const canReturnResources = this.CanReturnResource(msg.data.newentity, true, cmpResourceGatherer);
+				const canReturnResources = this.CouldReturnResource(msg.data.newentity, true, cmpResourceGatherer);
 				if (this.CheckTargetRange(msg.data.newentity, IID_Builder) && canReturnResources)
 				{
 					cmpResourceGatherer.CommitResources(msg.data.newentity);
@@ -3565,7 +3565,7 @@ UnitAI.prototype.UnitFsmSpec = {
 
 				// If this building was e.g. a farm of ours, the entities that received
 				// the build command should start gathering from it
-				if ((oldData.force || oldData.autoharvest) && this.CanGather(msg.data.newentity))
+				if ((oldData.force || oldData.autoharvest) && this.CouldGather(msg.data.newentity))
 				{
 					this.PerformGather(msg.data.newentity, true, false);
 					return;
@@ -3574,7 +3574,7 @@ UnitAI.prototype.UnitFsmSpec = {
 				// If this building was e.g. a farmstead of ours, entities that received
 				// the build command should look for nearby resources to gather
 				if ((oldData.force || oldData.autoharvest) &&
-				    this.CanReturnResource(msg.data.newentity, false, cmpResourceGatherer))
+				    this.CouldReturnResource(msg.data.newentity, false, cmpResourceGatherer))
 				{
 					const cmpResourceDropsite = Engine.QueryInterface(msg.data.newentity, IID_ResourceDropsite);
 					const types = cmpResourceDropsite.GetTypes();
@@ -3608,8 +3608,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			"APPROACHING": {
 				"enter": function()
 				{
-					if (this.order.data.garrison ? !this.CanGarrison(this.order.data.target) :
-						!this.CanOccupyTurret(this.order.data.target))
+					if (this.order.data.garrison ? !this.CouldGarrison(this.order.data.target) :
+						!this.CouldOccupyTurret(this.order.data.target))
 					{
 						this.FinishOrder();
 						return true;
@@ -3625,7 +3625,7 @@ UnitAI.prototype.UnitFsmSpec = {
 						Engine.PostMessage(this.pickup, MT_PickupCanceled, { "entity": this.entity });
 
 					const cmpHolder = Engine.QueryInterface(this.order.data.target, this.order.data.garrison ? IID_GarrisonHolder : IID_TurretHolder);
-					if (cmpHolder && cmpHolder.CanPickup(this.entity))
+					if (cmpHolder && cmpHolder.CouldPickup(this.entity))
 					{
 						this.pickup = this.order.data.target;
 						Engine.PostMessage(this.pickup, MT_PickupRequested, { "entity": this.entity, "iid": this.order.data.garrison ? IID_GarrisonHolder : IID_TurretHolder });
@@ -3695,7 +3695,7 @@ UnitAI.prototype.UnitFsmSpec = {
 					}
 
 					const cmpResourceGatherer = Engine.QueryInterface(this.entity, IID_ResourceGatherer);
-					if (this.CanReturnResource(target, true, cmpResourceGatherer))
+					if (this.CouldReturnResource(target, true, cmpResourceGatherer))
 					{
 						cmpResourceGatherer.CommitResources(target);
 						this.SetDefaultAnimationVariant();
@@ -4886,7 +4886,7 @@ UnitAI.prototype.FindNearbyResource = function(position, filter)
 	const nearby = cmpRangeManager.ExecuteQueryAroundPos(position, 0, range, players, IID_ResourceSupply, false);
 	return nearby.find(ent =>
 	{
-		if (!this.CanGather(ent) || !this.CheckTargetVisible(ent))
+		if (!this.CouldGather(ent) || !this.CheckTargetVisible(ent))
 			return false;
 
 		let template = cmpTemplateManager.GetCurrentTemplateName(ent);
@@ -5000,7 +5000,7 @@ UnitAI.prototype.FindNearbyTreasure = function(position)
 	const cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
 	// Don't account for entity size, we need to match LOS visibility.
 	const nearby = cmpRangeManager.ExecuteQueryAroundPos(position, 0, range, players, IID_Treasure, false);
-	return nearby.find(ent => cmpTreasureCollector.CanCollect(ent) && this.CheckTargetVisible(ent));
+	return nearby.find(ent => cmpTreasureCollector.CouldCollect(ent) && this.CheckTargetVisible(ent));
 };
 
 /**
@@ -5479,7 +5479,7 @@ UnitAI.prototype.GetBestAttackAgainst = function(target, allowCapture = this.DEF
  */
 UnitAI.prototype.AttackVisibleEntity = function(ents)
 {
-	var target = ents.find(entity => this.CanAttack(entity) && this.CheckTargetVisible(entity));
+	var target = ents.find(entity => this.CouldAttack(entity) && this.CheckTargetVisible(entity));
 	if (!target)
 		return false;
 
@@ -5495,7 +5495,7 @@ UnitAI.prototype.AttackVisibleEntity = function(ents)
 UnitAI.prototype.AttackEntityInZone = function(ents)
 {
 	var target = ents.find(entity =>
-		this.CanAttack(entity) && this.CheckTargetVisible(entity) &&
+		this.CouldAttack(entity) && this.CheckTargetVisible(entity) &&
 		this.CheckTargetDistanceFromHeldPosition(entity, IID_Attack, this.GetBestAttackAgainst(entity, true)) &&
 		(this.GetStance().respondChaseBeyondVision || this.CheckTargetIsInVisionRange(entity))
 	);
@@ -5560,7 +5560,7 @@ UnitAI.prototype.RespondToSightedEntities = function(ents)
  */
 UnitAI.prototype.RespondToHealableEntities = function(ents)
 {
-	const target = ents.find(ent => this.CanHeal(ent));
+	const target = ents.find(ent => this.CouldHeal(ent));
 	if (!target)
 		return false;
 
@@ -6006,7 +6006,7 @@ UnitAI.prototype.LeaveFoundation = function(target)
  */
 UnitAI.prototype.Attack = function(target, allowCapture = this.DEFAULT_CAPTURE, queued = false, pushFront = false)
 {
-	if (!this.CanAttack(target))
+	if (!this.CouldAttack(target))
 	{
 		// We don't want to let healers walk to the target unit so they can be easily killed.
 		// Instead we just let them get into healing range.
@@ -6119,7 +6119,7 @@ UnitAI.prototype.Garrison = function(target, queued, pushFront)
 		return;
 	if (target == this.entity)
 		return;
-	if (!this.CanGarrison(target))
+	if (!this.CouldGarrison(target))
 	{
 		this.WalkToTarget(target, queued);
 		return;
@@ -6144,7 +6144,7 @@ UnitAI.prototype.OccupyTurret = function(target, queued, pushFront)
 {
 	if (target == this.entity)
 		return;
-	if (!this.CanOccupyTurret(target))
+	if (!this.CouldOccupyTurret(target))
 	{
 		this.WalkToTarget(target, queued);
 		return;
@@ -6166,7 +6166,7 @@ UnitAI.prototype.Gather = function(target, queued, pushFront)
  */
 UnitAI.prototype.PerformGather = function(target, queued, force, pushFront = false)
 {
-	if (!this.CanGather(target))
+	if (!this.CouldGather(target))
 	{
 		this.WalkToTarget(target, queued);
 		return;
@@ -6180,7 +6180,7 @@ UnitAI.prototype.PerformGather = function(target, queued, force, pushFront = fal
 	if (cmpResourceSupply)
 		type = cmpResourceSupply.GetType();
 	else
-		error("CanGather allowed gathering from invalid entity");
+		error("CouldGather allowed gathering from invalid entity");
 
 	// Also save the target entity's template, so that if it's an animal,
 	// we won't go from hunting slow safe animals to dangerous fast ones
@@ -6239,7 +6239,7 @@ UnitAI.prototype.GatherNearPosition = function(x, z, type, template, queued, pus
  */
 UnitAI.prototype.Heal = function(target, queued, pushFront)
 {
-	if (!this.CanHeal(target))
+	if (!this.CouldHeal(target))
 	{
 		this.WalkToTarget(target, queued);
 		return;
@@ -6262,7 +6262,7 @@ UnitAI.prototype.Heal = function(target, queued, pushFront)
  */
 UnitAI.prototype.ReturnResource = function(target, queued, pushFront)
 {
-	if (!this.CanReturnResource(target, true))
+	if (!this.CouldReturnResource(target, true))
 	{
 		this.WalkToTarget(target, queued);
 		return;
@@ -6313,7 +6313,7 @@ UnitAI.prototype.CancelSetupTradeRoute = function(target)
  */
 UnitAI.prototype.SetupTradeRoute = function(target, source, route, queued, pushFront)
 {
-	if (!this.CanTrade(target))
+	if (!this.CouldTrade(target))
 	{
 		this.WalkToTarget(target, queued);
 		return;
@@ -6416,7 +6416,7 @@ UnitAI.prototype.MarketRemoved = function(market)
  */
 UnitAI.prototype.Repair = function(target, autocontinue, queued, pushFront)
 {
-	if (!this.CanRepair(target))
+	if (!this.CouldRepair(target))
 	{
 		this.WalkToTarget(target, queued);
 		return;
@@ -6625,7 +6625,7 @@ UnitAI.prototype.FindWalkAndFightTargets = function()
 	let pref;
 	for (const v of entities)
 	{
-		if (this.CanAttack(v) && attackfilter(v))
+		if (this.CouldAttack(v) && attackfilter(v))
 		{
 			pref = cmpAttack.GetPreference(v);
 			if (pref === 0)
@@ -6830,7 +6830,7 @@ UnitAI.prototype.GetRange = function(iid, type, target)
 	return component.GetRange(type, target);
 };
 
-UnitAI.prototype.CanAttack = function(target)
+UnitAI.prototype.CouldAttack = function(target)
 {
 	// Formation controllers should always respond to commands
 	// (then the individual units can make up their own minds)
@@ -6838,10 +6838,10 @@ UnitAI.prototype.CanAttack = function(target)
 		return true;
 
 	const cmpAttack = Engine.QueryInterface(this.entity, IID_Attack);
-	return cmpAttack && cmpAttack.CanAttack(target);
+	return cmpAttack && cmpAttack.CouldAttack(target);
 };
 
-UnitAI.prototype.CanGarrison = function(target)
+UnitAI.prototype.CouldGarrison = function(target)
 {
 	// Formation controllers should always respond to commands
 	// (then the individual units can make up their own minds).
@@ -6849,10 +6849,10 @@ UnitAI.prototype.CanGarrison = function(target)
 		return true;
 
 	const cmpGarrisonable = Engine.QueryInterface(this.entity, IID_Garrisonable);
-	return cmpGarrisonable && cmpGarrisonable.CanGarrison(target);
+	return cmpGarrisonable && cmpGarrisonable.CouldGarrison(target);
 };
 
-UnitAI.prototype.CanGather = function(target)
+UnitAI.prototype.CouldGather = function(target)
 {
 	// Formation controllers should always respond to commands
 	// (then the individual units can make up their own minds).
@@ -6860,10 +6860,10 @@ UnitAI.prototype.CanGather = function(target)
 		return true;
 
 	const cmpResourceGatherer = Engine.QueryInterface(this.entity, IID_ResourceGatherer);
-	return cmpResourceGatherer && cmpResourceGatherer.CanGather(target);
+	return cmpResourceGatherer && cmpResourceGatherer.CouldGather(target);
 };
 
-UnitAI.prototype.CanHeal = function(target)
+UnitAI.prototype.CouldHeal = function(target)
 {
 	// Formation controllers should always respond to commands
 	// (then the individual units can make up their own minds)
@@ -6871,7 +6871,7 @@ UnitAI.prototype.CanHeal = function(target)
 		return true;
 
 	const cmpHeal = Engine.QueryInterface(this.entity, IID_Heal);
-	return cmpHeal && cmpHeal.CanHeal(target);
+	return cmpHeal && cmpHeal.CouldHeal(target);
 };
 
 /**
@@ -6879,7 +6879,7 @@ UnitAI.prototype.CanHeal = function(target)
  * @param checkCarriedResource check we are carrying resources
  * @param cmpResourceGatherer if present, use this directly instead of re-querying.
  */
-UnitAI.prototype.CanReturnResource = function(target, checkCarriedResource, cmpResourceGatherer = undefined)
+UnitAI.prototype.CouldReturnResource = function(target, checkCarriedResource, cmpResourceGatherer = undefined)
 {
 	// Formation controllers should always respond to commands
 	// (then the individual units can make up their own minds).
@@ -6889,10 +6889,10 @@ UnitAI.prototype.CanReturnResource = function(target, checkCarriedResource, cmpR
 	if (!cmpResourceGatherer)
 		cmpResourceGatherer = Engine.QueryInterface(this.entity, IID_ResourceGatherer);
 
-	return cmpResourceGatherer && cmpResourceGatherer.CanReturnResource(target, checkCarriedResource);
+	return cmpResourceGatherer && cmpResourceGatherer.CouldReturnResource(target, checkCarriedResource);
 };
 
-UnitAI.prototype.CanTrade = function(target)
+UnitAI.prototype.CouldTrade = function(target)
 {
 	// Formation controllers should always respond to commands
 	// (then the individual units can make up their own minds).
@@ -6900,10 +6900,10 @@ UnitAI.prototype.CanTrade = function(target)
 		return true;
 
 	const cmpTrader = Engine.QueryInterface(this.entity, IID_Trader);
-	return cmpTrader && cmpTrader.CanTrade(target);
+	return cmpTrader && cmpTrader.CouldTrade(target);
 };
 
-UnitAI.prototype.CanRepair = function(target)
+UnitAI.prototype.CouldRepair = function(target)
 {
 	// Formation controllers should always respond to commands
 	// (then the individual units can make up their own minds).
@@ -6911,10 +6911,10 @@ UnitAI.prototype.CanRepair = function(target)
 		return true;
 
 	const cmpBuilder = Engine.QueryInterface(this.entity, IID_Builder);
-	return cmpBuilder && cmpBuilder.CanRepair(target);
+	return cmpBuilder && cmpBuilder.CouldRepair(target);
 };
 
-UnitAI.prototype.CanOccupyTurret = function(target)
+UnitAI.prototype.CouldOccupyTurret = function(target)
 {
 	// Formation controllers should always respond to commands
 	// (then the individual units can make up their own minds).
@@ -6922,7 +6922,7 @@ UnitAI.prototype.CanOccupyTurret = function(target)
 		return true;
 
 	const cmpTurretable = Engine.QueryInterface(this.entity, IID_Turretable);
-	return cmpTurretable && cmpTurretable.CanOccupy(target);
+	return cmpTurretable && cmpTurretable.CouldOccupy(target);
 };
 
 UnitAI.prototype.CanPack = function()
@@ -7014,7 +7014,7 @@ UnitAI.prototype.AttackEntitiesByPreference = function(ents)
 
 	const attackfilter = function(e)
 	{
-		if (!cmpAttack.CanAttack(e))
+		if (!cmpAttack.CouldAttack(e))
 			return false;
 
 		const cmpOwnership = Engine.QueryInterface(e, IID_Ownership);
@@ -7072,14 +7072,14 @@ UnitAI.prototype.FindAndSetNextTarget = function(data)
 	const currentTarget = data.targetArray[startIdx];
 
 	// First check the starting target
-	if (this.CanAttack(currentTarget) && this.CheckTargetVisible(currentTarget))
+	if (this.CouldAttack(currentTarget) && this.CheckTargetVisible(currentTarget))
 		return this.SetNextTarget(data, startIdx);
 
 	// Search forward using find
 	const forwardFound = data.targetArray
 		.slice(startIdx + 1)
 		.findIndex((target, i) =>
-			this.CanAttack(target) && this.CheckTargetVisible(target)
+			this.CouldAttack(target) && this.CheckTargetVisible(target)
 		);
 
 	if (forwardFound !== -1)
@@ -7090,7 +7090,7 @@ UnitAI.prototype.FindAndSetNextTarget = function(data)
 		.slice(0, startIdx)
 		.reverse()
 		.findIndex((target, i) =>
-			this.CanAttack(target) && this.CheckTargetVisible(target)
+			this.CouldAttack(target) && this.CheckTargetVisible(target)
 		);
 
 	if (backwardFound !== -1)

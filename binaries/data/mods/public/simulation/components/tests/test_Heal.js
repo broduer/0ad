@@ -165,24 +165,24 @@ TS_ASSERT(!updated);
 cmpHeal.OnValueModification({ "component": "Heal", "valueNames": ["Heal/Range"] });
 TS_ASSERT(updated);
 
-// Test CanHeal.
+// Test CouldHeal.
 targetClasses = ["Infantry", "Hero"];
-TS_ASSERT_UNEVAL_EQUALS(cmpHeal.CanHeal(target), true);
+TS_ASSERT_UNEVAL_EQUALS(cmpHeal.CouldHeal(target), true);
 
 targetClasses = ["Hero"];
-TS_ASSERT_UNEVAL_EQUALS(cmpHeal.CanHeal(target), false);
+TS_ASSERT_UNEVAL_EQUALS(cmpHeal.CouldHeal(target), false);
 
 targetClasses = ["Infantry", "Cavalry"];
-TS_ASSERT_UNEVAL_EQUALS(cmpHeal.CanHeal(target), false);
+TS_ASSERT_UNEVAL_EQUALS(cmpHeal.CouldHeal(target), false);
 
 targetClasses = ["Cavalry"];
-TS_ASSERT_UNEVAL_EQUALS(cmpHeal.CanHeal(target), false);
+TS_ASSERT_UNEVAL_EQUALS(cmpHeal.CouldHeal(target), false);
 
 targetClasses = ["Infantry"];
-TS_ASSERT_UNEVAL_EQUALS(cmpHeal.CanHeal(target), true);
+TS_ASSERT_UNEVAL_EQUALS(cmpHeal.CouldHeal(target), true);
 
 unhealable = true;
-TS_ASSERT_UNEVAL_EQUALS(cmpHeal.CanHeal(target), false);
+TS_ASSERT_UNEVAL_EQUALS(cmpHeal.CouldHeal(target), false);
 
 const otherTarget = 71;
 AddMock(otherTarget, IID_Ownership, {
@@ -197,7 +197,7 @@ AddMock(otherTarget, IID_Health, {
 AddMock(otherTarget, IID_Identity, {
 	"GetClassesList": () => ["Infantry"]
 });
-TS_ASSERT(!cmpHeal.CanHeal(otherTarget));
+TS_ASSERT(!cmpHeal.CouldHeal(otherTarget));
 
 // Test we stop healing when finished.
 increased = false;
