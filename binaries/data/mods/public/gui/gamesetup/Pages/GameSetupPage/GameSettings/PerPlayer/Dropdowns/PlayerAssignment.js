@@ -144,8 +144,8 @@ PlayerSettingControls.PlayerAssignment = class PlayerAssignment extends GameSett
 		this.values = prepareForDropdown([
 			...this.playerItems,
 			...disableAI ? [] : this.aiItems,
-			this.unassignedItem,
-			...disableRemovedPlayer ? [] : [this.removedItem]
+			...disableRemovedPlayer ? [] : [this.removedItem],
+			this.unassignedItem
 		]);
 
 		const selected = this.dropdown.list_data?.[this.dropdown.selected];
