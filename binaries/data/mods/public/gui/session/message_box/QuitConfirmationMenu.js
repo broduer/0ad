@@ -74,9 +74,6 @@ QuitConfirmationMenu.prototype.MultiplayerClient.prototype.Buttons =
 		},
 		{
 			"caption": translate("Yes"),
-			"onPress": closeSession =>
-			{
-				(new ReturnQuestion()).display(closeSession);
-			}
+			"onPress": function() { (new ReturnQuestion()).display(this.closeSession); }
 		}
 	];
