@@ -9,22 +9,10 @@
 	"requirements": {
 		"all": [
 			{ "tech": "phase_village" },
-			{ "notciv": "achae" },
-			{ "notciv": "athen" },
-			{ "notciv": "brit" },
-			{ "notciv": "cart" },
-			{ "notciv": "gaul" },
-			{ "notciv": "germ" },
-			{ "notciv": "han" },
-			{ "notciv": "iber" },
-			{ "notciv": "mace" },
-			{ "notciv": "maur" },
-			{ "notciv": "ptol" },
-			{ "notciv": "rome" },
-			{ "notciv": "sele" },
-			{ "notciv": "spart" }
+			{ "civ": "kush"}
 		]
 	},
+	"replaces": ["unlock_civilians_house_generic"],
 	"icon": "wives_festival_african.png",
 	"researchTime": 60,
 	"tooltip": "Unlock the ability to train Civilians from houses.",

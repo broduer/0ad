@@ -48,7 +48,16 @@ class Subsection
 		for (const techCode of technologyList)
 		{
 			const technology = this.page.TemplateParser.getTechnology(techCode, civCode);
-
+			if (technology.replaces !== undefined && technology.replaces.length === 1)
+			{
+				const replacedTechnology = this.page.TemplateParser.getTechnology(technology.replaces[0], "anyciv");
+				if (technology.name.generic === replacedTechnology.name.generic)
+				{
+					// This tech is a drop-in replacement for a generic tech to e.g. work around unique requirements.
+					// So, don't include in "specific technologies"
+					continue;
+				}
+			}
 			// We deliberately pass an invalid civ code here.
 			// If it returns with a value other than false, then
 			// we know that this tech can be researched by any civ

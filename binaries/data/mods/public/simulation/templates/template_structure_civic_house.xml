@@ -46,8 +46,8 @@
       health_civilians_01
       pop_house_01
       pop_house_02
-      unlock_civilians_house_generic
       unlock_civilians_house_kush
+      unlock_civilians_house_generic
     </Technologies>
   </Researcher>
   <Sound>

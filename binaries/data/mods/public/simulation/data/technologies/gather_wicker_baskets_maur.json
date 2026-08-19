@@ -11,6 +11,7 @@
 			{ "civ": "maur" }
 		]
 	},
+    "replaces": ["gather_wicker_baskets"],
 	"icon": "gather_basket.png",
 	"researchTime": 40,
 	"tooltip": "Workers +50% fruit gather rate.",
