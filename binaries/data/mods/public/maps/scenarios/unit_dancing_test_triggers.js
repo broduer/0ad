@@ -2,7 +2,7 @@ const ARCHER_TEMPLATE = "units/maur/infantry_archer_b";
 const JAV_TEMPLATE = "units/mace/infantry_javelineer_b";
 
 const REG_UNIT_TEMPLATE = "units/athen/infantry_spearman_b";
-const FAST_UNIT_TEMPLATE = "units/athen/cavalry_swordsman_b";
+const FAST_UNIT_TEMPLATE = "units/athen/cavalry_swordsman_a";
 const FAST_UNIT_TEMPLATE_2 = "units/athen/cavalry_javelineer_b";
 
 const ATTACKER = 2;

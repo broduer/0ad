@@ -1,5 +1,5 @@
 const REG_UNIT_TEMPLATE = "units/athen/infantry_spearman_b";
-const FAST_UNIT_TEMPLATE = "units/athen/cavalry_swordsman_b";
+const FAST_UNIT_TEMPLATE = "units/athen/cavalry_swordsman_a";
 const LARGE_UNIT_TEMPLATE = "units/brit/siege_ram";
 const ELE_TEMPLATE = "units/cart/champion_elephant";
 

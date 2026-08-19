@@ -1,4 +1,4 @@
-const UNIT_TEMPLATE = "units/athen/infantry_marine_archer_b";
+const UNIT_TEMPLATE = "units/athen/infantry_marine_archer_a";
 const SHIP_TEMPLATE = "units/athen/ship_arrow";
 const RAM_TEMPLATE = "units/brit/siege_ram";
 
