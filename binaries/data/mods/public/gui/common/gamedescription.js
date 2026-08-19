@@ -184,6 +184,19 @@ function formatPlayerInfo(playerDataArray, playerStates)
 function getGameDescription(initAttributes, mapCache)
 {
 	const titles = [];
+
+	if (initAttributes.gameName)
+		titles.push({
+			"label": translate("Game:"),
+			"value": escapeText(initAttributes.gameName)
+		});
+
+	if (initAttributes.hostName)
+		titles.push({
+			"label": translate("Host:"),
+			"value": escapeText(initAttributes.hostName)
+		});
+
 	if (!initAttributes.settings.VictoryConditions.length)
 		titles.push({
 			"label": translateWithContext("victory condition", "Endless Game"),

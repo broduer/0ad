@@ -17,6 +17,16 @@ ChatMessageEvents.ClientChat = class
 	{
 		this.usernameArgs.username = this.colorizePlayernameByGUID(message.guid);
 		this.messageArgs.username = setStringTags(sprintf(this.SenderFormat, this.usernameArgs), this.SenderTags);
+		const hostName = g_GameSettings.hostName.value &&
+			String(splitRatingFromNick(g_GameSettings.hostName.value).nick).toLowerCase();
+		const senderName = g_PlayerAssignments[message.guid] &&
+			String(splitRatingFromNick(g_PlayerAssignments[message.guid].name).nick).toLowerCase();
+		if (hostName && senderName == hostName)
+		{
+			this.messageArgs.username = sprintf(this.HostSenderFormat, {
+				"username": this.messageArgs.username
+			});
+		}
 		this.messageArgs.message = escapeText(message.text);
 		this.chatMessagesPanel.addText(sprintf(this.MessageFormat, this.messageArgs));
 	}
@@ -45,6 +55,9 @@ ChatMessageEvents.ClientChat = class
 
 ChatMessageEvents.ClientChat.prototype.SenderFormat =
 	translate("<%(username)s>");
+
+ChatMessageEvents.ClientChat.prototype.HostSenderFormat =
+	translate("\\[Game Host] %(username)s");
 
 ChatMessageEvents.ClientChat.prototype.MessageFormat =
 	translate("%(username)s %(message)s");

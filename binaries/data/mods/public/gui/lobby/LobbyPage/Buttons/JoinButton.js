@@ -78,6 +78,7 @@ class JoinButton
 		Engine.OpenChildPage("page_gamesetup_mp.xml", {
 			"multiplayerGameType": "join",
 			"name": g_Nickname,
+			"gameName": stanza.name,
 			"rating": this.getRejoinRating(stanza),
 			"hasPassword": !!stanza.hasPassword,
 			"hostJID": stanza.hostJID

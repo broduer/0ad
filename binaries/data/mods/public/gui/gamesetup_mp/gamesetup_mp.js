@@ -98,9 +98,9 @@ async function init(attribs)
 			switchSetupPage("pageJoin");
 			break;
 		}
+		g_ServerName = attribs.gameName || "";
 		if (attribs.hasPassword)
 		{
-			g_ServerName = attribs.name;
 			switchSetupPage("pagePassword");
 			const passwordResult = await cancelOr(new Promise(resolve =>
 			{
@@ -398,7 +398,9 @@ async function handleAuthenticated(message, loadSavedGame)
 		"argument": {
 			"savedGame": savegameID, // Undefined or the savegame ID
 			"serverName": g_ServerName,
-			"hasPassword": g_ServerHasPassword
+			"gameName": g_ServerName || "",
+			"hasPassword": g_ServerHasPassword,
+			"hostName": message.hostName || ""
 		}
 	};
 }

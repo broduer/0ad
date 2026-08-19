@@ -139,6 +139,7 @@ START_NMT_CLASS_(AuthenticateResult, NMT_AUTHENTICATE_RESULT)
 	NMT_FIELD_INT(m_Code, u32, 4)
 	NMT_FIELD_INT(m_HostID, u32, 2)
 	NMT_FIELD_INT(m_IsController, u8, 1)
+	NMT_FIELD(CStrW, m_HostName)
 	NMT_FIELD(CStrW, m_Message)
 END_NMT_CLASS()
 

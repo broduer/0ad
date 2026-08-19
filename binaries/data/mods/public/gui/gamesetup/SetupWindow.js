@@ -31,7 +31,8 @@ class SetupWindow
 		const mapCache = new MapCache();
 		g_GameSettings = new GameSettings();
 		g_GameSettings.init(mapCache, g_IsController ? savedGame : undefined);
-
+		g_GameSettings.gameName.value = initData?.gameName || "";
+		g_GameSettings.hostName.value = initData?.hostName || "";
 
 		const netMessages = new NetMessages();
 		const mapFilters = new MapFilters(mapCache);
