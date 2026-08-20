@@ -698,7 +698,7 @@ public:
 		TS_ASSERT(man.ComputeStateHash(hash, false));
 		TS_ASSERT_EQUALS(hash.length(), (size_t)16);
 		// This is only a regression test
-		TS_ASSERT_SAME_DATA(hash.data(), "\x18\x4b\x60\x0e\xb0\x3f\x04\xcd\xec\x16\x36\x64\x44\xB2\x22\x15", 16);
+		TS_ASSERT_SAME_DATA(hash.data(), "\xb3\xf5\xe1\x85\xad\xc4\xf3\xd7\xbf\xb2\xdc\xe9\xe3\xb9\xc3\xba", 16);
 
 		std::stringstream stateStream;
 		TS_ASSERT(man.SerializeState(stateStream));

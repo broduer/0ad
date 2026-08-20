@@ -51,6 +51,8 @@ class CHashSerializer : public CBinarySerializer<CHashSerializerImpl>
 public:
 	CHashSerializer(const Script::Interface& scriptInterface);
 
+	void RNG(const std::mt19937_64& rng) final;
+
 	size_t GetHashLength();
 	const u8* ComputeHash();
 };

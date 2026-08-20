@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -104,6 +104,13 @@ void ISerializer::ScriptVal(const char* name, JS::MutableHandleValue value)
 void ISerializer::RawBytes(const char* name, const u8* data, size_t len)
 {
 	PutRaw(name, data, len);
+}
+
+void ISerializer::RNG(const std::mt19937_64& rng)
+{
+	std::stringstream s;
+	s << rng;
+	StringASCII("rng", s.str(), 0, std::numeric_limits<std::uint32_t>::max());
 }
 
 bool ISerializer::IsDebug() const

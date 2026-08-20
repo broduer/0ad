@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <iosfwd>
 #include <js/TypeDecls.h>
+#include <random>
 #include <string>
 
 ERROR_GROUP(Serialize);
@@ -234,6 +235,8 @@ public:
 	 * the typed serialize methods should usually be used instead of this.
 	 */
 	void RawBytes(const char* name, const u8* data, size_t len);
+
+	virtual void RNG(const std::mt19937_64& rng);
 
 	/**
 	 * Returns true if the serializer is being used in debug mode.

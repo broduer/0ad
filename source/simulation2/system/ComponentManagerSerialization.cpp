@@ -40,26 +40,11 @@
 #include <utility>
 #include <vector>
 
-std::string SerializeRNG(const std::mt19937_64& rng)
-{
-	std::stringstream s;
-	s << rng;
-	return s.str();
-}
-
-void DeserializeRNG(const std::string& str, std::mt19937_64& rng)
-{
-	std::stringstream s;
-	s << str;
-	s >> rng;
-}
-
 bool CComponentManager::DumpDebugState(std::ostream& stream, bool includeDebugInfo) const
 {
 	CDebugSerializer serializer(m_ScriptInterface, stream, includeDebugInfo);
 
-	serializer.StringASCII("rng", SerializeRNG(m_RNG), 0, std::numeric_limits<std::uint32_t>::max());
-
+	serializer.RNG(m_RNG);
 	serializer.TextLine("entities:");
 
 	// We want the output to be grouped by entity ID, so invert the CComponentManager data structures
@@ -115,7 +100,7 @@ bool CComponentManager::ComputeStateHash(std::string& outHash, bool quick) const
 
 	CHashSerializer serializer(m_ScriptInterface);
 
-	serializer.StringASCII("rng", SerializeRNG(m_RNG), 0, std::numeric_limits<std::uint32_t>::max());
+	serializer.RNG(m_RNG);
 	serializer.NumberU32_Unbounded("next entity id", m_NextEntityId);
 
 	std::map<ComponentTypeId, std::map<entity_id_t, IComponent*> >::const_iterator cit = m_ComponentsByTypeId.begin();
@@ -185,7 +170,7 @@ bool CComponentManager::SerializeState(std::ostream& stream) const
 	ENSURE(m_DestructionQueue.empty() || std::find_if(m_DestructionQueue.begin(), m_DestructionQueue.end(),
 	       [](entity_id_t ent) { return !ENTITY_IS_LOCAL(ent); }) == m_DestructionQueue.end());
 
-	serializer.StringASCII("rng", SerializeRNG(m_RNG), 0, std::numeric_limits<std::uint32_t>::max());
+	serializer.RNG(m_RNG);
 	serializer.NumberU32_Unbounded("next entity id", m_NextEntityId);
 
 	std::map<ComponentTypeId, std::map<entity_id_t, IComponent*> >::const_iterator cit;
@@ -302,10 +287,7 @@ bool CComponentManager::DeserializeState(std::istream& stream)
 		ResetState();
 		InitSystemEntity();
 
-		std::string rng;
-		deserializer.StringASCII("rng", rng, 0, std::numeric_limits<std::uint32_t>::max());
-		DeserializeRNG(rng, m_RNG);
-
+		deserializer.RNG(m_RNG);
 		deserializer.NumberU32_Unbounded("next entity id", m_NextEntityId); // TODO: use sensible bounds
 
 		uint32_t numSystemComponentTypes;

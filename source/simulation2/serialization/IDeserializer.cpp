@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -197,6 +197,14 @@ void IDeserializer::String(const char* name, std::wstring& out, uint32_t minleng
 void IDeserializer::RawBytes(const char* name, u8* data, size_t len)
 {
 	Get(name, data, len);
+}
+
+void IDeserializer::RNG(std::mt19937_64& rng)
+{
+	std::string s;
+	StringASCII("rng", s, 0, std::numeric_limits<std::uint32_t>::max());
+	std::stringstream sstream{s};
+	sstream >> rng;
 }
 
 int IDeserializer::GetVersion() const

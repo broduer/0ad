@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <iosfwd>
 #include <js/TypeDecls.h>
+#include <random>
 #include <string>
 
 ERROR_GROUP(Deserialize);
@@ -74,6 +75,8 @@ public:
 	virtual void ScriptString(const char* name, JS::MutableHandleString out) = 0;
 
 	virtual void RawBytes(const char* name, u8* data, size_t len);
+
+	void RNG(std::mt19937_64& rng);
 
 	// Features for simulation-state serialisation:
 	virtual int GetVersion() const;

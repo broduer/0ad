@@ -48,3 +48,12 @@ const u8* CHashSerializerImpl::ComputeHash()
 	m_Hash.Final(m_HashData);
 	return m_HashData;
 }
+
+void CHashSerializer::RNG(const std::mt19937_64& rng)
+{
+	// The serialization of the rng depends on the platform but should be compatible.
+	// Check only whether the next two numbers are the same.
+	std::mt19937_64 rngCopy{rng};
+	NumberU32_Unbounded("rng0", rngCopy());
+	NumberU32_Unbounded("rng1", rngCopy());
+}
