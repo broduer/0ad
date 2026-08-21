@@ -226,6 +226,7 @@ void CDropDown::HandleMessage(SGUIMessage& Message)
 
 		++m_ElementHighlight;
 		m_Selected.Set(m_ElementHighlight, true);
+		PlaySound(m_SoundSelected);
 		break;
 	}
 
@@ -243,6 +244,7 @@ void CDropDown::HandleMessage(SGUIMessage& Message)
 
 		--m_ElementHighlight;
 		m_Selected.Set(m_ElementHighlight, true);
+		PlaySound(m_SoundSelected);
 		break;
 	}
 
