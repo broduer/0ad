@@ -39,6 +39,7 @@
 #include "lib/path.h"
 #include "lib/timer.h"
 #include "lib/utf8.h"
+#include "maths/MathUtil.h"
 #include "maths/Size2D.h"
 #include "network/NetClient.h"
 #include "ps/CLogger.h"
@@ -57,6 +58,7 @@
 #include "scriptinterface/Request.h"
 
 #include <algorithm>
+#include <cmath>
 #include <js/CallAndConstruct.h>
 #include <js/Promise.h>
 #include <optional>
@@ -71,6 +73,39 @@
 
 const double SELECT_DBLCLICK_RATE = 0.5;
 const u32 MAX_OBJECT_DEPTH = 100; // Max number of nesting for GUI includes. Used to detect recursive inclusion
+
+namespace
+{
+// Discard accumulated wheel deltas if the user stops scrolling for this long.
+constexpr double WHEEL_ACCUMULATOR_TIMEOUT = 0.5;
+
+constexpr int WHEEL_MAX_STEPS_PER_EVENT = 10;
+
+constexpr float WHEEL_PRECISE_SCALE = 0.75f;
+
+// Using sqrt feels more natural in practice.
+float ScaleHighResolutionDelta(const float delta)
+{
+	return std::copysign(WHEEL_PRECISE_SCALE * std::sqrt(std::abs(delta)), delta);
+}
+
+/**
+ * @returns The number of whole wheel notches consumed.
+ */
+int ConsumeWheelNotches(float& accumulator, const float delta)
+{
+	// A direction change ends the previous gesture.
+	if (delta * accumulator < 0.0f)
+		accumulator = 0.0f;
+
+	// Whole units come from a regular wheel and must keep mapping to one notch each.
+	accumulator += delta == std::trunc(delta) ? delta : ScaleHighResolutionDelta(delta);
+
+	const int steps = static_cast<int>(accumulator);
+	accumulator -= steps;
+	return Clamp(steps, -WHEEL_MAX_STEPS_PER_EVENT, WHEEL_MAX_STEPS_PER_EVENT);
+}
+}
 
 const CStr CGUI::EventNameLoad = "Load";
 const CStr CGUI::EventNameTick = "Tick";
@@ -92,7 +127,10 @@ CGUI::CGUI(Script::Context& context)
 	: m_BaseObject(std::make_unique<CGUIDummyObject>(*this)),
 	  m_FocusedObject(nullptr),
 	  m_InternalNameNumber(0),
-	  m_MouseButtons(0)
+	  m_MouseButtons(0),
+	  m_WheelAccumulatorX(0.0f),
+	  m_WheelAccumulatorY(0.0f),
+	  m_LastWheelTime(0.0)
 {
 	m_ScriptInterface = std::make_shared<Script::Interface>("Engine", "GUIPage", context,
 		[](const VfsPath& path){
@@ -217,15 +255,32 @@ Input::Reaction CGUI::HandleEvent(const SDL_Event& ev)
 		}
 		else if (ev.type == SDL_MOUSEWHEEL && pNearest)
 		{
-			if (ev.wheel.y < 0)
-				ret = pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_DOWN, EventNameMouseWheelDown);
-			else if (ev.wheel.y > 0)
-				ret = pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_UP, EventNameMouseWheelUp);
+			if (timer_Time() - m_LastWheelTime > WHEEL_ACCUMULATOR_TIMEOUT)
+			{
+				m_WheelAccumulatorX = 0.0f;
+				m_WheelAccumulatorY = 0.0f;
+			}
+			m_LastWheelTime = timer_Time();
 
-			if (ev.wheel.x < 0)
-				ret = pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_LEFT, EventNameMouseWheelLeft);
-			else if (ev.wheel.x > 0)
-				ret = pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_RIGHT, EventNameMouseWheelRight);
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+			const float deltaX = ev.wheel.preciseX;
+			const float deltaY = ev.wheel.preciseY;
+#else
+			const float deltaX = static_cast<float>(ev.wheel.x);
+			const float deltaY = static_cast<float>(ev.wheel.y);
+#endif
+
+			const int stepsY = ConsumeWheelNotches(m_WheelAccumulatorY, deltaY);
+			for (int i = 0; i < std::abs(stepsY); ++i)
+				ret = stepsY < 0 ?
+					pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_DOWN, EventNameMouseWheelDown) :
+					pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_UP, EventNameMouseWheelUp);
+
+			const int stepsX = ConsumeWheelNotches(m_WheelAccumulatorX, deltaX);
+			for (int i = 0; i < std::abs(stepsX); ++i)
+				ret = stepsX < 0 ?
+					pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_LEFT, EventNameMouseWheelLeft) :
+					pNearest->SendMouseEvent(GUIM_MOUSE_WHEEL_RIGHT, EventNameMouseWheelRight);
 		}
 		else if (ev.type == SDL_MOUSEBUTTONUP)
 		{

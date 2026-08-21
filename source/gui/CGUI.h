@@ -611,6 +611,13 @@ private:
 	 */
 	unsigned int m_MouseButtons;
 
+	/**
+	 * Scrolling behaviour metadata
+	 */
+	float m_WheelAccumulatorX;
+	float m_WheelAccumulatorY;
+	double m_LastWheelTime;
+
 	// Tooltip
 	GUITooltip m_Tooltip;
 
