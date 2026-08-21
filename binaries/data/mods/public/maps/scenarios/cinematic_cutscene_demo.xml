@@ -49,7 +49,7 @@
     "demo"
   ],
   "LockTeams": false,
-  "Name": "Cinema Demo",
+  "Name": "Cinematic Cutscene Demo",
   "PlayerData": [
     null,
     {
@@ -101,7 +101,7 @@
   "XXXXXX": "Optionally define other things here, like we would for a scenario",
   "mapType": "random",
   "TriggerScripts": [
-    "scenarios/cinema_demo.js",
+    "scenarios/cinematic_cutscene_demo.js",
     "scripts/TriggerHelper.js"
   ],
   "VictoryConditions": [

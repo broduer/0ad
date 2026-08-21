@@ -44,7 +44,7 @@
   "Description": "Demo map for cinematic camera movements with narration and dialogue between units.",
   "Keywords": [],
   "LockTeams": true,
-  "Name": "Cinema Demo 2",
+  "Name": "Dialogue Cutscene Demo",
   "PlayerData": [
     {
       "Civ": "athen",
@@ -69,7 +69,7 @@
   "Preview": "",
   "RevealMap": true,
   "TriggerScripts": [
-    "scenarios/cinema_demo_2.js"
+    "scenarios/dialogue_cutscene_demo.js"
   ],
   "VictoryConditions": []
 }
