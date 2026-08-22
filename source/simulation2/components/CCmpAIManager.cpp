@@ -411,8 +411,10 @@ public:
 	{
 		Script::Request rq(m_ScriptInterface);
 
-		// we don't need to load it.
-		if (!std::exchange(m_HasSharedComponent, true))
+		// We don't need to load it, or we already tried (and possibly failed)
+		// once; reset to false so it only becomes true again once we've
+		// actually finished constructing m_SharedAIObj below.
+		if (!std::exchange(m_HasSharedComponent, false))
 			return false;
 
 		auto result = m_ScriptInterface->GetModuleLoader().LoadModule(rq,
@@ -465,6 +467,11 @@ public:
 			return false;
 		}
 
+		// Only commit to "ready" once construction has actually succeeded -
+		// every `return false` above this point must leave m_HasSharedComponent
+		// false, so RunGamestateInit()/PerformComputation() never call into a
+		// m_SharedAIObj that wasn't actually constructed.
+		m_HasSharedComponent = true;
 		return true;
 	}
 
