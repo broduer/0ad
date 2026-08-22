@@ -20,7 +20,7 @@ Trigger.prototype.PlayOpeningCutscene = function()
 			{ "action": "ShowThemistoclesIphicratesDialogue", "delay": 17000 }
 		]
 	});
-	cmpCinemaInterface.ShowSpeechSequence([this.OpeningText]);
+	cmpCinemaInterface.ShowSpeechSequence(this.OpeningSpeechSequence);
 };
 
 Trigger.prototype.ContinueAfterOpeningCutscene = function(sequences)
@@ -45,6 +45,7 @@ Trigger.prototype.ShowThemistoclesIphicratesDialogue = function()
 
 Trigger.prototype.FirstCinemaPathName = "path1";
 Trigger.prototype.SecondCinemaPathData = {
+	"name": "path2",
 	"timescale": 1,
 	"orientation": "target",
 	"mode": "ease_inout",
@@ -87,14 +88,17 @@ Trigger.prototype.SecondCinemaPathData = {
 	]
 };
 
-Trigger.prototype.OpeningText = {
-	"lines": [
+Trigger.prototype.OpeningSpeechSequence = [
+	{
+		"duringPaths": ["path1"],
 		// TODO: Translate these?
-		"The story of ancient Athens is both fascinating and inspiring. Today praised as the birthplace of democracy, it was a place built and run by its people. But that wasn't to say it lacked outstanding individuals; people who found a way to use their remarkable brilliance in an inspiring and memorable way, by devoting their lives to make their homeland a better place for fellow citizens, defend it from foreign threats, and lead them all into a better future.",
-		"Admittedly... that might all have been a bit of an exaggeration. But you get the idea.\nHere are three of the most famous people of Classical Athens: Pericles, Iphicrates, and Themistocles."
-	],
-	"lineDurations": [30000, 12000]
-};
+		"lines": ["The story of ancient Athens is both fascinating and inspiring. Today praised as the birthplace of democracy, it was a place built and run by its people. But that wasn't to say it lacked outstanding individuals; people who found a way to use their remarkable brilliance in an inspiring and memorable way, by devoting their lives to make their homeland a better place for fellow citizens, defend it from foreign threats, and lead them all into a better future."],
+	},
+	{
+		"duringPaths": ["path2"],
+		"lines": ["Admittedly... that might all have been a bit of an exaggeration. But you get the idea.\nHere are three of the most famous people of Classical Athens: Pericles, Iphicrates, and Themistocles."]
+	}
+];
 
 Trigger.prototype.PericlesSpeech = {
 	"speakingUnit": CHARACTER.PERICLES,

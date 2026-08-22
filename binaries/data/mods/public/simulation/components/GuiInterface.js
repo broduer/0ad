@@ -156,7 +156,11 @@ GuiInterface.prototype.GetSimulationState = function()
 
 	const cmpCinemaManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_CinemaManager);
 	if (cmpCinemaManager)
+	{
 		ret.cinemaPathPlaying = cmpCinemaManager.IsPlayingQueue();
+		if (ret.cinemaPathPlaying)
+			ret.activeCinemaPath = cmpCinemaManager.GetActivePath();
+	}
 
 	const cmpEndGameManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_EndGameManager);
 	ret.victoryConditions = cmpEndGameManager.GetVictoryConditions();

@@ -79,14 +79,16 @@ class CinemaOverlay
 
 	onSimulationUpdate()
 	{
+		this.syncSpeechSegmentsToPaths();
+
 		if (GetSimState().cinemaPathPlaying)
 		{
 			if (this.parentObject.hidden)
 				this.show();
-
 			// Make sure to always be in cutscene mode while a cinema path is playing, no matter what the active
 			// speech segment specifies, or if there even is one.
 			this.setCutsceneModeEnabled(true);
+
 		}
 		else if (this.speechSegments.length)
 		{
@@ -145,6 +147,22 @@ class CinemaOverlay
 			this.loadNextLineOrClose();
 	}
 
+	/**
+	 * Check if the active speech segment's duringPaths property allows/includes the currently played one.
+	 * If not, immediately load the next one (or close).
+	 */
+	syncSpeechSegmentsToPaths()
+	{
+		const activeSegment = this.speechSegments[this.activeSegmentIndex];
+		const duringPaths = activeSegment?.duringPaths;
+		if (duringPaths && !duringPaths.includes(GetSimState().activeCinemaPath))
+		{
+			this.loadNextLineOrClose();
+			return true;
+		}
+		return false;
+	}
+
 	loadNextLineOrClose()
 	{
 		if (this.loadNextLineTimer !== undefined)
@@ -172,6 +190,9 @@ class CinemaOverlay
 		else
 			this.activeLineIndex++;
 
+		if (this.syncSpeechSegmentsToPaths())
+			return;
+
 		this.loadActiveLine(lastSpeakingUnit);
 	}
 
@@ -188,14 +209,15 @@ class CinemaOverlay
 
 		this.displayText(activeSegment.lines[this.activeLineIndex]);
 
-		if (!activeSegment.lineDurations?.length)
-			throw new Error("speechSegment has no lineDurations");
+		if (!activeSegment.lineDurations?.length && !activeSegment.duringPaths)
+			throw new Error("speechSegment has no lineDurations or duringPaths");
 
-		// Multiply the duration by the sim rate because lines might be synced with cinema paths, whose duration depend on the
-		// sim rate as well. This assumes the sim rates doesn't change, but that should be fine.
-		this.loadNextLineTimer = setTimeout(
-			this.loadNextLineOrClose.bind(this), activeSegment.lineDurations[this.activeLineIndex] / Engine.GetSimRate()
-		);
+		if (activeSegment.lineDurations?.[this.activeLineIndex])
+			// Multiply the duration by the sim rate because lines might be synced with cinema paths, whose duration depend on the
+			// sim rate as well. This assumes the sim rates doesn't change, but that should be fine.
+			this.loadNextLineTimer = setTimeout(
+				this.loadNextLineOrClose.bind(this), activeSegment.lineDurations[this.activeLineIndex] / Engine.GetSimRate()
+			);
 
 		this.setSpeechDisplayHidden(false);
 
