@@ -20,6 +20,7 @@
 #include "lib/path.h"
 #include "lib/types.h"
 #include "ps/CLogger.h"
+#include "ps/Filesystem.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Object.h"
@@ -234,6 +235,33 @@ public:
 		Script::GetPropertyInt(rq, val, 0, out);
 		Script::FromJSVal(rq, out, nbr);
 		TS_ASSERT_EQUALS(nbr, 7);
+	}
+
+	void test_rng_compatibility()
+	{
+		// The seed files are generated with this code:
+		// std::mt19937_64 g{};
+		// std::ofstream{"c++library.seed", std::ios::binary} << g;
+
+		g_VFS = CreateVfs();
+		TS_ASSERT_OK(g_VFS->Mount(L"", DataDir() / "mods" / "_test.scriptinterface" / "",
+			VFS_MOUNT_MUST_EXIST));
+
+		CFileInfos fileInfos;
+		TS_ASSERT_OK(g_VFS->GetDirectoryEntries("rng/", &fileInfos, nullptr));
+		for (const auto& file : fileInfos)
+		{
+			CVFSFile seedFile;
+			TS_ASSERT_OK(seedFile.Load(g_VFS, OsPath{"rng"} / file.Name()));
+			std::istringstream s{seedFile.DecodeUTF8()};
+
+			std::mt19937_64 e;
+			s >> e;
+			TS_ASSERT_EQUALS(e(), 14514284786278117030UL);
+			TS_ASSERT_EQUALS(e(), 4620546740167642908UL);
+		}
+
+		g_VFS.reset();
 	}
 
 	void test_random()
