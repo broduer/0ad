@@ -929,6 +929,10 @@ var g_Commands = {
 				cmpProductionQueue.DisableAutoQueue();
 		}
 	},
+	"close-speech-sequence": function(player, cmd, data)
+	{
+		Engine.QueryInterface(SYSTEM_ENTITY, IID_CinemaInterface)?.HandleSpeechSequenceCloseRequest(player);
+	}
 
 };
 

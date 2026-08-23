@@ -1,6 +1,10 @@
 /**
  * This component builds on the cinema manager component by providing additional structure and wrappers for convenience.
  * It serves as a helper for trigger scripts.
+ *
+ * Note: Generally, trigger scripts are supposed to only add one speech sequence (list of speech segments) at once. But
+ * they don't have to guarantee it: This component is designed to be able to handle multiple at once too, so trigger
+ * scripts don't have to perform their own collision prevention logic.
  */
 function CinemaInterface() {}
 
@@ -9,9 +13,46 @@ CinemaInterface.prototype.Schema =
 
 CinemaInterface.prototype.Init = function()
 {
+	this.activeSpeechSequences = [];
 	this.temporaryPathCount = 0;
 	this.queueEndedCallbacks = [];
+
+	// Players who have already hit the close button of the last active speech sequence.
+	this.playersFinishedSpeechSequences = new Set();
 };
+
+CinemaInterface.prototype.OnInitGame = function()
+{
+	this.numHumanPlayers = 0;
+	for (const data of InitAttributes.settings?.PlayerData || [{}]) // There's no player data in Atlas.
+		if (data && !data.AI && !data.Removed && !data.Unassigned)
+			this.numHumanPlayers++;
+};
+
+CinemaInterface.prototype.Serialize = function()
+{
+	const state = {};
+	for (const key in this)
+		if (Object.hasOwn(this, key))
+			state[key] = this[key];
+
+	// Speech sequences without fixed line durations are always restarted from the beginning when deserializing.
+	// So this info is irrelevant.
+	delete state.playersFinishedSpeechSequences;
+	delete state.numHumanPlayers; // Can and must be re-read from InitAttributes when deserializing.
+
+	return state;
+};
+
+CinemaInterface.prototype.Deserialize = function(state)
+{
+	for (const prop in state)
+		this[prop] = state[prop];
+
+	this.playersFinishedSpeechSequences = new Set();
+	this.OnInitGame();
+};
+
 
 /**
  * Play a cinema path and register a callback that is invoked when the cinema queue finishes.
@@ -80,8 +121,8 @@ CinemaInterface.prototype.PlayCustomPath = function(path, callback = null)
  * Initiate a speech sequence and and display it to all players. It is comprised of one or more speech segments plus
  * some additional options.
  * @param {Object[]} speechSegments
- * @param {Object} speechSegments[] - Data and parameters of the speech segments. If neither lineDurations nor
- *  duringPaths are defined, the GUI shows buttons to click through the lines manually.
+ * @param {Object} speechSegments[] - Data and parameters of a speech segment. If neither lineDurations nor duringPaths
+ *  are defined, the GUI shows 'next' and 'previous' buttons to click through the lines manually.
  * @param {number} [speechSegments[].speakingUnit] - The entity ID of the unit to be shown as speaking the lines.
  * @param {string[]} speechSegments[].lines - The spoken/narrated text.
  * @param {number[]} [speechSegments[].lineDurations] - The durations of the lines in milliseconds.
@@ -94,6 +135,9 @@ CinemaInterface.prototype.PlayCustomPath = function(path, callback = null)
  * @param {boolean} [options.enableCutsceneMode] - If true, enables cutscene rendering mode as long as this sequence is
  *  shown. This hides all informational overlays such as territory borders, selection rings, and range overlays, which
  *  makes the scene feel more "pure", more like a movie.
+ * @param {boolean} [options.closeSynchronously] - If true or not defined, the cinematic speech overlay only hides once
+ *  all players have hit close, and for everyone simultaneously. If false, it can be closed directly. Only relevant in
+ *  multiplayer and if the sequence has 'next' and 'previous' buttons (i.e. has no lineDurations or duringPath).
  */
 CinemaInterface.prototype.ShowSpeechSequence = function(speechSegments, options)
 {
@@ -110,15 +154,50 @@ CinemaInterface.prototype.ShowSpeechSequence = function(speechSegments, options)
 		else if (segment.duringPaths && (!Array.isArray(segment.duringPaths) || typeof segment.duringPaths[0] != "string"))
 			throw new Error("When defined, the 'duringPaths' of each speech segment must be an array of strings.");
 
+	this.activeSpeechSequences.push({
+		"speechSegments": speechSegments,
+		"options": options
+	});
+
+	this.PushSpeechSequenceToGui(speechSegments, options);
+};
+
+CinemaInterface.prototype.PushSpeechSequenceToGui = function(speechSegments, options)
+{
 	Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface)?.PushNotification({
 		"type": "speech-sequence",
 		"players": [0],
 		"moveCameraToSpeakingUnit": options?.moveCameraToSpeakingUnit,
 		"enableCutsceneMode": options?.enableCutsceneMode,
+		"closeSynchronously": (options?.closeSynchronously === undefined || options.closeSynchronously) &&
+			this.numHumanPlayers > 1,
 		"speechSegments": speechSegments
 	});
-
 };
+
+
+/**
+ * Mark a player as having finished (clicked through) all of the active speech sequences and wanting to close it now.
+ * @param {number} player - The ID of the player who sent the close request.
+ */
+CinemaInterface.prototype.HandleSpeechSequenceCloseRequest = function(player)
+{
+	this.playersFinishedSpeechSequences.add(player);
+	if (this.playersFinishedSpeechSequences.size < this.numHumanPlayers)
+		return;
+
+	// All players have sent a close request, notify the GUI to close the speech sequences (for all players at once) and reset.
+
+	Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface)?.PushNotification({
+		"type": "speech-sequence",
+		"players": [0],
+		"sequenceEnd": true
+	});
+
+	this.activeSpeechSequences = [];
+	this.playersFinishedSpeechSequences = new Set();
+};
+
 
 CinemaInterface.prototype.OnCinemaQueueEnded = function()
 {
@@ -139,5 +218,73 @@ CinemaInterface.prototype.OnCinemaQueueEnded = function()
 
 	this.queueEndedCallbacks = [];
 };
+
+CinemaInterface.prototype.OnGlobalDeserialized = function()
+{
+	const cmpCinemaManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_CinemaManager);
+	if (!cmpCinemaManager?.IsPlayingQueue())
+	{
+		for (const sequence of this.activeSpeechSequences)
+			this.PushSpeechSequenceToGui(sequence.speechSegments, sequence.options);
+		return;
+	}
+
+	// The following doesn't affect the serialized simulation state in any way, it's purely done for the GUI's sake.
+	// The goal is to find which line was shown at the moment of serializing, also how long it has left, and then reenter
+	// the sequences at that point. This is done because their timings could be carefully synced with cinema paths.
+	// Note: This isn't 100% foolproof, but also quite an edge case: Players aren't supposed to save and/or quit while
+	// a cinema path is playing, so this case should only occur when a player rejoins a multiplayer game while a cinema
+	// path is playing, which is a very specific situation. So any more effort than this would be total overkill.
+
+	const activePath = cmpCinemaManager.GetActivePath();
+	let timeToSkip = cmpCinemaManager.GetActivePathElapsedTime();
+	let done = false;
+	const pendingSequences = clone(this.activeSpeechSequences);
+	while (pendingSequences.length)
+	{
+		const segments = pendingSequences[0].speechSegments;
+		while (segments.length)
+		{
+			const firstSegment = segments[0];
+			if (firstSegment.duringPaths && !firstSegment.duringPaths.includes(activePath))
+			{
+				segments.shift();
+				continue;
+			}
+
+			if (!firstSegment.lineDurations)
+			{
+				done = true;
+				break;
+			}
+
+			while (firstSegment.lineDurations.length)
+			{
+				if (timeToSkip >= firstSegment.lineDurations[0])
+				{
+					timeToSkip -= firstSegment.lineDurations[0];
+					firstSegment.lines.shift();
+					firstSegment.lineDurations.shift();
+				}
+				else
+				{
+					firstSegment.lineDurations[0] -= timeToSkip;
+					done = true;
+					break;
+				}
+			}
+
+			segments.shift();
+		}
+		if (done)
+			break;
+		else
+			pendingSequences.shift();
+	}
+
+	for (const sequence of pendingSequences)
+		this.PushSpeechSequenceToGui(sequence.speechSegments, sequence.options);
+};
+
 
 Engine.RegisterSystemComponentType(IID_CinemaInterface, "CinemaInterface", CinemaInterface);

@@ -9,6 +9,10 @@
  *  a match, including while cinema paths are playing. The speech UI includes the same two black bars, but also various
  *  additional elements inside the bottom one. Speech data is received from the simulation through GUI notifications and
  *  divided into "speech segments": each can contain multiple lines, but only specify one speaking unit (or none).
+ *
+ * Whilever the overlay is shown, all other session GUI is hidden, but the simulation still running.
+ * At any point in time, the overlay is either shown to all players or no one and it ends/hides when the last player
+ * presses the close button -- unless specified otherwise (see closeSynchronously).
  */
 class CinemaOverlay
 {
@@ -25,6 +29,7 @@ class CinemaOverlay
 	buttonContainer = Engine.GetGUIObjectByName("cinemaOverlayButtonContainer");
 	previousButton = Engine.GetGUIObjectByName("cinemaOverlayPreviousButton");
 	nextButton = Engine.GetGUIObjectByName("cinemaOverlayNextButton");
+	waitingText = Engine.GetGUIObjectByName("cinemaOverlayWaitingText");
 
 	// Objects to hide while showing the overlay.
 	primarySessionOverlays = Engine.GetGUIObjectByName("primaryOverlays");
@@ -38,6 +43,10 @@ class CinemaOverlay
 	textContainerMargin = 0;
 
 	isCutsceneModeEnabled = Engine.Renderer_GetCutsceneModeEnabled();
+	// Whether to wait for other players to close the overlay before hiding, in order to not disadvantage players who
+	// take longer to read and click through it.
+	// => always false in singleplayer and generally true in multiplayer, unless specified differently.
+	closeSynchronously = false;
 
 	constructor(hotloadData)
 	{
@@ -53,6 +62,8 @@ class CinemaOverlay
 		this.nextButton.caption = this.NextButtonCaption;
 		this.nextButton.tooltip = this.NextButtonTooltip;
 		this.nextButton.onPress = this.loadNextLineOrClose.bind(this);
+		this.waitingText.caption = this.WaitingForOtherPlayersCaption;
+		this.waitingText.hidden = true;
 
 		if (hotloadData?.speechSegments?.length)
 		{
@@ -150,16 +161,39 @@ class CinemaOverlay
 		this.barBottom.size.top = -barHeight;
 	}
 
-	addSpeechSegmentToQueue(segment)
+	handleSpeechNotification(notification)
 	{
-		this.speechSegments.push(segment);
+		if (notification.sequenceEnd)
+		{
+			if (this.speechSegments.length && this.activeSegmentIndex == this.speechSegments.length - 1 &&
+				this.activeLineIndex == this.speechSegments[this.activeSegmentIndex].lines.length - 1)
+			{
+				if (GetSimState().cinemaPathPlaying)
+					this.setSpeechDisplayHidden(true); // Hide everything but the two black bars.
+				else
+					this.hide(); // Hide completely, in sync with the other players (that's what the notification is for).
+			}
+			return;
+		}
+
+		for (const segment of notification.speechSegments)
+			this.speechSegments.push({
+				...segment,
+				"enableCutsceneMode": notification.enableCutsceneMode,
+				"moveCameraToSpeakingUnit": notification.moveCameraToSpeakingUnit,
+				"canBeClosedInstantly": notification.canBeClosedInstantly
+			});
+
+		// Close synchronously, as soon as any speech segments have it set to true.
+		this.closeSynchronously ||= notification.closeSynchronously;
+
 		if (this.parentObject.hidden)
 			this.show();
 		if (this.activeLineIndex == -1)
 			this.loadNextLineOrClose();
 		else if (!this.buttonContainer.hidden)
 			// Button captions might need to be updated.
-			this.updateButtons(true);
+			this.updateButtonsAndWaitingText(true);
 	}
 
 	/**
@@ -254,17 +288,24 @@ class CinemaOverlay
 			);
 
 		this.setSpeechDisplayHidden(false);
-		this.updateButtons(!activeSegment.lineDurations && !activeSegment.duringPaths);
+		this.updateButtonsAndWaitingText(!activeSegment.lineDurations && !activeSegment.duringPaths, false);
 
 		if (!GetSimState().cinemaPathPlaying)
 			this.setCutsceneModeEnabled(activeSegment.enableCutsceneMode);
 	}
 
-	updateButtons(show)
+	updateButtonsAndWaitingText(showButtons, showWaitingText)
 	{
-		this.buttonContainer.hidden = !show;
-		this.textContainer.size.right = -this.textContainerMargin + (show ? this.buttonContainer.size.left : 0);
-		if (!show)
+		if (showButtons && showWaitingText)
+			throw new Error("Can't show buttons and waiting text at once. They are located in the same place.");
+
+		this.nextButton.hidden = !showButtons;
+		this.previousButton.hidden = !showButtons;
+		this.waitingText.hidden = !showWaitingText;
+		this.textContainer.size.right =
+			-this.textContainerMargin + (showButtons || showWaitingText ? this.buttonContainer.size.left : 0);
+
+		if (!showButtons)
 			return;
 
 		if (this.activeSegmentIndex == this.speechSegments.length - 1 &&
@@ -339,11 +380,19 @@ class CinemaOverlay
 
 	closeActiveSpeechSequence()
 	{
-		if (GetSimState().cinemaPathPlaying)
+		Engine.PostNetworkCommand({ "type": "close-speech-sequence" });
+
+		if (!g_IsObserver && this.closeSynchronously && !this.previousButton.hidden)
+		{
+			// Wait for the other players, and for a speech sequence end notification.
+			this.updateButtonsAndWaitingText(false, true);
+		}
+		else if (GetSimState().cinemaPathPlaying)
 			this.setSpeechDisplayHidden(true); // Hide everything but the two black bars.
 		else
 			this.hide(); // Hide completely.
 	}
+
 
 	/**
 	 * Hide or show the GUI objects used to display speech: everything except the two black bars.
@@ -371,6 +420,7 @@ class CinemaOverlay
 		this.speechSegments = [];
 		this.activeSegmentIndex = -1;
 		this.activeLineIndex = -1;
+		this.closeSynchronously = false;
 
 		Engine.GuiInterfaceCall("SetSpeechIndicator", INVALID_ENTITY);
 	}
@@ -392,6 +442,8 @@ CinemaOverlay.prototype.UnitNameStringTags = {
 	"Primary": { "font": "sans-bold-20", "color": "gold" },
 	"Secondary": { "font": "sans-bold-18", "color": "white" }
 };
+
+CinemaOverlay.prototype.WaitingForOtherPlayersCaption = translate("Waiting for other players...");
 
 CinemaOverlay.prototype.NextButtonCaption = translateWithContext("button caption", "Next");
 CinemaOverlay.prototype.NextButtonTooltip = translateWithContext("button tooltip", "Switch to the next line.");

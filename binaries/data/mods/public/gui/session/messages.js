@@ -291,12 +291,7 @@ var g_NotificationsTypes =
 		},
 		"speech-sequence": function(notification, player)
 		{
-			for (const segment of notification.speechSegments)
-				g_CinemaOverlay.addSpeechSegmentToQueue({
-					...segment,
-					"enableCutsceneMode": notification.enableCutsceneMode,
-					"moveCameraToSpeakingUnit": notification.moveCameraToSpeakingUnit
-				});
+			g_CinemaOverlay.handleSpeechNotification(notification);
 		}
 	};
 
