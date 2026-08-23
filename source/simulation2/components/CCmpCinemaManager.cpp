@@ -366,9 +366,6 @@ private:
 	// Time elapsed since the currently active path first started playing.
 	fixed m_ActivePathElapsedTime;
 
-	// Time elapsed since the
-	fixed m_QueueEndedElapsedTime;
-
 	// Whether the map was revealed before playing the queue.
 	bool m_WasMapRevealed;
 };
