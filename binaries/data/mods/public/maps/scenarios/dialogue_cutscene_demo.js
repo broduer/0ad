@@ -113,13 +113,11 @@ Trigger.prototype.ThemistoclesIphicratesDialogue = [
 		"speakingUnit": CHARACTER.PERICLES,
 		"lines": [
 			"Let's start by introducing ourselves. I'll go first: My name is Pericles and I am an Athenian statesman from the later 5th century BC."
-		],
-		"lineDurations": [7000]
+		]
 	},
 	{
 		"speakingUnit": CHARACTER.THEMISTOCLES,
-		"lines": ["Hi, my name is Themistocles and I am an Athenian general and politician from the 5th century BC."],
-		"lineDurations": [5500]
+		"lines": ["Hi, my name is Themistocles and I am an Athenian general and politician from the 5th century BC."]
 	},
 	{
 		"speakingUnit": CHARACTER.IPHICRATES,
@@ -127,47 +125,40 @@ Trigger.prototype.ThemistoclesIphicratesDialogue = [
 			"Hi, I'm Iphicrates, an Athenian general too, but from the 4th century BC.",
 			"I have the reputation of being a gifted commander with comprehensive knowledge military tactics and trends, unmatched by other commanders at the time.\nAmong my many heroic triumphs were victories over Sparta in the Corinthian War. However, I am even more famous for the feat of reforming the Athenian military by developing a new type of light infantry called the \u201Cpeltasts\u201D.",
 			"As the son of a shoemaker, I even designed a new type of boots for my soldiers called 'Iphicratides'. They were not only more lightweight, but also easier to untie than..."
-		],
-		"lineDurations": [5000, 15000, 8000]
+		]
 	},
 	{
 		"speakingUnit": CHARACTER.THEMISTOCLES,
-		"lines": ["Stop bragging. If I hadn't kicked out the Persians at Salamis in 480 BC, you wouldn't even have been born."],
-		"lineDurations": [8000]
+		"lines": ["Stop bragging. If I hadn't kicked out the Persians at Salamis in 480 BC, you wouldn't even have been born."]
 	},
 	{
 		"speakingUnit": CHARACTER.IPHICRATES,
-		"lines": ["At least I wasn't -- unlike you -- ostracised by the people of Athens later and then fled to our enemy Persia."],
-		"lineDurations": [8000]
+		"lines": ["At least I wasn't -- unlike you -- ostracised by the people of Athens later and then fled to our enemy Persia."]
 	},
 	{
 		"speakingUnit": CHARACTER.PERICLES,
 		"lines": [
 			"\\[Sigh] I'm not going to argue with you childish quarrelers.",
 			"All I'm gonna say is, there is more to being a good leader than just fighting battles or winning wars."
-		],
-		"lineDurations": [5000, 8000]
+		]
 	},
 	{
 		"speakingUnit": CHARACTER.IPHICRATES,
-		"lines": ["It doesn't suprise me that you're the one to say that, considering you never managed to make it big as a general."],
-		"lineDurations": [8000]
+		"lines": ["It doesn't suprise me that you're the one to say that, considering you never managed to make it big as a general."]
 	},
 	{
 		"speakingUnit": CHARACTER.PERICLES,
 		"lines": [
 			"Before criticising my leadership skills, can you first explain to me how you ended up partaking a military campaign [font=\"sans-italic-18\"]against[/font] Athens? Be grateful I don't straight up call you a traitor.",
 			"You should both be more appreciative of my achievements. It's for a reason that the time in which I led Athens is called its \u201DGolden Age\u201D. Neither of you two can say that about yourselves, can you?"
-		],
-		"lineDurations": [11000, 11000]
+		]
 	},
 	{
 		"speakingUnit": CHARACTER.THEMISTOCLES,
 		"lines": [
 			"Appreciative of what? Appreciative of your amazing idea in the Peloponnesian War of bunkering yourself and cramming our entire population into the city walls, where inevitably an awful plague broke out that ended up wiping out a quarter of the entire population?",
 			"You know, I might not have a \u201CGolden Age\u201D attributed to my name, but at least I have a sense of hygiene."
-		],
-		"lineDurations": [11000, 9000]
+		]
 	}
 ];
 

@@ -22,6 +22,9 @@ class CinemaOverlay
 	unitName = Engine.GetGUIObjectByName("cinemaOverlayUnitName");
 	textContainer = Engine.GetGUIObjectByName("cinemaOverlayTextContainer");
 	text = Engine.GetGUIObjectByName("cinemaOverlayText");
+	buttonContainer = Engine.GetGUIObjectByName("cinemaOverlayButtonContainer");
+	previousButton = Engine.GetGUIObjectByName("cinemaOverlayPreviousButton");
+	nextButton = Engine.GetGUIObjectByName("cinemaOverlayNextButton");
 
 	// Objects to hide while showing the overlay.
 	primarySessionOverlays = Engine.GetGUIObjectByName("primaryOverlays");
@@ -32,6 +35,7 @@ class CinemaOverlay
 	activeSegmentIndex = -1;
 	activeLineIndex = -1;
 	loadNextLineTimer;
+	textContainerMargin = 0;
 
 	isCutsceneModeEnabled = Engine.Renderer_GetCutsceneModeEnabled();
 
@@ -39,8 +43,16 @@ class CinemaOverlay
 	{
 		registerSimulationUpdateHandler(this.onSimulationUpdate.bind(this));
 		this.parentObject.onWindowResized = this.recalculateBarSizes.bind(this);
-		this.recalculateBarSizes();
 		this.parentObject.hidden = true;
+		this.recalculateBarSizes();
+		this.textContainerMargin = this.textContainer.size.left;
+
+		this.previousButton.caption = this.PreviousButtonCaption;
+		this.previousButton.tooltip = this.PreviousButtonTooltip;
+		this.previousButton.onPress = this.loadPreviousLine.bind(this);
+		this.nextButton.caption = this.NextButtonCaption;
+		this.nextButton.tooltip = this.NextButtonTooltip;
+		this.nextButton.onPress = this.loadNextLineOrClose.bind(this);
 
 		if (hotloadData?.speechSegments?.length)
 		{
@@ -145,6 +157,9 @@ class CinemaOverlay
 			this.show();
 		if (this.activeLineIndex == -1)
 			this.loadNextLineOrClose();
+		else if (!this.buttonContainer.hidden)
+			// Button captions might need to be updated.
+			this.updateButtons(true);
 	}
 
 	/**
@@ -162,6 +177,29 @@ class CinemaOverlay
 		}
 		return false;
 	}
+
+	loadPreviousLine()
+	{
+		const currentlySpeakingUnitID = this.speechSegments[this.activeSegmentIndex].speakingUnit;
+		if (this.activeLineIndex === 0)
+		{
+			// Load in the previous segment.
+
+			if (this.activeSegmentIndex == 0)
+			{
+				error("CinemaOverlay: Tried to load previous line, but is already on the very first.");
+				return;
+			}
+
+			this.activeSegmentIndex--;
+			this.activeLineIndex = this.speechSegments[this.activeSegmentIndex].lines.length - 1;
+		}
+		else
+			this.activeLineIndex--;
+
+		this.loadActiveLine(currentlySpeakingUnitID);
+	}
+
 
 	loadNextLineOrClose()
 	{
@@ -206,11 +244,7 @@ class CinemaOverlay
 		if (activeSegment.speakingUnit && activeSegment.moveCameraToSpeakingUnit && !GetSimState().cinemaPathPlaying)
 			Engine.CameraFollow(activeSegment.speakingUnit);
 
-
 		this.displayText(activeSegment.lines[this.activeLineIndex]);
-
-		if (!activeSegment.lineDurations?.length && !activeSegment.duringPaths)
-			throw new Error("speechSegment has no lineDurations or duringPaths");
 
 		if (activeSegment.lineDurations?.[this.activeLineIndex])
 			// Multiply the duration by the sim rate because lines might be synced with cinema paths, whose duration depend on the
@@ -220,9 +254,31 @@ class CinemaOverlay
 			);
 
 		this.setSpeechDisplayHidden(false);
+		this.updateButtons(!activeSegment.lineDurations && !activeSegment.duringPaths);
 
 		if (!GetSimState().cinemaPathPlaying)
 			this.setCutsceneModeEnabled(activeSegment.enableCutsceneMode);
+	}
+
+	updateButtons(show)
+	{
+		this.buttonContainer.hidden = !show;
+		this.textContainer.size.right = -this.textContainerMargin + (show ? this.buttonContainer.size.left : 0);
+		if (!show)
+			return;
+
+		if (this.activeSegmentIndex == this.speechSegments.length - 1 &&
+			this.activeLineIndex == this.speechSegments[this.activeSegmentIndex].lines.length - 1)
+		{
+			this.nextButton.caption = this.CloseButtonCaption;
+			this.nextButton.tooltip = this.CloseButtonTooltip;
+		}
+		else
+		{
+			this.nextButton.caption = this.NextButtonCaption;
+			this.nextButton.tooltip = this.NextButtonTooltip;
+		}
+		this.previousButton.enabled = this.activeSegmentIndex > 0 || this.activeLineIndex > 0;
 	}
 
 	setSpeakingUnit(entityID)
@@ -230,7 +286,7 @@ class CinemaOverlay
 		if (!entityID)
 		{
 			this.speakingUnitDisplay.hidden = true;
-			this.textContainer.size.left = -this.textContainer.size.right;
+			this.textContainer.size.left = this.textContainerMargin;
 			return;
 		}
 
@@ -259,7 +315,7 @@ class CinemaOverlay
 		);
 
 		this.speakingUnitDisplay.hidden = false;
-		this.textContainer.size.left = this.speakingUnitDisplay.size.right - this.textContainer.size.right;
+		this.textContainer.size.left = this.speakingUnitDisplay.size.right + this.textContainerMargin;
 
 		Engine.GuiInterfaceCall("SetSpeechIndicator", entityID);
 	}
@@ -336,3 +392,10 @@ CinemaOverlay.prototype.UnitNameStringTags = {
 	"Primary": { "font": "sans-bold-20", "color": "gold" },
 	"Secondary": { "font": "sans-bold-18", "color": "white" }
 };
+
+CinemaOverlay.prototype.NextButtonCaption = translateWithContext("button caption", "Next");
+CinemaOverlay.prototype.NextButtonTooltip = translateWithContext("button tooltip", "Switch to the next line.");
+CinemaOverlay.prototype.CloseButtonCaption = translateWithContext("button caption", "Close");
+CinemaOverlay.prototype.CloseButtonTooltip = translateWithContext("button tooltip", "Close and continue.");
+CinemaOverlay.prototype.PreviousButtonCaption = translateWithContext("button caption", "Previous");
+CinemaOverlay.prototype.PreviousButtonTooltip = translateWithContext("button tooltip", "Switch to the next line.");

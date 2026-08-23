@@ -80,6 +80,8 @@ CinemaInterface.prototype.PlayCustomPath = function(path, callback = null)
  * Initiate a speech sequence and and display it to all players. It is comprised of one or more speech segments plus
  * some additional options.
  * @param {Object[]} speechSegments
+ * @param {Object} speechSegments[] - Data and parameters of the speech segments. If neither lineDurations nor
+ *  duringPaths are defined, the GUI shows buttons to click through the lines manually.
  * @param {number} [speechSegments[].speakingUnit] - The entity ID of the unit to be shown as speaking the lines.
  * @param {string[]} speechSegments[].lines - The spoken/narrated text.
  * @param {number[]} [speechSegments[].lineDurations] - The durations of the lines in milliseconds.
@@ -101,10 +103,12 @@ CinemaInterface.prototype.ShowSpeechSequence = function(speechSegments, options)
 	for (const segment of speechSegments)
 		if (!Array.isArray(segment.lines))
 			throw new TypeError("Each 'speechSegment' must define a 'lines' array.");
-		else if (!Array.isArray(segment.lineDurations) && !Array.isArray(segment.duringPaths))
-			throw new TypeError("Each 'speechSegment' must define either a 'lineDurations' array or 'duringPaths' array.");
-		else if (segment.lineDurations && segment.lineDurations.length != segment.lines.length)
-			throw new Error("When defined, the 'lineDurations' array of each speech segment must have the same length as its 'lines'.");
+		else if (segment.lineDurations && (!Array.isArray(segment.lineDurations) || typeof segment.lineDurations[0] != "number" ||
+			segment.lineDurations.length != segment.lines.length)
+		)
+			throw new Error("When defined, the 'lineDurations' of each speech segment must be an array of numbers and have the same length as its 'lines'.");
+		else if (segment.duringPaths && (!Array.isArray(segment.duringPaths) || typeof segment.duringPaths[0] != "string"))
+			throw new Error("When defined, the 'duringPaths' of each speech segment must be an array of strings.");
 
 	Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface)?.PushNotification({
 		"type": "speech-sequence",

@@ -4,6 +4,10 @@
 	<object name="cinemaOverlayBarBottom" type="image" sprite="color:black" size="0 100%-100 100% 100%">
 		<object name="cinemaOverlaySpeechDisplayParent">
 			<object name="cinemaOverlaySpeechDisplay">
+				<object name="cinemaOverlayButtonContainer" size="100%-220 0 100%-20 100%">
+					<object name="cinemaOverlayPreviousButton" type="button" style="BrownButton" size="0 31%-16 100% 31%+16" tooltip_style="sessionToolTipBottom"/>
+					<object name="cinemaOverlayNextButton" type="button" style="BrownButton" size="0 69%-16 100% 69%+16" tooltip_style="sessionToolTipBottom"/>
+				</object>
 				<object name="cinemaOverlayTextContainer" type="image" size="20 20 100%-20 100%-20" sprite="GoldenBorder">
 					<object name="cinemaOverlayText" type="text" style="CinemaOverlayText" size="1 1 100%-1 100%-1"/>
 				</object>
