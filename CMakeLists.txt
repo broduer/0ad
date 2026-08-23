@@ -140,7 +140,9 @@ endif()
 # Include the BuildFlags target only once after all setup is finished
 include(0ad-BuildFlags)
 
-# +++++++++++++++++++++ Windows specific ++++++++++++++++++++
+# +++++++++++++++++++++ Include library setups ++++++++++++++++++++
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	include(SetupWindowsLibs)
+elseif(UNIX)
+	include(SetupUnixLibs)
 endif()
