@@ -257,12 +257,7 @@ public:
 	void UpdateActivePath(const float deltaRealTime, CCamera& camera) override
 	{
 		if (m_IsPlayingPathQueue)
-		{
-			if (m_PathQueue.empty())
-				StopPlayingQueue();
-			else
-				m_PathQueue.front().Play(deltaRealTime * g_Game->GetSimRate(), camera);
-		}
+			m_PathQueue.front().Play(deltaRealTime * g_Game->GetSimRate(), camera);
 	}
 
 	CStrW GetActivePath() const override
