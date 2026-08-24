@@ -516,7 +516,7 @@ void XmppClient::SendIqGetConnectionData(const std::string& jid, const std::stri
 	connectionData->m_IsLocalIP = localIP ? "1" : "0";
 	gloox::IQ iq(gloox::IQ::Get, targetJID, m_Impl->m_client.getID());
 	iq.addExtension(connectionData);
-	m_Impl->m_connectionDataJid = iq.from().full();
+	m_Impl->m_connectionDataJid = iq.to().full();
 	m_Impl->m_connectionDataIqId = iq.id();
 	DbgXMPP("SendIqGetConnectionData [" << tag_xml(iq) << "]");
 	m_Impl->m_client.send(iq);
