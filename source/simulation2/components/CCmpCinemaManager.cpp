@@ -49,7 +49,6 @@ public:
 	static void ClassInit(CComponentManager& componentManager)
 	{
 		componentManager.SubscribeToMessageType(MT_Update);
-		componentManager.SubscribeToMessageType(MT_Deserialized);
 	}
 
 	DEFAULT_COMPONENT_ALLOCATOR(CinemaManager)
@@ -122,20 +121,12 @@ public:
 
 	void HandleMessage(const CMessage& msg, bool /*global*/) override
 	{
-		switch (msg.GetType())
-		{
-		case MT_Deserialized:
-			if (!m_IsPlayingPathQueue)
-				break;
-
-			m_IsPlayingPathQueue = false;
-			StartPlayingQueue();
-			break;
-		case MT_Update:
+		if (msg.GetType() == MT_Update)
 		{
 			const CMessageUpdate &msgData = static_cast<const CMessageUpdate&>(msg);
 			if (!m_IsPlayingPathQueue)
-				break;
+				return;
+
 			m_QueuePlayingElapsedTime += msgData.turnLength;
 			m_ActivePathElapsedTime += msgData.turnLength;
 			if (m_ActivePathElapsedTime >= m_PathQueue.front().GetDuration())
@@ -151,10 +142,6 @@ public:
 
 			if (m_QueuePlayingElapsedTime >= m_PathQueueDuration)
 				StopPlayingQueue();
-			break;
-		}
-		default:
-			break;
 		}
 	}
 
