@@ -46,6 +46,8 @@ PlayerSettingControls.PlayerTeam = class PlayerTeam extends GameSettingControlDr
 PlayerSettingControls.PlayerTeam.prototype.Tooltip =
 	translate("Select player's team.");
 
+PlayerSettingControls.PlayerTeam.prototype.HostOnlyTooltip = true;
+
 PlayerSettingControls.PlayerTeam.prototype.NoTeam =
 	translateWithContext("team", "None");
 

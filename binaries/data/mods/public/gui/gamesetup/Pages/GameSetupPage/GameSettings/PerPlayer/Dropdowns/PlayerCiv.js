@@ -22,7 +22,8 @@ PlayerSettingControls.PlayerCiv = class PlayerCiv extends GameSettingControlDrop
 
 	onHoverChange()
 	{
-		this.dropdown.tooltip = this.values && this.values.tooltip[this.dropdown.hovered] || this.Tooltip;
+		this.dropdown.tooltip = g_IsController ?
+			this.values && this.values.tooltip[this.dropdown.hovered] || this.Tooltip : "";
 	}
 
 	rebuild()
@@ -88,6 +89,8 @@ PlayerSettingControls.PlayerCiv = class PlayerCiv extends GameSettingControlDrop
 
 PlayerSettingControls.PlayerCiv.prototype.Tooltip =
 	translate("Choose the civilization for this player.");
+
+PlayerSettingControls.PlayerCiv.prototype.HostOnlyTooltip = true;
 
 PlayerSettingControls.PlayerCiv.prototype.RandomCivCaption =
 	translateWithContext("civilization", "Random");

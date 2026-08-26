@@ -71,6 +71,9 @@ class GameSettingControl /* extends Profilable /* Uncomment to profile controls 
 
 	setTooltip(tooltip)
 	{
+		if (!g_IsController && this.HostOnlyTooltip)
+			tooltip = "";
+
 		if (this.title)
 			this.title.tooltip = tooltip;
 

@@ -176,6 +176,8 @@ PlayerSettingControls.PlayerAssignment.prototype.EnabledWhenSavedGame = true;
 PlayerSettingControls.PlayerAssignment.prototype.Tooltip =
 	translate("Select player.");
 
+PlayerSettingControls.PlayerAssignment.prototype.HostOnlyTooltip = true;
+
 PlayerSettingControls.PlayerAssignment.prototype.AutocompleteOrder = 100;
 
 {
