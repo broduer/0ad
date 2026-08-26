@@ -138,6 +138,11 @@ function updateCursorAndTooltip()
 		);
 		cursorSet = true;
 	}
+	else if (inputState == INPUT_BANDBOXING && Engine.HotkeyIsPressed("session.attack") && !g_IsObserver)
+	{
+		Engine.SetCursor("action-attack");
+		cursorSet = true;
+	}
 	else if (!mouseIsOverObject && (inputState == INPUT_NORMAL || inputState == INPUT_PRESELECTEDACTION) || g_MiniMapPanel.isMouseOverMiniMap())
 	{
 		const action = determineAction(mouseX, mouseY, g_MiniMapPanel.isMouseOverMiniMap());
