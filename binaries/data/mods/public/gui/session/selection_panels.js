@@ -663,7 +663,12 @@ g_SelectionPanels.Research = {
 	},
 	"reset": function()
 	{
+		// Positions occupied by buttons, mustn't be moved or used again for new ones.
 		this.helper.occupiedPositions = new Set();
+		// Positions marked as gaps where researched or queued techs (which aren't superseded) would have been placed. Can be moved
+		// for layout reasons, but mustn't be deleted.
+		this.helper.gapPositions = new Set();
+		// Number of occupied positions in the bottom row.
 		this.helper.bottomRowButtonCount = 0;
 	},
 	"getItems": function(unitEntStates)
@@ -852,7 +857,6 @@ g_SelectionPanels.Research = {
 				position += data.rowLength;
 				if (this.occupiedPositions.has(position))
 					// Both positions below the target unit are already used by other techs.
-					// Note: Ideally this should never occur. Two techs per unit should be the limit. This here is just edge case handling.
 					placeInBottomRow = true;
 			}
 			if (placeInBottomRow)
@@ -865,10 +869,11 @@ g_SelectionPanels.Research = {
 
 			Engine.GetGUIObjectByName("unitResearchVerticalPairIcon[" + data.i + "]").hidden = true;
 			Engine.GetGUIObjectByName("unitResearchHorizontalPairIcon[" + data.i + "]").hidden = true;
+			const researchedOrQueued = data.playerState.researchQueued.has(techName) || data.playerState.researchedTechs.has(techName);
 
 			// When it's not "active", it's grayed out.
-			const buttonActive = this.buildButton(data, techName, template, position, placeInBottomRow, playerState,
-				data.button, data.icon);
+			const buttonActive = this.buildButton(data, techName, template, researchedOrQueued, position, placeInBottomRow,
+				playerState, data.button, data.icon);
 			this.buildAffectsIcon(data.i, !placeInBottomRow, buttonActive);
 
 			return true;
@@ -919,7 +924,10 @@ g_SelectionPanels.Research = {
 				// Try to place them vertically in the third (second-to-bottom) and the fourth (bottom) rows.
 				firstPosition = this.bottomRowButtonCount + data.rowLength * 1;
 				secondPosition = this.bottomRowButtonCount + data.rowLength * 2;
-				if (this.occupiedPositions.has(firstPosition)) // (secondPosition is guaranteed to be available)
+				if (this.occupiedPositions.has(firstPosition) || // (secondPosition is guaranteed to be available)
+					// For consistency, don't place them vertically if the position is only free due to the tech there
+					// being researched or queued. Once horizontal, always horizontal.
+					this.gapPositions.has(firstPosition))
 				{
 					// As a last resort, try to move both to the bottom row.
 					if (this.bottomRowButtonCount >= data.rowLength - 1)
@@ -941,15 +949,18 @@ g_SelectionPanels.Research = {
 			const secondButton = Engine.GetGUIObjectByName("unitResearchButton[" + secondButtonIndex + "]");
 			const firstIcon = data.icon;
 			const secondIcon = Engine.GetGUIObjectByName("unitResearchIcon[" + secondButtonIndex + "]");
+			const researchedOrQueued =
+				data.playerState.researchQueued.has(firstTechName) || data.playerState.researchQueued.has(secondTechName) ||
+				data.playerState.researchedTechs.has(firstTechName) || data.playerState.researchedTechs.has(secondTechName);
 
 			// When it's not "active", it's grayed out.
-			const firstButtonActive = this.buildButton(data, firstTechName, firstTemplate, firstPosition, placeAtTheBottom,
-				playerState, firstButton, firstIcon);
+			const firstButtonActive = this.buildButton(data, firstTechName, firstTemplate, researchedOrQueued, firstPosition,
+				placeAtTheBottom, playerState, firstButton, firstIcon);
 			this.buildAffectsIcon(firstButtonIndex, !placeAtTheBottom, firstButtonActive);
 
 			// When it's not "active", it's grayed out.
-			const secondButtonActive = this.buildButton(data, secondTechName, secondTemplate, secondPosition, placeAtTheBottom,
-				playerState, secondButton, secondIcon);
+			const secondButtonActive = this.buildButton(data, secondTechName, secondTemplate, researchedOrQueued, secondPosition,
+				placeAtTheBottom, playerState, secondButton, secondIcon);
 			this.buildAffectsIcon(secondButtonIndex, !placeAtTheBottom && placeHorizontally, secondButtonActive);
 
 			this.buildPairIcon(false, firstButtonIndex, placeHorizontally && secondPosition > firstPosition, firstButtonActive);
@@ -986,8 +997,52 @@ g_SelectionPanels.Research = {
 						enable ? "vertical_tech_pair.png" : "vertical_tech_pair_disabled.png" :
 						enable ? "horizontal_tech_pair.png" : "horizontal_tech_pair_disabled.png");
 		},
-		"buildButton": function(baseData, techName, template, position, anchorToBottom, playerState, button, icon)
+		"occupyPosition": function(position, rowLength)
 		{
+			this.occupiedPositions.add(position);
+			if (position >= 2 * rowLength)
+				this.bottomRowButtonCount++;
+		},
+		"addGap": function(position, rowLength)
+		{
+			for (;position < 2 * rowLength; position += rowLength)
+				if (!this.occupiedPositions.has(position) && !this.gapPositions.has(position))
+				{
+					this.gapPositions.add(position);
+					return;
+				}
+
+			// If it has to be in the bottom row, "freeze" the gap in place by marking it occupied. The positioning there must stay
+			// consistent -- apart from tech buttons defining a placeBelow at least, one of which was on this position originally but
+			// moved up now.
+			this.occupyPosition(2 * rowLength + this.bottomRowButtonCount, rowLength);
+		},
+		"buildButton": function(baseData, techName, template, researchedOrQueued, position, anchorToBottom, playerState, button, icon)
+		{
+			if (researchedOrQueued)
+			{
+				button.hidden = true;
+				if (position >= 2 * baseData.rowLength)
+					// Even though no button will be displayed, mark the position occupied, so that the positions of the other
+					// bottom row buttons stay consistent.
+					this.occupyPosition(position, baseData.rowLength);
+				else
+					// Even though no button will be displayed, mark the position as a (downwards-) movable gap, but not occupied,
+					// so that the other buttons that want to be placed below the same unit can move up and swap position with it.
+					this.addGap(position, baseData.rowLength);
+
+				return false;
+			}
+			this.occupyPosition(position, baseData.rowLength);
+			if (this.gapPositions.has(position))
+			{
+				// Originally another tech button was on this position, which is now researched and queued (and not superseded),
+				// and therefore hdden. This button moved up into its gap. The gap needs to be kept, so move it downwards to the
+				// first available position -- where this button was originally placed.
+				this.gapPositions.delete(position);
+				this.addGap(position + baseData.rowLength, baseData.rowLength);
+			}
+
 			// Make sure to not modify the original template.
 			const adaptedTemplate = clone(template);
 			for (const res in adaptedTemplate.cost)
@@ -1099,10 +1154,6 @@ g_SelectionPanels.Research = {
 
 			if (adaptedTemplate.icon)
 				icon.sprite = modifier + "stretched:session/portraits/" + adaptedTemplate.icon;
-
-			this.occupiedPositions.add(position);
-			if (position >= 2 * baseData.rowLength)
-				this.bottomRowButtonCount++;
 
 			// The panel is a bit higher than 4 rows of buttons, which allows us to visibility anchor the ones
 			// in the bottom row to the bottom by moving them down those few pixels. Else the gap would be at the bottom.

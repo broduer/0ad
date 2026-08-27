@@ -236,12 +236,8 @@ Researcher.prototype.GetTechnologiesList = function()
 
 	return techList.map(tech =>
 	{
-		// Make researched/in progress techs invisible.
-		while (tech && this.IsTechnologyResearchedOrInProgress(tech))
-			tech = superseded[tech]; // might be undefined
-
-		if (!tech)
-			return undefined;
+		while (this.IsTechnologyResearchedOrInProgress(tech) && superseded[tech])
+			tech = superseded[tech];
 
 		// "Unwrap" tech pairs
 		const template = TechnologyTemplates.Get(tech);
