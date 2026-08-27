@@ -660,6 +660,20 @@ g_SelectionPanels.Research = {
 			// They will be rerendered with the new visibility next frame.
 		});
 		updateAffectsIconVisibility();
+
+		// While hovering over either button of a pair, show a cross over the other one.
+		// A buttons with index i is paired with the buttons with index i + this.getMaxNumberOfItems()
+		for (let i = 0, j = this.getMaxNumberOfItems(); i < this.rowLength; i++, j++)
+		{
+			const firstUnchosenIcon = Engine.GetGUIObjectByName("unitResearchUnchosenIcon[" + i + "]");
+			const secondUnchosenIcon = Engine.GetGUIObjectByName("unitResearchUnchosenIcon[" + j + "]");
+			const firstButton = Engine.GetGUIObjectByName("unitResearchButton[" + i + "]");
+			const secondButton = Engine.GetGUIObjectByName("unitResearchButton[" + j + "]");
+			firstButton.onMouseEnter = () => { secondUnchosenIcon.hidden = false; };
+			firstButton.onMouseLeave = () => { secondUnchosenIcon.hidden = true; };
+			secondButton.onMouseEnter = () => { firstUnchosenIcon.hidden = false; };
+			secondButton.onMouseLeave = () => { firstUnchosenIcon.hidden = true; };
+		}
 	},
 	"reset": function()
 	{
@@ -967,15 +981,6 @@ g_SelectionPanels.Research = {
 			this.buildPairIcon(false, secondButtonIndex, placeHorizontally && secondPosition < firstPosition, secondButtonActive);
 			this.buildPairIcon(true, firstButtonIndex, !placeHorizontally, firstButtonActive);
 			this.buildPairIcon(true, secondButtonIndex, false, secondButtonActive);
-
-			// While hovering over either button, show a cross over the other one.
-			// TODO: The following lines have to be executed only once, technically, and not every this function is called.
-			const firstUnchosenIcon = Engine.GetGUIObjectByName("unitResearchUnchosenIcon[" + firstButtonIndex + "]");
-			const secondUnchosenIcon = Engine.GetGUIObjectByName("unitResearchUnchosenIcon[" + secondButtonIndex + "]");
-			firstButton.onMouseEnter = () => { secondUnchosenIcon.hidden = false; };
-			firstButton.onMouseLeave = () => { secondUnchosenIcon.hidden = true; };
-			secondButton.onMouseEnter = () => { firstUnchosenIcon.hidden = false; };
-			secondButton.onMouseLeave = () => { firstUnchosenIcon.hidden = true; };
 
 			return true;
 		},
