@@ -61,8 +61,6 @@ public:
 	void Init(const CParamNode&) override
 	{
 		m_IsPlayingPathQueue = false;
-		m_QueuePlayingElapsedTime = fixed::Zero();
-		m_PathQueueDuration = fixed::Zero();
 		m_ActivePathElapsedTime = fixed::Zero();
 		m_WasMapRevealed = false;
 	}
@@ -74,7 +72,6 @@ public:
 	void Serialize(ISerializer& serializer) override
 	{
 		serializer.Bool("IsPlayingPathQueue", m_IsPlayingPathQueue);
-		serializer.NumberFixed_Unbounded("QueueElapsedTime", m_QueuePlayingElapsedTime);
 		serializer.NumberFixed_Unbounded("CurrentPathElapsedTime", m_ActivePathElapsedTime);
 		serializer.Bool("WasMapRevealed", m_WasMapRevealed);
 
@@ -90,7 +87,6 @@ public:
 	void Deserialize(const CParamNode&, IDeserializer& deserializer) override
 	{
 		deserializer.Bool("IsPlayingPathQueue", m_IsPlayingPathQueue);
-		deserializer.NumberFixed_Unbounded("QueueElapsedTime", m_QueuePlayingElapsedTime);
 		deserializer.NumberFixed_Unbounded("CurrentPathElapsedTime", m_ActivePathElapsedTime);
 		deserializer.Bool("WasMapRevealed", m_WasMapRevealed);
 
@@ -127,7 +123,6 @@ public:
 			if (!m_IsPlayingPathQueue)
 				return;
 
-			m_QueuePlayingElapsedTime += msgData.turnLength;
 			m_ActivePathElapsedTime += msgData.turnLength;
 			if (m_ActivePathElapsedTime >= m_PathQueue.front().GetDuration())
 			{
@@ -136,12 +131,11 @@ public:
 				GetSimContext().GetComponentManager().PostMessage(SYSTEM_ENTITY, msgCinemaPathEnded);
 				m_ActivePathElapsedTime = fixed::Zero();
 
-				if (!m_PathQueue.empty())
+				if (m_PathQueue.empty())
+					StopPlayingQueue();
+				else
 					m_PathQueue.front().Reset();
 			}
-
-			if (m_QueuePlayingElapsedTime >= m_PathQueueDuration)
-				StopPlayingQueue();
 		}
 	}
 
@@ -192,7 +186,6 @@ public:
 
 		if (m_PathQueue.size() == 1)
 			m_PathQueue.front().Reset();
-		m_PathQueueDuration += m_Paths[name].GetDuration();
 	}
 
 	void ClearQueue() override
@@ -227,10 +220,6 @@ public:
 			cmpRangeManager->SetLosRevealWholeMapForAll(m_WasMapRevealed);
 
 		m_ActivePathElapsedTime = fixed::Zero();
-		m_QueuePlayingElapsedTime = fixed::Zero();
-		m_PathQueueDuration = fixed::Zero();
-		for (const CCinemaPath& path : m_PathQueue)
-			m_PathQueueDuration += path.GetDuration();
 		m_IsPlayingPathQueue = false;
 
 		GetSimContext().GetComponentManager().PostMessage(SYSTEM_ENTITY, CMessageCinemaQueueEnded());
@@ -358,10 +347,6 @@ private:
 	bool m_IsPlayingPathQueue;
 	std::map<CStrW, CCinemaPath> m_Paths;
 	std::list<CCinemaPath> m_PathQueue;
-	fixed m_PathQueueDuration;
-
-	// Total time elapsed since starting to play the queue.
-	fixed m_QueuePlayingElapsedTime;
 
 	// Time elapsed since the currently active path first started playing.
 	fixed m_ActivePathElapsedTime;
