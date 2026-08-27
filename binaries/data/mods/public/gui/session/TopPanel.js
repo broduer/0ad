@@ -7,7 +7,6 @@ class TopPanel
 	{
 		this.counterManager = new CounterManager(playerViewControl);
 		this.civIcon = new CivIcon(playerViewControl);
-		this.buildLabel = new BuildLabel(playerViewControl);
 
 		this.followPlayer = new FollowPlayer(playerViewControl);
 

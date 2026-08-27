@@ -311,6 +311,7 @@
                 "extractor": "javascript",
                 "filemasks": [
                     "globalscripts/**.js",
+                    "gui/about/**.js",
                     "gui/common/**.js",
                     "gui/credits/**.js",
                     "gui/hotkeys/**.js",
@@ -346,6 +347,7 @@
                 "extractor": "xml",
                 "filemasks": [
                     "globalscripts/**.xml",
+                    "gui/about/**.xml",
                     "gui/common/**.xml",
                     "gui/credits/**.xml",
                     "gui/hotkeys/**.xml",

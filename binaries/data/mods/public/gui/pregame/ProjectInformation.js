@@ -1,6 +1,3 @@
-/**
- * IMPORTANT: Remember to update session/top_panel/BuildLabel.xml in sync with this.
- */
 export const projectInformation = {
 	"organizationName": {
 		"caption": translate("WILDFIRE GAMES")
@@ -15,7 +12,7 @@ export const projectInformation = {
 		"caption": getBuildString()
 	},
 	"productDescription": {
-		"caption": setStringTags(translate("Release XXIX: C--"), { "font": "sans-bold-16" }) + "\n\n" +
+		"caption": setStringTags(getReleaseString(), { "font": "sans-bold-16" }) + "\n\n" +
 			translate("Notice: This game is under development and many features have not been added yet.")
 	}
 };

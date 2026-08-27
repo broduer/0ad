@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<objects>
+	<script directory="gui/common/"/>
+	<script directory="gui/about/"/>
+
+	<object type="image" sprite="ModernFade"/>
+
+	<object name="aboutDialog" type="image" style="ModernDialog"
+		size="50%-300 24%-70 50%+300 76%-70">
+		<object type="text" style="TitleText" size="50%-128 -16 50%+128 16">
+			<translatableAttribute id="caption">About</translatableAttribute>
+		</object>
+
+		<object name="aboutInformationPanel" type="image"
+			sprite="ModernDarkBoxGold" size="20 32 100%-20 100%-60">
+			<object name="aboutInformation" type="text" style="MapPlayerList" textcolor="white"/>
+		</object>
+
+		<object name="closeButton" type="button" style="StoneButton"
+			size="50%-64 100%-50 50%+64 100%-22"
+			hotkey="cancel">
+			<translatableAttribute id="caption">Close</translatableAttribute>
+		</object>
+	</object>
+</objects>

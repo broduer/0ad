@@ -7,6 +7,32 @@ class MenuButtons
 {
 }
 
+MenuButtons.prototype.About = class
+{
+	constructor(button, pauseControl)
+	{
+		this.button = button;
+		this.button.caption = translate("About");
+		this.button.tooltip = translate("Show game and version information.");
+		this.pauseControl = pauseControl;
+	}
+
+	async onPress()
+	{
+		closeOpenDialogs();
+		this.pauseControl.implicitPause();
+
+		await Engine.OpenChildPage("page_about.xml", {
+			"buildDate": Engine.GetBuildDate(),
+			"version": Engine.GetBuildVersion(),
+			"release": getReleaseString(),
+			"mods": Engine.GetEngineInfo().mods || []
+		});
+
+		resumeGame();
+	}
+};
+
 MenuButtons.prototype.Manual = class
 {
 	constructor(button, pauseControl)
