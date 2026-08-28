@@ -15,25 +15,34 @@ Trigger.prototype.PlayOpeningCutscene = function()
 	cmpCinemaInterface.PlayCustomPath(this.SecondCinemaPathData, {
 		// Since the next actions here are fixed, passing it to the callback would be pointless in practice.
 		// This here is just supposed to demonstrate how to pass any arguments to it in general.
-		"action": "ContinueAfterOpeningCutscene", "args": [
-			{ "action": "ShowPericlesSpeech", "delay": 5000 },
-			{ "action": "ShowThemistoclesIphicratesDialogue", "delay": 17000 }
-		]
+		"action": "ContinueAfterOpeningCutscene", "args": { "action": "ShowPericlesSpeech", "delay": 5000 }
 	});
 	cmpCinemaInterface.ShowSpeechSequence(this.OpeningSpeechSequence);
 };
 
-Trigger.prototype.ContinueAfterOpeningCutscene = function(sequences)
+Trigger.prototype.ContinueAfterOpeningCutscene = function(nextSequence)
 {
-	for (const sequence of sequences)
-		this.DoAfterDelay(sequence.delay, sequence.action);
+	this.DoAfterDelay(nextSequence.delay, nextSequence.action);
 };
 
 Trigger.prototype.ShowPericlesSpeech = function()
 {
 	Engine.QueryInterface(SYSTEM_ENTITY, IID_CinemaInterface)?.ShowSpeechSequence(
-		[this.PericlesSpeech], { "moveCameraToSpeakingUnit": false, "enableCutsceneMode": false }
+		[this.PericlesSpeech], { "moveCameraToSpeakingUnit": false, "enableCutsceneMode": false },
+		{ "action": "ContinueAfterPericlesSpeech" }
 	);
+};
+
+Trigger.prototype.ContinueAfterPericlesSpeech = function()
+{
+	ProcessCommand(0, {
+		"type": "walk",
+		"entities": [CHARACTER.PERICLES],
+		"x": 233.3,
+		"z": 297,
+		"queued": false
+	});
+	this.DoAfterDelay(3000, "ShowThemistoclesIphicratesDialogue");
 };
 
 Trigger.prototype.ShowThemistoclesIphicratesDialogue = function()

@@ -10,7 +10,7 @@
 		<Fog>
 			<FogFactor>0.00231445</FogFactor>
 			<FogThickness>0.0498047</FogThickness>
-			<FogColor r="0.611765" g="0.741176" b="0.796078"/>
+			<FogColor r="0.611765" g="0.737255" b="0.792157"/>
 		</Fog>
 		<Water>
 			<WaterBody>
@@ -32,9 +32,9 @@
 		</Postproc>
 	</Environment>
 	<Camera>
-		<Position x="187.209" y="147.061" z="111.93"/>
-		<Rotation angle="0.154321"/>
-		<Declination angle="0.394206"/>
+		<Position x="183.995" y="92.1338" z="298.185"/>
+		<Rotation angle="1.48206"/>
+		<Declination angle="0.684877"/>
 	</Camera>
 	<ScriptSettings><![CDATA[
 {
@@ -46,6 +46,7 @@
   "LockTeams": true,
   "Name": "Dialogue Cutscene Demo",
   "PlayerData": [
+    null,
     {
       "Civ": "athen",
       "Name": "Player 1",
@@ -8104,22 +8105,22 @@
 		<Entity uid="9339">
 			<Template>units/athen/hero_iphicrates</Template>
 			<Player>0</Player>
-			<Position x="231.43891" z="308.40842"/>
+			<Position x="232.39966" z="311.18183"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="10524"/>
 		</Entity>
 		<Entity uid="9340">
 			<Template>units/athen/hero_themistocles</Template>
 			<Player>0</Player>
-			<Position x="242.07801" z="301.43958"/>
+			<Position x="244.03772" z="304.9426"/>
 			<Orientation y="-2.64307"/>
 			<Actor seed="27570"/>
 		</Entity>
 		<Entity uid="9341">
 			<Template>units/athen/hero_pericles</Template>
 			<Player>0</Player>
-			<Position x="233.31833" z="290.81492"/>
-			<Orientation y="0.23394"/>
+			<Position x="233.17032" z="286.43412"/>
+			<Orientation y="-0.04175"/>
 			<Actor seed="46038"/>
 		</Entity>
 		<Entity uid="9350">

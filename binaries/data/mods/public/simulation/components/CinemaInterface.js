@@ -4,7 +4,8 @@
  *
  * Note: Generally, trigger scripts are supposed to only add one speech sequence (list of speech segments) at once. But
  * they don't have to guarantee it: This component is designed to be able to handle multiple at once too, so trigger
- * scripts don't have to perform their own collision prevention logic.
+ * scripts don't have to perform their own collision prevention logic. Callbacks are only ever invoked once no more
+ * cinema path is playing and no more speech sequence is shown.
  */
 function CinemaInterface() {}
 
@@ -15,7 +16,7 @@ CinemaInterface.prototype.Init = function()
 {
 	this.activeSpeechSequences = [];
 	this.temporaryPathCount = 0;
-	this.queueEndedCallbacks = [];
+	this.triggerCallbacks = [];
 
 	// Players who have already hit the close button of the last active speech sequence.
 	this.playersFinishedSpeechSequences = new Set();
@@ -55,12 +56,12 @@ CinemaInterface.prototype.Deserialize = function(state)
 
 
 /**
- * Play a cinema path and register a callback that is invoked when the cinema queue finishes.
+ * Play a cinema path and register a callback.
  * The cinema path is required to be already registered with the CinemaManager component beforehand.
  * If any cinema paths are already being played, the new path is appended to the queue.
  * @param {string[]} pathName - The name of the path to play.
  * @param {Object} callback - Callback data specifying a method on the trigger component and optionally arguments to
- *  pass to it. It is invoked when the all paths have been finished and the game returns to usual gameplay.
+ *  pass to it. It is invoked when the all paths and speechs sequences have ended and the game returns to usual gameplay.
  * @param {string} callback.action,
  * @param {*} [callback.args]
  */
@@ -77,11 +78,11 @@ CinemaInterface.prototype.PlayExistingPath = function(pathName, callback = null)
 		cmpCinemaManager.StartPlayingQueue();
 
 	if (callback)
-		this.queueEndedCallbacks.push(callback);
+		this.triggerCallbacks.push(callback);
 };
 
 /**
- * Play a custom cinema path and register a callback that is invoked when the cinema queue finishes.
+ * Play a custom cinema path and register a callback.
  * The path being "custom" here means that it isn't already registered with the CinemaManager component and will instead
  * be constructed on the go from the data provided.
  * If any cinema paths are already being played, the new path is appended to the queue.
@@ -99,7 +100,7 @@ CinemaInterface.prototype.PlayExistingPath = function(pathName, callback = null)
  * @param {string} [path.mode] - The distortion mode: "ease_in", "ease_out", "ease_inout" (default), or "ease_outin".
  * @param {string} [path.style] - The distortion style: "default", "expo", "growth", "circle", or "sine".
  * @param {Object} callback - Callback data specifying a method on the trigger component and optionally arguments to
- *  pass to it. It is invoked when the all paths have been finished and the game returns to usual gameplay.
+ *  pass to it. It is invoked when the all paths and speechs sequences have ended and the game returns to usual gameplay.
  * @param {string} callback.action
  * @param {*} [callback.args]
  */
@@ -138,8 +139,12 @@ CinemaInterface.prototype.PlayCustomPath = function(path, callback = null)
  * @param {boolean} [options.closeSynchronously] - If true or not defined, the cinematic speech overlay only hides once
  *  all players have hit close, and for everyone simultaneously. If false, it can be closed directly. Only relevant in
  *  multiplayer and if the sequence has 'next' and 'previous' buttons (i.e. has no lineDurations or duringPath).
+ * @param {Object} callback - Callback data specifying a method on the trigger component and optionally arguments to
+ *  pass to it. It is invoked when the all speech sequences have been closed and the game returns to usual gameplay.
+ * @param {string} callback.action
+ * @param {*} [callback.args]
  */
-CinemaInterface.prototype.ShowSpeechSequence = function(speechSegments, options)
+CinemaInterface.prototype.ShowSpeechSequence = function(speechSegments, options, callback)
 {
 	if (!Array.isArray(speechSegments))
 		throw new TypeError("'speechSegments' must be an array.");
@@ -158,6 +163,8 @@ CinemaInterface.prototype.ShowSpeechSequence = function(speechSegments, options)
 		"speechSegments": speechSegments,
 		"options": options
 	});
+	if (callback)
+		this.triggerCallbacks.push(callback);
 
 	this.PushSpeechSequenceToGui(speechSegments, options);
 };
@@ -196,27 +203,34 @@ CinemaInterface.prototype.HandleSpeechSequenceCloseRequest = function(player)
 
 	this.activeSpeechSequences = [];
 	this.playersFinishedSpeechSequences = new Set();
+
+	if (!Engine.QueryInterface(SYSTEM_ENTITY, IID_CinemaManager).IsPlayingQueue())
+		this.InvokePendingCallbacks();
 };
 
 
 CinemaInterface.prototype.OnCinemaQueueEnded = function()
 {
-	const cmpTrigger = Engine.QueryInterface(SYSTEM_ENTITY, IID_Trigger);
-	if (!cmpTrigger)
-		return;
-
 	const cmpCinemaManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_CinemaManager);
 	if (cmpCinemaManager)
 		while (this.temporaryPathCount > 0)
 			cmpCinemaManager.DeletePath("_temporaryPath" + --this.temporaryPathCount);
 
-	for (const callback of this.queueEndedCallbacks)
-		if (callback.action in cmpTrigger)
-			cmpTrigger[callback.action](callback.args);
-		else
-			error("CinemaInterface: Failed to call callback  " + uneval(callback) + ". Specified trigger action doesn't exist.");
+	if (!this.activeSpeechSequences.length)
+		this.InvokePendingCallbacks();
+};
 
-	this.queueEndedCallbacks = [];
+CinemaInterface.prototype.InvokePendingCallbacks = function()
+{
+	const cmpTrigger = Engine.QueryInterface(SYSTEM_ENTITY, IID_Trigger);
+	if (cmpTrigger)
+		for (const callback of this.triggerCallbacks)
+			if (callback.action in cmpTrigger)
+				cmpTrigger[callback.action](callback.args);
+			else
+				error("Failed to invoke callback  " + uneval(callback) + " on trigger component. Specified action (method) doesn't exist.");
+
+	this.triggerCallbacks = [];
 };
 
 CinemaInterface.prototype.OnGlobalDeserialized = function()
