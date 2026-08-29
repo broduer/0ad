@@ -271,6 +271,35 @@ BuildRestrictions.prototype.CheckPlacement = function()
 			return Engine.QueryInterface(id, IID_Identity).GetClassesList().indexOf(cat) > -1;
 		};
 
+		// During Nomad games, prevent players from placing their first Civic
+		// Centres too close to a Civic Centre (or its foundation) belonging to
+		// another player. Keep the standard same-player restriction below.
+		if (InitAttributes.settings.Nomad && this.template.Category == "CivilCentre")
+		{
+			const nomadMinDistance = 200;
+			const otherPlayers = Engine.QueryInterface(SYSTEM_ENTITY, IID_PlayerManager)
+				.GetNonGaiaPlayers().filter(id => id != playerID);
+
+			if (otherPlayers.length &&
+				cmpRangeManager.ExecuteQuery(this.entity, 0, nomadMinDistance, otherPlayers, IID_BuildRestrictions, false).some(filter))
+			{
+				result = markForPluralTranslation(
+					"%(name)s too close to a %(category)s, must be at least %(distance)s meter away",
+					"%(name)s too close to a %(category)s, must be at least %(distance)s meters away",
+					nomadMinDistance);
+
+				result.success = false;
+				result.translateMessage = true;
+				result.parameters = {
+					"name": name,
+					"category": cat,
+					"distance": nomadMinDistance
+				};
+				result.translateParameters = ["name", "category"];
+				return result;
+			}
+		}
+
 		if (this.template.Distance.MinDistance !== undefined)
 		{
 			const minDistance = ApplyValueModificationsToTemplate("BuildRestrictions/Distance/MinDistance", +this.template.Distance.MinDistance, cmpPlayer.GetPlayerID(), template);
