@@ -274,7 +274,7 @@ BuildRestrictions.prototype.CheckPlacement = function()
 		// During Nomad games, prevent players from placing their first Civic
 		// Centres too close to a Civic Centre (or its foundation) belonging to
 		// another player. Keep the standard same-player restriction below.
-		if (InitAttributes.settings.Nomad && this.template.Category == "CivilCentre")
+		if (InitAttributes.settings.Nomad && InitAttributes.settings.RestrictNomadPlacement && this.template.Category == "CivilCentre")
 		{
 			const nomadMinDistance = 200;
 			const otherPlayers = Engine.QueryInterface(SYSTEM_ENTITY, IID_PlayerManager)

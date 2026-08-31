@@ -19,6 +19,7 @@ var g_GameSettingsLayout = [
 			"Daytime",
 			"TriggerDifficulty",
 			"Nomad",
+			"RestrictNomadPlacement",
 			"Treasures",
 			"ExploredMap",
 			"RevealedMap",

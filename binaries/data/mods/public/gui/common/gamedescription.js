@@ -354,6 +354,12 @@ function getGameDescription(initAttributes, mapCache)
 					translate("Players start with a Civic Center.")
 		});
 
+	if (initAttributes.settings.RestrictNomadPlacement)
+		titles.push({
+			"label": translate("Nomad Spacing"),
+			"value": translate("Civic centers must be at least 200 meters apart.")
+		});
+
 	if (initAttributes.settings.StartingResources !== undefined)
 		titles.push({
 			"label": translate("Starting Resources"),
