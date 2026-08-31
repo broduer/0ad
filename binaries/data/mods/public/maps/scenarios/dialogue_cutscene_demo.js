@@ -7,17 +7,11 @@ const CHARACTER = {
 
 Trigger.prototype.PlayOpeningCutscene = function()
 {
-	const cmpCinemaInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_CinemaInterface);
-	if (!cmpCinemaInterface)
-		return;
-
-	cmpCinemaInterface.PlayExistingPath(this.FirstCinemaPathName);
-	cmpCinemaInterface.PlayCustomPath(this.SecondCinemaPathData, {
+	Engine.QueryInterface(SYSTEM_ENTITY, IID_CinemaInterface)?.PlayPathsWithSpeechSequence(this.OpeningCutscene, {}, {
 		// Since the next actions here are fixed, passing it to the callback would be pointless in practice.
 		// This here is just supposed to demonstrate how to pass any arguments to it in general.
 		"action": "ContinueAfterOpeningCutscene", "args": { "action": "ShowPericlesSpeech", "delay": 5000 }
 	});
-	cmpCinemaInterface.ShowSpeechSequence(this.OpeningSpeechSequence);
 };
 
 Trigger.prototype.ContinueAfterOpeningCutscene = function(nextSequence)
@@ -52,59 +46,56 @@ Trigger.prototype.ShowThemistoclesIphicratesDialogue = function()
 	);
 };
 
-Trigger.prototype.FirstCinemaPathName = "path1";
-Trigger.prototype.SecondCinemaPathData = {
-	"name": "path2",
-	"timescale": 1,
-	"orientation": "target",
-	"mode": "ease_inout",
-	"style": "default",
-	"positionNodes": [
-		{
-			"position": new Vector3D(290.31104, 49.29522, 400.7906),
-			"deltaTime": 0
-		},
-		{
-			"position": new Vector3D(254.64576, 66.57055, 352.07383),
-			"deltaTime": 4
-		},
-		{
-			"position": new Vector3D(188.43287, 85.68216, 318.43021),
-			"deltaTime": 4
-		},
-		{
-			"position": new Vector3D(187.1648, 84.94903, 315.23832),
-			"deltaTime": 4
-		}
-	],
-	"targetNodes": [
-		{
-			"position": new Vector3D(264.95313, 46.68482, 365.76944),
-			"deltaTime": 0
-		},
-		{
-			"position": new Vector3D(238.60918, 56.95272, 311.4221),
-			"deltaTime": 4
-		},
-		{
-			"position": new Vector3D(234.26212, 58.81025, 301.79963),
-			"deltaTime": 4
-		},
-		{
-			"position": new Vector3D(235.16155, 58.12488, 299.04053),
-			"deltaTime": 4
-		}
-	]
-};
-
-Trigger.prototype.OpeningSpeechSequence = [
+Trigger.prototype.OpeningCutscene = [
 	{
-		"duringPaths": ["path1"],
+		"paths": ["path1"],
 		// TODO: Translate these?
 		"lines": ["The story of ancient Athens is both fascinating and inspiring. Today praised as the birthplace of democracy, it was a place built and run by its people. But that wasn't to say it lacked outstanding individuals; people who found a way to use their remarkable brilliance in an inspiring and memorable way, by devoting their lives to make their homeland a better place for fellow citizens, defend it from foreign threats, and lead them all into a better future."],
 	},
 	{
-		"duringPaths": ["path2"],
+		"paths": [{
+			"name": "path2",
+			"timescale": 1,
+			"orientation": "target",
+			"mode": "ease_inout",
+			"style": "default",
+			"positionNodes": [
+				{
+					"position": new Vector3D(290.31104, 49.29522, 400.7906),
+					"deltaTime": 0
+				},
+				{
+					"position": new Vector3D(254.64576, 66.57055, 352.07383),
+					"deltaTime": 4
+				},
+				{
+					"position": new Vector3D(188.43287, 85.68216, 318.43021),
+					"deltaTime": 4
+				},
+				{
+					"position": new Vector3D(187.1648, 84.94903, 315.23832),
+					"deltaTime": 4
+				}
+			],
+			"targetNodes": [
+				{
+					"position": new Vector3D(264.95313, 46.68482, 365.76944),
+					"deltaTime": 0
+				},
+				{
+					"position": new Vector3D(238.60918, 56.95272, 311.4221),
+					"deltaTime": 4
+				},
+				{
+					"position": new Vector3D(234.26212, 58.81025, 301.79963),
+					"deltaTime": 4
+				},
+				{
+					"position": new Vector3D(235.16155, 58.12488, 299.04053),
+					"deltaTime": 4
+				}
+			]
+		}],
 		"lines": ["Admittedly... that might all have been a bit of an exaggeration. But you get the idea.\nHere are three of the most famous people of Classical Athens: Pericles, Iphicrates, and Themistocles."]
 	}
 ];

@@ -169,6 +169,64 @@ CinemaInterface.prototype.ShowSpeechSequence = function(speechSegments, options,
 	this.PushSpeechSequenceToGui(speechSegments, options);
 };
 
+/**
+ * Play existing or custom cinema paths while displaying a speech sequence to all players and sync them together.
+ * Wrapper around @see CinemaInterface.prototype.PlayExistingPath, @see CinemaInterface.prototype.PlayCustomPath, and
+ * @see CinemaInterface.prototype.ShowSpeechSequence for convenience.
+ * @param {Object[]} segments
+ * @param {Object} segments[] - Block of data that defines a list of paths and a speech segment to be shown during it.
+ *  Note: If neither lineDurations nor duringPaths are defined, the GUI shows 'next' and 'previous' buttons to click
+ *  through the lines of the speech segment manually.
+ * @param {(string|Object)[]} segments[].paths - A list of paths to play, during which to show the speech segment.
+ * @param {string|Object} segments[].paths[] - Either the name of an existing path or data to construct a custom path.
+ * @param {Object} segments[] - Data and parameters of the speech segments.
+ * @param {number} [segments[].speakingUnit] - The entity ID of the unit to be shown as speaking the lines.
+ * @param {string[]} segments[].lines - The spoken/narrated text.
+ * @param {number[]} [segments[].lineDurations] - The durations of the lines in milliseconds.
+ * @param {Object} [options] - Options regarding the speech sequence.
+ * @param {boolean} [options.moveCameraToSpeakingUnit] - If true, the camera always jumps to (and follows) the speaking
+ *  unit.
+ * @param {boolean} [options.enableCutsceneMode] - If true, enables cutscene rendering mode as long as this sequence is
+ *  shown. This hides all informational overlays such as territory borders, selection rings, and range overlays, which
+ *  makes the scene feel more "pure", more like a movie.
+ * @param {boolean} [options.closeSynchronously] - If true or not defined, the cinematic speech overlay only hides once
+ *  all players have hit close, and for everyone simultaneously. If false, it can be closed directly. Only relevant in
+ *  multiplayer and if the sequence has 'next' and 'previous' buttons (i.e. has no lineDurations or duringPath).
+ * @param {Object} callback - Callback data specifying a method on the trigger component and optionally arguments to
+ *  pass to it. It is invoked when the all speech sequences have been closed and the game returns to usual gameplay.
+ * @param {string} callback.action,
+ * @param {*} [callback.args]
+ */
+CinemaInterface.prototype.PlayPathsWithSpeechSequence = function(segments, options, callback)
+{
+	const speechSegments = [];
+	for (const segment of segments)
+	{
+		const duringPaths = [];
+		for (const path of segment.paths)
+		{
+			if (typeof path == "string")
+			{
+				this.PlayExistingPath(path);
+				duringPaths.push(path);
+			}
+			else
+			{
+				this.PlayCustomPath(path);
+				duringPaths.push(path.name);
+			}
+		}
+		const speechSegment = { ...segment, duringPaths };
+		delete speechSegment.paths;
+		speechSegments.push(speechSegment);
+	}
+
+	this.ShowSpeechSequence(speechSegments, options);
+
+	if (callback)
+		this.triggerCallbacks.push(callback);
+};
+
 CinemaInterface.prototype.PushSpeechSequenceToGui = function(speechSegments, options)
 {
 	Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface)?.PushNotification({
