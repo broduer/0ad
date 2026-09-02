@@ -101,4 +101,3 @@ int pbkdf2(unsigned char (&output)[crypto_hash_sha256_BYTES],
 	};
 	return 0;
 }
-

@@ -365,4 +365,3 @@ wxBEGIN_EVENT_TABLE(EnvironmentSidebar, Sidebar)
 	EVT_BUTTON(ID_RecomputeWaterData, EnvironmentSidebar::RecomputeWaterData)
 	EVT_BUTTON(ID_PickWaterHeight, EnvironmentSidebar::OnPickWaterHeight)
 wxEND_EVENT_TABLE();
-

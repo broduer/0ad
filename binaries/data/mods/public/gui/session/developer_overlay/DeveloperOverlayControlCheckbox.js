@@ -41,4 +41,3 @@ class DeveloperOverlayControlCheckbox extends DeveloperOverlayControl
 			registerSimulationUpdateHandler(this.updater);
 	}
 }
-

@@ -25,4 +25,3 @@ Actions=Atlas;
 [Desktop Action Atlas]
 Name=Atlas Map Editor
 Exec=0ad -editor
-

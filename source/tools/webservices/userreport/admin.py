@@ -27,4 +27,3 @@ admin.site.register(UserReport, UserReportAdmin)
 admin.site.register(GraphicsDevice, GraphicsDeviceAdmin)
 admin.site.register(GraphicsExtension, GraphicsExtensionAdmin)
 admin.site.register(GraphicsLimit, GraphicsLimitAdmin)
-

@@ -321,4 +321,3 @@ TS_ASSERT(cmpTurretHolder.OccupiesTurretPoint(spawned));
 	});
 	TS_ASSERT_EQUALS(cmpHolderNoObst.GetClosestApproachDistanceToTurretPoint("center"), 0);
 }
-

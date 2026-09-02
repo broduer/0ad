@@ -139,4 +139,3 @@ TS_ASSERT_UNEVAL_EQUALS(cmpGarrisonHolder.GetGarrisonedEntitiesCount(), entities
 
 TS_ASSERT(cmpGarrisonHolder.UnloadAll());
 TS_ASSERT_UNEVAL_EQUALS(cmpGarrisonHolder.GetEntities(), []);
-

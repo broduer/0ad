@@ -31,4 +31,3 @@ class DeveloperOverlayControl
 		this.body.hidden = false;
 	}
 }
-

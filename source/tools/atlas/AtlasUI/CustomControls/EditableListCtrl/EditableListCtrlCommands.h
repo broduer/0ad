@@ -78,4 +78,3 @@ private:
 	AtObj m_NewData;
 	std::vector<AtObj> m_OldData;
 };
-

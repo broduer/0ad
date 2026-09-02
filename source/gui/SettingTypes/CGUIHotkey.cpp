@@ -46,4 +46,3 @@ void CGUIHotkey::OnSettingChange(const CStr& setting, bool sendMessage)
 {
 	IGUISetting::OnSettingChange(setting, sendMessage);
 }
-

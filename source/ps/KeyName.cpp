@@ -224,5 +224,3 @@ CStr FindKeyName(SDL_Scancode scancode)
 	// Else, show something regardless, so the player knows it's at least recognized.
 	return fmt::format("SYM_{}", static_cast<int>(scancode));
 }
-
-

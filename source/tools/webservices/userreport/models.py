@@ -204,4 +204,3 @@ class GraphicsLimit(models.Model):
     device = models.ForeignKey(GraphicsDevice)
     name = models.CharField(max_length = 128, db_index = True)
     value = models.CharField(max_length = 64)
-

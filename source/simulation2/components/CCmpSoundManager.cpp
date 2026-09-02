@@ -113,5 +113,3 @@ public:
 };
 
 REGISTER_COMPONENT_TYPE(SoundManager)
-
-

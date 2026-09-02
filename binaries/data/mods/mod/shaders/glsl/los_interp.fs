@@ -11,4 +11,3 @@ void main(void)
 
 	OUTPUT_FRAGMENT_SINGLE_COLOR(mix(los1, los2, clamp(delta, 0.0, 1.0)));
 }
-

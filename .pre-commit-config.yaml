@@ -23,6 +23,16 @@ repos:
             ^binaries/data/mods/_test.sim/simulation/templates.illformed.xml|
             ^binaries/data/mods/public/maps/.*\.xml
           )
+      - id: end-of-file-fixer
+        exclude: |
+          (?x)(
+            ^libraries/|
+            ^source/third_party/glad/src|
+            ^source/tools/replayprofile/jquery|
+            ^source/tools/templatesanalyzer/tablefilter|
+            \.dae|
+            \.patch$
+          )
       - id: trailing-whitespace
         exclude: |
           (?x)(

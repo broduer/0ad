@@ -31,4 +31,3 @@ QuitConfirmation.prototype.Width = 600;
 QuitConfirmation.prototype.Height = 200;
 
 QuitConfirmation.prototype.ResumeOnClose = false;
-

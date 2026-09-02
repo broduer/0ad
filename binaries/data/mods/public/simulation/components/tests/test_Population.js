@@ -109,4 +109,3 @@ cmpPlayer = AddMock(player, IID_Player, {
 spy = new Spy(cmpPlayer, "AddPopulationBonuses");
 cmpPopulation.OnOwnershipChanged({ "from": INVALID_PLAYER, "to": player });
 TS_ASSERT_EQUALS(spy._called, 1);
-

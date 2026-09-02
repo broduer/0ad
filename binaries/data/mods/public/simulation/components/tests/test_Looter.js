@@ -80,5 +80,3 @@ const cmpLootNoXp = ConstructComponent(target2, "Loot", {
 cmpLooter.Collect(target2);
 
 TS_ASSERT_UNEVAL_EQUALS(resourceCount, { "food": 0, "metal": 10, "stone": 0, "wood": 40 });
-
-

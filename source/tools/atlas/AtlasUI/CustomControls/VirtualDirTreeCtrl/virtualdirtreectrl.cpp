@@ -628,5 +628,3 @@ void wxVirtualDirTreeCtrl::OnDirectoryScanEnd(VdtcTreeItemBaseArray &WXUNUSED(it
 {
 	return;
 }
-
-

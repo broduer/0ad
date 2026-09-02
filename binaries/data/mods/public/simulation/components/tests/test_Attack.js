@@ -524,5 +524,3 @@ function testCanEverReachTarget()
 	}
 }
 testCanEverReachTarget();
-
-

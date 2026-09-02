@@ -220,4 +220,3 @@ u32 CNetClientSession::GetMeanRTT() const
 
 	return m_MeanRTT;
 }
-

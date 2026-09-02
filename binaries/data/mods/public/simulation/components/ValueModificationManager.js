@@ -15,4 +15,3 @@ ValueModificationManager.prototype.ApplyModifications = function(valueName, curr
 };
 
 Engine.RegisterSystemComponentType(IID_ValueModificationManager, "ValueModificationManager", ValueModificationManager);
-

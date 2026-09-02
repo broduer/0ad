@@ -2,4 +2,3 @@ Templates sorting utility aimed to sort components (second level xml elements) i
 
 Usage:
 ./templatessorter.sh path_to_folder_with_simulation_templates
-

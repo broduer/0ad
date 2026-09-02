@@ -175,4 +175,3 @@ export class PetraBot extends BaseAI
 		this.data = data;
 	}
 }
-

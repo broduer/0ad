@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -180,4 +180,3 @@ Status TexCodecTga::encode(Tex* RESTRICT t, DynArray* RESTRICT da) const
 	const size_t hdr_size = sizeof(hdr);
 	return tex_codec_write(t, transforms, &hdr, hdr_size, da);
 }
-

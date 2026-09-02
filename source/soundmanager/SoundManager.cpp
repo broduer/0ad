@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -877,4 +877,3 @@ void ISoundManager::RunHardwareDetection() {}
 CStr8 ISoundManager::GetSoundCardNames() const { return CStr8(); };
 CStr8 ISoundManager::GetOpenALVersion() const { return CStr8(); };
 #endif // CONFIG2_AUDIO
-

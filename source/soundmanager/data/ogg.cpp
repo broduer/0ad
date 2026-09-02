@@ -276,4 +276,3 @@ Status OpenOggNonstream(const PIVFS& vfs, const VfsPath& pathname, OggStreamPtr&
 }
 
 #endif	// CONFIG2_AUDIO
-

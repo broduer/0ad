@@ -297,4 +297,3 @@ void TNSpline::Constrain()
 		m_Nodes[i].Velocity *= 4.0f*r0*r1 / ((r0 + r1)*(r0 + r1));
 	}
 }
-

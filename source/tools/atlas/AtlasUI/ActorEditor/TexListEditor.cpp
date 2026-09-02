@@ -94,4 +94,3 @@ AtObj TexListEditorListCtrl::DoExport()
 		out.add("texture", m_ListData[i]);
 	return out;
 }
-

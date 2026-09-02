@@ -378,4 +378,3 @@ private:
 extern CNetClient *g_NetClient;
 
 #endif	// NETCLIENT_H
-
