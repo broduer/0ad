@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -103,11 +103,8 @@ public:
 	}
 
 	Path(const char* p)
-		: path((const unsigned char*)p, (const unsigned char*)p+strlen(p))
-		// interpret bytes as unsigned; makes no difference for ASCII,
-		// and ensures OsPath on Unix will only contain values 0 <= c < 0x100
+		: Path{wstring_from_utf8(p)}
 	{
-		DetectSeparator();
 	}
 
 	Path(const wchar_t* p)
@@ -117,9 +114,8 @@ public:
 	}
 
 	Path(const std::string& s)
-		: path((const unsigned char*)s.c_str(), (const unsigned char*)s.c_str()+s.length())
+		: Path{wstring_from_utf8(s)}
 	{
-		DetectSeparator();
 	}
 
 	Path(std::wstring s)

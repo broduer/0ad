@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -22,6 +22,7 @@
 
 #include "lib/self_test.h"
 
+#include "lib/file/file_system.h"
 #include "lib/os_path.h"
 #include "lib/path.h"
 #include "lib/sysdep/os.h"
@@ -34,10 +35,7 @@ public:
 	void test_ctor()
 	{
 		const char* s1 = "a/b/c";
-		const char* s2 = "a/b/\xEF\xBF\xBF";
 		const wchar_t* w1 = L"a/b/c";
-		const wchar_t w2[] = { 'a', '/', 'b', '/', 0xEF, 0xBF, 0xBF, 0 };
-		const wchar_t w3[] = { 'a', '/', 'b', '/', 0xFFFF, 0 };
 
 		// Empty strings
 		Path p0a;
@@ -49,35 +47,55 @@ public:
 
 		// Construct from various types
 		Path ps1a = Path(s1);
-		Path ps2a = Path(s2);
 		Path ps1b = Path(std::string(s1));
-		Path ps2b = Path(std::string(s2));
 		Path pw1a = Path(w1);
-		Path pw2a = Path(w2);
-		Path pw3a = Path(w3);
 		Path pw1b = Path(std::wstring(w1));
-		Path pw2b = Path(std::wstring(w2));
-		Path pw3b = Path(std::wstring(w3));
 
 		TS_ASSERT_WSTR_EQUALS(ps1a.string(), w1);
 		TS_ASSERT_WSTR_EQUALS(ps1b.string(), w1);
 		TS_ASSERT_WSTR_EQUALS(pw1a.string(), w1);
 		TS_ASSERT_WSTR_EQUALS(pw1b.string(), w1);
+	}
 
-		TS_ASSERT_WSTR_EQUALS(ps2a.string(), w2);
-		TS_ASSERT_WSTR_EQUALS(ps2b.string(), w2);
-		TS_ASSERT_WSTR_EQUALS(pw2a.string(), w2);
-		TS_ASSERT_WSTR_EQUALS(pw2b.string(), w2);
+	void test_non_basic_latin()
+	{
+		TS_ASSERT_EQUALS(Path{"\u1337"}, Path{L"\u1337"});
 
-		TS_ASSERT_WSTR_EQUALS(pw3a.string(), w3);
-		TS_ASSERT_WSTR_EQUALS(pw3b.string(), w3);
+		Path utf8Path{DataDir() / "_test\u1337.temp"};
+		try
+		{
+			std::filesystem::path{utf8Path.string()};
+		}
+		catch(...)
+		{
+			TS_WARN("Its not possible to test Path when std::filesystem::path doesn't work.");
+			return;
+		}
 
-#if OS_WIN
-		TS_ASSERT_WSTR_EQUALS(OsString(pw2a), w2);
-		TS_ASSERT_WSTR_EQUALS(OsString(pw3a), w3);
-#else
-		TS_ASSERT_STR_EQUALS(OsString(pw2a), s2);
-		// OsString(pw3a) causes an intentional assertion failure, but we can't test that
-#endif
+		if (CreateDirectories(utf8Path, {}, false) != INFO::OK)
+		{
+			constexpr auto printChars = [](const auto& string)
+			{
+				for (const auto c : string)
+				{
+					if constexpr (sizeof(c) == 1)
+						debug_printf("%02hhx ", static_cast<unsigned char>(c));
+					else if constexpr (sizeof(c) == 2)
+						debug_printf("%04hx ", static_cast<unsigned short>(c));
+					else
+					{
+						static_assert(sizeof(c) == 4);
+						debug_printf("%08x ", static_cast<unsigned int>(c));
+					}
+				}
+				debug_printf("\n");
+			};
+			printChars(utf8Path.string());
+			printChars(std::filesystem::path{utf8Path.string()}.native());
+			TS_FAIL("Failed to create the directory");
+		}
+
+		TS_ASSERT(DirectoryExists(DataDir() / L"_test\u1337.temp"));
+		TS_ASSERT_OK(DeleteDirectory(utf8Path));
 	}
 };
