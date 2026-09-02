@@ -11,7 +11,7 @@ class ResignConfirmation extends SessionMessageBox
 
 		this.Buttons = [
 			{
-				"caption": translate("No")
+				"caption": translate("Stay")
 			},
 			{
 				"caption": translate("Resign"),
@@ -75,29 +75,17 @@ class ResignConfirmation extends SessionMessageBox
 
 		for (const resourceCode of tributableCodes)
 		{
-			const roundedAmount = Math.floor((localPlayerState.resourceCounts[resourceCode] || 0) / 100) * 100;
-			if (!roundedAmount)
+			const amount = localPlayerState.resourceCounts[resourceCode] || 0;
+			const equalShare = Math.floor(amount / recipients.length);
+			if (!equalShare)
 				continue;
 
-			const equalShare = Math.floor(roundedAmount / recipients.length / 100) * 100;
-			const remainder = roundedAmount - equalShare * recipients.length;
-
 			for (const recipient of recipients)
-				if (equalShare > 0)
-					Engine.PostNetworkCommand({
-						"type": "tribute",
-						"player": recipient.otherPlayerID,
-						"amounts": {
-							[resourceCode]: equalShare
-						}
-					});
-
-			if (remainder > 0)
 				Engine.PostNetworkCommand({
 					"type": "tribute",
-					"player": recipients[0].otherPlayerID,
+					"player": recipient.otherPlayerID,
 					"amounts": {
-						[resourceCode]: remainder
+						[resourceCode]: equalShare
 					}
 				});
 		}
