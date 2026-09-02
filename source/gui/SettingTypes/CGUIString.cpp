@@ -157,8 +157,11 @@ void CGUIString::GenerateTextCall(const CGUI& pGUI, SFeedback& Feedback, CStrInt
 						// Displace the sprite
 						CSize2D displacement;
 						// Parse the value
-						if (!CGUI::ParseString<CSize2D>(&pGUI, tagAttrib.value, displacement))
+						if (!CGUI::ParseString<CSize2D>(&pGUI,
+							utf8_from_wstring(tagAttrib.value), displacement))
+						{
 							LOGERROR("Error parsing 'displace' value for tag [ICON]");
+						}
 						else
 							SpriteCall.m_Area += displacement;
 					}
@@ -200,8 +203,11 @@ void CGUIString::GenerateTextCall(const CGUI& pGUI, SFeedback& Feedback, CStrInt
 				case TextChunk::Tag::TAG_COLOR:
 					TextCall.m_UseCustomColor = true;
 
-					if (!CGUI::ParseString<CGUIColor>(&pGUI, tag.m_TagValue, TextCall.m_Color) && pObject)
+					if (!CGUI::ParseString<CGUIColor>(&pGUI, utf8_from_wstring(tag.m_TagValue),
+						TextCall.m_Color) && pObject)
+					{
 						LOGERROR("Error parsing the value of a [color]-tag in GUI text when reading object \"%s\".", pObject->GetPresentableName().c_str());
+					}
 					break;
 				case TextChunk::Tag::TAG_FONT:
 					// TODO Gee: (2004-08-15) Check if Font exists?

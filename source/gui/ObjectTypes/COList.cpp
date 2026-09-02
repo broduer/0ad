@@ -231,18 +231,18 @@ bool COList::HandleAdditionalChildren(const XMBData& xmb, const XMBElement& chil
 
 			if (attr_name == "textcolor")
 			{
-				if (!CGUI::ParseString<CGUIColor>(&m_pGUI, attr_value.FromUTF8(), column.m_TextColor))
+				if (!CGUI::ParseString<CGUIColor>(&m_pGUI, attr_value, column.m_TextColor))
 					LOGERROR("GUI: Error parsing '%s' (\"%s\")", attr_name.data(), attr_value.c_str());
 			}
 			else if (attr_name == "textcolor_selected")
 			{
-				if (!CGUI::ParseString<CGUIColor>(&m_pGUI, attr_value.FromUTF8(), column.m_TextColorSelected))
+				if (!CGUI::ParseString<CGUIColor>(&m_pGUI, attr_value, column.m_TextColorSelected))
 					LOGERROR("GUI: Error parsing '%s' (\"%s\")", attr_name.data(), attr_value.c_str());
 			}
 			else if (attr_name == "hidden")
 			{
 				bool hidden = false;
-				if (!CGUI::ParseString<bool>(&m_pGUI, attr_value.FromUTF8(), hidden))
+				if (!CGUI::ParseString<bool>(&m_pGUI, attr_value, hidden))
 					LOGERROR("GUI: Error parsing '%s' (\"%s\")", attr_name.data(), attr_value.c_str());
 				else
 					column.m_Hidden.Set(hidden, false);
@@ -250,7 +250,7 @@ bool COList::HandleAdditionalChildren(const XMBData& xmb, const XMBElement& chil
 			else if (attr_name == "width")
 			{
 				float width;
-				if (!CGUI::ParseString<float>(&m_pGUI, attr_value.FromUTF8(), width))
+				if (!CGUI::ParseString<float>(&m_pGUI, attr_value, width))
 					LOGERROR("GUI: Error parsing '%s' (\"%s\")", attr_name.data(), attr_value.c_str());
 				else
 				{

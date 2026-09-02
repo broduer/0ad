@@ -72,12 +72,12 @@ public:
 		TestLogger nolog;
 		CRect test;
 
-		TS_ASSERT(CGUI::ParseString<CRect>(nullptr, CStrW(L"0.0 10.0 20.0 30.0"), test));
+		TS_ASSERT(CGUI::ParseString<CRect>(nullptr, "0.0 10.0 20.0 30.0", test));
 		TS_ASSERT_EQUALS(CRect(0.0, 10.0, 20.0, 30.0), test);
 
-		TS_ASSERT(!CGUI::ParseString<CRect>(nullptr, CStrW(L"0 10 20"), test));
-		TS_ASSERT(!CGUI::ParseString<CRect>(nullptr, CStrW(L"0 10 20 30 40"), test));
-		TS_ASSERT(!CGUI::ParseString<CRect>(nullptr, CStrW(L"0,0 10,0 20,0 30,0"), test));
+		TS_ASSERT(!CGUI::ParseString<CRect>(nullptr, "0 10 20", test));
+		TS_ASSERT(!CGUI::ParseString<CRect>(nullptr, "0 10 20 30 40", test));
+		TS_ASSERT(!CGUI::ParseString<CRect>(nullptr, "0,0 10,0 20,0 30,0", test));
 	}
 
 	void test_size()
@@ -85,12 +85,12 @@ public:
 		TestLogger nolog;
 		CSize2D test;
 
-		TS_ASSERT(CGUI::ParseString<CSize2D>(nullptr, CStrW(L"0.0 10.0"), test));
+		TS_ASSERT(CGUI::ParseString<CSize2D>(nullptr, "0.0 10.0", test));
 		TS_ASSERT_EQUALS(CSize2D(0.0, 10.0), test);
 
-		TS_ASSERT(!CGUI::ParseString<CSize2D>(nullptr, CStrW(L"0"), test));
-		TS_ASSERT(!CGUI::ParseString<CSize2D>(nullptr, CStrW(L"0 10 20"), test));
-		TS_ASSERT(!CGUI::ParseString<CSize2D>(nullptr, CStrW(L"0,0 10,0"), test));
+		TS_ASSERT(!CGUI::ParseString<CSize2D>(nullptr, "0", test));
+		TS_ASSERT(!CGUI::ParseString<CSize2D>(nullptr, "0 10 20", test));
+		TS_ASSERT(!CGUI::ParseString<CSize2D>(nullptr, "0,0 10,0", test));
 	}
 
 	void test_pos()
@@ -98,11 +98,11 @@ public:
 		TestLogger nolog;
 		CVector2D test;
 
-		TS_ASSERT(CGUI::ParseString<CVector2D>(nullptr, CStrW(L"0.0 10.0"), test));
+		TS_ASSERT(CGUI::ParseString<CVector2D>(nullptr, "0.0 10.0", test));
 		TS_ASSERT_EQUALS(CVector2D(0.0, 10.0), test);
 
-		TS_ASSERT(!CGUI::ParseString<CVector2D>(nullptr, CStrW(L"0"), test));
-		TS_ASSERT(!CGUI::ParseString<CVector2D>(nullptr, CStrW(L"0 10 20"), test));
-		TS_ASSERT(!CGUI::ParseString<CVector2D>(nullptr, CStrW(L"0,0 10,0"), test));
+		TS_ASSERT(!CGUI::ParseString<CVector2D>(nullptr, "0", test));
+		TS_ASSERT(!CGUI::ParseString<CVector2D>(nullptr, "0 10 20", test));
+		TS_ASSERT(!CGUI::ParseString<CVector2D>(nullptr, "0,0 10,0", test));
 	}
 };

@@ -334,7 +334,7 @@ public:
 	 * @return True at success.
 	 */
 	template <typename T>
-	static bool ParseString(const CGUI* pGUI, const CStrW& Value, T& tOutput);
+	static bool ParseString(const CGUI* pGUI, const CStr& Value, T& tOutput);
 
 private:
 

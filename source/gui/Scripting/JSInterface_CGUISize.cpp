@@ -156,7 +156,7 @@ void CGUISimpleSetting<CGUISize>::ToJSVal(const Script::Request& rq, JS::Mutable
 template<>
 bool CGUISimpleSetting<CGUISize>::DoFromString(const CStrW& value)
 {
-	return CGUI::ParseString<CGUISize>(&m_Object.GetGUI(), value, m_Setting);
+	return CGUI::ParseString<CGUISize>(&m_Object.GetGUI(), value.ToUTF8(), m_Setting);
 };
 
 template<>

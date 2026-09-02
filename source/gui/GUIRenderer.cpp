@@ -138,7 +138,7 @@ void GUIRenderer::UpdateDrawCallCache(const CGUI& pGUI, DrawCalls& Calls, const 
 		}
 		if (SpriteName.find("color:") != std::string::npos)
 		{
-			CStrW value = wstring_from_utf8(SpriteName.AfterLast("color:").BeforeFirst(":"));
+			const CStr value{SpriteName.AfterLast("color:").BeforeFirst(":")};
 
 			auto image = std::make_unique<SGUIImage>();
 			CGUIColor* color;
@@ -158,7 +158,7 @@ void GUIRenderer::UpdateDrawCallCache(const CGUI& pGUI, DrawCalls& Calls, const 
 			// Check color is valid
 			if (!CGUI::ParseString<CGUIColor>(&pGUI, value, *color))
 			{
-				LOGERROR("GUI: Error parsing sprite 'color' (\"%s\")", utf8_from_wstring(value));
+				LOGERROR("GUI: Error parsing sprite 'color' (\"%s\")", value);
 				return;
 			}
 

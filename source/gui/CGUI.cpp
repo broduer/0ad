@@ -1093,11 +1093,10 @@ void CGUI::Xeromyces_ReadImage(const XMBData& xmb, XMBElement element, CGUISprit
 	for (XMBAttribute attr : element.GetAttributes())
 	{
 		std::string_view attr_name(xmb.GetAttributeStringView(attr.Name));
-		CStrW attr_value(attr.Value.FromUTF8());
 
 		if (attr_name == "texture")
 		{
-			image->m_TextureName = VfsPath("art/textures/ui") / attr_value;
+			image->m_TextureName = VfsPath("art/textures/ui") / attr.Value;
 		}
 		else if (attr_name == "size")
 		{
@@ -1110,42 +1109,42 @@ void CGUI::Xeromyces_ReadImage(const XMBData& xmb, XMBElement element, CGUISprit
 		else if (attr_name == "real_texture_placement")
 		{
 			CRect rect;
-			if (!ParseString<CRect>(this, attr_value, rect))
-				LOGERROR("GUI: Error parsing '%s' (\"%s\")", attr_name, utf8_from_wstring(attr_value));
+			if (!ParseString<CRect>(this, attr.Value, rect))
+				LOGERROR("GUI: Error parsing '%s' (\"%s\")", attr_name, attr.Value);
 			else
 				image->m_TexturePlacementInFile = rect;
 		}
 		else if (attr_name == "fixed_h_aspect_ratio")
 		{
 			float val;
-			if (!ParseString<float>(this, attr_value, val))
-				LOGERROR("GUI: Error parsing '%s' (\"%s\")", attr_name, utf8_from_wstring(attr_value));
+			if (!ParseString<float>(this, attr.Value, val))
+				LOGERROR("GUI: Error parsing '%s' (\"%s\")", attr_name, attr.Value);
 			else
 				image->m_FixedHAspectRatio = val;
 		}
 		else if (attr_name == "round_coordinates")
 		{
 			bool b;
-			if (!ParseString<bool>(this, attr_value, b))
-				LOGERROR("GUI: Error parsing '%s' (\"%s\")", attr_name, utf8_from_wstring(attr_value));
+			if (!ParseString<bool>(this, attr.Value, b))
+				LOGERROR("GUI: Error parsing '%s' (\"%s\")", attr_name, attr.Value);
 			else
 				image->m_RoundCoordinates = b;
 		}
 		else if (attr_name == "wrap_mode")
 		{
-			if (attr_value == L"repeat")
+			if (attr.Value == "repeat")
 				image->m_AddressMode = Renderer::Backend::Sampler::AddressMode::REPEAT;
-			else if (attr_value == L"mirrored_repeat")
+			else if (attr.Value == "mirrored_repeat")
 				image->m_AddressMode = Renderer::Backend::Sampler::AddressMode::MIRRORED_REPEAT;
-			else if (attr_value == L"clamp_to_edge")
+			else if (attr.Value == "clamp_to_edge")
 				image->m_AddressMode = Renderer::Backend::Sampler::AddressMode::CLAMP_TO_EDGE;
 			else
-				LOGERROR("GUI: Error parsing '%s' (\"%s\")", attr_name, utf8_from_wstring(attr_value));
+				LOGERROR("GUI: Error parsing '%s' (\"%s\")", attr_name, attr.Value);
 		}
 		else if (attr_name == "backcolor")
 		{
-			if (!ParseString<CGUIColor>(this, attr_value, image->m_BackColor))
-				LOGERROR("GUI: Error parsing '%s' (\"%s\")", attr_name, utf8_from_wstring(attr_value));
+			if (!ParseString<CGUIColor>(this, attr.Value, image->m_BackColor))
+				LOGERROR("GUI: Error parsing '%s' (\"%s\")", attr_name, attr.Value);
 		}
 		else
 			debug_warn(L"Invalid data - DTD shouldn't allow this");
@@ -1233,7 +1232,7 @@ void CGUI::Xeromyces_ReadScrollBarStyle(const XMBData& xmb, XMBElement element)
 		else if (attr_name == "show_edge_buttons")
 		{
 			bool b;
-			if (!ParseString<bool>(this, attr_value.FromUTF8(), b))
+			if (!ParseString<bool>(this, attr_value, b))
 				LOGERROR("GUI: Error parsing '%s' (\"%s\")", attr_name, attr_value);
 			else
 				scrollbar.m_UseEdgeButtons = b;
@@ -1241,7 +1240,7 @@ void CGUI::Xeromyces_ReadScrollBarStyle(const XMBData& xmb, XMBElement element)
 		else if (attr_name == "width")
 		{
 			float f;
-			if (!ParseString<float>(this, attr_value.FromUTF8(), f))
+			if (!ParseString<float>(this, attr_value, f))
 				LOGERROR("GUI: Error parsing '%s' (\"%s\")", attr_name, attr_value);
 			else
 				scrollbar.m_Width = f;
@@ -1249,7 +1248,7 @@ void CGUI::Xeromyces_ReadScrollBarStyle(const XMBData& xmb, XMBElement element)
 		else if (attr_name == "minimum_bar_size")
 		{
 			float f;
-			if (!ParseString<float>(this, attr_value.FromUTF8(), f))
+			if (!ParseString<float>(this, attr_value, f))
 				LOGERROR("GUI: Error parsing '%s' (\"%s\")", attr_name, attr_value);
 			else
 				scrollbar.m_MinimumBarSize = f;
@@ -1257,7 +1256,7 @@ void CGUI::Xeromyces_ReadScrollBarStyle(const XMBData& xmb, XMBElement element)
 		else if (attr_name == "maximum_bar_size")
 		{
 			float f;
-			if (!ParseString<float>(this, attr_value.FromUTF8(), f))
+			if (!ParseString<float>(this, attr_value, f))
 				LOGERROR("GUI: Error parsing '%s' (\"%s\")", attr_name, attr_value);
 			else
 				scrollbar.m_MaximumBarSize = f;
@@ -1320,7 +1319,7 @@ void CGUI::Xeromyces_ReadIcon(const XMBData& xmb, XMBElement element)
 		else if (attr_name == "size")
 		{
 			CSize2D size;
-			if (!ParseString<CSize2D>(this, attr_value.FromUTF8(), size))
+			if (!ParseString<CSize2D>(this, attr_value, size))
 				LOGERROR("Error parsing '%s' (\"%s\") inside <icon>.", attr_name, attr_value);
 			else
 				icon.m_Size = size;

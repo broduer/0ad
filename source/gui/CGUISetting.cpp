@@ -78,7 +78,7 @@ void IGUISetting::OnSettingChange(const CStr& setting, bool sendMessage)
 template<typename T>
 bool CGUISimpleSetting<T>::DoFromString(const CStrW& value)
 {
-	return CGUI::ParseString<T>(&m_Object.GetGUI(), value, m_Setting);
+	return CGUI::ParseString<T>(&m_Object.GetGUI(), value.ToUTF8(), m_Setting);
 };
 
 template<>

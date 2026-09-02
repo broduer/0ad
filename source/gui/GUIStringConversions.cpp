@@ -38,11 +38,11 @@ class CGUIList;
 class CGUISeries;
 
 template <>
-bool CGUI::ParseString<bool>(const CGUI*, const CStrW& Value, bool& Output)
+bool CGUI::ParseString<bool>(const CGUI*, const CStr& Value, bool& Output)
 {
-	if (Value == L"true")
+	if (Value == "true")
 		Output = true;
-	else if (Value == L"false")
+	else if (Value == "false")
 		Output = false;
 	else
 		return false;
@@ -51,52 +51,52 @@ bool CGUI::ParseString<bool>(const CGUI*, const CStrW& Value, bool& Output)
 }
 
 template <>
-bool CGUI::ParseString<i32>(const CGUI*, const CStrW& Value, int& Output)
+bool CGUI::ParseString<i32>(const CGUI*, const CStr& Value, int& Output)
 {
 	Output = Value.ToInt();
 	return true;
 }
 
 template <>
-bool CGUI::ParseString<u32>(const CGUI*, const CStrW& Value, u32& Output)
+bool CGUI::ParseString<u32>(const CGUI*, const CStr& Value, u32& Output)
 {
 	Output = Value.ToUInt();
 	return true;
 }
 
 template <>
-bool CGUI::ParseString<float>(const CGUI*, const CStrW& Value, float& Output)
+bool CGUI::ParseString<float>(const CGUI*, const CStr& Value, float& Output)
 {
 	Output = Value.ToFloat();
 	return true;
 }
 
 template <>
-bool CGUI::ParseString<CRect>(const CGUI*, const CStrW& Value, CRect& Output)
+bool CGUI::ParseString<CRect>(const CGUI*, const CStr& Value, CRect& Output)
 {
 	const unsigned int NUM_COORDS = 4;
 	float coords[NUM_COORDS];
-	std::wstringstream stream;
+	std::stringstream stream;
 	stream.str(Value);
 	// Parse each coordinate
 	for (unsigned int i = 0; i < NUM_COORDS; ++i)
 	{
 		if (stream.eof())
 		{
-			LOGWARNING("Too few CRect parameters (min %i). Your input: '%s'", NUM_COORDS, Value.ToUTF8().c_str());
+			LOGWARNING("Too few CRect parameters (min %i). Your input: '%s'", NUM_COORDS, Value.c_str());
 			return false;
 		}
 		stream >> coords[i];
-		if ((stream.rdstate() & std::wstringstream::failbit) != 0)
+		if ((stream.rdstate() & std::stringstream::failbit) != 0)
 		{
-			LOGWARNING("Unable to parse CRect parameters. Your input: '%s'", Value.ToUTF8().c_str());
+			LOGWARNING("Unable to parse CRect parameters. Your input: '%s'", Value.c_str());
 			return false;
 		}
 	}
 
 	if (!stream.eof())
 	{
-		LOGWARNING("Too many CRect parameters (max %i). Your input: '%s'", NUM_COORDS, Value.ToUTF8().c_str());
+		LOGWARNING("Too many CRect parameters (max %i). Your input: '%s'", NUM_COORDS, Value.c_str());
 		return false;
 	}
 
@@ -107,36 +107,36 @@ bool CGUI::ParseString<CRect>(const CGUI*, const CStrW& Value, CRect& Output)
 }
 
 template <>
-bool CGUI::ParseString<CGUISize>(const CGUI*, const CStrW& Value, CGUISize& Output)
+bool CGUI::ParseString<CGUISize>(const CGUI*, const CStr& Value, CGUISize& Output)
 {
-	return Output.FromString(Value.ToUTF8());
+	return Output.FromString(Value);
 }
 
 template <>
-bool CGUI::ParseString<CGUIColor>(const CGUI* pGUI, const CStrW& Value, CGUIColor& Output)
+bool CGUI::ParseString<CGUIColor>(const CGUI* pGUI, const CStr& Value, CGUIColor& Output)
 {
-	return Output.ParseString(*pGUI, Value.ToUTF8());
+	return Output.ParseString(*pGUI, Value);
 }
 
 template <>
-bool CGUI::ParseString<CSize2D>(const CGUI*, const CStrW& Value, CSize2D& Output)
+bool CGUI::ParseString<CSize2D>(const CGUI*, const CStr& Value, CSize2D& Output)
 {
 	const unsigned int NUM_COORDS = 2;
 	float coords[NUM_COORDS];
-	std::wstringstream stream;
+	std::stringstream stream;
 	stream.str(Value);
 	// Parse each coordinate
 	for (unsigned int i = 0; i < NUM_COORDS; ++i)
 	{
 		if (stream.eof())
 		{
-			LOGWARNING("Too few CSize2D parameters (min %i). Your input: '%s'", NUM_COORDS, Value.ToUTF8().c_str());
+			LOGWARNING("Too few CSize2D parameters (min %i). Your input: '%s'", NUM_COORDS, Value.c_str());
 			return false;
 		}
 		stream >> coords[i];
-		if ((stream.rdstate() & std::wstringstream::failbit) != 0)
+		if ((stream.rdstate() & std::stringstream::failbit) != 0)
 		{
-			LOGWARNING("Unable to parse CSize2D parameters. Your input: '%s'", Value.ToUTF8().c_str());
+			LOGWARNING("Unable to parse CSize2D parameters. Your input: '%s'", Value.c_str());
 			return false;
 		}
 	}
@@ -146,7 +146,7 @@ bool CGUI::ParseString<CSize2D>(const CGUI*, const CStrW& Value, CSize2D& Output
 
 	if (!stream.eof())
 	{
-		LOGWARNING("Too many CSize2D parameters (max %i). Your input: '%s'", NUM_COORDS, Value.ToUTF8().c_str());
+		LOGWARNING("Too many CSize2D parameters (max %i). Your input: '%s'", NUM_COORDS, Value.c_str());
 		return false;
 	}
 
@@ -154,24 +154,24 @@ bool CGUI::ParseString<CSize2D>(const CGUI*, const CStrW& Value, CSize2D& Output
 }
 
 template <>
-bool CGUI::ParseString<CVector2D>(const CGUI*, const CStrW& Value, CVector2D& Output)
+bool CGUI::ParseString<CVector2D>(const CGUI*, const CStr& Value, CVector2D& Output)
 {
 	const unsigned int NUM_COORDS = 2;
 	float coords[NUM_COORDS];
-	std::wstringstream stream;
+	std::stringstream stream;
 	stream.str(Value);
 	// Parse each coordinate
 	for (unsigned int i = 0; i < NUM_COORDS; ++i)
 	{
 		if (stream.eof())
 		{
-			LOGWARNING("Too few CVector2D parameters (min %i). Your input: '%s'", NUM_COORDS, Value.ToUTF8().c_str());
+			LOGWARNING("Too few CVector2D parameters (min %i). Your input: '%s'", NUM_COORDS, Value.c_str());
 			return false;
 		}
 		stream >> coords[i];
-		if ((stream.rdstate() & std::wstringstream::failbit) != 0)
+		if ((stream.rdstate() & std::stringstream::failbit) != 0)
 		{
-			LOGWARNING("Unable to parse CVector2D parameters. Your input: '%s'", Value.ToUTF8().c_str());
+			LOGWARNING("Unable to parse CVector2D parameters. Your input: '%s'", Value.c_str());
 			return false;
 		}
 	}
@@ -181,7 +181,7 @@ bool CGUI::ParseString<CVector2D>(const CGUI*, const CStrW& Value, CVector2D& Ou
 
 	if (!stream.eof())
 	{
-		LOGWARNING("Too many CVector2D parameters (max %i). Your input: '%s'", NUM_COORDS, Value.ToUTF8().c_str());
+		LOGWARNING("Too many CVector2D parameters (max %i). Your input: '%s'", NUM_COORDS, Value.c_str());
 		return false;
 	}
 
@@ -189,13 +189,13 @@ bool CGUI::ParseString<CVector2D>(const CGUI*, const CStrW& Value, CVector2D& Ou
 }
 
 template <>
-bool CGUI::ParseString<EAlign>(const CGUI*, const CStrW& Value, EAlign& Output)
+bool CGUI::ParseString<EAlign>(const CGUI*, const CStr& Value, EAlign& Output)
 {
-	if (Value == L"left")
+	if (Value == "left")
 		Output = EAlign::LEFT;
-	else if (Value == L"center")
+	else if (Value == "center")
 		Output = EAlign::CENTER;
-	else if (Value == L"right")
+	else if (Value == "right")
 		Output = EAlign::RIGHT;
 	else
 		return false;
@@ -204,13 +204,13 @@ bool CGUI::ParseString<EAlign>(const CGUI*, const CStrW& Value, EAlign& Output)
 }
 
 template <>
-bool CGUI::ParseString<EVAlign>(const CGUI*, const CStrW& Value, EVAlign& Output)
+bool CGUI::ParseString<EVAlign>(const CGUI*, const CStr& Value, EVAlign& Output)
 {
-	if (Value == L"top")
+	if (Value == "top")
 		Output = EVAlign::TOP;
-	else if (Value == L"center")
+	else if (Value == "center")
 		Output = EVAlign::CENTER;
-	else if (Value == L"bottom")
+	else if (Value == "bottom")
 		Output = EVAlign::BOTTOM;
 	else
 		return false;
@@ -219,53 +219,53 @@ bool CGUI::ParseString<EVAlign>(const CGUI*, const CStrW& Value, EVAlign& Output
 }
 
 template <>
-bool CGUI::ParseString<CGUIString>(const CGUI*, const CStrW& Value, CGUIString& Output)
+bool CGUI::ParseString<CGUIString>(const CGUI*, const CStr& Value, CGUIString& Output)
 {
-	Output.SetValue(Value);
+	Output.SetValue(Value.FromUTF8());
 	return true;
 }
 
 template <>
-bool CGUI::ParseString<CStr>(const CGUI*, const CStrW& Value, CStr& Output)
-{
-	Output = Value.ToUTF8();
-	return true;
-}
-
-template <>
-bool CGUI::ParseString<CStrW>(const CGUI*, const CStrW& Value, CStrW& Output)
+bool CGUI::ParseString<CStr>(const CGUI*, const CStr& Value, CStr& Output)
 {
 	Output = Value;
 	return true;
 }
 
 template <>
-bool CGUI::ParseString<CGUISpriteInstance>(const CGUI*, const CStrW& Value, CGUISpriteInstance& Output)
+bool CGUI::ParseString<CStrW>(const CGUI*, const CStr& Value, CStrW& Output)
 {
-	Output = CGUISpriteInstance(Value.ToUTF8());
+	Output = Value.FromUTF8();
 	return true;
 }
 
 template <>
-bool CGUI::ParseString<CGUISeries>(const CGUI*, const CStrW& /*Value*/, CGUISeries& /*Output*/)
+bool CGUI::ParseString<CGUISpriteInstance>(const CGUI*, const CStr& Value, CGUISpriteInstance& Output)
+{
+	Output = CGUISpriteInstance(Value);
+	return true;
+}
+
+template <>
+bool CGUI::ParseString<CGUISeries>(const CGUI*, const CStr& /*Value*/, CGUISeries& /*Output*/)
 {
 	return false;
 }
 
 template <>
-bool CGUI::ParseString<CGUIList>(const CGUI*, const CStrW& /*Value*/, CGUIList& /*Output*/)
+bool CGUI::ParseString<CGUIList>(const CGUI*, const CStr& /*Value*/, CGUIList& /*Output*/)
 {
 	return false;
 }
 
 template <>
-bool CGUI::ParseString<EScrollOrientation>(const CGUI*, const CStrW& Value, EScrollOrientation& Output)
+bool CGUI::ParseString<EScrollOrientation>(const CGUI*, const CStr& Value, EScrollOrientation& Output)
 {
-	if (Value == L"vertical")
+	if (Value == "vertical")
 		Output = EScrollOrientation::VERTICAL;
-	else if (Value == L"horizontal")
+	else if (Value == "horizontal")
 		Output = EScrollOrientation::HORIZONTAL;
-	else if (Value == L"both")
+	else if (Value == "both")
 		Output = EScrollOrientation::BOTH;
 	else
 		return false;
