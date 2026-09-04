@@ -225,8 +225,9 @@ CFont* CFontManager::LoadFont(CStrIntern fontName, CStrIntern locale)
 	};
 
 	CFont font{this->m_FreeType.get()};
+	const float strokeWidth{g_ConfigDB.Get("fonts.strokewidth", 1.0f)};
 
-	if (!font.SetFontParams(m_Device, localeFontName.string(), fontSpec.size, fontSpec.stroke ? 1.0f : 0.0f, m_GUIScale, m_UseCheckboard))
+	if (!font.SetFontParams(m_Device, localeFontName.string(), fontSpec.size, fontSpec.stroke ? strokeWidth : 0.0f, m_GUIScale, m_UseCheckboard))
 	{
 		LOGERROR("Failed to set font params for %s", localeFontName.string().c_str());
 		return nullptr;

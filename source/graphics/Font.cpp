@@ -198,7 +198,7 @@ bool CFont::SetFontParams(
 
 	// TODO: expose the Stroke Width outside class.
 	m_Scale = scale;
-	m_StrokeWidth = std::round(strokeWidth * scale);
+	m_StrokeWidth = strokeWidth * scale;
 	m_FontSize = std::floor(size * scale);
 	m_FontName = fontName;
 	m_UseCheckboard = useCheckboard;
@@ -305,7 +305,7 @@ bool CFont::ConstructAtlasTexture(Renderer::Backend::IDevice* device)
 	m_AtlasWidth = textureSize;
 	m_AtlasHeight = textureSize;
 	m_HasRGB = true;
-	m_AtlasPadding = 4 + m_StrokeWidth * 2;
+	m_AtlasPadding = 4 + static_cast<int>(std::ceil(m_StrokeWidth * 2));
 	m_AtlasX = m_AtlasY = m_AtlasPadding;
 
 	m_Bounds.right = textureSize;
@@ -453,7 +453,7 @@ const CFont::GlyphData* CFont::ExtractAndGenerateGlyph(std::uint16_t codepoint)
 		CompositeStrokeAndFillToAtlas(strokeBG->bitmap, strokeAtlasX, strokeAtlasY, fillBG->bitmap, fillAtlasX, fillAtlasY);
 
 		offset.X = static_cast<float>(strokeBG->left);
-		offset.Y = static_cast<float>(-strokeBG->top) - (m_Height + m_StrokeWidth - baselineInAtlas);
+		offset.Y = std::round(static_cast<float>(-strokeBG->top) - (m_Height + m_StrokeWidth - baselineInAtlas));
 	}
 	else
 	{
