@@ -479,7 +479,9 @@ void CCanvas2D::DrawRotatedTexture(
 
 void CCanvas2D::DrawText(CTextRenderer& textRenderer)
 {
+#ifdef DEBUG
 	GPU_SCOPED_LABEL(m->DeviceCommandContext, "Rendering text");
+#endif // DEBUG
 	m->BindTechIfNeeded();
 
 	m->DeviceCommandContext->SetUniform(
