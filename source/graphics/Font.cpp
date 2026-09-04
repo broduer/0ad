@@ -175,7 +175,7 @@ void CFont::CalculateStringSize(const wchar_t* string, float& width, float& heig
 				FT_Vector kerning;
 				FT_Get_Kerning(g->face, prevGlyph, glyphIndex, FT_KERNING_DEFAULT, &kerning);
 				// Add the kerning distance.
-				return sum + g->xadvance + FPosF26Dot6ToFloat(kerning.x);
+				return sum + g->xadvance + FPosF26Dot6ToFloat(kerning.x) / m_Scale;
 			})
 		};
 
