@@ -23,6 +23,7 @@
 #include "lib/file/vfs/vfs.h"
 #include "maths/Vector2D.h"
 #include "ps/CLogger.h"
+#include "ps/ConfigDB.h"
 #include "ps/Filesystem.h"
 #include "ps/Profiler2.h"
 #include "ps/strings/StringBuilder.h"
@@ -388,7 +389,29 @@ const CFont::GlyphData* CFont::ExtractAndGenerateGlyph(std::uint16_t codepoint)
 			return {it != m_Faces.end() ? it->get() : m_Faces.front().get(), index};
 		}()
 	};
-	const FT_Int32 loadFlags{FT_LOAD_DEFAULT | (m_FontSize <= MINIMAL_FONT_SIZE_ANTIALIASING ? FT_LOAD_TARGET_MONO : 0)};
+
+	// Debug: 0 = current, 1 = light, 2 = normal grayscale, 3 = unhinted.
+	static const int hintingMode{g_ConfigDB.Get("fonts.hinting", 0)};
+
+	FT_Int32 loadFlags{FT_LOAD_DEFAULT};
+	FT_Render_Mode renderMode{FT_RENDER_MODE_NORMAL};
+	switch (hintingMode)
+	{
+	case 1:
+		loadFlags |= FT_LOAD_TARGET_LIGHT;
+		renderMode = FT_RENDER_MODE_LIGHT;
+		break;
+	case 2:
+		loadFlags |= FT_LOAD_TARGET_NORMAL;
+		break;
+	case 3:
+		loadFlags |= FT_LOAD_NO_HINTING;
+		break;
+	default:
+		if (m_FontSize <= MINIMAL_FONT_SIZE_ANTIALIASING)
+			loadFlags |= FT_LOAD_TARGET_MONO;
+		break;
+	}
 
 	if (FT_Error error{FT_Load_Glyph(faceToUse, glyphIndex, loadFlags)})
 	{
@@ -406,7 +429,6 @@ const CFont::GlyphData* CFont::ExtractAndGenerateGlyph(std::uint16_t codepoint)
 	UniqueFTGlyph glyphPtr(glyph);
 
 	const float glyphW{FPosF26Dot6ToFloat(slot->advance.x)};
-	const FT_Render_Mode renderMode{FT_RENDER_MODE_NORMAL};
 
 	const float baselineInAtlas{FPosF26Dot6ToFloat(faceToUse->size->metrics.ascender)};
 	int cellWidth{0};
