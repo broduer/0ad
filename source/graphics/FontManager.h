@@ -56,8 +56,6 @@ private:
 
 	std::unique_ptr<FT_LibraryRec_, decltype(&ftLibraryDeleter)> m_FreeType{nullptr, &ftLibraryDeleter};
 
-	std::unique_ptr<std::array<float, 256>> m_GammaCorrectionLUT;
-
 	using FontsMap = std::unordered_map<CStrIntern, CFont>;
 	FontsMap m_Fonts;
 
@@ -68,14 +66,6 @@ private:
 	std::unique_ptr<CConfigDBHook> m_UseCheckboardHook;
 
 	Renderer::Backend::IDevice* m_Device;
-
-	/*
-	* Most monitors today use 2.2 as the standard gamma.
-	* MacOS may use 2.2 or 1.8 in some cases.
-	* This method assumes your OS or GPU didn’t override the gamma ramp.
-	* Unless we need super-accurate gamma (e.g., for print preview or color grading), this is usually acceptable.
-	*/
-	static constexpr float GAMMA_CORRECTION = 2.2f;
 };
 
 #endif // INCLUDED_FONTMANAGER

@@ -49,7 +49,7 @@ namespace Renderer::Backend::Sampler { struct Desc; }
 class CFont
 {
 public:
-	CFont(FT_Library library, const std::array<float, 256>& gammaCorrection) : m_FreeType{library}, m_GammaCorrectionLUT{gammaCorrection} {}
+	CFont(FT_Library library) : m_FreeType{library} {}
 	~CFont() = default;
 	MOVABLE(CFont);
 	NONCOPYABLE(CFont);
@@ -191,7 +191,6 @@ private:
 
 	float m_FontSize{0.0f};
 	std::string m_FontName;
-	std::reference_wrapper<const std::array<float, 256>> m_GammaCorrectionLUT;
 
 	FT_Library m_FreeType;
 	std::vector<std::unique_ptr<std::uint8_t[], AlignedDeleter>> m_FontsData;

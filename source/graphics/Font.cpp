@@ -568,36 +568,24 @@ void CFont::CompositeStrokeAndFillToAtlas(
 
 			std::uint8_t* pixel{dstRow + x * m_TextureFormatStride};
 
-			const float strokeAlpha = m_GammaCorrectionLUT.get()[strokeRow[x]];
-
+			const float strokeAlpha = strokeRow[x] / 255.0f;
 			float fillAlpha{0.0f};
 			if (fillYInBounds)
 			{
 				const int fillLocalX{(strokeAtlasX + static_cast<int>(x)) - fillAtlasX};
 				if (fillLocalX >= 0 && fillLocalX < static_cast<int>(fillBitmap.width))
-					fillAlpha = m_GammaCorrectionLUT.get()[fillBitmap.buffer[fillLocalY * fillBitmap.pitch + fillLocalX]];
+					fillAlpha = fillBitmap.buffer[fillLocalY * fillBitmap.pitch + fillLocalX] / 255.0f;
 			}
 
-			// Porter-Duff "source over": fill (white) over stroke (black)
 			const float outAlpha = fillAlpha + strokeAlpha * (1.0f - fillAlpha);
 			if (outAlpha <= 0.0f)
 				continue;
 
-			// stroke=(0,0,0), fill=(255,255,255) -> color = 255 * fillAlpha / outAlpha
 			const std::uint8_t luminance = static_cast<std::uint8_t>(std::round(255.0f * fillAlpha / outAlpha));
-
-#ifdef DEBUG_CHECKBOARD_FONT_ATLAS
-			bool even{x % 2 != y % 2};
-			pixel[0] = even ? 0xFF : 0x00;
-			pixel[1] = even ? 0x00 : 0xFF;
-			pixel[2] = 0x00;
-			pixel[3] = static_cast<std::uint8_t>(std::round(outAlpha * 255.0f));
-#else
 			pixel[0] = luminance;
 			pixel[1] = luminance;
 			pixel[2] = luminance;
 			pixel[3] = static_cast<std::uint8_t>(std::round(outAlpha * 255.0f));
-#endif
 		}
 	}
 }

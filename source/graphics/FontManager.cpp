@@ -120,12 +120,6 @@ CFontManager::CFontManager(Renderer::Backend::IDevice* device)
 	if (error)
 		throw std::runtime_error{"Failed to initialize FreeType " + std::to_string(error)};
 	m_FreeType.reset(lib);
-
-	m_GammaCorrectionLUT = std::make_unique<std::array<float, 256>>();
-
-	std::generate(m_GammaCorrectionLUT->begin(), m_GammaCorrectionLUT->end(), [i = 0]() mutable {
-		return std::pow((i++) / 255.0f, 1.0f / GAMMA_CORRECTION);
-	});
 }
 
 CFontManager::~CFontManager() = default;
@@ -230,7 +224,7 @@ CFont* CFontManager::LoadFont(CStrIntern fontName, CStrIntern locale)
 		}()
 	};
 
-	CFont font{this->m_FreeType.get(), *m_GammaCorrectionLUT};
+	CFont font{this->m_FreeType.get()};
 
 	if (!font.SetFontParams(m_Device, localeFontName.string(), fontSpec.size, fontSpec.stroke ? 1.0f : 0.0f, m_GUIScale, m_UseCheckboard))
 	{
