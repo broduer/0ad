@@ -108,6 +108,11 @@ CFontManager::CFontManager(Renderer::Backend::IDevice* device)
 		{
 			m_GUIScale = g_ConfigDB.Get("gui.scale", 1.0f);
 		}))},
+	m_UseCheckboardHook{std::make_unique<CConfigDBHook>(g_ConfigDB.RegisterHookAndCall(
+		"fonts.usecheckboard", [this]()
+		{
+			m_UseCheckboard = g_ConfigDB.Get("fonts.usecheckboard", false);
+		})) },
 	m_Device(device)
 {
 	FT_Library lib;
@@ -147,6 +152,8 @@ CFont* CFontManager::LoadFont(CStrIntern fontName, CStrIntern locale)
 	fontNameBuilder.Append(fontName.string());
 	fontNameBuilder.Append('-');
 	fontNameBuilder.Append(m_GUIScale);
+	if(m_UseCheckboard)
+		fontNameBuilder.Append("-checkboard");
 	CStrIntern localeFontName{fontNameBuilder.Str()};
 
 	FontsMap::iterator it{m_Fonts.find(localeFontName)};
@@ -225,7 +232,7 @@ CFont* CFontManager::LoadFont(CStrIntern fontName, CStrIntern locale)
 
 	CFont font{this->m_FreeType.get(), *m_GammaCorrectionLUT};
 
-	if (!font.SetFontParams(m_Device, localeFontName.string(), fontSpec.size, fontSpec.stroke ? 1.0f : 0.0f, m_GUIScale))
+	if (!font.SetFontParams(m_Device, localeFontName.string(), fontSpec.size, fontSpec.stroke ? 1.0f : 0.0f, m_GUIScale, m_UseCheckboard))
 	{
 		LOGERROR("Failed to set font params for %s", localeFontName.string().c_str());
 		return nullptr;

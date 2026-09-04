@@ -47,6 +47,37 @@
 namespace
 {
 /**
+	* Writes one checkerboard texel at atlas position (ax, ay).
+	*
+	* Parity is keyed to ATLAS coordinates, not glyph-local ones, so the whole
+	* atlas forms a single continuous grid. A phase break at a glyph boundary is
+	* therefore a real bug rather than an artefact of the test pattern.
+	*
+	* RGBA: black/white on full alpha. Luminance survives the colorMul tint the
+	* text shader applies, which a red/green pattern does not.
+	* A8: only alpha exists, so the pattern has to be an opacity alternation.
+	* The "off" phase uses a mid value rather than 0 so both phases stay visible
+	* against any background.
+	*/
+void WriteCheckerTexel(std::uint8_t* atlas, int atlasW, int stride, int ax, int ay)
+{
+	const bool odd{ ((ax ^ ay) & 1) != 0 };
+	std::uint8_t* pixel{ atlas + (static_cast<size_t>(ay) * atlasW + ax) * stride };
+	if (stride == 4)
+	{
+		const std::uint8_t v{ odd ? std::uint8_t{0xFF} : std::uint8_t{0x00} };
+		pixel[0] = v;
+		pixel[1] = v;
+		pixel[2] = v;
+		pixel[3] = 0xFF;
+	}
+	else
+	{
+		pixel[0] = odd ? 0xFF : 0x50;
+	}
+}
+
+/**
 * FreeType represents most of its size and position values in 26.6 fixed-point format — that is,
 * 26 bits for the integer part and 6 bits for the fractional part.
 * FreeType's metrics such as: ascender, descender, height, advance, etc. are measured in 1/64th of a pixel.
@@ -161,7 +192,7 @@ void CFont::CalculateStringSize(const wchar_t* string, float& width, float& heig
 
 bool CFont::SetFontParams(
 	Renderer::Backend::IDevice* device, const std::string& fontName,
-	float size, float strokeWidth, float scale)
+	float size, float strokeWidth, float scale, bool useCheckboard)
 {
 	ENSURE(m_FontSize == 0 && size > 0);
 
@@ -170,6 +201,7 @@ bool CFont::SetFontParams(
 	m_StrokeWidth = std::round(strokeWidth * scale);
 	m_FontSize = std::floor(size * scale);
 	m_FontName = fontName;
+	m_UseCheckboard = useCheckboard;
 
 	if (m_StrokeWidth)
 	{
@@ -308,18 +340,11 @@ bool CFont::ConstructAtlasTexture(Renderer::Backend::IDevice* device)
 	m_TexData = std::make_unique<std::uint8_t[]>(m_AtlasSize);
 	std::fill_n(m_TexData.get(), m_AtlasSize, 0x00);
 
-#ifdef DEBUG_CHECKBOARD_FONT_ATLAS
-	if (m_TextureFormatStride == 4)
-	{
-		for (int i = 0; i < m_AtlasSize; i += 4)
-		{
-			m_TexData[i + 0] = 0x00;
-			m_TexData[i + 1] = 0x00;
-			m_TexData[i + 2] = (i / 4) % 2 == 0 ? 0xFF : 0x00;
-			m_TexData[i + 3] = 0x00;
-		}
+	if (m_UseCheckboard) {
+		for (int ay = 0; ay < m_AtlasHeight; ++ay)
+			for (int ax = 0; ax < m_AtlasWidth; ++ax)
+				WriteCheckerTexel(m_TexData.get(), m_AtlasWidth, m_TextureFormatStride, ax, ay);
 	}
-#endif
 
 	m_IsTextureInitialized = false;
 
@@ -536,6 +561,11 @@ void CFont::CompositeStrokeAndFillToAtlas(
 
 		for (std::uint32_t x = 0; x < strokeBitmap.width; ++x)
 		{
+			if (m_UseCheckboard) {
+				WriteCheckerTexel(m_TexData.get(), m_AtlasWidth, m_TextureFormatStride, strokeAtlasX + static_cast<int>(x), strokeAtlasY + static_cast<int>(y));
+				continue;
+			}
+
 			std::uint8_t* pixel{dstRow + x * m_TextureFormatStride};
 
 			const float strokeAlpha = m_GammaCorrectionLUT.get()[strokeRow[x]];
@@ -591,6 +621,12 @@ void  CFont::BlendGlyphBitmapToTextureR8(const FT_Bitmap& bitmap, int targetX, i
 {
 	for (unsigned int y{0}; y != bitmap.rows; ++y)
 	{
+		if (m_UseCheckboard) {
+			for (std::uint32_t x{0}; x != bitmap.width; ++x)
+				WriteCheckerTexel(m_TexData.get(), m_AtlasWidth, m_TextureFormatStride, targetX + static_cast<int>(x), targetY + static_cast<int>(y));
+			continue;
+		}
+
 		const std::uint8_t* srcRow{bitmap.buffer + y * bitmap.pitch};
 		std::uint8_t* dstRow{m_TexData.get() + ((targetY + y) * m_AtlasWidth + targetX)};
 

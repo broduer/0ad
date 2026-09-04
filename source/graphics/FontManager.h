@@ -64,6 +64,9 @@ private:
 	float m_GUIScale{1.0f};
 	std::unique_ptr<CConfigDBHook> m_GUIScaleHook;
 
+	bool m_UseCheckboard{false};
+	std::unique_ptr<CConfigDBHook> m_UseCheckboardHook;
+
 	Renderer::Backend::IDevice* m_Device;
 
 	/*

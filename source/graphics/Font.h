@@ -138,7 +138,7 @@ private:
 	friend class CFontManager;
 
 	bool AddFontFromPath(const OsPath& fontPath);
-	bool SetFontParams(Renderer::Backend::IDevice* device, const std::string& fontName, float size, float strokeWidth, float scale);
+	bool SetFontParams(Renderer::Backend::IDevice* device, const std::string& fontName, float size, float strokeWidth, float scale, bool useCheckboard);
 
 	void BlendGlyphBitmapToTexture(const FT_Bitmap& bitmap, int targetX, int targetY, std::uint8_t r,
 		std::uint8_t g, std::uint8_t b);
@@ -160,6 +160,7 @@ private:
 
 	// True if RGBA, false if ALPHA.
 	bool m_HasRGB{true};
+	bool m_UseCheckboard{false};
 
 	GlyphMap m_Glyphs;
 
