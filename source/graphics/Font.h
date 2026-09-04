@@ -140,10 +140,6 @@ private:
 	bool AddFontFromPath(const OsPath& fontPath);
 	bool SetFontParams(Renderer::Backend::IDevice* device, const std::string& fontName, float size, float strokeWidth, float scale, bool useCheckboard);
 
-	void BlendGlyphBitmapToTexture(const FT_Bitmap& bitmap, int targetX, int targetY, std::uint8_t r,
-		std::uint8_t g, std::uint8_t b);
-	void BlendGlyphBitmapToTextureRGBA(const FT_Bitmap& bitmap, int targetX, int targetY, std::uint8_t r,
-		std::uint8_t g, std::uint8_t b);
 	void BlendGlyphBitmapToTextureR8(const FT_Bitmap& bitmap, int targetX, int targetY);
 
 	std::optional<FT_Glyph> RasterizeStrokeBitmap(const FT_Glyph& sourceGlyph, std::uint16_t codepoint,
