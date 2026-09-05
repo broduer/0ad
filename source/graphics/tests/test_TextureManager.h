@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -113,7 +113,7 @@ public:
 	void test_load_formats()
 	{
 		CTextureManager texman(m_VFS, false, m_Device.get());
-		CTexturePtr t1 = texman.CreateTexture(CTextureProperties(L"art/textures/a/demo.tga"));
+		CTexturePtr t1 = texman.CreateTexture(CTextureProperties(L"art/textures/a/demo.png"));
 		CTexturePtr t2 = texman.CreateTexture(CTextureProperties(L"art/textures/a/demo-abgr.dds"));
 		CTexturePtr t3 = texman.CreateTexture(CTextureProperties(L"art/textures/a/demo-dxt1.dds"));
 		CTexturePtr t4 = texman.CreateTexture(CTextureProperties(L"art/textures/a/demo-dxt5.dds"));
