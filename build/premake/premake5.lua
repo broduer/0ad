@@ -862,6 +862,7 @@ function setup_all_libs ()
 
 	source_dirs = {
 		"ps",
+		"ps/memory",
 		"ps/scripting",
 		"network/scripting",
 		"ps/GameSetup",
