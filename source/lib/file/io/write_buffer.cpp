@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -30,6 +30,7 @@
 #include "lib/debug.h"
 #include "lib/file/io/io.h"
 #include "lib/sysdep/rtl.h"
+#include "ps/memory/Aligned.h"
 
 #include <algorithm>
 #include <cstring>
@@ -38,7 +39,7 @@ static const size_t BLOCK_SIZE = 512*KiB;
 
 
 WriteBuffer::WriteBuffer()
-	: m_capacity(g_PageSize), m_data((u8*)rtl_AllocateAligned(m_capacity, maxSectorSize), AlignedDeleter()), m_size(0)
+	: m_capacity(g_PageSize), m_data((u8*)PS::Memory::AlignedAllocate(maxSectorSize, m_capacity), AlignedDeleter()), m_size(0)
 {
 }
 
@@ -84,7 +85,7 @@ void WriteBuffer::Overwrite(const void* data, size_t size, size_t offset)
 //-----------------------------------------------------------------------------
 
 UnalignedWriter::UnalignedWriter(const PFile& file, off_t ofs)
-	: m_file(file), m_alignedBuf((u8*)rtl_AllocateAligned(BLOCK_SIZE, maxSectorSize), AlignedDeleter())
+	: m_file(file), m_alignedBuf((u8*)PS::Memory::AlignedAllocate(maxSectorSize, BLOCK_SIZE), AlignedDeleter())
 {
 	m_alignedOfs = round_down(ofs, (off_t)BLOCK_SIZE);
 	const size_t misalignment = (size_t)(ofs - m_alignedOfs);

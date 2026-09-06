@@ -21,6 +21,7 @@
 #include "lib/bits.h"
 #include "lib/sysdep/rtl.h"
 #include "ps/CLogger.h"
+#include "ps/memory/Aligned.h"
 #include "renderer/Renderer.h"
 #include "renderer/VertexArray.h"
 #include "renderer/VertexBuffer.h"
@@ -86,7 +87,7 @@ VertexArray::~VertexArray()
 // Free all resources on destruction or when a layout parameter changes
 void VertexArray::Free()
 {
-	rtl_FreeAligned(m_BackingStore);
+	PS::Memory::AlignedFree(m_BackingStore);
 	m_BackingStore = 0;
 
 	m_VB.Reset();
@@ -267,7 +268,7 @@ void VertexArray::Layout()
 		m_Stride = RoundStride(m_Stride);
 
 	if (m_Stride)
-		m_BackingStore = (char*)rtl_AllocateAligned(m_Stride * m_NumberOfVertices, 16);
+		m_BackingStore = (char*)PS::Memory::AlignedAllocate(16, m_Stride * m_NumberOfVertices);
 }
 
 void VertexArray::PrepareForRendering()
@@ -308,7 +309,7 @@ void VertexArray::FreeBackingStore()
 	// In streaming modes, the backing store must be retained
 	ENSURE(!CVertexBuffer::UseStreaming(m_Usage));
 
-	rtl_FreeAligned(m_BackingStore);
+	PS::Memory::AlignedFree(m_BackingStore);
 	m_BackingStore = 0;
 }
 

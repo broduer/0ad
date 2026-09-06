@@ -33,6 +33,7 @@
 #include "ps/CStr.h"
 #include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
+#include "ps/memory/Aligned.h"
 #include "ps/Profiler2.h"
 #include "renderer/RenderingOptions.h"
 #include "simulation2/components/ICmpTerrain.h"
@@ -53,7 +54,7 @@ CModel::CModel(const CSimulation2& simulation, const CMaterial& material, const 
 
 		// allocate matrices for bone transformations
 		// (one extra matrix is used for the special case of bind-shape relative weighting)
-		m_BoneMatrices = (CMatrix3D*)rtl_AllocateAligned(sizeof(CMatrix3D) * (numberOfBones + 1 + numberOfBlends), 16);
+		m_BoneMatrices = (CMatrix3D*)PS::Memory::AlignedAllocate(16, sizeof(CMatrix3D) * (numberOfBones + 1 + numberOfBlends));
 		for (size_t i = 0; i < numberOfBones + 1 + numberOfBlends; ++i)
 		{
 			m_BoneMatrices[i].SetIdentity();
@@ -65,7 +66,7 @@ CModel::CModel(const CSimulation2& simulation, const CMaterial& material, const 
 
 CModel::~CModel()
 {
-	rtl_FreeAligned(m_BoneMatrices);
+	PS::Memory::AlignedFree(m_BoneMatrices);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////

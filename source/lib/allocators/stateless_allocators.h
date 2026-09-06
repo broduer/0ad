@@ -27,6 +27,7 @@
 #include "lib/posix/posix_mman.h"
 #include "lib/sysdep/rtl.h"
 #include "lib/sysdep/vm.h"
+#include "ps/memory/Aligned.h"
 
 #include <cstdlib>
 
@@ -52,12 +53,12 @@ struct Allocator_Aligned
 {
 	void* allocate(size_t size)
 	{
-		return rtl_AllocateAligned(size, alignment);
+		return PS::Memory::AlignedAllocate(alignment, size);
 	}
 
 	void deallocate(void* p, size_t)
 	{
-		return rtl_FreeAligned(p);
+		return PS::Memory::AlignedFree(p);
 	}
 };
 

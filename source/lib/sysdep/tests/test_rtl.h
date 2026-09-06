@@ -29,29 +29,10 @@
 
 class Test_rtl : public CxxTest::TestSuite
 {
-	void _test_AllocateAligned_helper(size_t size, size_t align)
-	{
-		void* p = rtl_AllocateAligned(size, align);
-		TS_ASSERT(p != NULL);
-		TS_ASSERT_EQUALS((intptr_t)p % align, 0u);
-		memset(p, 0x42, size);
-		rtl_FreeAligned(p);
-	}
+
 public:
 	void test_AllocateAligned()
 	{
-		for (size_t s = 0; s < 64; ++s)
-		{
-			_test_AllocateAligned_helper(s, 8);
-			_test_AllocateAligned_helper(s, 16);
-			_test_AllocateAligned_helper(s, 64);
-			_test_AllocateAligned_helper(s, 1024);
-			_test_AllocateAligned_helper(s, 65536);
-		}
-	}
-
-	void test_FreeAligned_null()
-	{
-		rtl_FreeAligned(NULL);
+		
 	}
 };

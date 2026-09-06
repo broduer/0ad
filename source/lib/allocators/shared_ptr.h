@@ -28,6 +28,7 @@
 #include "lib/status.h"
 #include "lib/sysdep/rtl.h" // rtl_AllocateAligned
 #include "lib/types.h"
+#include "ps/memory/Aligned.h"
 
 #include <cstddef>
 #include <memory>
@@ -51,14 +52,14 @@ struct AlignedDeleter
 	template<class T>
 	void operator()(T* t)
 	{
-		rtl_FreeAligned(t);
+		PS::Memory::AlignedFree(t);
 	}
 };
 
 template<class T>
 static inline Status AllocateAligned(std::shared_ptr<T>& p, size_t size, size_t alignment = cacheLineSize)
 {
-	void* mem = rtl_AllocateAligned(size, alignment);
+	void* mem = PS::Memory::AlignedAllocate(alignment, size);
 	if(!mem)
 		WARN_RETURN(ERR::NO_MEM);
 	p.reset((T*)mem, AlignedDeleter());

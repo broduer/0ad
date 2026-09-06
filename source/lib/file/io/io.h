@@ -42,6 +42,7 @@
 #include "lib/sysdep/os.h"
 #include "lib/sysdep/rtl.h"
 #include "lib/types.h"
+#include "ps/memory/Aligned.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -60,7 +61,7 @@ namespace io {
 
 struct FreeAligned
 {
-	void operator()(void* pointer) { rtl_FreeAligned(pointer); }
+	void operator()(void* pointer) { PS::Memory::AlignedFree(pointer); }
 };
 
 using BufferPtr = std::unique_ptr<u8, FreeAligned>;
@@ -76,7 +77,7 @@ static inline io::BufferPtr Allocate(size_t size, size_t alignment = maxSectorSi
 	ENSURE(is_pow2(alignment));
 	alignment = std::max(alignment, allocationAlignment);
 
-	u8* p = static_cast<u8*>(rtl_AllocateAligned(round_up(size, alignment), alignment));
+	u8* p = static_cast<u8*>(PS::Memory::AlignedAllocate(alignment, round_up(size, alignment)));
 
 	return {p, FreeAligned{}};
 }
