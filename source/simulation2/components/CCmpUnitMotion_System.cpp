@@ -456,12 +456,10 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 		it->second.pos = it->second.initialPos;
 		it->second.speed = it->second.cmpUnitMotion->GetCurrentSpeed();
 		it->second.angle = it->second.initialAngle;
-		ENSURE(it->second.pos.X.ToInt_RoundToZero() / PUSHING_GRID_SIZE < m_MovingUnits.width() &&
-			   it->second.pos.Y.ToInt_RoundToZero() / PUSHING_GRID_SIZE < m_MovingUnits.height());
-		std::vector<EntityMap<MotionState>::iterator>& subdiv = m_MovingUnits.get(
-			it->second.pos.X.ToInt_RoundToZero() / PUSHING_GRID_SIZE,
-			it->second.pos.Y.ToInt_RoundToZero() / PUSHING_GRID_SIZE
-		);
+		const int gridX{it->second.pos.X.ToInt_RoundToZero() / PUSHING_GRID_SIZE};
+		const int gridY{it->second.pos.Y.ToInt_RoundToZero() / PUSHING_GRID_SIZE};
+		ENSURE(gridX < m_MovingUnits.width() && gridY < m_MovingUnits.height());
+		std::vector<EntityMap<MotionState>::iterator>& subdiv = m_MovingUnits.get(gridX, gridY);
 		subdiv.emplace_back(it);
 		assigned.emplace(&subdiv);
 	}
