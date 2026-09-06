@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,7 +25,6 @@
 #include "graphics/RenderableObject.h"
 #include "graphics/SkeletonAnim.h"
 #include "graphics/SkeletonAnimDef.h"
-#include "lib/sysdep/rtl.h"
 #include "maths/BoundingBoxAligned.h"
 #include "maths/Matrix3D.h"
 #include "maths/Vector3D.h"

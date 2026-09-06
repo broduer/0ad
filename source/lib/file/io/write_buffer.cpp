@@ -29,7 +29,6 @@
 #include "lib/bits.h"	// IsAligned
 #include "lib/debug.h"
 #include "lib/file/io/io.h"
-#include "lib/sysdep/rtl.h"
 #include "ps/memory/Aligned.h"
 
 #include <algorithm>

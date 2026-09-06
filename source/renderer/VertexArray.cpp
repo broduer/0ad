@@ -19,7 +19,6 @@
 
 #include "lib/alignment.h"
 #include "lib/bits.h"
-#include "lib/sysdep/rtl.h"
 #include "ps/CLogger.h"
 #include "ps/memory/Aligned.h"
 #include "renderer/Renderer.h"

@@ -1061,13 +1061,6 @@ function setup_all_libs ()
 		extra_params = { no_pch = 1 }
 	end
 
-	-- runtime-library-specific
-	if _ACTION == "vs2022" then
-		table.insert(source_dirs, "lib/sysdep/rtl/msc");
-	else
-		table.insert(source_dirs, "lib/sysdep/rtl/gcc");
-	end
-
 	setup_static_lib_project("lowlevel", source_dirs, extern_libs, extra_params)
 
 

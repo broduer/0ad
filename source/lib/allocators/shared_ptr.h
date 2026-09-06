@@ -26,7 +26,6 @@
 #include "lib/alignment.h"
 #include "lib/debug.h"
 #include "lib/status.h"
-#include "lib/sysdep/rtl.h" // rtl_AllocateAligned
 #include "lib/types.h"
 #include "ps/memory/Aligned.h"
 

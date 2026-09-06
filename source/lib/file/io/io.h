@@ -40,7 +40,6 @@
 #include "lib/status.h"
 #include "lib/sysdep/filesystem.h"
 #include "lib/sysdep/os.h"
-#include "lib/sysdep/rtl.h"
 #include "lib/types.h"
 #include "ps/memory/Aligned.h"
 
