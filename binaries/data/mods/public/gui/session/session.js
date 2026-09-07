@@ -287,7 +287,7 @@ async function init(initData, hotloadData)
 	g_PlayerViewControl.registerViewedPlayerChangeHandler(g_DiplomacyColors.updateDisplayedPlayerColors.bind(g_DiplomacyColors));
 	g_PlayerViewControl.registerViewedPlayerChangeHandler(resetTemplates);
 	g_DiplomacyColors.registerDiplomacyColorsChangeHandler(g_PlayerViewControl.rebuild.bind(g_PlayerViewControl));
-	g_PauseControl = new PauseControl();
+	g_PauseControl = new PauseControl(hotloadData?.pauseControl);
 	g_PlayerViewControl.registerPreViewedPlayerChangeHandler(removeStatusBarDisplay);
 	g_Ambient = new Ambient();
 	g_AutoFormation = new AutoFormation();
@@ -588,7 +588,8 @@ function getHotloadData()
 		"selection": g_Selection.selected,
 		"playerAssignments": g_PlayerAssignments,
 		"player": g_Players,
-		"tutorial": g_TutorialManager.getHotloadData()
+		"tutorial": g_TutorialManager.getHotloadData(),
+		"pauseControl": g_PauseControl.getHotloadData()
 	};
 }
 

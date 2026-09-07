@@ -6,18 +6,18 @@
  */
 class PauseControl
 {
-	constructor()
+	constructor(hotloadData)
 	{
 		/**
 		 * This is true if the current player has paused the game using the pause button or hotkey.
 		 * The game may also be paused without this being true in single-player mode when opening a dialog.
 		 */
-		this.explicitPause = false;
+		this.explicitPause = !!hotloadData?.explicitPause;
 
 		/**
 		 * List of GUIDs of players who have currently paused the game, if the game is networked.
 		 */
-		this.pausingClients = [];
+		this.pausingClients = hotloadData?.pausingClients || [];
 
 		/**
 		 * Event handlers called when anyone paused.
@@ -101,5 +101,13 @@ class PauseControl
 
 		Engine.SetPaused(!!this.pausingClients.length, false);
 		this.callPauseHandlers();
+	}
+
+	getHotloadData()
+	{
+		return {
+			"explicitPause": this.explicitPause,
+			"pausingClients": this.pausingClients
+		};
 	}
 }

@@ -18,6 +18,7 @@ class PauseOverlay
 
 		registerNetworkStatusChangeHandler(this.rebuild.bind(this));
 		pauseControl.registerPauseHandler(this.rebuild.bind(this));
+		this.rebuild();
 	}
 
 	onPress()
