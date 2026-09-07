@@ -193,6 +193,7 @@ function getGameDescription(initAttributes, mapCache)
 
 	if (initAttributes.hostName)
 		titles.push({
+			// The name of the player hosting the game
 			"label": translate("Host:"),
 			"value": escapeText(initAttributes.hostName)
 		});

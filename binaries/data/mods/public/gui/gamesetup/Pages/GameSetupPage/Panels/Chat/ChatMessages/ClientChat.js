@@ -57,7 +57,7 @@ ChatMessageEvents.ClientChat.prototype.SenderFormat =
 	translate("<%(username)s>");
 
 ChatMessageEvents.ClientChat.prototype.HostSenderFormat =
-	translate("\\[Game Host] %(username)s");
+	translate("* %(username)s");
 
 ChatMessageEvents.ClientChat.prototype.MessageFormat =
 	translate("%(username)s %(message)s");
