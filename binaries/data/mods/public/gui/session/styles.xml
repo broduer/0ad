@@ -273,6 +273,23 @@
 		text_valign="top"
 	/>
 
+    <style name="NarrativeOverlayTitle"
+		font="sans-bold-24"
+		textcolor="black"
+		text_align="center"
+		text_valign="center"
+	/>
+
+	<style name="NarrativeOverlayText"
+		font="sans-20"
+		textcolor="black"
+		text_align="center"
+		text_valign="center"
+		buffer_zone="0"
+		scrollbar="true"
+		scrollbar_style="BlackScrollBar"
+	/>
+
 	<!-- ================================  ================================ -->
 	<!-- Icon Styles -->
 	<!-- ================================  ================================ -->

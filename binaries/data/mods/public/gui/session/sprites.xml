@@ -576,6 +576,53 @@
 	</sprite>
 
 	<!-- ================================  ================================ -->
+	<!-- Narrative overlay -->
+	<!-- ================================  ================================ -->
+
+	<sprite name="NarrativeOrnaments">
+		<!-- The texture isn't 100% symmetrical and its content doesn't extend across the full width -->
+		<image texture="session/narrative_overlay/ornament_center_top.png"
+           real_texture_placement="31 0 98 16"
+           size="50%-33 0 50%+34 12"
+		/>
+		<image texture="session/narrative_overlay/ornament_fade_left.png"
+			size="0 0 50%-33 12"
+		/>
+		<image texture="session/narrative_overlay/ornament_fade_right.png"
+			size="50%+34 0 100% 12"
+		/>
+
+		<!-- The texture isn't 100% symmetrical and its content doesn't extend across the full width -->
+		<image texture="session/narrative_overlay/ornament_center_bottom.png"
+           real_texture_placement="7 0 58 16"
+           size="50%-25 100%-12 50%+26 100%"
+		/>
+		<image texture="session/narrative_overlay/ornament_fade_left.png"
+			size="0 100%-12 50%-25 100%"
+		/>
+		<image texture="session/narrative_overlay/ornament_fade_right.png"
+			size="50%+26 100%-12 100% 100%"
+		/>
+	</sprite>
+
+	<sprite name="BlackScrollBarBack">
+		<image texture="session/narrative_overlay/scrollbar_back_top.png"
+			real_texture_placement="1 0 4 512"
+			size="6 -10 9 50%"
+		/>
+		<image texture="session/narrative_overlay/scrollbar_back_bottom.png"
+			real_texture_placement="1 0 4 512"
+			size="6 50% 9 100%+10"
+		/>
+	</sprite>
+
+	<sprite name="BlackScrollBarSlider">
+		<image texture="session/narrative_overlay/scrollbar_slider.png"
+			real_texture_placement="0 0 15 15"
+		/>
+	</sprite>
+
+	<!-- ================================  ================================ -->
 	<!-- Misc -->
 	<!-- ================================  ================================ -->
 	<sprite name="bandbox">

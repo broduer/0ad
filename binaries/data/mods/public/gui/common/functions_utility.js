@@ -291,6 +291,29 @@ function resizeGUIObjectToCaption(object, align, margin = {})
 }
 
 /**
+ * Merge the absolute values (left, top, right, bottom) of a GUI object's size into its respective relative ones (rleft,
+ * rtop, rright, rbottom) in such a way that the object's actual size, with which it ends up being rendered, stays the
+ * same. The object's appearance isn't modified in any way, instead this can be useful to do before resizing the object's
+ * parent: because the absolute values are set 0, the object's scale becomes perfectly directly proportional to its
+ * parent's scale.
+ */
+function makeSizeRelative(object)
+{
+	if (!object.parent)
+		throw new Error();
+
+	const parentComputedSize = object.parent.getComputedSize();
+	const parentHeight = parentComputedSize.bottom - parentComputedSize.top;
+	const parentWidth = parentComputedSize.right - parentComputedSize.left;
+	object.size = {
+		"rleft": object.size.rleft + object.size.left * 100 / parentWidth,
+		"rtop": object.size.rtop + object.size.top * 100 / parentHeight,
+		"rright": object.size.rright + object.size.right * 100 / parentWidth,
+		"rbottom": object.size.rbottom + object.size.bottom * 100 / parentHeight
+	};
+}
+
+/**
  * Hide all children after a certain index
  */
 function hideRemaining(parentName, start = 0)

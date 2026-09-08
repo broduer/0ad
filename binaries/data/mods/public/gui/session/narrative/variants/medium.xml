@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<object size="50%-1024 43%-512 50%+1024 43%+512">
+    <object name="mediumNarrativeOverlay">
+        <object type="image" sprite="stretched:session/narrative_overlay/parchment_medium_underlay.png" ghost="true"/>
+        <object type="image" size="50%-512 50%-256 50%+512 50%+256" sprite="stretched:session/narrative_overlay/parchment_medium.png">
+            <object name="mediumNarrativeOverlayImage" type="image" ghost="true"/>
+            <object name="mediumNarrativeOverlayParchment" size="87 20.5 100%-87 100%-20.5">
+                <object name="mediumNarrativeOverlayLayout" size="51 40 100%-51 100%-85">
+                    <object name="mediumNarrativeOverlayTitle" type="text" style="NarrativeOverlayTitle"/>
+                     <object name="mediumNarrativeOverlayTextContainer">
+                        <object name="mediumNarrativeOverlayText" type="text" size="0 6 100% 100%-6" style="NarrativeOverlayText" z="20"/>
+                        <object name="mediumNarrativeOverlayOrnaments" type="image" sprite="NarrativeOrnaments"/>
+                    </object>
+                </object>
+                <object size="0 100%-85 100% 100%" name="mediumNarrativeOverlayButtons">
+                    <object name="mediumNarrativeOverlayPreviousButton" type="button" style="BrownButton" size="30%-80 50%-21 30%+80 50%+11">
+                        <object type="image" sprite="stretched:session/narrative_overlay/button_glow.png" size="50%-128 50%-64 50%+128 50%+64" ghost="true"/>
+                    </object>
+                    <object name="mediumNarrativeOverlayNextButton" type="button" style="BrownButton" size="70%-80 50%-21 70%+80 50%+11">
+                        <object type="image" sprite="stretched:session/narrative_overlay/button_glow.png" size="50%-128 50%-64 50%+128 50%+64" ghost="true"/>
+                    </object>
+                </object>
+            </object>
+        </object>
+    </object>
+</object>

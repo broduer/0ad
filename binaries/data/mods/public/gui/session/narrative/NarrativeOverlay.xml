@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- It's a button in order to block inputs from reaching the objects behind it (like the pause overlay). -->
+<object name="narrativeOverlay" type="button">
+    <include directory="gui/session/narrative/variants/"/>
+</object>

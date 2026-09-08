@@ -3,6 +3,7 @@
 	type="image"
 	sprite="topPanel"
 	size="-3 0 100%+3 36"
+	z="50"
 >
 	<include directory="gui/session/top_panel/"/>
 	<include directory="gui/session/top_panel/IconButtons/"/>

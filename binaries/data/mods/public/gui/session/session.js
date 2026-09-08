@@ -19,6 +19,7 @@ var g_DiplomacyDialog;
 var g_GameSpeedControl;
 var g_MatchSettingsDialog;
 var g_Menu;
+var g_NarrativeOverlay;
 var g_MiniMapPanel;
 var g_NetworkStatusOverlay;
 var g_NetworkDelayOverlay;
@@ -297,6 +298,7 @@ async function init(initData, hotloadData)
 	g_DiplomacyDialog = new DiplomacyDialog(g_PlayerViewControl, g_DiplomacyColors);
 	g_GameSpeedControl = new GameSpeedControl(g_PlayerViewControl);
 	g_MatchSettingsDialog = new MatchSettingsDialog(g_PlayerViewControl, mapCache);
+	g_NarrativeOverlay = new NarrativeOverlay(g_PauseControl, hotloadData?.narrativeOverlay);
 	g_MiniMapPanel = new MiniMapPanel(g_PlayerViewControl, g_DiplomacyColors, g_WorkerTypes);
 	g_NetworkDelayOverlay = new NetworkDelayOverlay();
 	g_OutOfSyncNetwork = new OutOfSyncNetwork();
@@ -589,7 +591,8 @@ function getHotloadData()
 		"playerAssignments": g_PlayerAssignments,
 		"player": g_Players,
 		"tutorial": g_TutorialManager.getHotloadData(),
-		"pauseControl": g_PauseControl.getHotloadData()
+		"pauseControl": g_PauseControl.getHotloadData(),
+		"narrativeOverlay": g_NarrativeOverlay.getHotloadData()
 	};
 }
 

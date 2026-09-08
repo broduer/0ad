@@ -11,4 +11,13 @@
 		size="14 14"
 	/>
 
+    <scrollbar name="BlackScrollBar"
+        width = "15"
+        minimum_bar_size = "20"
+		maximum_bar_size = "20"
+        show_edge_buttons = "false"
+        sprite_back_vertical = "BlackScrollBarBack"
+        sprite_slider_vertical = "BlackScrollBarSlider"
+	/>
+
 </setup>

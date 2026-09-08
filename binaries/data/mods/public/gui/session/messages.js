@@ -288,6 +288,10 @@ var g_NotificationsTypes =
 			}
 
 			global.music.setLocked(notification.lock);
+		},
+		"narrative": function(notification, player)
+		{
+			g_NarrativeOverlay.addPage(notification.page);
 		}
 	};
 
