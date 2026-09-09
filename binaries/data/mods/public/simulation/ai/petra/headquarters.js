@@ -1528,7 +1528,7 @@ export class Headquarters
 		// First build one cc if all have been destroyed
 		if (!this.hasPotentialBase())
 		{
-			this.buildFirstBase(gameState);
+			buildFirstBase(this, gameState);
 			return;
 		}
 		// Then expand if we have not enough room available for buildings
