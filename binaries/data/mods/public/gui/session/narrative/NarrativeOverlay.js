@@ -13,6 +13,7 @@ class NarrativeOverlay
 	activeOverlay;
 
 	pages = [];
+	pageAddedHandlers = new Set();
 	activePageIndex = -1;
 
 	pauseControl;
@@ -97,17 +98,37 @@ class NarrativeOverlay
 		this.shouldPause = false;
 	}
 
+	registerPageAddedHandler(handler)
+	{
+		this.pageAddedHandlers.add(handler);
+	}
+
 	addPage(page, isNew)
 	{
 		this.pages.push(page);
-		if (this.parentObject.hidden)
+		// If isNew is false, the page has been displayed already and we're just loading a saved game or rejoining.
+		if (isNew && this.parentObject.hidden)
+			this.loadFirstPage();
+		else
+			this.updateButtons();
+
+		for (const handler of this.pageAddedHandlers)
+			handler();
+	}
+
+	hasPagesToShow()
+	{
+		return this.pages.length > 0;
+	}
+
+	loadFirstPage()
+	{
+		if (this.parentObject.hidden && this.pages.length)
 		{
 			this.open();
 			this.activePageIndex = 0;
 			this.displayActivePage();
 		}
-		else
-			this.updateButtons();
 	}
 
 	loadNextPageOrClose()
@@ -257,6 +278,9 @@ class NarrativeOverlay
 
 	updateButtons()
 	{
+		if (!this.activeOverlay)
+			return;
+
 		const hasNextPageToShow = this.activePageIndex < this.pages.length - 1;
 		this.activeOverlay.nextButton.caption = hasNextPageToShow ? this.NextButtonCaption : this.CloseButtonCaption;
 		this.activeOverlay.nextButton.tooltip = hasNextPageToShow ? this.NextButtonTooltip : this.CloseButtonTooltip;

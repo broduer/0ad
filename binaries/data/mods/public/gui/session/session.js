@@ -342,7 +342,7 @@ async function init(initData, hotloadData)
 			handleNetMessages().catch(reject);
 	}), new Promise(closeSession =>
 	{
-		g_Menu = new Menu(g_PauseControl, g_PlayerViewControl, g_Chat, closeSession);
+		g_Menu = new Menu(g_PauseControl, g_PlayerViewControl, g_Chat, g_NarrativeOverlay, closeSession);
 		g_NetworkStatusOverlay = new NetworkStatusOverlay(closeSession);
 		g_QuitConfirmationDefeat = new QuitConfirmationDefeat(closeSession);
 		g_QuitConfirmationReplay = new QuitConfirmationReplay(closeSession);

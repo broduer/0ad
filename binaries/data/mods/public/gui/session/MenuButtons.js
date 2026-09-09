@@ -79,6 +79,23 @@ MenuButtons.prototype.Save = class
 	}
 };
 
+MenuButtons.prototype.Narrative = class
+{
+	constructor(button, pauseControl, playerViewControl, chat, narrativeOverlay)
+	{
+		this.narrativeOverlay = narrativeOverlay;
+		button.caption = translate("Narrative");
+		button.enabled = this.narrativeOverlay.hasPagesToShow();
+		this.narrativeOverlay.registerPageAddedHandler(() => { button.enabled = true; });
+	}
+
+	onPress()
+	{
+		this.narrativeOverlay.loadFirstPage();
+	}
+};
+
+
 MenuButtons.prototype.Summary = class
 {
 	constructor(button, pauseControl)

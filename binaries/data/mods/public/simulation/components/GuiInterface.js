@@ -12,7 +12,8 @@ GuiInterface.prototype.Serialize = function()
 	// Return an object with a small selection of deterministic data.
 	return {
 		"timeNotifications": this.timeNotifications,
-		"timeNotificationID": this.timeNotificationID
+		"timeNotificationID": this.timeNotificationID,
+		"narrativePages": this.narrativePages
 	};
 };
 
@@ -21,6 +22,14 @@ GuiInterface.prototype.Deserialize = function(data)
 	this.Init();
 	this.timeNotifications = data.timeNotifications;
 	this.timeNotificationID = data.timeNotificationID;
+	this.narrativePages = data.narrativePages;
+	for (const page of this.narrativePages)
+		this.PushNotification({
+			"type": "narrative",
+			"players": [0],
+			"isNew": false,
+			"page": page
+		});
 };
 
 GuiInterface.prototype.Init = function()
@@ -39,6 +48,7 @@ GuiInterface.prototype.Init = function()
 	this.templateModified = {};
 	this.selectionDirty = {};
 	this.obstructionSnap = new ObstructionSnap();
+	this.narrativePages = [];
 };
 
 /*
@@ -824,6 +834,17 @@ GuiInterface.prototype.PushNotification = function(notification)
 		this.AddTimeNotification(notification);
 	else
 		this.notifications.push(notification);
+};
+
+GuiInterface.prototype.AddNarrativePage = function(page)
+{
+	this.narrativePages.push(page);
+	this.PushNotification({
+		"type": "narrative",
+		"players": [0],
+		"isNew": true,
+		"page": page
+	});
 };
 
 GuiInterface.prototype.GetNotifications = function()

@@ -291,7 +291,7 @@ var g_NotificationsTypes =
 		},
 		"narrative": function(notification, player)
 		{
-			g_NarrativeOverlay.addPage(notification.page);
+			g_NarrativeOverlay.addPage(notification.page, notification.isNew);
 		}
 	};
 

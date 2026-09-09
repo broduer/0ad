@@ -764,11 +764,7 @@ TriggerHelper.SendWonderNotifications = function(owner, othersMessage, ownerMess
  */
 TriggerHelper.DisplayNarrativePage = function(page)
 {
-	Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface).PushNotification({
-		"type": "narrative",
-		"players": [0],
-		"page": page
-	});
+	Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface).AddNarrativePage(page);
 };
 
 /**
