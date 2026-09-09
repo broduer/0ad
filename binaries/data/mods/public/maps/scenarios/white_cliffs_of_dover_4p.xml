@@ -3,19 +3,19 @@
 <Scenario version="7">
 	<Environment>
 		<SkySet>overcast</SkySet>
-		<SunColor r="0.803922" g="0.792157" b="0.721569"/>
-		<SunElevation angle="0.785398"/>
-		<SunRotation angle="-0.785396"/>
+		<SunColor r="1.07607" g="1.05919" b="0.839757"/>
+		<SunElevation angle="0.656544"/>
+		<SunRotation angle="-1.42353"/>
 		<AmbientColor r="0.501961" g="0.501961" b="0.501961"/>
 		<Fog>
-			<FogFactor>0.0034375</FogFactor>
-			<FogThickness>0.00195313</FogThickness>
-			<FogColor r="0.737255" g="0.776471" b="0.8"/>
+			<FogFactor>0.00226562</FogFactor>
+			<FogThickness>0</FogThickness>
+			<FogColor r="0.472656" g="0.671875" b="0.734375"/>
 		</Fog>
 		<Water>
 			<WaterBody>
 				<Type>ocean</Type>
-				<Color r="0.192157" g="0.239216" b="0.313726"/>
+				<Color r="0.211765" g="0.309804" b="0.447059"/>
 				<Tint r="0.701961" g="0.67451" b="0.454902"/>
 				<Height>20.0348</Height>
 				<Waviness>6.00586</Waviness>
@@ -25,23 +25,23 @@
 		</Water>
 		<Postproc>
 			<Brightness>0</Brightness>
-			<Contrast>1</Contrast>
-			<Saturation>0.792969</Saturation>
+			<Contrast>0.990234</Contrast>
+			<Saturation>0.861328</Saturation>
 			<Bloom>0.163672</Bloom>
 			<PostEffect>hdr</PostEffect>
 		</Postproc>
 	</Environment>
 	<Camera>
-		<Position x="931.118" y="107.849" z="520.31"/>
-		<Rotation angle="0"/>
-		<Declination angle="0.610865"/>
+		<Position x="803.951" y="111.499" z="141.332"/>
+		<Rotation angle="-0.15783"/>
+		<Declination angle="0.517349"/>
 	</Camera>
 	<ScriptSettings><![CDATA[
 {
   "CircularMap": true,
-  "Description": "The Romans are invading and the Britons must fight against a massive enemy invasion force or submit to a foreign imperial banner!\n\nPlayer 1 is the Britons. Players 2-5 are the invasion force, garrisoned aboard their stout ships in the channel off the White Cliffs of Dover. \n\nTeams are set by the map script, but can be altered by the players in setup if they wish to play the map contrary to the scenario defined by the designer. In that case, the game host should set a ceasefire so that the players in the boats can land peacefully and attempt to find a suitable place to plant their first settlements.\n\nAssigned civilizations are merely suggestions, and the host should set starting resources to 1000 so that Civic Centers can be built at the start.",
+  "Description": "The Romans are invading and the Britons must fight against a massive enemy invasion force or submit to a foreign imperial banner!",
   "Keywords": [],
-  "Name": "White Cliffs of Dover (5)",
+  "Name": "White Cliffs of Dover (4)",
   "PlayerData": [
     "",
     {
@@ -51,7 +51,8 @@
         "stone": 800,
         "wood": 1000
       },
-      "Team": 0
+      "Team": 0,
+      "Civ": "brit"
     },
     {
       "Name": "Invader 1",
@@ -61,7 +62,8 @@
         "stone": 500,
         "wood": 500
       },
-      "Team": 1
+      "Team": 1,
+      "Civ": "rome"
     },
     {
       "Name": "Invader 2",
@@ -71,7 +73,8 @@
         "stone": 500,
         "wood": 500
       },
-      "Team": 1
+      "Team": 1,
+      "Civ": "rome"
     },
     {
       "Name": "Invader 3",
@@ -81,20 +84,15 @@
         "stone": 500,
         "wood": 500
       },
-      "Team": 1
-    },
-    {
-      "Name": "Invader 4",
-      "Resources": {
-        "food": 500,
-        "metal": 500,
-        "stone": 500,
-        "wood": 500
-      },
-      "Team": 1
+      "Team": 1,
+      "Civ": "rome"
     }
   ],
-  "Preview": "white_cliffs_5p.png",
+  "Preview": "white_cliffs_4p.png",
+  "TriggerScripts": [
+    "scenarios/white_cliffs_of_dover_4p.js",
+	"scripts/TriggerHelper.js
+  ],
   "VictoryConditions": [
     "conquest"
   ]
@@ -121,13 +119,6 @@
 			<Position x="725.77344" z="205.33576"/>
 			<Orientation y="-3.12066"/>
 			<Actor seed="36860"/>
-		</Entity>
-		<Entity uid="14">
-			<Template>skirmish/units/default_ship_arrow</Template>
-			<Player>5</Player>
-			<Position x="996.7447" z="228.77668"/>
-			<Orientation y="2.73601"/>
-			<Actor seed="12196"/>
 		</Entity>
 		<Entity uid="27">
 			<Template>gaia/tree/euro_beech_aut</Template>
@@ -22616,76 +22607,55 @@
 			<Orientation y="-3.11751"/>
 			<Actor seed="52402"/>
 		</Entity>
-		<Entity uid="4015">
-			<Template>skirmish/units/default_infantry_melee_b</Template>
-			<Player>5</Player>
-			<Position x="1001.13819" z="253.4373"/>
-			<Orientation y="-1.62063"/>
-			<Actor seed="4022"/>
-		</Entity>
-		<Entity uid="4016">
-			<Template>skirmish/units/default_support_civilian</Template>
-			<Player>5</Player>
-			<Position x="984.90906" z="267.34372"/>
-			<Orientation y="2.81051"/>
-			<Actor seed="28190"/>
-		</Entity>
-		<Entity uid="4017">
-			<Template>skirmish/units/special_starting_unit</Template>
-			<Player>5</Player>
-			<Position x="991.12177" z="269.66028"/>
-			<Orientation y="3.29954"/>
-			<Actor seed="15556"/>
-		</Entity>
-		<Entity uid="4018">
-			<Template>skirmish/units/default_support_civilian</Template>
-			<Player>5</Player>
-			<Position x="980.81525" z="265.27924"/>
-			<Orientation y="2.81051"/>
-			<Actor seed="34028"/>
-		</Entity>
-		<Entity uid="4019">
-			<Template>skirmish/units/default_support_civilian</Template>
-			<Player>5</Player>
-			<Position x="978.56507" z="264.6717"/>
-			<Orientation y="2.81051"/>
-			<Actor seed="56080"/>
-		</Entity>
-		<Entity uid="4020">
-			<Template>skirmish/units/default_infantry_ranged_b</Template>
-			<Player>5</Player>
-			<Position x="997.41565" z="253.42444"/>
-			<Orientation y="-2.3656"/>
-			<Actor seed="60576"/>
-		</Entity>
-		<Entity uid="4021">
-			<Template>skirmish/units/default_infantry_melee_b</Template>
-			<Player>5</Player>
-			<Position x="1000.12543" z="255.76792"/>
-			<Orientation y="-2.19599"/>
-			<Actor seed="30390"/>
-		</Entity>
-		<Entity uid="4022">
-			<Template>skirmish/units/default_support_civilian</Template>
-			<Player>5</Player>
-			<Position x="982.98743" z="266.10682"/>
-			<Orientation y="2.81051"/>
-			<Actor seed="54428"/>
-		</Entity>
-		<Entity uid="4023">
-			<Template>skirmish/units/default_cavalry</Template>
-			<Player>5</Player>
-			<Position x="997.1612" z="262.0076"/>
-			<Orientation y="1.96271"/>
-			<Actor seed="40600"/>
-		</Entity>
-		<Entity uid="4024">
-			<Template>skirmish/units/default_infantry_ranged_b</Template>
-			<Player>5</Player>
-			<Position x="998.52277" z="250.85752"/>
-			<Orientation y="-2.01812"/>
-			<Actor seed="52402"/>
-		</Entity>
 	</Entities>
-	<Paths/>
+	<Paths>
+		<Path name="pathRomans" timescale="1" orientation="target" mode="ease_inout" style="default">
+			<Node deltatime="0">
+				<Position x="527.52387" y="42.33472" z="55.48049"/>
+				<Target x="553.52472" y="20.0348" z="116.77962"/>
+			</Node>
+			<Node deltatime="3.5">
+				<Position x="577.23591" y="65.32192" z="79.18996"/>
+				<Target x="623.54932" y="20.0348" z="194.37612"/>
+			</Node>
+			<Node deltatime="4">
+				<Position x="687.29725" y="77.32769" z="92.01023"/>
+				<Target x="728.49006" y="20.0348" z="205.30442"/>
+			</Node>
+			<Node deltatime="2.5">
+				<Position x="807.77027" y="108.07085" z="106.9122"/>
+				<Target x="817.49024" y="23.3206" z="246.78978"/>
+			</Node>
+			<Node deltatime="2.3">
+				<Position x="840.78962" y="109.63381" z="112.9476"/>
+				<Target x="786.22016" y="31.00582" z="261.97547"/>
+			</Node>
+			<Node deltatime="2">
+				<Position x="840.16315" y="110.21471" z="129.27527"/>
+				<Target x="776.32337" y="32.85711" z="267.54874"/>
+			</Node>
+		</Path>
+		<Path name="pathBritons" timescale="1" orientation="target" mode="ease_inout" style="default">
+			<Node deltatime="0">
+				<Position x="304.53751" y="122.65146" z="538.68787"/>
+				<Target x="302.57667" y="41.63968" z="693.60993"/>
+			</Node>
+			<Node deltatime="3">
+				<Position x="301.0384" y="112.88955" z="657.86731"/>
+				<Target x="296.94343" y="25.77533" z="861.36017"/>
+			</Node>
+			<Node deltatime="2">
+				<Position x="336.41202" y="101.1488" z="802.55475"/>
+				<Target x="288.10306" y="34.13338" z="922.73096"/>
+			</Node>
+			<Node deltatime="3">
+				<Position x="351.784" y="74.81243" z="941.83039"/>
+				<Target x="276.35807" y="36.72712" z="968.81287"/>
+			</Node>
+			<Node deltatime="2">
+				<Position x="351.95856" y="73.87824" z="959.07874"/>
+				<Target x="278.45804" y="36.59253" z="974.32734"/>
+			</Node>
+		</Path>
+	</Paths>
 </Scenario>
