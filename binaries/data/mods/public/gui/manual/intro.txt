@@ -37,7 +37,7 @@ Finally change the settings. For random maps this includes the number of players
 When you are ready to start, click the “Start game” button.
 
 [font="sans-bold-16"]Hotkeys[font="sans-14"]
-You may change hotkeys in [font="sans-bold-14"]Options > Hotkeys[font="sans-14"] to suit your liking.
+You may change hotkeys in [font="sans-bold-14"]Settings > Hotkeys[font="sans-14"] to suit your liking.
 
 [font="sans-bold-14"]Program-wide[font="sans-14"]
   hotkey.exit – Immediately close the game, without asking for confirmation
