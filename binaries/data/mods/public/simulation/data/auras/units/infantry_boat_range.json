@@ -1,0 +1,11 @@
+{
+	"type": "range",
+	"radius": 20,
+	"affects": ["Ranged"],
+	"modifications": [
+		{ "value": "Attack/Ranged/MaxRange", "multiply": 2 }
+	],
+	"auraName": "Ranged Bonus",
+	"auraDescription": "Double the range",
+	"overlayIcon": "art/textures/ui/session/auras/accuracy_bonus.png"
+}
