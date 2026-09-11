@@ -136,12 +136,8 @@ public:
 			const CMessageUpdate &msgData = static_cast<const CMessageUpdate&>(msg);
 			if (!m_IsPlayingPathQueue)
 				break;
-
-			// The paths play at a fixed speed, no matter the sim rate.
-			// The turn length we have received here, however, is scaled by that rate.
-			const fixed realTurnLength{msgData.turnLength / fixed::FromFloat(g_Game ? g_Game->GetSimRate() : 1.0f)};
-			m_QueuePlayingElapsedTime += realTurnLength;
-			m_ActivePathElapsedTime += realTurnLength;
+			m_QueuePlayingElapsedTime += msgData.turnLength;
+			m_ActivePathElapsedTime += msgData.turnLength;
 			if (m_ActivePathElapsedTime >= m_PathQueue.front().GetDuration())
 			{
 				CMessageCinemaPathEnded msgCinemaPathEnded(m_PathQueue.front().GetName());
@@ -265,7 +261,7 @@ public:
 			if (m_PathQueue.empty())
 				StopPlayingQueue();
 			else
-				m_PathQueue.front().Play(deltaRealTime, camera);
+				m_PathQueue.front().Play(deltaRealTime * g_Game->GetSimRate(), camera);
 		}
 	}
 
