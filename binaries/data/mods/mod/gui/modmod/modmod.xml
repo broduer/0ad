@@ -1,11 +1,68 @@
 <?xml version="1.0" encoding="utf-8"?>
 
+<!--
+	modiomod-r29 — gui/modmod/modmod.xml
+	Revision: 1.0.1 (internal rev 2)
+	Last revision: 2026-09-10 23:52 CET
+
+	Change notes:
+	- rev1 (2026-09-10, Claude on behalf of Grautvornix): First version of this
+	  override shipped by this mod. Based character-for-character on the
+	  actual current 0.29-dev trunk gui/modmod/modmod.xml (0AD-SVN/binaries/
+	  data/mods/mod/gui/modmod/modmod.xml), with three changes:
+
+	  1. Added name="modmod" to the page's root object (stock has no name
+	     there) so modmod.js can hang this page's onTick off it for the
+	     Check for Updates feature — the same thing modio.xml's root object
+	     ("modio") is already named for.
+	  2. Added "checkUpdatesButton", in the row already used by
+	     toggleModButton/visitWebButton ("384 100%-80 564 100%-52" — same
+	     180px-wide/4px-gap pattern used elsewhere on this page). No inline
+	     <action> on it: it is wired in modmod.js's init(), matching this
+	     file's existing style, where every other button here is wired in JS
+	     rather than XML. "message"'s left edge moved from 466 to 568 (568 =
+	     564 + 4px gap) to make room; nothing else about it changed, and no
+	     other existing object was moved or resized.
+	  3. Bug fix (see modmod.js's header for the full explanation): removed
+	     the <action on="Press">/<action on="TextEdit"> attributes from
+	     modGenericFilter, negateFilter and modCompatibleFilter. Those called
+	     displayModLists() as if it were a global, which cannot work now that
+	     this page loads modmod.js as an ES module (module-scoped functions
+	     aren't visible to inline XML actions) — this is the actual, still-
+	     reproducing cause of the "Filter compatible" errors Grautvornix reported.
+	     The three controls are now wired in modmod.js's init() instead,
+	     using the exact idiom already used for every other control on this
+	     page.
+	- rev2 (2026-09-10, Claude on behalf of Grautvornix): Per Grautvornix's
+	  in-game test feedback (reported on real 0.28, applied here identically
+	  since 0.29 shares the same layout request), moved "checkUpdatesButton"
+	  out of the MOD-SPECIFIC BUTTONS row and into the main bottom BUTTONS
+	  row, between "Help" and "Download Mods" ("vertically aligned with the
+	  buttons on the right between help and download mods"). To make room
+	  without touching downloadButton/saveConfigurationButton/startButton,
+	  quitButton/cancelButton and Help were both shifted 184px (180px width
+	  + 4px gap) further left: quitButton/cancelButton now
+	  "100%-1116 100%-44 100%-936 100%-16" (was "100%-932...100%-752"), Help
+	  now "100%-932 100%-44 100%-752 100%-16" (was "100%-748...100%-568"),
+	  and checkUpdatesButton now occupies Help's old slot,
+	  "100%-748 100%-44 100%-568 100%-16". downloadButton,
+	  saveConfigurationButton and startButton are untouched, and it is still
+	  wired in modmod.js's init() (no inline <action>, per this file's
+	  existing style). The MOD-SPECIFIC BUTTONS row's toggleModButton/
+	  visitWebButton are untouched, and "message" reverts to its original
+	  stock position ("466 100%-78 100%-15 100%-52"). Also see modmod.js's
+	  rev2 notes: this release also fixes a crash
+	  (Engine.ModIoGetDownloadProgress() returning null) reported in the
+	  same 0.28 test, which would equally have affected 0.29 since the
+	  affected code was identical in both builds.
+-->
+
 <objects>
 
 	<script directory="gui/common/"/>
 	<script module="gui/modmod/modmod.js"/>
 
-	<object type="image" style="ModernWindow">
+	<object name="modmod" type="image" style="ModernWindow">
 
 		<!-- Page Title -->
 		<object style="ModernLabelText" type="text" size="50%-128 4 50%+128 36">
@@ -19,8 +76,6 @@
 				style="ModernInput"
 				size="16 0 176 100%"
 			>
-				<action on="Press">displayModLists();</action>
-				<action on="TextEdit">displayModLists();</action>
 				<translatableAttribute id="placeholder_text">Filter</translatableAttribute>
 			</object>
 
@@ -31,7 +86,6 @@
 				style="ModernTickBox"
 				size="186 0 206 100%"
 			>
-				<action on="Press">displayModLists();</action>
 			</object>
 			<object type="text" size="208 0 100% 100%" text_align="left" textcolor="white">
 				<translatableAttribute id="caption">Negate</translatableAttribute>
@@ -45,7 +99,6 @@
 						style="ModernTickBox"
 						size="16 0 36 100%"
 					>
-					<action on="Press">displayModLists();</action>
 				</object>
 				<object type="text" size="40 0 100% 100%" text_align="left" textcolor="white">
 					<translatableAttribute id="caption">Filter compatible</translatableAttribute>
@@ -174,21 +227,26 @@
 			<translatableAttribute id="caption">Visit Website</translatableAttribute>
 		</object>
 
-		<!-- Message -->
+		<!-- Message: reverted to its original stock position (rev2 moved checkUpdatesButton down into the main BUTTONS row below). -->
 		<object name="message" type="text" size="466 100%-78 100%-15 100%-52" text_align="left" textcolor="white"/>
 
 		<!-- BUTTONS -->
-		<object name="quitButton" type="button" style="ModernButtonRed" size="100%-932 100%-44 100%-752 100%-16">
+		<object name="quitButton" type="button" style="ModernButtonRed" size="100%-1116 100%-44 100%-936 100%-16">
 			<translatableAttribute id="caption">Quit</translatableAttribute>
 		</object>
 
-		<object name="cancelButton" type="button" style="ModernButtonRed" size="100%-932 100%-44 100%-752 100%-16" hotkey="cancel">
+		<object name="cancelButton" type="button" style="ModernButtonRed" size="100%-1116 100%-44 100%-936 100%-16" hotkey="cancel">
 			<translatableAttribute id="caption">Cancel</translatableAttribute>
 		</object>
 
-		<object type="button" style="ModernButtonRed" size="100%-748 100%-44 100%-568 100%-16">
+		<object type="button" style="ModernButtonRed" size="100%-932 100%-44 100%-752 100%-16">
 			<translatableAttribute id="caption">Help</translatableAttribute>
 		  <action on="Press">Engine.OpenChildPage("page_modhelp.xml");</action>
+		</object>
+
+		<!-- Check for Updates: added by modiomod. Queries mod.io directly from this screen and recolours the lists below (yellow = update available), without opening the separate mod.io downloader. Wired in modmod.js's init(); see checkForUpdates() there. Moved here in rev2, between Help and Download Mods, per Grautvornix's request. -->
+		<object name="checkUpdatesButton" type="button" style="ModernButtonRed" size="100%-748 100%-44 100%-568 100%-16">
+			<translatableAttribute id="caption">Check for Updates</translatableAttribute>
 		</object>
 
 		<object name="downloadButton" type="button" style="ModernButtonRed" size="100%-564 100%-44 100%-384 100%-16">

@@ -1,4 +1,85 @@
 /**
+ * modiomod-r29 — gui/modmod/modmod.js
+ * Revision: 1.0.2 (internal rev 3)
+ * Last revision: 2026-09-11 00:18 CET
+ *
+ * Change notes:
+ * - rev1 (2026-09-10, Claude on behalf of Grautvornix): First version of this
+ *   override shipped by this mod. Based character-for-character on the
+ *   actual 0.29-dev trunk gui/modmod/modmod.js (0AD-SVN/binaries/data/mods/
+ *   mod/gui/modmod/modmod.js), with two changes:
+ *
+ *   1. The "Check for Updates" feature (same as modiomod-r28's modmod.js —
+ *      see that file's header for the full design rationale, unchanged
+ *      here): g_ModsAvailableOnline, checkForUpdates(), onModIoUpdateCheckTick(),
+ *      finishUpdateCheck(), isModUpdateAvailable(), and one new branch in
+ *      getModColor(). checkForUpdates() is wired to "checkUpdatesButton" in
+ *      init() (JS-side, matching this file's existing wiring style — see
+ *      point 2), not via an inline XML <action>.
+ *
+ *   2. A fix for the pre-existing "Filter compatible" bug reported by
+ *      Grautvornix and investigated earlier for modiomod-r29 1.2.0: stock
+ *      trunk's modmod.xml still wires modGenericFilter (Press/TextEdit),
+ *      negateFilter (Press) and modCompatibleFilter (Press) via inline XML
+ *      <action on="Press">displayModLists();</action> attributes, but this
+ *      file loads as an ES module (<script module="gui/modmod/modmod.js"/>
+ *      in modmod.xml) in which displayModLists() is a module-scoped
+ *      function, not a global — so those three inline actions call a name
+ *      that does not exist from XML's perspective, and the engine throws.
+ *      This reproduced from Grautvornix's own actual gui/modmod/modmod.js and
+ *      modmod.xml (supplied directly), and independently reproduces again
+ *      here against a fresh pull of the current trunk SVN checkout, so it
+ *      is a genuine, currently-still-present stock bug, not something
+ *      specific to Grautvornix's install. Per Grautvornix's decision, since this mod
+ *      now ships its own copy of the whole file anyway (for the Check for
+ *      Updates feature above), the bug is fixed here rather than left in:
+ *      the three inline <action> attributes were removed from modmod.xml
+ *      and replaced with JS-side wiring inside init() below, using the
+ *      exact same Object.assign()/onPress idiom this file already uses for
+ *      every other button on this page (modsDisabledList, modsEnabledList,
+ *      enabledModUp/Down, visitWebButton, downloadButton,
+ *      saveConfigurationButton, startButton) — so this isn't a new pattern
+ *      introduced for the fix, it's applying the file's own existing
+ *      convention to the three controls that had been missed. Worth
+ *      upstreaming to the actual 0 A.D. project, since this is a base-game
+ *      bug unrelated to modiomod.
+ *
+ * - rev2 (2026-09-10, Claude on behalf of Grautvornix): Fixed a crash Grautvornix
+ *   hit testing modiomod-r28 1.3.0 on real 0.28 (identical code path here,
+ *   so it would equally have hit r29 on 0.29): checkForUpdates() opened with
+ *   `const status = Engine.ModIoGetDownloadProgress().status;` as a "is a
+ *   check already running?" guard, but Engine.ModIoGetDownloadProgress() is
+ *   only safe to call after some Engine.ModIoStart*() call has run at least
+ *   once this session — the engine's own diagnostic confirms this
+ *   ("ModIoGetDownloadProgress called before ModIoStartGetGameId"), and
+ *   ModIo's underlying m_DownloadProgressData member (source/ps/ModIo.cpp)
+ *   is not value-initialized in ModIo's constructor, so reading it cold
+ *   returns null to JS and `.status` throws. Fixed by removing that
+ *   pre-check entirely: checkForUpdates() now calls
+ *   Engine.ModIoStartGetGameId() unconditionally before wiring onTick,
+ *   matching the always-safe ordering modio.js's own init() already uses.
+ *   ModIo::StartGetGameId() itself already no-ops safely if a check is
+ *   already in progress, so no functional guard is lost. Also see
+ *   modmod.xml's rev2 notes for the checkUpdatesButton reposition applied
+ *   in the same release.
+ *
+ * - rev3 (2026-09-11, Claude on behalf of Grautvornix): Fixed a second
+ *   crash Grautvornix hit in the same round of in-game testing (0.28,
+ *   modiomod-r28 1.3.1; identical code here, so applied to r29 too):
+ *   after a check finished, finishUpdateCheck() detached
+ *   onModIoUpdateCheckTick by setting "modmod"'s onTick to null. In-game
+ *   this made the engine log "on-event-handlers must be functions" /
+ *   "'onTick' is not a function" continuously, once per frame, forever
+ *   after — i.e. assigning null did not actually unregister the handler.
+ *   Fixed by assigning a new no-op function (noopTick(), defined just
+ *   above finishUpdateCheck()) instead of null. This mod does not have
+ *   access to the engine's C++ GUI-scripting source that implements the
+ *   onTick property, so this fix is grounded in the observed in-game
+ *   behaviour and the engine's own error text, not in a verified source
+ *   reference — flagged here rather than stated as a confirmed root cause.
+ */
+
+/**
  * @file This GUI page displays all available mods and allows the player to enabled and launch a set of compatible mods.
  */
 
@@ -48,6 +129,13 @@ let g_InstalledMods;
 
 let g_HasIncompatibleMods;
 
+/**
+ * Mods listed on mod.io, cached after checkForUpdates() completes.
+ * Not populated on this page's initial load, so isModUpdateAvailable()
+ * correctly returns false until the player explicitly checks.
+ */
+let g_ModsAvailableOnline = [];
+
 /* eslint-disable prefer-const -- Mods should be able to change them */
 let g_FakeMod = {
 	"name": translate("This mod does not exist"),
@@ -80,11 +168,26 @@ export function init(data, hotloadData)
 	Engine.GetGUIObjectByName("enabledModDown").onPress =
 		moveCurrItem.bind(undefined, "modsEnabledList", false);
 
+	// Fix for a stock bug: these three used to be wired via inline XML
+	// <action on="Press">displayModLists();</action> attributes, which
+	// cannot work now that this page loads as an ES module (displayModLists
+	// is module-scoped, not a global XML actions can call). Wired here
+	// instead, using the same Object.assign()/onPress idiom already used
+	// for every other control on this page.
+	Object.assign(Engine.GetGUIObjectByName("modGenericFilter"), {
+		"onPress": displayModLists,
+		"onTextEdit": displayModLists
+	});
+	Engine.GetGUIObjectByName("negateFilter").onPress = displayModLists;
+	Engine.GetGUIObjectByName("modCompatibleFilter").onPress = displayModLists;
+
 	Engine.GetGUIObjectByName("visitWebButton").onPress = visitModWebsite;
 	Engine.GetGUIObjectByName("downloadButton").onPress = downloadModsButton.bind(undefined, initMods);
 	Engine.GetGUIObjectByName("saveConfigurationButton").onPress = saveMods;
 	Engine.GetGUIObjectByName("startButton").onPress = startMods;
 
+	// Check for Updates: added by modiomod, see checkForUpdates() below.
+	Engine.GetGUIObjectByName("checkUpdatesButton").onPress = checkForUpdates;
 
 	g_InstalledMods = data && data.installedMods || hotloadData && hotloadData.installedMods || [];
 	g_HasIncompatibleMods = Engine.HasIncompatibleMods();
@@ -224,9 +327,105 @@ function getModColor(folder, enabled)
 {
 	if (!g_ModsCompatibility[folder])
 		return enabled ? g_ColorDependenciesNotMet : "gray";
+	if (isModUpdateAvailable(folder))
+		return "yellow";
 	if (g_InstalledMods.indexOf(getMod(folder).name) != -1)
 		return "green";
 	return false;
+}
+
+/**
+ * @returns {boolean} whether mod.io lists a newer version of the mod
+ * installed in `folder` than the one currently on disk. Always false until
+ * checkForUpdates() has completed at least once (g_ModsAvailableOnline is
+ * empty on page load, by design — this is a checked-on-demand feature, not
+ * an automatic one).
+ */
+function isModUpdateAvailable(folder)
+{
+	if (!g_ModsAvailableOnline.length)
+		return false;
+
+	const localMod = getMod(folder);
+	if (!localMod.version)
+		return false;
+
+	const onlineMod = g_ModsAvailableOnline.find(mod => mod.name_id == folder && !mod.invalid);
+	return !!onlineMod && !!onlineMod.version && versionSatisfied(onlineMod.version, ">", localMod.version);
+}
+
+/**
+ * Starts a fresh mod.io game-id + mod-list fetch, driven by
+ * onModIoUpdateCheckTick() via this page's own onTick, so the "installed
+ * mods" list can be recoloured with an "update available" indicator without
+ * opening the separate mod.io downloader page.
+ */
+function checkForUpdates()
+{
+	Engine.GetGUIObjectByName("checkUpdatesButton").enabled = false;
+	Engine.GetGUIObjectByName("message").caption = coloredText(
+		translate("Checking mod.io for updates..."), g_ColorNoModSelected);
+
+	Engine.ModIoStartGetGameId();
+	Engine.GetGUIObjectByName("modmod").onTick = onModIoUpdateCheckTick;
+}
+
+function onModIoUpdateCheckTick()
+{
+	const progressData = Engine.ModIoGetDownloadProgress();
+
+	if (progressData.status == "ready")
+		Engine.ModIoStartListMods();
+	else if (progressData.status == "listed")
+	{
+		g_ModsAvailableOnline = Engine.ModIoGetMods();
+		finishUpdateCheck(true);
+		return;
+	}
+	else if (progressData.status.startsWith("failed"))
+	{
+		finishUpdateCheck(false, progressData.error);
+		return;
+	}
+
+	Engine.ModIoAdvanceRequest();
+}
+
+/**
+ * A do-nothing tick handler. finishUpdateCheck() below assigns this instead
+ * of null/undefined to detach onModIoUpdateCheckTick once the check is
+ * done: in-game testing (0.28, modiomod-r28 1.3.1) showed that leaving
+ * "modmod"'s onTick set to null makes the engine log "on-event-handlers
+ * must be functions" / "'onTick' is not a function" every single frame
+ * from then on, rather than simply not calling it — i.e. once a handler
+ * has been assigned, the property must keep holding an actual function
+ * afterwards. This mod has no access to the engine's C++ GUI-scripting
+ * source to confirm the exact mechanism, so this is a fix grounded
+ * directly in that observed behaviour and in the engine's own error text
+ * ("must be functions"), not in a verified source reference. Fixed here
+ * identically, since this function is unchanged from modiomod-r28's.
+ */
+function noopTick()
+{
+}
+
+function finishUpdateCheck(success, error)
+{
+	Engine.GetGUIObjectByName("modmod").onTick = noopTick;
+	Engine.GetGUIObjectByName("checkUpdatesButton").enabled = true;
+
+	if (!success)
+	{
+		Engine.ModIoCancelRequest();
+		Engine.GetGUIObjectByName("message").caption = coloredText(
+			sprintf(translate("Could not check mod.io for updates. %(technicalDetails)s"), { "technicalDetails": error }),
+			g_ColorDependenciesNotMet);
+		return;
+	}
+
+	Engine.GetGUIObjectByName("message").caption = coloredText(
+		translate("Checked mod.io for updates."), g_ColorDependenciesMet);
+	displayModLists();
 }
 
 function colorMod(folder, text, enabled)
