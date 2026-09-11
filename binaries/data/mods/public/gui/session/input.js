@@ -2045,7 +2045,8 @@ function distributeAttackOrders(attackers, targets)
  * @param {number[]} attackers - Array of attacking entity IDs.
  * @param {number[]} targets - Array of target entity IDs.
  * @returns {Object} { attackers: number[], targets: number[] } - Both arrays sorted
- *                   for cross-line engagement (targets automatically reversed).
+ *                   along the same shared axis so corresponding indices pair up
+ *                   for realistic line engagement.
  */
 function sortEntitiesForEngagement(attackers, targets)
 {
@@ -2066,10 +2067,9 @@ function sortEntitiesForEngagement(attackers, targets)
 	const sortedAttackers = sortEntitiesAlongLine(attackers, avgAttackers, avgTargets);
 	const sortedTargets = sortEntitiesAlongLine(targets, avgAttackers, avgTargets);
 
-	// Reverse targets so the leftmost attacker pairs with leftmost target
 	return {
 		"attackers": sortedAttackers,
-		"targets": sortedTargets.reverse()
+		"targets": sortedTargets
 	};
 }
 
