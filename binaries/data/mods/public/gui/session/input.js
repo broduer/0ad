@@ -2085,7 +2085,7 @@ function sortEntitiesForEngagement(attackers, targets)
  */
 function sortEntitiesAlongLine(entities, lineStart, lineEnd, sortByDirection = false)
 {
-	const dir = lineEnd.sub(lineStart);
+	const dir = Vector2D.sub(lineEnd, lineStart);
 	const length = dir.length();
 	if (length === 0)
 		return entities.slice();
