@@ -1,6 +1,0 @@
-Arrow, ram ship resistance: 7 hack, 15 pierce, 7 crush
-[cancled]Arrow ship damage: 40 pierce
-Ram ship garrison: 10
-Ram ship cost: 20 wood. And loot to 20 wood
-Seige ship resistance: 9hack 20pierce 9crush
-Rammage (ram damage) to 220
