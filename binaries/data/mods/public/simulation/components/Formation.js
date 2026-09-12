@@ -559,6 +559,11 @@ Formation.prototype.ArrangeFormation = function(jumpCenter, force, variant = thi
 	{
 		const offset = this.offsets[i];
 
+		xMax = Math.max(xMax, offset.x);
+		yMax = Math.max(yMax, offset.y);
+		xMin = Math.min(xMin, offset.x);
+		yMin = Math.min(yMin, offset.y);
+
 		const cmpUnitAI = Engine.QueryInterface(offset.ent, IID_UnitAI);
 		if (!cmpUnitAI)
 		{
@@ -566,12 +571,13 @@ Formation.prototype.ArrangeFormation = function(jumpCenter, force, variant = thi
 			continue;
 		}
 
-		xMax = Math.max(xMax, offset.x);
-		yMax = Math.max(yMax, offset.y);
-		xMin = Math.min(xMin, offset.x);
-		yMin = Math.min(yMin, offset.y);
-
 		if (idleOnly && !(cmpUnitAI.IsIdle() && cmpUnitAI.isIdleConfirmed))
+			continue;
+
+		// Members that already reached their offset don't need a new order, unless the offsets changed.
+		// Idle-only updates send the order anyway: they make idle members follow the sliding controller,
+		// so an offset reached earlier has moved with it since.
+		if (!idleOnly && !offsetsChanged && this.finishedEntities.has(offset.ent))
 			continue;
 
 		const data =
@@ -584,6 +590,7 @@ Formation.prototype.ArrangeFormation = function(jumpCenter, force, variant = thi
 			};
 		cmpUnitAI.AddOrder("FormationWalk", data, !force);
 	}
+
 	this.width = xMax - xMin;
 	this.depth = yMax - yMin;
 };

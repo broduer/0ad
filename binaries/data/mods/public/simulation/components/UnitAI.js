@@ -1628,11 +1628,6 @@ UnitAI.prototype.UnitFsmSpec = {
 				else
 					this.SetDefaultAnimationVariant();
 
-				if (cmpUnitMotion.PossiblyAtDestination())
-				{
-					this.FinishOrder();
-					return true;
-				}
 				return false;
 			},
 

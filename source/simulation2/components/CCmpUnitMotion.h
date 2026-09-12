@@ -1199,8 +1199,8 @@ bool CCmpUnitMotion::PossiblyAtDestination() const
 
 	case MoveRequest::OFFSET:
 	{
-		CmpPtr<ICmpUnitMotion> cmpControllerMotion(GetSimContext(), m_MoveRequest.m_Entity);
-		if (cmpControllerMotion && cmpControllerMotion->IsMoveRequested())
+		// Don't consider ourselves arrived while our formation controller is still moving.
+		if (IsFormationControllerMoving())
 			return false;
 
 		CFixedVector2D targetPos;
