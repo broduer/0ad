@@ -5787,12 +5787,15 @@ UnitAI.prototype.SetFormationController = function(ent)
 	Engine.QueryInterface(this.entity, IID_UnitMotion)?.SetMemberOfFormation(ent);
 };
 
-UnitAI.prototype.UnsetFormationController = function()
+UnitAI.prototype.UnsetFormationController = function(renamed = false)
 {
 	this.formationController = INVALID_ENTITY;
 	Engine.QueryInterface(this.entity, IID_Obstruction)?.SetControlGroup(this.entity);
 	Engine.QueryInterface(this.entity, IID_UnitMotion)?.SetMemberOfFormation(this.formationController);
-	this.UnitFsm.ProcessMessage(this, { "type": "FormationLeave" });
+	// On a rename we're not leaving the formation, we're being swapped for our new entity:
+	// leaving would finish our current order before it can be copied over to it.
+	if (!renamed)
+		this.UnitFsm.ProcessMessage(this, { "type": "FormationLeave" });
 };
 
 UnitAI.prototype.GetFormationController = function()

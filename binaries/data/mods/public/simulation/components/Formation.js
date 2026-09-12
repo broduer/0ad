@@ -399,7 +399,7 @@ Formation.prototype.RemoveMembers = function(ents, renamed = false)
 		this.finishedEntities.delete(ent);
 		const cmpUnitAI = Engine.QueryInterface(ent, IID_UnitAI);
 		cmpUnitAI.UpdateWorkOrders();
-		cmpUnitAI.UnsetFormationController();
+		cmpUnitAI.UnsetFormationController(renamed);
 
 		// Clear cached member class
 		if (this.memberClassCombinationCache)
