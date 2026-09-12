@@ -5596,6 +5596,21 @@ UnitAI.prototype.AttackVisibleEntity = function(ents)
 };
 
 /**
+ * Attack the first entity we can actually hit from where we stand.
+ * For stances that never approach, anything further would be refused by Order.Attack.
+ */
+UnitAI.prototype.AttackEntityInAttackRange = function(ents)
+{
+	const target = ents.find(entity => this.CanAttack(entity) &&
+		this.CheckTargetAttackRange(entity, this.GetBestAttackAgainst(entity)));
+	if (!target)
+		return false;
+
+	this.PushOrderFront("Attack", { "target": target, "force": false });
+	return true;
+};
+
+/**
  * Try to find one of the given entities which can be attacked
  * and which is close to the hold position, and start attacking it.
  * Returns true if it found something to attack.
@@ -5628,7 +5643,7 @@ UnitAI.prototype.RespondToTargetedEntities = function(ents)
 		return this.AttackVisibleEntity(ents);
 
 	if (this.GetStance().respondStandGround)
-		return this.AttackVisibleEntity(ents);
+		return this.AttackEntityInAttackRange(ents);
 
 	if (this.GetStance().respondHoldGround)
 		return this.AttackEntityInZone(ents);
@@ -6758,7 +6773,17 @@ UnitAI.prototype.FindWalkAndFightTargets = function()
 			this.ReplaceOrder("Attack", order);
 		else
 			this.PushOrderFront("Attack", order);
+
+		// Only report a target if the Attack order actually stuck
+		// and didn't immediately self-cancel.
+		return this.orderQueue.some(queued => queued.type == "Attack" && queued.data.target == target);
 	};
+
+	const allowCapture = this.order?.data?.allowCapture || this.DEFAULT_CAPTURE;
+	// A unit that won't approach can only ever engage what is already in range: acquiring
+	// anything further just makes Order.Attack cancel the order again on the next turn.
+	const rangefilter = e => !this.GetStance().respondStandGround ||
+		this.CheckTargetAttackRange(e, this.GetBestAttackAgainst(e, allowCapture));
 
 	const prefs = {};
 	let bestPref;
@@ -6766,14 +6791,11 @@ UnitAI.prototype.FindWalkAndFightTargets = function()
 	let pref;
 	for (const v of entities)
 	{
-		if (this.CanAttack(v) && attackfilter(v))
+		if (this.CanAttack(v) && attackfilter(v) && rangefilter(v))
 		{
 			pref = cmpAttack.GetPreference(v);
 			if (pref === 0)
-			{
-				attack(v);
-				return true;
-			}
+				return attack(v);
 			targets.push(v);
 		}
 		prefs[v] = pref;
@@ -6785,8 +6807,7 @@ UnitAI.prototype.FindWalkAndFightTargets = function()
 	{
 		if (prefs[targ] !== bestPref)
 			continue;
-		attack(targ);
-		return true;
+		return attack(targ);
 	}
 
 	// healers on a walk-and-fight order should heal injured units

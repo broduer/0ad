@@ -503,7 +503,11 @@ function TestWalkAndFightTargets()
 	unitAI.PushOrderFront = function(type, order)
 	{
 		if (type === "Attack" && order?.target)
+		{
 			result = order.target;
+			// FindWalkAndFightTargets checks the order is still queued.
+			this.orderQueue.unshift({ "type": type, "data": order });
+		}
 	};
 
 	// Create some targets.
@@ -532,6 +536,7 @@ function TestWalkAndFightTargets()
 	const runTest = function(ents, res)
 	{
 		result = undefined;
+		unitAI.orderQueue = [];
 		AddMock(SYSTEM_ENTITY, IID_RangeManager, {
 			"ResetActiveQuery": () => ents
 		});
