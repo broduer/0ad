@@ -1,10 +1,26 @@
 /**
- * modiomod-r28 — gui/modio/modio.js
+ * modiomod-r29 — gui/modio/modio.js
  * Revision: 1.2.3 (internal rev 4)
- * Last revision: 2026-09-10 22:10 CET
+ * Last revision: 2026-09-12 00:05 CET
  *
  * Change notes:
- * - rev4 (2026-09-10, Claude on behalf of Grautvornix): Added an on-screen colour
+ * - rev4 (2026-09-12, Claude on behalf of Grautvornix): Fixed a mismatch
+ *   between "Filter valid mods" (compatibilityFilter)'s name/label and what
+ *   it actually did, reported by one of Grautvornix's users: with the
+ *   checkbox ticked, displayMods() only ever excluded mods.invalid (the
+ *   gray "invalid metadata" case) — a red, dependency-unmet mod stayed
+ *   visible (correctly coloured, but not hidden) even though the filter's
+ *   own label promises to show only mods that will actually work. Confirmed
+ *   this is unchanged, identical stock behaviour in both the real 0.28 and
+ *   0.29-dev trunk gui/modio/modio.js (not something modiomod introduced or
+ *   changed) before deciding, at Grautvornix's request, to close the gap
+ *   here rather than leave it matching vanilla: displayMods()'s filter now
+ *   also requires areDependenciesMet(mod.dependencies) when the checkbox is
+ *   checked, so a red row is hidden by the filter exactly like a gray one
+ *   already was. Unticking the checkbox still shows everything, as before.
+ *   Identical fix to modiomod-r28's, applied here since displayMods() is the
+ *   same logic in both.
+ * - rev3 (2026-09-10, Claude on behalf of Grautvornix): Added an on-screen colour
  *   legend (see new function updateColorLegend(), called once from init()),
  *   at Grautvornix's request, so the meaning of the gray/red/yellow/green/white
  *   row colours doesn't have to be memorised. This required shipping this
@@ -19,60 +35,56 @@
  *   future 0 A.D. release that changes this page's layout will no longer be
  *   picked up automatically — it will need re-diffing against the new stock
  *   modio.xml the way modio.js already is.
- * - rev3 (2026-09-10, Claude on behalf of Grautvornix): mod.json "name" changed
- *   from "modiomod" to "modiomod-r28" and "label" to "ModIO downloader (R28)",
- *   at Grautvornix's request, to disambiguate this build (targeting the actual
- *   0.28 classic-script API, see rev2 below) from the parallel
- *   "modiomod-r29" build (targeting the ES-module API seen in 0.29-dev trunk)
- *   when both are kept installed side by side for testing against different
- *   game versions. Both previously shared the internal mod name "modiomod",
- *   which risked ambiguous behaviour if both were ever enabled at once, on
- *   top of the two builds looking identical in the "Modifications"/mod
- *   selector list. No functional change to this file.
- * - rev2 (2026-09-10, Claude on behalf of Grautvornix): Corrected against the
- *   actual shipped 0.28 sources (binaries/data/mods/mod/mod.zip from
- *   C:\Spiele\0AD-28.0, extracted by Grautvornix to "v. 0.28\gui"). rev1 had
- *   wrongly assumed, from a 0.29.0-dev SVN trunk checkout, that 0.28 already
- *   loads this file as an ES module (<script module="..."/>, requiring
- *   `export function init()`). In-game testing of rev1 threw a hard parse
- *   error: "export declarations may only appear at top level of a module" —
- *   proof the engine was loading it as a classic script after all. 0.28's own
- *   binaries/data/mods/mod/gui/modio/modio.xml still declares
- *   <script directory="gui/modio/"/> (not module="..."), and still wires
- *   modFilter/modsAvailableList/compatibilityFilter/refreshButton/
- *   downloadButton events via inline XML <action on="Press">...</action>
- *   attributes rather than JS. So this revision: (a) dropped the `export`
- *   keyword rev1 had added to `init`, and (b) removed the JS-side
- *   Object.assign/onPress event-wiring block rev1 had added inside init()
- *   (that block belongs to trunk/future versions only; on 0.28 it did nothing
- *   useful and only risked overriding the XML-registered handlers). Only
- *   backButton's onPress and the "modio" object's onTick are wired in JS —
- *   that part was already correct, since 0.28's modio.xml has no <action> for
- *   backButton either. The rest of rev1 stands verified against 0.28's actual
- *   modio.js: the async/Promise-based dialog and mod.io state-machine flow
- *   (messageBox() via Engine.OpenChildPage() resolving to a button index,
- *   init() returning Promise.race(...) so the page closes when that promise
- *   resolves) is unchanged in 0.28 from what rev1 already had, confirmed
- *   line-for-line against binaries/data/mods/mod/gui/modio/modio.js as
- *   shipped in 0.28.
- * - rev1 (2026-09-10, Claude on behalf of Grautvornix): Root cause found: 0.26's
- *   modio.js used the pre-Release-28 callback-driven messageBox()/dialog
- *   convention and (per this file's actual 0.28 behaviour) needed no
- *   structural change there, but did need updating for the same async
- *   dialog/state-machine flow 0.28 introduced — see rev2 for the corrected,
- *   verified version. Restored this mod's own value-add, which stock 0.28's
- *   simplified modio.js dropped: green/yellow/red/gray colour coding by
+ * - rev2 (2026-09-10, Claude on behalf of Grautvornix): mod.json "name" changed
+ *   from "modiomod" to "modiomod-r29" and "label" to "ModIO downloader (R29)",
+ *   at Grautvornix's request, to disambiguate this build (targeting the ES-module
+ *   GUI page-script API seen in 0.29-dev trunk, confirmed working there for
+ *   the mod.io downloader) from the parallel "modiomod-r28" build (targeting
+ *   0.28's actual classic-script API) when both are kept installed side by
+ *   side for testing against different game versions. Both previously shared
+ *   the internal mod name "modiomod", which risked ambiguous behaviour if
+ *   both were ever enabled at once, on top of the two builds looking
+ *   identical in the "Modifications"/mod selector list. No functional change
+ *   to this file. Note: on Grautvornix's 0.29 install, the unrelated
+ *   "Filter compatible" checkbox on the Modifications screen throws
+ *   "displayModLists is not defined" regardless of which modiomod build is
+ *   enabled — that error is in the base game's own gui/modmod/modmod.js /
+ *   modmod.xml (not part of this mod, and not reproduced with either
+ *   modiomod build inactive) and is unresolved as of this revision.
+ * - rev1 (2026-09-10, Claude on behalf of Grautvornix): Ported to the ES-module GUI
+ *   page-script format introduced in 0 A.D. Release 28 ("Support for JavaScript
+ *   Modules"). binaries/data/mods/mod/gui/modio/modio.xml now loads this file
+ *   as <script module="gui/modio/modio.js"/> instead of a classic script, and
+ *   the engine (CGUI::CallPageInit, source/gui/CGUI.cpp) requires the module to
+ *   expose a top-level `export function init(...)`. The previous revision
+ *   (targeting 0.26) declared `init` as a plain, non-exported function, so its
+ *   binding was invisible on the module namespace object; CallPageInit's
+ *   Script::HasProperty(rq, newNamespace, "init") check then failed silently
+ *   and init() was never called — no dialogs, no list fetch, no colour coding,
+ *   no working buttons. That silent failure, not the mod.json dependency
+ *   string, was the actual incompatibility; bumping "dependencies" to
+ *   "0ad>=0.0.26" (rev in modiomod.3) did not and could not fix it.
+ *   Stock's own Release-28 modio.js also switched all mod.io/message-box
+ *   dialogs from callback-driven to Promise/async-await-driven (messageBox()
+ *   now returns a Promise that resolves with the pressed button's index, via
+ *   Engine.OpenChildPage(), instead of taking a buttonActions callback array),
+ *   and event handlers (button onPress, list onSelectionChange, etc.) are now
+ *   wired up inside init() rather than via XML onPress/onclick attributes,
+ *   since the shipped modio.xml no longer declares any. This revision adopts
+ *   that new control flow (verified against the 0.29.0-dev source tree, since
+ *   no 0.28-tagged source was available to diff against directly; the module
+ *   mechanism itself is documented as introduced exactly in Release 28, so it
+ *   should not differ from what 0.28 actually loads) while restoring every
+ *   bit of this mod's own value-add that stock Release 28 dropped from its
+ *   simplified modio.js: green/yellow/red/gray colour coding by
  *   owned/update-available/dependencies-met/invalid, and the dependency- and
- *   update-warning text in the mod description panel. That logic
+ *   update-warning text in the mod description panel. All of that logic
  *   (versionUpdate, isUpdateAvailable, areDependenciesMet, isDependencyMet,
  *   versionSatisfied, isOwnedMod, getModIOColor, colorModIO,
  *   g_RegExpComparisonOperator) is unchanged from the 0.26 revision.
- *   mod.json "dependencies" corrected to "0ad>=0.0.28", since the async
- *   dialog/state-machine flow this revision now matches is a real 0.28
- *   requirement and this file will not behave correctly on 0.26/0.27 (the
- *   mod.json dependency string itself, contrary to Grautvornix's first attempt at
- *   a fix, was never the actual problem — the script's own outdated control
- *   flow was).
+ *   mod.json "dependencies" corrected to "0ad>=0.0.28", since this revision's
+ *   module-script format is a hard requirement introduced in 0.28 and will not
+ *   load at all on 0.26/0.27.
  */
 
 let g_ModsAvailableOnline = [];
@@ -225,7 +237,7 @@ const g_ModIOState = {
 	}
 };
 
-function init(data)
+export function init(data)
 {
 	const promise = progressDialog(
 		translate("Initializing mod.io interface."),
@@ -237,6 +249,21 @@ function init(data)
 	Engine.ModIoStartGetGameId();
 
 	updateColorLegend();
+
+	Object.assign(Engine.GetGUIObjectByName("modFilter"), {
+		"onPress": displayMods,
+		"onTextEdit": displayMods
+	});
+
+	Object.assign(Engine.GetGUIObjectByName("modsAvailableList"), {
+		"onSelectionChange": showModDescription,
+		"onSelectionColumnChange": displayMods,
+		"onMouseLeftDoubleClickItem": downloadMod
+	});
+
+	Engine.GetGUIObjectByName("compatibilityFilter").onPress = displayMods;
+	Engine.GetGUIObjectByName("refreshButton").onPress = updateModList;
+	Engine.GetGUIObjectByName("downloadButton").onPress = downloadMod;
 
 	return Promise.race([
 		promise,
@@ -277,7 +304,7 @@ function displayMods()
 	const filterColumns = ["name", "name_id", "summary"];
 	const filterText = Engine.GetGUIObjectByName("modFilter").caption.toLowerCase();
 	if (Engine.GetGUIObjectByName("compatibilityFilter").checked)
-		displayedMods = displayedMods.filter(mod => !mod.invalid);
+		displayedMods = displayedMods.filter(mod => !mod.invalid && areDependenciesMet(mod.dependencies));
 	displayedMods = displayedMods.filter(mod => filterColumns.some(column => mod[column].toLowerCase().indexOf(filterText) != -1));
 
 	displayedMods.sort((mod1, mod2) =>
