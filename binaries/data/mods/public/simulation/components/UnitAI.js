@@ -6741,20 +6741,9 @@ UnitAI.prototype.FindWalkAndFightTargets = function()
 
 	const attackfilter = e =>
 	{
-		if (this?.order?.data?.targetClasses)
-		{
-			const cmpIdentity = Engine.QueryInterface(e, IID_Identity);
-			const targetClasses = this.order.data.targetClasses;
-			if (cmpIdentity && targetClasses.attack &&
-				!MatchesClassList(cmpIdentity.GetClassesList(), targetClasses.attack))
-				return false;
-			if (cmpIdentity && targetClasses.avoid &&
-				MatchesClassList(cmpIdentity.GetClassesList(), targetClasses.avoid))
-				return false;
-			// Only used by the AIs to prevent some choices of targets
-			if (targetClasses.vetoEntities && targetClasses.vetoEntities[e])
-				return false;
-		}
+		if (!this.MatchesOrderTargetClasses(e))
+			return false;
+
 		const cmpOwnership = Engine.QueryInterface(e, IID_Ownership);
 		if (cmpOwnership && cmpOwnership.GetOwner() > 0)
 			return true;
@@ -6982,6 +6971,30 @@ UnitAI.prototype.GetRange = function(iid, type, target)
 	return component.GetRange(type, target);
 };
 
+/**
+ * @returns false if the entity is excluded by the target class restrictions of the order we're
+ * carrying out. Formation members take those from their controller, as the FormationWalk order
+ * they carry doesn't hold them.
+ */
+UnitAI.prototype.MatchesOrderTargetClasses = function(ent)
+{
+	const targetClasses = this.IsFormationMember() ?
+		Engine.QueryInterface(this.formationController, IID_UnitAI)?.order?.data?.targetClasses :
+		this.order?.data?.targetClasses;
+	if (!targetClasses)
+		return true;
+
+	const cmpIdentity = Engine.QueryInterface(ent, IID_Identity);
+	if (cmpIdentity && targetClasses.attack &&
+		!MatchesClassList(cmpIdentity.GetClassesList(), targetClasses.attack))
+		return false;
+	if (cmpIdentity && targetClasses.avoid &&
+		MatchesClassList(cmpIdentity.GetClassesList(), targetClasses.avoid))
+		return false;
+	// Only used by the AIs to prevent some choices of targets
+	return !targetClasses.vetoEntities || !targetClasses.vetoEntities[ent];
+};
+
 UnitAI.prototype.CanAttack = function(target)
 {
 	// Formation controllers should always respond to commands
@@ -7151,9 +7164,12 @@ UnitAI.prototype.AttackEntitiesByPreference = function(ents)
 	if (!cmpAttack)
 		return false;
 
-	const attackfilter = function(e)
+	const attackfilter = e =>
 	{
 		if (!cmpAttack.CanAttack(e))
+			return false;
+
+		if (!this.MatchesOrderTargetClasses(e))
 			return false;
 
 		const cmpOwnership = Engine.QueryInterface(e, IID_Ownership);
