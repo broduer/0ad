@@ -358,7 +358,6 @@ async function init(initData, hotloadData)
 		handler();
 
 	registerPlayersFinishedHandler(updatePlayerData);
-	g_DiplomacyColors.registerDiplomacyColorsChangeHandler(updatePlayerData);
 	registerCeasefireEndedHandler(updatePlayerData);
 
 	if (hotloadData)

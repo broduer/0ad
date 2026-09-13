@@ -146,6 +146,7 @@ var g_NotificationsTypes =
 		},
 		"diplomacy": function(notification, player)
 		{
+			updatePlayerData();
 			g_DiplomacyColors.onDiplomacyChange();
 
 			addChatMessage({
