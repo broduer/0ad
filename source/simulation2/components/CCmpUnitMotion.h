@@ -676,10 +676,11 @@ private:
 	 */
 	void MoveFailed()
 	{
-		// Don't notify if we are a formation member in a moving formation - we can occasionally be stuck for a long time
+		// Don't notify if we are walking to our offset in a moving formation - we can occasionally be stuck for a long time
 		// if our current offset is unreachable, but we don't want to end up stuck.
 		// (If the formation controller has stopped moving however, we can safely message).
-		if (IsFormationMember() && IsFormationControllerMoving())
+		// A member carrying out its own move, e.g. approaching an attack target, must still be notified.
+		if (IsMovingAsFormation() && IsFormationControllerMoving())
 			return;
 
 		CMessageMotionUpdate msg(CMessageMotionUpdate::LIKELY_FAILURE);
@@ -693,10 +694,11 @@ private:
 	 */
 	void MoveSucceeded()
 	{
-		// Don't notify if we are a formation member in a moving formation - we can occasionally be stuck for a long time
+		// Don't notify if we are walking to our offset in a moving formation - we can occasionally be stuck for a long time
 		// if our current offset is unreachable, but we don't want to end up stuck.
 		// (If the formation controller has stopped moving however, we can safely message).
-		if (IsFormationMember() && IsFormationControllerMoving())
+		// A member carrying out its own move, e.g. approaching an attack target, must still be notified.
+		if (IsMovingAsFormation() && IsFormationControllerMoving())
 			return;
 
 		CMessageMotionUpdate msg(CMessageMotionUpdate::LIKELY_SUCCESS);
@@ -710,10 +712,11 @@ private:
 	 */
 	void MoveObstructed()
 	{
-		// Don't notify if we are a formation member in a moving formation - we can occasionally be stuck for a long time
+		// Don't notify if we are walking to our offset in a moving formation - we can occasionally be stuck for a long time
 		// if our current offset is unreachable, but we don't want to end up stuck.
 		// (If the formation controller has stopped moving however, we can safely message).
-		if (IsFormationMember() && IsFormationControllerMoving())
+		// A member carrying out its own move, e.g. approaching an attack target, must still be notified.
+		if (IsMovingAsFormation() && IsFormationControllerMoving())
 			return;
 
 		CMessageMotionUpdate msg(m_FailedMovements >= VERY_OBSTRUCTED_THRESHOLD ?
