@@ -5557,6 +5557,22 @@ UnitAI.prototype.CheckTargetDistanceFromHeldPosition = function(target, iid, typ
 
 	const pos = cmpPosition.GetPosition();
 	let heldPosition = this.heldPosition;
+
+	// A member's post is its own slot, not the destination point shared by every member.
+	// Without a slot, use the formation's position: our own would move along as we chase.
+	if (this.IsFormationMember())
+	{
+		let slot = Engine.QueryInterface(this.formationController, IID_Formation)?.GetMemberOffsetPosition(this.entity);
+		if (!slot)
+		{
+			const cmpControllerPosition = Engine.QueryInterface(this.formationController, IID_Position);
+			if (cmpControllerPosition && cmpControllerPosition.IsInWorld())
+				slot = cmpControllerPosition.GetPosition2D();
+		}
+		if (slot)
+			heldPosition = { "x": slot.x, "z": slot.y };
+	}
+
 	if (heldPosition === undefined)
 		heldPosition = { "x": pos.x, "z": pos.z };
 

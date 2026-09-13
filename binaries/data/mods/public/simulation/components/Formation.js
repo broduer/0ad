@@ -956,6 +956,22 @@ Formation.prototype.GetRealOffsetPositions = function(offsets)
 };
 
 /**
+ * @returns the world position of the given member's offset, if it currently has one.
+ */
+Formation.prototype.GetMemberOffsetPosition = function(ent)
+{
+	const offset = this.offsets?.find(o => o.ent == ent);
+	if (!offset)
+		return undefined;
+
+	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
+	if (!cmpPosition?.IsInWorld())
+		return undefined;
+
+	return this.GetRealOffsetPositions([offset])[0];
+};
+
+/**
  * Returns true if the difference between two given angles (in radians)
  * are smaller than the maximum turning angle of the formation and therfore allow
  * the formation turn without reassigning positions.
