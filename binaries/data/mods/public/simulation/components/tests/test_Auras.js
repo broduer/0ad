@@ -14,6 +14,7 @@ var playerDefeated = [false, false, false];
 var sourceEnt = 20;
 var targetEnt = 30;
 var auraRange = 40;
+var isPreview = false;
 var template = { "Identity": { "Classes": { "_string": "CorrectClass OtherClass" } } };
 
 global.AuraTemplates = {
@@ -97,6 +98,11 @@ function testAuras(name, test_function)
 			"GetOwner": () => playerID[1]
 		});
 
+	if (isPreview)
+		AddMock(sourceEnt, IID_Visibility, {
+			"GetPreview": () => true
+		});
+
 	const cmpModifiersManager = ConstructComponent(SYSTEM_ENTITY, "ModifiersManager", {});
 	cmpModifiersManager.OnGlobalPlayerEntityChanged({ "player": playerID[1], "from": -1, "to": playerEnt[1] });
 	cmpModifiersManager.OnGlobalPlayerEntityChanged({ "player": playerID[2], "from": -1, "to": playerEnt[2] });
@@ -168,6 +174,22 @@ testAuras("global", (name, cmpAuras) =>
 	TS_ASSERT_EQUALS(ApplyValueModificationsToTemplate("Component/Value", 5, playerID[1], template), 5);
 	TS_ASSERT_EQUALS(ApplyValueModificationsToTemplate("Component/Value", 5, playerID[2], template), 5);
 });
+
+// Previews must not apply auras, but should still display range overlays.
+isPreview = true;
+testAuras("global", (name, cmpAuras) =>
+{
+	TS_ASSERT_EQUALS(ApplyValueModificationsToEntity("Component/Value", 5, targetEnt), 5);
+	TS_ASSERT_EQUALS(ApplyValueModificationsToTemplate("Component/Value", 5, playerID[1], template), 5);
+});
+
+testAuras("range", (name, cmpAuras) =>
+{
+	cmpAuras.OnRangeUpdate({ "tag": 1, "added": [targetEnt], "removed": [] });
+	TS_ASSERT_EQUALS(ApplyValueModificationsToEntity("Component/Value", 5, targetEnt), 5);
+	TS_ASSERT_EQUALS(cmpAuras.GetRangeOverlays().length, 1);
+});
+isPreview = false;
 
 playerDefeated[1] = true;
 testAuras("global", (name, cmpAuras) =>
