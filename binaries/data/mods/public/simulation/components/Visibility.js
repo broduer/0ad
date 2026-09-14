@@ -94,4 +94,9 @@ Visibility.prototype.GetAlwaysVisible = function()
 	return this.alwaysVisible;
 };
 
+Visibility.prototype.GetPreview = function()
+{
+	return this.preview;
+};
+
 Engine.RegisterComponentType(IID_Visibility, "Visibility", Visibility);

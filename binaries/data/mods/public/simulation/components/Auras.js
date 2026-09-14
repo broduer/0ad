@@ -156,7 +156,7 @@ Auras.prototype.CanApply = function(name)
 {
 	// Check if this is a preview entity
 	const cmpVisibility = Engine.QueryInterface(this.entity, IID_Visibility);
-	if (cmpVisibility && cmpVisibility.GetPreview && cmpVisibility.GetPreview())
+	if (cmpVisibility?.GetPreview())
 		return false;
 
 	return this.AreTechnologyRequirementsMet(name);
