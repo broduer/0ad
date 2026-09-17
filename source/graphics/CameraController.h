@@ -18,7 +18,6 @@
 #ifndef INCLUDED_CAMERACONTROLLER
 #define INCLUDED_CAMERACONTROLLER
 
-#include "graphics/ICameraController.h"
 #include "graphics/SmoothedValue.h"
 #include "lib/code_annotation.h"
 #include "ps/Input.h"
@@ -30,39 +29,40 @@ class CCamera;
 class CConfigDBHook;
 class CMatrix3D;
 class CVector3D;
+struct SViewPort;
 union SDL_Event;
 
-class CCameraController : public ICameraController
+class CCameraController
 {
 	NONCOPYABLE(CCameraController);
 public:
 	CCameraController(CCamera& camera);
-	~CCameraController() override;
+	~CCameraController();
 
-	void LoadConfig() override;
+	void LoadConfig();
 
-	Input::Reaction HandleEvent(const SDL_Event& ev) override;
+	Input::Reaction HandleEvent(const SDL_Event& ev);
 
-	CVector3D GetCameraPivot() const override;
-	CVector3D GetCameraPosition() const override;
-	CVector3D GetCameraRotation() const override;
-	float GetCameraZoom() const override;
+	CVector3D GetCameraPivot() const;
+	CVector3D GetCameraPosition() const;
+	CVector3D GetCameraRotation() const;
+	float GetCameraZoom() const;
 
-	void SetCamera(const CVector3D& pos, float rotX, float rotY, float zoom) override;
-	void MoveCameraTarget(const CVector3D& target) override;
-	void ResetCameraTarget(const CVector3D& target) override;
-	void FollowEntity(entity_id_t entity, bool firstPerson) override;
-	entity_id_t GetFollowedEntity() override;
+	void SetCamera(const CVector3D& pos, float rotX, float rotY, float zoom);
+	void MoveCameraTarget(const CVector3D& target);
+	void ResetCameraTarget(const CVector3D& target);
+	void FollowEntity(entity_id_t entity, bool firstPerson);
+	entity_id_t GetFollowedEntity();
 
-	void Update(const float deltaRealTime) override;
-	void SetViewport(const SViewPort& vp) override;
+	void Update(const float deltaRealTime);
+	void SetViewport(const SViewPort& vp);
 
-	bool GetConstrainCamera() const override
+	bool GetConstrainCamera() const
 	{
 		return m_ConstrainCamera;
 	}
 
-	void SetConstrainCamera(bool constrain) override
+	void SetConstrainCamera(bool constrain)
 	{
 		m_ConstrainCamera = constrain;
 	}
@@ -80,6 +80,8 @@ private:
 	 * Set projection of current camera using near, far, and FOV values
 	 */
 	void SetCameraProjection();
+
+	CCamera& m_Camera;
 
 	/**
 	* Whether the camera movement should be constrained by min/max limits

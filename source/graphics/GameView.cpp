@@ -23,7 +23,6 @@
 #include "graphics/CameraController.h"
 #include "graphics/CinemaManager.h"
 #include "graphics/ColladaManager.h"
-#include "graphics/ICameraController.h"
 #include "graphics/LOSTexture.h"
 #include "graphics/MeshManager.h"
 #include "graphics/MiniMapTexture.h"
@@ -130,7 +129,7 @@ public:
 	 * Controller of the view's camera. We use a std::unique_ptr for an easy
 	 * on the fly replacement. It's guaranteed that the pointer is never nulllptr.
 	 */
-	std::unique_ptr<ICameraController> CameraController;
+	std::unique_ptr<CCameraController> CameraController;
 
 	struct InputHandler
 	{
@@ -231,7 +230,7 @@ CMiniMapTexture& CGameView::GetMiniMapTexture()
 void CGameView::RegisterInit()
 {
 	// CGameView init
-	PS::Loader::Register(std::bind_front([](ICameraController* cameraController) -> PS::Loader::Task
+	PS::Loader::Register(std::bind_front([](CCameraController* cameraController) -> PS::Loader::Task
 	{
 		cameraController->LoadConfig();
 		co_return 0;

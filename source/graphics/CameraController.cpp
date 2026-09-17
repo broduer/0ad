@@ -53,7 +53,7 @@
 static const float CAMERA_EDGE_MARGIN = 2.0f * TERRAIN_TILE_SIZE;
 
 CCameraController::CCameraController(CCamera& camera)
-	: ICameraController(camera),
+	: m_Camera(camera),
 	  m_ConstrainCamera(true),
 	  m_FollowEntity(INVALID_ENTITY),
 	  m_FollowFirstPerson(false),
