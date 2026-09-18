@@ -34,6 +34,7 @@ Attack.prototype.Schema =
 			"</Damage>" +
 			"<MaxRange>4.0</MaxRange>" +
 			"<RepeatTime>1000</RepeatTime>" +
+			"<Knockback>10.0</Knockback>" +
 			"<MaxAngle>0.5</MaxAngle>" +
 			"<Bonuses>" +
 				"<Bonus1>" +
@@ -75,6 +76,7 @@ Attack.prototype.Schema =
 			"<Projectile>" +
 				"<Speed>50.0</Speed>" +
 				"<Spread>2.5</Spread>" +
+				"<Knockback>5.0</Knockback>" +
 				"<ActorName>props/units/weapons/rock_flaming.xml</ActorName>" +
 				"<ImpactActorName>props/units/weapons/rock_explosion.xml</ImpactActorName>" +
 				"<ImpactAnimationLifetime>0.1</ImpactAnimationLifetime>" +
@@ -129,6 +131,11 @@ Attack.prototype.Schema =
 						"<ref name='nonNegativeDecimal'/>" +
 					"</element>" +
 				"</optional>" +
+				"<optional>" +
+					"<element name='Knockback' a:help='Pushes the units hit away from the attacker. Heavier units are pushed less. 0 = no knockback. Each unit&apos;s speed changes by Knockback / its PhysicalBody/Weight, in m/s.'>" +
+						"<ref name='nonNegativeDecimal'/>" +
+					"</element>" +
+				"</optional>" +
 				"<optional>"+
 					"<element name='Origin' a:help='The offset from which the attack occurs, relative to the entity position. Defaults to {0,0,0}.'>" +
 						"<interleave>" +
@@ -169,6 +176,11 @@ Attack.prototype.Schema =
 						"<interleave>" +
 							"<element name='Shape' a:help='Shape of the splash damage, can be circular or linear'><text/></element>" +
 							"<element name='Range' a:help='Size of the area affected by the splash'><ref name='nonNegativeDecimal'/></element>" +
+							"<optional>" +
+								"<element name='Knockback' a:help='Pushes the units hit away from the attacker. Heavier units are pushed less. 0 = no knockback. Each unit&apos;s speed changes by Knockback / its PhysicalBody/Weight, in m/s.'>" +
+									"<ref name='nonNegativeDecimal'/>" +
+								"</element>" +
+							"</optional>" +
 							"<element name='FriendlyFire' a:help='Whether the splash damage can hurt non enemy units'><data type='boolean'/></element>" +
 							AttackHelper.BuildAttackEffectsSchema() +
 						"</interleave>" +
@@ -184,6 +196,11 @@ Attack.prototype.Schema =
 							"<element name='Gravity' a:help='The gravity affecting the projectile. This affects the shape of the flight curve.'>" +
 								"<ref name='nonNegativeDecimal'/>" +
 							"</element>" +
+							"<optional>" +
+								"<element name='Knockback' a:help='Pushes the units hit away from the attacker. Heavier units are pushed less. 0 = no knockback. Each unit&apos;s speed changes by Knockback / its PhysicalBody/Weight, in m/s.'>" +
+									"<ref name='nonNegativeDecimal'/>" +
+								"</element>" +
+							"</optional>" +
 							"<element name='FriendlyFire' a:help='Whether stray missiles can hurt non enemy units.'><data type='boolean'/></element>" +
 							"<optional>" +
 								"<element name='Count' a:help='Number of projectiles to fire at once.'>" +
@@ -260,6 +277,31 @@ Attack.prototype.GetRestrictedClasses = function(type)
 		return this.template[type].RestrictedClasses._string.split(/\s+/);
 
 	return [];
+};
+
+Attack.prototype.GetKnockbackForce = function(type, isSplash = false)
+{
+	let knockback = null;
+
+	if (isSplash && this.template[type]?.Splash?.Knockback)
+		knockback = +this.template[type].Splash.Knockback;
+	else if (this.template[type]?.Projectile?.Knockback)
+		knockback = +this.template[type].Projectile.Knockback;
+	else if (this.template[type]?.Knockback)
+		knockback = +this.template[type].Knockback;
+
+	if (knockback === null || knockback <= 0)
+		return 0;
+
+	let path = "Attack/" + type;
+	if (isSplash)
+		path += "/Splash/Knockback";
+	else if (this.template[type]?.Projectile?.Knockback)
+		path += "/Projectile/Knockback";
+	else
+		path += "/Knockback";
+
+	return ApplyValueModificationsToEntity(path, knockback, this.entity);
 };
 
 /**
@@ -549,6 +591,7 @@ Attack.prototype.GetSplashData = function(type)
 
 	return {
 		"attackData": this.GetAttackEffectsData(type, true),
+		"knockbackForce": this.GetKnockbackForce(type, true),
 		"friendlyFire": this.template[type].Splash.FriendlyFire == "true",
 		"radius": ApplyValueModificationsToEntity("Attack/" + type + "/Splash/Range", +this.template[type].Splash.Range, this.entity),
 		"shape": this.template[type].Splash.Shape,
@@ -863,6 +906,8 @@ Attack.prototype.PerformAttack = function(type, target)
 		return;
 	const attackerOwner = cmpOwnership.GetOwner();
 
+	const knockbackForce = this.GetKnockbackForce(type);
+
 	const data = {
 		"type": type,
 		"attackData": this.GetAttackEffectsData(type),
@@ -870,6 +915,9 @@ Attack.prototype.PerformAttack = function(type, target)
 		"attacker": this.entity,
 		"attackerOwner": attackerOwner,
 		"target": target,
+		"attackerPos": selfPosition,
+		"targetPos": targetPosition,
+		"knockbackForce": knockbackForce
 	};
 
 	const delay = +(this.template[type].EffectDelay || 0);
@@ -973,6 +1021,7 @@ Attack.prototype.PerformAttack = function(type, target)
 				"attackerOwner": attackerOwner,
 				"target": target,
 				"position": new Vector3D(predictedPosition.x + offsetX, predictedHeight, predictedPosition.z + offsetZ),
+				"knockbackForce": knockbackForce,
 				"friendlyFire": friendlyFire,
 				"attackImpactSound": attackImpactSound
 			};

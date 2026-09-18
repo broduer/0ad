@@ -288,14 +288,16 @@ AttackHelper.prototype.CauseDamageOverArea = function(data)
 	}
 };
 /**
- * Handle an attack peformed on an entity.
+ * Handle an attack performed on an entity.
  *
- * @param {number} target - The targetted entityID.
+ * @param {number} target - The targeted entityID.
  * @param {Object} data - The data of the attack.
  * @param {string} data.type - The type of attack that was performed (e.g. "Melee" or "Capture").
- * @param {Object} data.effectData - The effects use.
+ * @param {Object} data.attackData - The attack effects data.
  * @param {number} data.attacker - The entityID that attacked us.
  * @param {number} data.attackerOwner - The playerID that owned the attacker when the attack was performed.
+ * @param {number} [data.knockbackForce] - Force magnitude for knockback effect (0 = no knockback).
+ * @param {Vector3D} [data.attackerPos] - Position of the attacker (required for knockback).
  * @param {number} bonusMultiplier - The factor to multiply the total effect with, defaults to 1.
  *
  * @return {boolean} - Whether we handled the attack.
@@ -305,6 +307,23 @@ AttackHelper.prototype.HandleAttackEffects = function(target, data, bonusMultipl
 	const cmpResistance = Engine.QueryInterface(target, IID_Resistance);
 	if (cmpResistance && cmpResistance.IsInvulnerable())
 		return false;
+
+	// Apply knockback
+	if (data.knockbackForce && data.knockbackForce > 0 && data.attackerPos && target !== data.attacker)
+	{
+		const knockbackMultiplier = bonusMultiplier;
+		const forceMagnitude = data.knockbackForce * knockbackMultiplier;
+		if (forceMagnitude > 0.01)
+		{
+			// Get the target's current position
+			const cmpTargetPos = Engine.QueryInterface(target, IID_Position);
+			if (cmpTargetPos && cmpTargetPos.IsInWorld())
+			{
+				const targetPos = cmpTargetPos.GetPosition();
+				this.ApplyKnockbackToEntity(target, data.attackerPos, targetPos, forceMagnitude);
+			}
+		}
+	}
 
 	bonusMultiplier *= !data.attackData.Bonuses ? 1 : this.GetAttackBonus(data.attacker, target, data.type, data.attackData.Bonuses);
 
@@ -344,6 +363,39 @@ AttackHelper.prototype.HandleAttackEffects = function(target, data, bonusMultipl
 		cmpPromotion.IncreaseXp(targetState.xp);
 
 	return true;
+};
+
+
+/**
+ * Apply knockback to a single entity
+ * @param {number} entity - The entity to apply knockback to
+ * @param {Vector3D} attackerPos - Position of the attacker
+ * @param {Vector3D} targetPos - Position of the target entity
+ * @param {number} forceMagnitude - Force magnitude in meters per second
+ */
+AttackHelper.prototype.ApplyKnockbackToEntity = function(entity, attackerPos, targetPos, forceMagnitude)
+{
+	if (forceMagnitude <= 0)
+		return;
+
+	const cmpImpulseQueue = Engine.QueryInterface(SYSTEM_ENTITY, IID_ImpulseQueue);
+	if (!cmpImpulseQueue)
+		return;
+
+	// Calculate direction
+	const dx = targetPos.x - attackerPos.x;
+	const dz = targetPos.z - attackerPos.z;
+	const len = Math.sqrt(dx*dx + dz*dz);
+
+	if (len < 0.001)
+		return;
+
+	// The impulse queue divides the impulse by the target's weight into a velocity change.
+	const forceX = dx / len * forceMagnitude;
+	const forceZ = dz / len * forceMagnitude;
+	const pressure = Math.min(255, Math.floor(forceMagnitude));
+
+	cmpImpulseQueue.AddWeightDampedImpulse(entity, forceX, forceZ, pressure);
 };
 
 /**

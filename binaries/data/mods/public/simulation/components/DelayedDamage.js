@@ -41,6 +41,25 @@ DelayedDamage.prototype.Hit = function(data, lateness)
 	if (data.attackImpactSound)
 		Engine.QueryInterface(SYSTEM_ENTITY, IID_SoundManager).PlaySoundGroupAtPosition(data.attackImpactSound, data.position);
 
+	// Get attacker position for knockback calculations
+	let attackerPos = data.attackerPos;
+	if (!attackerPos)
+	{
+		const cmpAttackerPos = Engine.QueryInterface(data.attacker, IID_Position);
+		if (cmpAttackerPos && cmpAttackerPos.IsInWorld())
+			attackerPos = cmpAttackerPos.GetPosition();
+	}
+
+	const attackData = {
+		"type": data.type,
+		"attackData": data.attackData,
+		"attacker": data.attacker,
+		"attackerOwner": data.attackerOwner,
+		"knockbackForce": data.knockbackForce,
+		"attackerPos": attackerPos,
+		"targetPos": data.targetPos
+	};
+
 	if (data.splash)
 		AttackHelper.CauseDamageOverArea({
 			"type": data.type,
@@ -51,7 +70,9 @@ DelayedDamage.prototype.Hit = function(data, lateness)
 			"radius": data.splash.radius,
 			"shape": data.splash.shape,
 			"direction": data.direction,
-			"friendlyFire": data.splash.friendlyFire
+			"friendlyFire": data.splash.friendlyFire,
+			"knockbackForce": data.splash.knockbackForce,
+			"attackerPos": attackerPos
 		});
 
 	// Since we can't damage mirages, replace a miraged target by the real target.
@@ -62,7 +83,7 @@ DelayedDamage.prototype.Hit = function(data, lateness)
 
 	if (!data.projectileId)
 	{
-		AttackHelper.HandleAttackEffects(target, data);
+		AttackHelper.HandleAttackEffects(target, attackData);
 		return;
 	}
 
@@ -71,7 +92,7 @@ DelayedDamage.prototype.Hit = function(data, lateness)
 	// Deal direct damage if we hit the main target
 	// and we could handle the attack.
 	if (PositionHelper.TestCollision(target, data.position, lateness) &&
-		AttackHelper.HandleAttackEffects(target, data))
+		AttackHelper.HandleAttackEffects(target, attackData))
 	{
 		cmpProjectileManager.RemoveProjectile(data.projectileId);
 		return;
@@ -84,7 +105,7 @@ DelayedDamage.prototype.Hit = function(data, lateness)
 	for (const ent of ents)
 	{
 		if (!PositionHelper.TestCollision(ent, data.position, lateness) ||
-			!AttackHelper.HandleAttackEffects(ent, data))
+			!AttackHelper.HandleAttackEffects(ent, attackData))
 			continue;
 
 		cmpProjectileManager.RemoveProjectile(data.projectileId);

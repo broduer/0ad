@@ -19,9 +19,11 @@
 
 #include "simulation2/components/ICmpImpulseQueue.h"
 
+#include "simulation2/components/ICmpPhysicalBody.h"
 #include "simulation2/serialization/SerializeTemplates.h"
 #include "simulation2/system/Component.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <vector>
 
@@ -40,6 +42,7 @@ public:
 
     void AddImpulse(const ImpulseRequest& request) override;
     void AddImpulses(const std::vector<ImpulseRequest>& requests) override;
+    void AddWeightDampedImpulse(entity_id_t target, entity_pos_t impulseX, entity_pos_t impulseY, uint8_t pressureIncrease) override;
     std::vector<ImpulseRequest> ConsumeImpulses() override;
 
     static std::string GetSchema() {
@@ -83,6 +86,8 @@ void CCmpImpulseQueue::Serialize(ISerializer& serialize)
         serialize.NumberU32_Unbounded("target", req.target);
         serialize.NumberFixed_Unbounded("force_x", req.force.X);
         serialize.NumberFixed_Unbounded("force_y", req.force.Y);
+        serialize.NumberFixed_Unbounded("velocity_change_x", req.velocityChange.X);
+        serialize.NumberFixed_Unbounded("velocity_change_y", req.velocityChange.Y);
         serialize.NumberU8_Unbounded("pressure", req.pressureIncrease);
     }
 }
@@ -103,6 +108,8 @@ void CCmpImpulseQueue::Deserialize(const CParamNode& paramNode, IDeserializer& d
         deserialize.NumberU32_Unbounded("target", req.target);
         deserialize.NumberFixed_Unbounded("force_x", req.force.X);
         deserialize.NumberFixed_Unbounded("force_y", req.force.Y);
+        deserialize.NumberFixed_Unbounded("velocity_change_x", req.velocityChange.X);
+        deserialize.NumberFixed_Unbounded("velocity_change_y", req.velocityChange.Y);
         deserialize.NumberU8_Unbounded("pressure", req.pressureIncrease);
         m_PendingImpulses.push_back(req);
     }
@@ -116,6 +123,24 @@ void CCmpImpulseQueue::AddImpulse(const ImpulseRequest& request)
 void CCmpImpulseQueue::AddImpulses(const std::vector<ImpulseRequest>& requests)
 {
     m_PendingImpulses.insert(m_PendingImpulses.end(), requests.begin(), requests.end());
+}
+
+void CCmpImpulseQueue::AddWeightDampedImpulse(entity_id_t target, entity_pos_t impulseX, entity_pos_t impulseY, uint8_t pressureIncrease)
+{
+    ImpulseRequest request{target, CFixedVector2D{}, pressureIncrease};
+    request.velocityChange = CFixedVector2D{impulseX, impulseY};
+
+    // Heavier units get less knockback, and less pressure. Units lighter than 1 don't get more pressure than given.
+    CmpPtr<ICmpPhysicalBody> cmpPhysicalBody(GetSimContext(), target);
+    const entity_pos_t targetWeight{cmpPhysicalBody ? cmpPhysicalBody->GetWeight() : entity_pos_t::Zero()};
+    if (targetWeight > entity_pos_t::Zero())
+    {
+        request.velocityChange = CFixedVector2D{impulseX / targetWeight, impulseY / targetWeight};
+        if (targetWeight > fixed::FromInt(1))
+            request.pressureIncrease = static_cast<uint8_t>((fixed::FromInt(pressureIncrease) / targetWeight).ToInt_RoundToZero());
+    }
+
+    AddImpulse(request);
 }
 
 std::vector<ImpulseRequest> CCmpImpulseQueue::ConsumeImpulses()

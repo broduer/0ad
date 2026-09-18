@@ -20,4 +20,5 @@
 #include "simulation2/system/InterfaceScripted.h"
 
 BEGIN_INTERFACE_WRAPPER(ImpulseQueue)
+DEFINE_INTERFACE_METHOD("AddWeightDampedImpulse", ICmpImpulseQueue, AddWeightDampedImpulse)
 END_INTERFACE_WRAPPER(ImpulseQueue)

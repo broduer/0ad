@@ -338,6 +338,7 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 		{
 			// Before the in-world check below: a unit leaving the world mustn't keep last turn's force.
 			it->second.impulseForce = CFixedVector2D{};
+			it->second.impulseVelocity = CFixedVector2D{};
 			it->second.impulsePressure = 0;
 
 			if (!it->second.cmpPosition->IsInWorld())
@@ -438,6 +439,7 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 
 			MotionState& target{it->second};
 			target.impulseForce += force.force;
+			target.impulseVelocity += force.velocityChange;
 			target.impulsePressure = static_cast<uint8_t>(std::min<int>(PushConfig::MAX_PRESSURE,
 				target.impulsePressure + force.pressureIncrease));
 		}
@@ -455,8 +457,11 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 
 		for (MotionState* const state : motionStates)
 		{
+			// The thresholds are displacements: count a velocity change as the distance it moves the unit in
+			// IMPACT_REFERENCE_TIME, so the same hit wakes the unit at any turn length.
+			const CFixedVector2D impulse{state->impulseForce + state->impulseVelocity.Multiply(PushConfig::IMPACT_REFERENCE_TIME)};
 			const bool hasPressure{state->impulsePressure > 0};
-			const bool hasSignificantForce{state->impulseForce.CompareLength(cfg.minimalPushing) > 0};
+			const bool hasSignificantForce{impulse.CompareLength(cfg.minimalPushing) > 0};
 
 			// Apply pressure first
 			if (hasPressure && state->cmpPhysicalBody)
@@ -468,7 +473,7 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			if (hasSignificantForce && !state->needUpdate)
 			{
 				const entity_pos_t MIN_FORCE_TO_WAKE{entity_pos_t::FromFraction(1, 10)};
-				if (state->impulseForce.Length() > MIN_FORCE_TO_WAKE)
+				if (impulse.Length() > MIN_FORCE_TO_WAKE)
 				{
 					state->needUpdate = true;
 					state->pos = state->initialPos;
@@ -485,11 +490,12 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			const uint8_t currentPressure{state->cmpPhysicalBody->GetPressure()};
 			const uint8_t dampingCap{std::min<uint8_t>(PushConfig::MAX_PUSH_DAMPING_PRESSURE, currentPressure)};
 			const fixed damping{entity_pos_t::FromInt(PushConfig::MAX_PRESSURE - dampingCap) / PushConfig::MAX_PRESSURE};
-			const CFixedVector2D dampedForce{state->impulseForce.Multiply(damping)};
 
-			// Queued impulses are per-turn displacements (weight ratio and dt already applied in
-			// UnitCollision::ComputePairPush), so convert to a velocity for PerformMove.
-			const CFixedVector2D externalVelocity{dampedForce.Multiply(fixed::FromInt(1) / dt)};
+			// Collision pushes are displacements for this turn (weight ratio and dt already applied in
+			// UnitCollision::ComputePairPush), so they become a velocity over dt. Knockback is a velocity change.
+			// PerformMove carries both on as external momentum, decaying by Drifting.
+			const CFixedVector2D externalVelocity{
+				(state->impulseForce.Multiply(fixed::FromInt(1) / dt) + state->impulseVelocity).Multiply(damping)};
 
 			// Ignore negligible velocities
 			if (externalVelocity.CompareLength(entity_pos_t::FromFraction(1, 100)) >= 0)

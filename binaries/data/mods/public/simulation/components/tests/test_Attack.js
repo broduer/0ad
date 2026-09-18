@@ -335,6 +335,7 @@ attackComponentTest(undefined, true, (attacker, cmpAttack, defender) =>
 				}
 			}
 		},
+		"knockbackForce": 0,
 		"friendlyFire": false,
 		"radius": 10,
 		"shape": "Circular"

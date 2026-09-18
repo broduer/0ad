@@ -82,9 +82,10 @@ struct MotionState
 
 	// Clone of the obstruction manager flag for efficiency
 	bool isMoving = false;
-	// What this turn's queued impulses (collision pushes) add up to, accumulated as they are
+	// What this turn's queued impulses (collision pushes, knockback) add up to, accumulated as they are
 	// consumed and applied further down the same update. Transient, so not serialized: the queue is drained every turn.
-	CFixedVector2D impulseForce;
+	CFixedVector2D impulseForce;     // Displacement for this turn
+	CFixedVector2D impulseVelocity;  // Velocity change
 	uint8_t impulsePressure = 0;
 
 	CFixedVector2D inertiaVelocity;         // Our own momentum (last turn's movement minus the external part); steers our facing

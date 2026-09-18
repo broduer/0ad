@@ -25,8 +25,8 @@
 #include <vector>
 
 /**
- * A one-turn kick queued for a unit: a linear displacement for this turn and pressure.
- * Collected from various sources (collision pushes...) and consumed in a coordinated
+ * A kick queued for a unit: a linear displacement for this turn, a velocity change and pressure.
+ * Collected from various sources (collision pushes, knockback...) and consumed in a coordinated
  * phase during UnitMotionManager::Move.
  */
 struct ImpulseRequest
@@ -36,7 +36,8 @@ struct ImpulseRequest
 		: target{t}, force{f}, pressureIncrease{p} {}
 
 	entity_id_t target{INVALID_ENTITY};
-	CFixedVector2D force;
+	CFixedVector2D force;          // Displacement this turn only (collision pushes)
+	CFixedVector2D velocityChange; // Added to the unit's velocity (m/s), which then carries on as momentum (hits)
 	uint8_t pressureIncrease{0};
 };
 
@@ -47,6 +48,10 @@ public:
 
     virtual void AddImpulse(const ImpulseRequest& request) = 0;
     virtual void AddImpulses(const std::vector<ImpulseRequest>& requests) = 0;
+
+    // JS-exposed method(s)
+    // Push the target as a hit: the impulse, divided by the target's weight, is a velocity change in m/s.
+    virtual void AddWeightDampedImpulse(entity_id_t target, entity_pos_t impulseX, entity_pos_t impulseY, uint8_t pressureIncrease) = 0;
 
     virtual std::vector<ImpulseRequest> ConsumeImpulses() = 0;
 };
