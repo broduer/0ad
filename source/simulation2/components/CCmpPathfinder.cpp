@@ -1006,6 +1006,17 @@ bool CCmpPathfinder::CheckMovement(const IObstructionTestFilter& filter,
 	return Pathfinding::CheckLineMovement(x0, z0, x1, z1, passClass, *m_TerrainOnlyGrid);
 }
 
+bool CCmpPathfinder::CheckStaticMovement(const IObstructionTestFilter& filter,
+	entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, entity_pos_t r,
+	pass_class_t passClass) const
+{
+	CmpPtr<ICmpObstructionManager> cmpObstructionManager(GetSystemEntity());
+	if (!cmpObstructionManager || cmpObstructionManager->TestStaticLine(filter, x0, z0, x1, z1, r))
+		return false;
+
+	return Pathfinding::CheckLineMovement(x0, z0, x1, z1, passClass, *m_TerrainOnlyGrid);
+}
+
 ICmpObstruction::EFoundationCheck CCmpPathfinder::CheckUnitPlacement(const IObstructionTestFilter& filter,
 	entity_pos_t x, entity_pos_t z, entity_pos_t r,	pass_class_t passClass,
 	bool /*onlyCenterPoint*/) const

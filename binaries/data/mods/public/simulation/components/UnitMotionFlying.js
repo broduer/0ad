@@ -350,16 +350,6 @@ UnitMotionFlying.prototype.GetSpeedMultiplier = function()
 	return this.speed / +this.template.MaxSpeed;
 };
 
-UnitMotionFlying.prototype.GetAcceleration = function()
-{
-	return +this.template.AccelRate;
-};
-
-UnitMotionFlying.prototype.SetAcceleration = function()
-{
-	// Acceleration is set by the template. Ignore.
-};
-
 UnitMotionFlying.prototype.GetPassabilityClassName = function()
 {
 	return this.passabilityClassName ? this.passabilityClassName : this.template.PassabilityClass;
@@ -371,6 +361,21 @@ UnitMotionFlying.prototype.SetPassabilityClassName = function(passClassName)
 	const cmpPathfinder = Engine.QueryInterface(SYSTEM_ENTITY, IID_Pathfinder);
 	if (cmpPathfinder)
 		this.passabilityClass = cmpPathfinder.GetPassabilityClass(passClassName);
+};
+
+// Flying units don't use the ground motion handling parameters: report neutral values and ignore changes.
+UnitMotionFlying.prototype.GetInertia = function()
+{
+	return 0;
+};
+
+UnitMotionFlying.prototype.GetDrifting = function()
+{
+	return 0;
+};
+
+UnitMotionFlying.prototype.SetFormationMotionParameters = function()
+{
 };
 
 UnitMotionFlying.prototype.GetPassabilityClass = function()

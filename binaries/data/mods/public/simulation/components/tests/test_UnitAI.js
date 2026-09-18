@@ -99,7 +99,6 @@ TestTargetEntityRenaming(
 			"MoveToTargetRange": () => true,
 			"GetRunMultiplier": () => 1,
 			"SetSpeedMultiplier": () => {},
-			"GetAcceleration": () => 1,
 			"StopMoving": () => {}
 		});
 
@@ -176,7 +175,6 @@ function TestFormationExiting(mode)
 
 	AddMock(unit, IID_UnitMotion, {
 		"GetWalkSpeed": () => 1,
-		"GetAcceleration": () => 1,
 		"SetSpeedMultiplier": () => {},
 		"MoveToFormationOffset": (target, x, z) => {},
 		"MoveToTargetRange": (target, min, max) => true,
@@ -185,7 +183,10 @@ function TestFormationExiting(mode)
 		"StopMoving": () => {},
 		"SetFacePointAfterMove": () => {},
 		"GetFacePointAfterMove": () => true,
-		"GetPassabilityClassName": () => "default"
+		"GetPassabilityClassName": () => "default",
+		"GetInertia": () => 0,
+		"GetDrifting": () => 0,
+		"SetFormationMotionParameters": () => {}
 	});
 
 	AddMock(unit, IID_Vision, {
@@ -254,12 +255,14 @@ function TestFormationExiting(mode)
 		"GetWalkSpeed": () => 1,
 		"StopMoving": () => {},
 		"SetSpeedMultiplier": () => {},
-		"SetAcceleration": (accel) => {},
 		"SetPassabilityClassName": (name) => {},
 		"MoveToPointRange": () => true,
 		"SetFacePointAfterMove": () => {},
 		"GetFacePointAfterMove": () => true,
-		"GetPassabilityClassName": () => "default"
+		"GetPassabilityClassName": () => "default",
+		"GetInertia": () => 0,
+		"GetDrifting": () => 0,
+		"SetFormationMotionParameters": () => {}
 	});
 
 	AddMock(SYSTEM_ENTITY, IID_Pathfinder, {
@@ -370,16 +373,19 @@ function TestMoveIntoFormationWhileAttacking()
 
 		AddMock(unit + i, IID_UnitMotion, {
 			"GetWalkSpeed": () => 1,
-			"GetAcceleration": () => 1,
 			"SetSpeedMultiplier": () => {},
 			"MoveToFormationOffset": (target, x, z) => {},
 			"MoveToTargetRange": (target, min, max) => true,
 			"PossiblyAtDestination": () => false,
 			"SetMemberOfFormation": () => {},
 			"StopMoving": () => {},
+			"FaceTowardsPoint": () => {},
 			"SetFacePointAfterMove": () => {},
 			"GetFacePointAfterMove": () => true,
-			"GetPassabilityClassName": () => "default"
+			"GetPassabilityClassName": () => "default",
+			"GetInertia": () => 0,
+			"GetDrifting": () => 0,
+			"SetFormationMotionParameters": () => {}
 		});
 
 		AddMock(unit + i, IID_Vision, {
@@ -447,13 +453,15 @@ function TestMoveIntoFormationWhileAttacking()
 	AddMock(controller, IID_UnitMotion, {
 		"GetWalkSpeed": () => 1,
 		"SetSpeedMultiplier": (speed) => {},
-		"SetAcceleration": (accel) => {},
 		"SetPassabilityClassName": (name) => {},
 		"MoveToPointRange": (x, z, minRange, maxRange) => {},
 		"StopMoving": () => {},
 		"SetFacePointAfterMove": () => {},
 		"GetFacePointAfterMove": () => true,
-		"GetPassabilityClassName": () => "default"
+		"GetPassabilityClassName": () => "default",
+		"GetInertia": () => 0,
+		"GetDrifting": () => 0,
+		"SetFormationMotionParameters": () => {}
 	});
 
 	AddMock(SYSTEM_ENTITY, IID_Pathfinder, {
@@ -644,16 +652,17 @@ function TestAttemptObstructionMitigation()
 
 	AddMock(controllerID, IID_UnitMotion, {
 		"GetWalkSpeed": () => 1,
-		"GetAcceleration": () => 1,
 		"StopMoving": () => {},
 		"MoveToTargetRange": () => true,
 		"MoveToPointRange": () => true,
 		"SetSpeedMultiplier": () => {},
-		"SetAcceleration": () => {},
 		"SetPassabilityClassName": () => {},
 		"SetFacePointAfterMove": () => {},
 		"GetFacePointAfterMove": () => true,
 		"GetPassabilityClassName": () => "default",
+		"GetInertia": () => 0,
+		"GetDrifting": () => 0,
+		"SetFormationMotionParameters": () => {},
 		"SetMemberOfFormation": () => {},
 		"FaceTowardsPoint": () => {}
 	});

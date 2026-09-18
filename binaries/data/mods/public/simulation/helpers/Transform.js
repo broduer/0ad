@@ -80,8 +80,6 @@ function ChangeEntityTemplate(oldEnt, newTemplate)
 		const currentSpeed = cmpUnitMotion.GetCurrentSpeed();
 		cmpNewUnitMotion.SetCurrentSpeed(currentSpeed);
 
-		const acceleration = cmpUnitMotion.GetAcceleration();
-		cmpNewUnitMotion.SetAcceleration(acceleration);
 		if (cmpOldUnitAI)
 		{
 			const formationControllerID = cmpOldUnitAI.GetFormationController();

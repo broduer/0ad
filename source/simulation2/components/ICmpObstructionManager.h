@@ -257,6 +257,21 @@ public:
 	virtual bool TestUnitLine(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, entity_pos_t r, bool relaxClearanceForUnits) const = 0;
 
 	/**
+	 * Collision test a flat-ended thick line against the current set of static shapes
+	 * (buildings, walls, trees...). Unit shapes are not tested.
+	 * The line caps extend by @p r beyond the end points.
+	 * Only intersections going from outside to inside a shape are counted.
+	 * @param filter filter to restrict the shapes that are counted
+	 * @param x0 X coordinate of line's first point
+	 * @param z0 Z coordinate of line's first point
+	 * @param x1 X coordinate of line's second point
+	 * @param z1 Z coordinate of line's second point
+	 * @param r radius (half width) of line
+	 * @return true if there is a collision
+	 */
+	virtual bool TestStaticLine(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, entity_pos_t r) const = 0;
+
+	/**
 	 * Collision test a static square shape against the current set of shapes.
 	 * @param filter filter to restrict the shapes that are being tested against
 	 * @param x X coordinate of center

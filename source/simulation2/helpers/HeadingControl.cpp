@@ -1,0 +1,91 @@
+/* Copyright (C) 2026 Wildfire Games.
+ * This file is part of 0 A.D.
+ *
+ * 0 A.D. is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * 0 A.D. is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include "precompiled.h"
+#include "HeadingControl.h"
+
+#include "maths/MathUtil.h"
+
+#include <algorithm>
+
+namespace
+{
+/**
+ * The largest value whose square still fits an entity_angle_t (15 integer bits). Far above any real turn rate;
+ * only keeps a squared comparison in range.
+ */
+constexpr entity_angle_t SQUARABLE_LIMIT = entity_angle_t::FromInt(181);
+}
+
+entity_angle_t HeadingControl::PathFacingAngle(const entity_angle_t waypointAngle, const CFixedVector2D& facingVelocity,
+	const fixed movementWeight)
+{
+	if (movementWeight <= fixed::Zero() || facingVelocity.IsZero())
+		return waypointAngle;
+
+	const entity_angle_t facingAngle{atan2_approx(facingVelocity.X, facingVelocity.Y)};
+	return waypointAngle + WrapAngle(facingAngle - waypointAngle).Multiply(movementWeight);
+}
+
+bool HeadingControl::TurnWithMomentum(entity_angle_t& angle, fixed& angularVelocity, entity_angle_t targetAngle,
+	const fixed maxRate, const fixed accel, const fixed dt)
+{
+	// The target may be past PI (e.g. a blended heading); angle is normalized, so it must be too for the two to
+	// ever be equal.
+	targetAngle = NormalizeAngle(targetAngle);
+
+	const fixed angleDiff{WrapAngle(targetAngle - angle)};
+	const fixed absAngleDiff{angleDiff.Absolute()};
+
+	// How fast we can be turning and still stop on the target, braking by a·dt per turn: the fastest speed from which
+	// the remaining whole steps (v, v - a·dt, ..., a·dt) still stop within the angle left θ. With s = a·dt, that is
+	//     s·(sqrt(1/4 + 2θ/(s·dt)) - 1/2)
+	// which rearranges to
+	//     sqrt(s²/4 + 2·a·θ) - s/2
+	// with no division, so no overflow for tiny accelerations. The continuous-time sqrt(2·a·θ) would keep a unit
+	// turning fast right up to the target, then stop it dead in one turn.
+	const fixed maxStep{accel.Multiply(dt)};
+	const fixed radicand{maxStep.Multiply(maxStep) / 4 + accel.Multiply(absAngleDiff) * 2};
+
+	// Far from the target, the speed is capped at maxRate anyway, so skip the square root there. The cap wins when
+	//     sqrt(radicand) - s/2 >= maxRate, i.e. radicand >= (maxRate + s/2)²
+	const fixed capThreshold{maxRate + maxStep / 2};
+	const bool capWins{capThreshold < SQUARABLE_LIMIT && radicand >= capThreshold.Multiply(capThreshold)};
+
+	// Turn as fast as we can while still able to stop on the target.
+	const fixed desiredVelocity{capWins ? maxRate :
+		std::min(maxRate, std::max(fixed::Zero(), radicand.Sqrt() - maxStep / 2))};
+
+	// Speed up or slow down towards it by at most maxStep per turn. maxRate can drop between calls (e.g. while
+	// staggered), so the result is clamped to it too: a spin faster than that is cut at once.
+	const fixed targetVelocity{angleDiff > fixed::Zero() ? desiredVelocity : -desiredVelocity};
+	angularVelocity = Clamp(angularVelocity + Clamp(targetVelocity - angularVelocity, -maxStep, maxStep), -maxRate, maxRate);
+
+	// Land on the target and stop if this step would reach or pass it while turning towards it.
+	const fixed rotation{angularVelocity.Multiply(dt)};
+	if (absAngleDiff <= rotation.Absolute() && (rotation > fixed::Zero()) == (angleDiff > fixed::Zero()))
+	{
+		angle = targetAngle;
+		angularVelocity = fixed::Zero();
+	}
+	else
+		angle = angle + rotation;
+
+	angle = NormalizeAngle(angle);
+
+	return angle == targetAngle && angularVelocity.IsZero();
+}

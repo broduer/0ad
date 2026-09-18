@@ -98,11 +98,6 @@ private:
 	void MoveFormations(fixed dt);
 	void Move(EntityMap<MotionState>& ents, fixed dt);
 
-	/**
-	 * Move a unit by the push it received this turn, unless that crosses an obstruction.
-	 */
-	void ApplyPush(MotionState& state, CmpPtr<ICmpPathfinder> cmpPathfinder);
-
 	// Debug rendering, only defined when DEBUG_RENDER is enabled in CCmpUnitMotion_System.cpp.
 	void RenderForceVector(const MotionState& state,
 						const CFixedVector2D& force,

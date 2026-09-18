@@ -110,11 +110,11 @@ public:
 
 	// Not serialized:
 	AnchorType m_ActorAnchorType;
-	float m_InterpolatedRotX, m_InterpolatedRotY, m_InterpolatedRotZ;
+	float m_InterpolatedRotX, m_InterpolatedRotZ;
 	float m_LastInterpolatedRotX, m_LastInterpolatedRotZ;
 	bool m_ActorFloating;
 
-	bool m_EnabledMessageInterpolate;
+	entity_angle_t m_LastRotY;
 
 	static std::string GetSchema()
 	{
@@ -165,15 +165,14 @@ public:
 		m_RotYSpeed = paramNode.GetChild("TurnRate").ToFixed();
 
 		m_RotX = m_RotY = m_RotZ = entity_angle_t::FromInt(0);
-		m_InterpolatedRotX = m_InterpolatedRotY = m_InterpolatedRotZ = 0.f;
+		m_LastRotY = m_RotY;
+		m_InterpolatedRotX = m_InterpolatedRotZ = 0.f;
 		m_LastInterpolatedRotX = m_LastInterpolatedRotZ = 0.f;
 
 		m_TurretParent = INVALID_ENTITY;
 		m_TurretPosition = CFixedVector3D();
 
 		m_ActorFloating = false;
-
-		m_EnabledMessageInterpolate = false;
 	}
 
 	void Deinit() override
@@ -263,7 +262,7 @@ public:
 		deserialize.NumberFixed_Unbounded("constructionprogress", m_ConstructionProgress);
 		// TODO: should there be range checks on all these values?
 
-		m_InterpolatedRotY = m_RotY.ToFloat();
+		m_LastRotY = m_RotY;
 
 		deserialize.NumberU32_Unbounded("turret parent", m_TurretParent);
 		if (m_TurretParent != INVALID_ENTITY)
@@ -276,8 +275,6 @@ public:
 
 		if (m_InWorld)
 			UpdateXZRotation();
-
-		UpdateMessageSubscriptions();
 	}
 
 	void Deserialized()
@@ -574,7 +571,6 @@ public:
 		m_RotY = y;
 
 		AdvertisePositionChanges();
-		UpdateMessageSubscriptions();
 	}
 
 	void SetYRotation(entity_angle_t y) override
@@ -586,7 +582,7 @@ public:
 				y -= cmpPosition->GetRotation().Y;
 		}
 		m_RotY = y;
-		m_InterpolatedRotY = m_RotY.ToFloat();
+		m_LastRotY = y;
 
 		if (m_InWorld)
 		{
@@ -597,7 +593,6 @@ public:
 		}
 
 		AdvertisePositionChanges();
-		UpdateMessageSubscriptions();
 	}
 
 	void SetXZRotation(entity_angle_t x, entity_angle_t z) override
@@ -678,7 +673,17 @@ public:
 		x = Interpolate(m_LastX.ToFloat(), m_X.ToFloat(), frameOffset);
 		z = Interpolate(m_LastZ.ToFloat(), m_Z.ToFloat(), frameOffset);
 
-		rotY = m_InterpolatedRotY;
+		// The rotation is interpolated over the turn like the position, with the same frameOffset:
+		// the turning itself is simulated (UnitMotion), so the rendered rotation follows the rendered movement.
+		float lastRotY = m_LastRotY.ToFloat();
+		float currentRotY = m_RotY.ToFloat();
+
+		// Wrap the difference to -PI..PI
+		float delta = currentRotY - lastRotY;
+		if (delta > std::numbers::pi_v<float>) delta -= 2 * std::numbers::pi_v<float>;
+		else if (delta < -std::numbers::pi_v<float>) delta += 2 * std::numbers::pi_v<float>;
+
+		rotY = lastRotY + delta * frameOffset;
 	}
 
 	CMatrix3D GetInterpolatedTransform(float frameOffset) const override
@@ -704,7 +709,7 @@ public:
 			{
 				CMatrix3D parentTransformMatrix = cmpPosition->GetInterpolatedTransform(frameOffset);
 				CMatrix3D ownTransformation = CMatrix3D();
-				ownTransformation.SetYRotation(m_InterpolatedRotY);
+				ownTransformation.SetYRotation(m_RotY.ToFloat());
 				ownTransformation.Translate(-m_TurretPosition.X.ToFloat(), m_TurretPosition.Y.ToFloat(), -m_TurretPosition.Z.ToFloat());
 				return parentTransformMatrix * ownTransformation;
 			}
@@ -740,16 +745,19 @@ public:
 
 		CMatrix3D m;
 
-		// linear interpolation is good enough (for RotX/Z).
-		// As you always stay close to zero angle.
+		// Apply terrain pitch (X rotation)
 		m.SetXRotation(Interpolate(m_LastInterpolatedRotX, m_InterpolatedRotX, frameOffset));
+
+		// Apply terrain roll (Z rotation)
 		m.RotateZ(Interpolate(m_LastInterpolatedRotZ, m_InterpolatedRotZ, frameOffset));
 
 		CVector3D pos(x, y, z);
-
 		pos.Y += GetConstructionProgressOffset(pos);
 
+		// Apply Y rotation (yaw) - this rotates the unit to face its direction
 		m.RotateY(rotY + std::numbers::pi_v<float>);
+
+		// Translate to final position
 		m.Translate(pos);
 
 		return m;
@@ -797,49 +805,14 @@ public:
 	{
 		switch (msg.GetType())
 		{
-		case MT_Interpolate:
-		{
-			PROFILE("Position::Interpolate");
-
-			const CMessageInterpolate& msgData = static_cast<const CMessageInterpolate&> (msg);
-
-			float rotY = m_RotY.ToFloat();
-
-			if (rotY != m_InterpolatedRotY)
-			{
-				float rotYSpeed = m_RotYSpeed.ToFloat();
-				float delta = rotY - m_InterpolatedRotY;
-				// Wrap delta to -PI..PI
-				delta = fmodf(delta + std::numbers::pi_v<float>, 2.f * std::numbers::pi_v<float>); // range -2PI..2PI
-				if (delta < 0) delta += 2.f * std::numbers::pi_v<float>; // range 0..2PI
-				delta -= std::numbers::pi_v<float>; // range -PI..PI
-				// Clamp to max rate
-				float deltaClamped = Clamp(delta, -rotYSpeed*msgData.deltaSimTime, +rotYSpeed*msgData.deltaSimTime);
-				// Calculate new orientation, in a peculiar way in order to make sure the
-				// result gets close to m_orientation (rather than being n*2*PI out)
-				m_InterpolatedRotY = rotY + deltaClamped - delta;
-
-				// update the visual XZ rotation
-				if (m_InWorld)
-				{
-					m_LastInterpolatedRotX = m_InterpolatedRotX;
-					m_LastInterpolatedRotZ = m_InterpolatedRotZ;
-
-					UpdateXZRotation();
-				}
-
-				UpdateMessageSubscriptions();
-			}
-
-			break;
-		}
 		case MT_TurnStart:
 		{
-
+			// Store the current interpolated values as "last" for the next turn
 			m_LastInterpolatedRotX = m_InterpolatedRotX;
 			m_LastInterpolatedRotZ = m_InterpolatedRotZ;
 
-			if (m_InWorld && (m_LastX != m_X || m_LastZ != m_Z))
+			// Also on a turn in place: the terrain's pitch and roll depend on the heading.
+			if (m_InWorld && (m_LastX != m_X || m_LastZ != m_Z || m_LastRotY != m_RotY))
 				UpdateXZRotation();
 
 			// Store the positions from the turn before
@@ -848,6 +821,7 @@ public:
 
 			m_LastX = m_X;
 			m_LastZ = m_Z;
+			m_LastRotY = m_RotY;
 			m_LastYDifference = entity_pos_t::Zero();
 
 			break;
@@ -877,25 +851,6 @@ private:
 		if (anchor == "pitch-roll")
 			return AnchorType::PITCH_ROLL;
 		return AnchorType::UPRIGHT;
-	}
-
-	/*
-	 * Must be called whenever m_RotY or m_InterpolatedRotY change,
-	 * to determine whether we need to call Interpolate to make the unit rotate.
-	 */
-	void UpdateMessageSubscriptions()
-	{
-		bool needInterpolate = false;
-
-		float rotY = m_RotY.ToFloat();
-		if (rotY != m_InterpolatedRotY)
-			needInterpolate = true;
-
-		if (needInterpolate != m_EnabledMessageInterpolate)
-		{
-			GetSimContext().GetComponentManager().DynamicSubscriptionNonsync(MT_Interpolate, this, needInterpolate);
-			m_EnabledMessageInterpolate = needInterpolate;
-		}
 	}
 
 	/**
@@ -981,7 +936,7 @@ private:
 
 		// rotate the normal so the positive x direction is in the direction of the unit
 		CVector2D projected = CVector2D(normal.X, normal.Z);
-		projected.Rotate(m_InterpolatedRotY);
+		projected.Rotate(m_RotY.ToFloat());
 
 		normal.X = projected.X;
 		normal.Z = projected.Y;

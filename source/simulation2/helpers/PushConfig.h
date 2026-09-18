@@ -23,6 +23,8 @@
 #include "simulation2/system/ParamNode.h"
 #include "simulation2/helpers/Position.h"
 
+#include <algorithm>
+
 class PushConfig
 {
 public:
@@ -80,6 +82,33 @@ public:
 	 */
 	static constexpr entity_pos_t PRESSURE_STATIC_FACTOR = entity_pos_t::FromInt(2);
 	static constexpr int PRESSURE_DISTANCE_FACTOR = 5;
+
+	// Seconds that decay factors (e.g. Drifting) are defined over, so the effects last as long at any turn length.
+	// 0.2 s is the single player turn length the effects were tuned at.
+	static constexpr fixed IMPACT_REFERENCE_TIME = fixed::FromFraction(1, 5);
+
+	/**
+	 * How much is left of something that keeps keepPerReference of itself every 0.2 s (IMPACT_REFERENCE_TIME),
+	 * after dt seconds. This is what makes a factor like Drifting take the same time whatever the turn length.
+	 * Fixed point can't raise to a fractional power deterministically, so dt is taken in whole 0.2 s steps, each
+	 * applied exactly, and the remainder in a straight line: exact at 200 ms turns, off by about 0.1% at 500 ms.
+	 */
+	static fixed DecayFactor(const fixed keepPerReference, const fixed dt)
+	{
+		if (dt <= fixed::Zero())
+			return fixed::FromInt(1);
+
+		const fixed keep{std::max(keepPerReference, fixed::Zero())};
+		fixed factor{fixed::FromInt(1)};
+		fixed remaining{dt};
+		while (remaining >= IMPACT_REFERENCE_TIME && factor > fixed::Zero())
+		{
+			factor = factor.Multiply(keep);
+			remaining -= IMPACT_REFERENCE_TIME;
+		}
+		const fixed partialKeep{std::max(fixed::FromInt(1) - (fixed::FromInt(1) - keep).Multiply(remaining / IMPACT_REFERENCE_TIME), fixed::Zero())};
+		return factor.Multiply(partialKeep);
+	}
 
 	struct RuntimeConfig
 	{

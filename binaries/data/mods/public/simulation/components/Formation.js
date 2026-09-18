@@ -935,9 +935,11 @@ Formation.prototype.ComputeMotionParameters = function()
 		return;
 
 	let minSpeed = Infinity;
-	let minAcceleration = Infinity;
 	let maxClearance = 0;
 	let maxPassClass = "default";
+	// The controller handles like its least agile member, so every member can keep its slot.
+	let maxInertia = 0;
+	let maxDrifting = 0;
 
 	const cmpPathfinder = Engine.QueryInterface(SYSTEM_ENTITY, IID_Pathfinder);
 	for (const ent of this.members)
@@ -946,7 +948,8 @@ Formation.prototype.ComputeMotionParameters = function()
 		if (!cmpUnitMotion)
 			continue;
 		minSpeed = Math.min(minSpeed, cmpUnitMotion.GetWalkSpeed());
-		minAcceleration = Math.min(minAcceleration, cmpUnitMotion.GetAcceleration());
+		maxInertia = Math.max(maxInertia, cmpUnitMotion.GetInertia());
+		maxDrifting = Math.max(maxDrifting, cmpUnitMotion.GetDrifting());
 
 		const passClass = cmpUnitMotion.GetPassabilityClassName();
 		const clearance = cmpPathfinder.GetClearance(cmpPathfinder.GetPassabilityClass(passClass));
@@ -960,8 +963,8 @@ Formation.prototype.ComputeMotionParameters = function()
 
 	const cmpUnitMotion = Engine.QueryInterface(this.entity, IID_UnitMotion);
 	cmpUnitMotion.SetSpeedMultiplier(minSpeed / cmpUnitMotion.GetWalkSpeed());
-	cmpUnitMotion.SetAcceleration(minAcceleration);
 	cmpUnitMotion.SetPassabilityClassName(maxPassClass);
+	cmpUnitMotion.SetFormationMotionParameters(maxInertia, maxDrifting);
 };
 
 Formation.prototype.UpdateTwinFormationsForMerge = function()
