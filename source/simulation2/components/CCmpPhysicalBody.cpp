@@ -43,10 +43,15 @@ public:
 	static std::string GetSchema()
 	{
 		return
-			"<a:help>Physical properties of a unit: weight and participation in pushing.</a:help>"
+			"<a:help>Physical properties of a unit: weight, roll limit and participation in pushing.</a:help>"
 			"<optional>"
 				"<element name='Weight' a:help='Makes this unit both push harder and harder to push. 10 is considered the base value.'>"
 					"<ref name='positiveDecimal'/>"
+				"</element>"
+			"</optional>"
+			"<optional>"
+				"<element name='MaxRollAngle' a:help='Maximum roll angle in radians when pushed (0 = no roll). Useful for ships and boats.'>"
+					"<ref name='nonNegativeDecimal'/>"
 				"</element>"
 			"</optional>"
 			"<optional>"
@@ -68,6 +73,8 @@ public:
 	void SetPressure(uint8_t pressure) override;
 	void AddPressure(uint8_t pressure) override;
 
+	// Roll angle support
+	fixed GetMaxRollAngle() const override;
 
 private:
 	// Template state (from XML)
@@ -80,6 +87,7 @@ private:
 	entity_pos_t m_Weight;           // Mass/inertia - heavier units push harder
 	bool m_PushingEnabled;           // Whether this unit takes part in pushing
 	uint8_t m_Pressure;              // Current pressure (crowding intensity) 0-255
+	fixed m_MaxRollAngle;            // Maximum roll angle for this unit (0 = no roll)
 };
 
 REGISTER_COMPONENT_TYPE(PhysicalBody)
@@ -93,6 +101,12 @@ void CCmpPhysicalBody::Init(const CParamNode& paramNode)
 {
 	// Load template values
 	m_Weight = paramNode.GetChild("Weight").ToFixed();
+
+	// Load MaxRollAngle from template
+	if (paramNode.GetChild("MaxRollAngle").IsOk())
+		m_MaxRollAngle = paramNode.GetChild("MaxRollAngle").ToFixed();
+	else
+		m_MaxRollAngle = fixed::Zero();
 
 	m_TemplatePushingEnabled = !paramNode.GetChild("DisableForces").IsOk() ||
 							 !paramNode.GetChild("DisableForces").ToBool();
@@ -199,4 +213,9 @@ void CCmpPhysicalBody::AddPressure(uint8_t pressure)
 {
 	uint16_t newPressure = static_cast<uint16_t>(m_Pressure) + pressure;
 	m_Pressure = static_cast<uint8_t>(std::min<uint16_t>(PushConfig::MAX_PRESSURE, newPressure));
+}
+
+fixed CCmpPhysicalBody::GetMaxRollAngle() const
+{
+    return m_MaxRollAngle;
 }

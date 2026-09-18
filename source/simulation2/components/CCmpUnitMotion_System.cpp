@@ -37,6 +37,7 @@
 #include "simulation2/helpers/UnitCollision.h"
 #include "simulation2/helpers/PushConfig.h"
 #include "simulation2/helpers/Grid.h"
+#include "simulation2/helpers/ImpactEffects.h"
 #include "simulation2/helpers/Position.h"
 #include "simulation2/serialization/SerializeTemplates.h"
 #include "simulation2/system/Component.h"
@@ -91,6 +92,11 @@ MotionState::MotionState(
 	, inertiaVelocity()
 	, externalVelocity ()
 	, angularVelocity (fixed::Zero())
+	, impactAngularVelocity(fixed::Zero())
+	, spinDecay(ChargeConfig::Get().spinDecay)
+	, rollAngle(fixed::Zero())
+	, rollVelocity(fixed::Zero())
+	, maxRollAngle(fixed::Zero())
 {
 }
 
@@ -160,6 +166,7 @@ void CCmpUnitMotionManager::Init(const CParamNode&)
 	m_ComputingMotion = false;
 	// Load the settings at the start of each game.
 	PushConfig::GetInstance().Reload();
+	ChargeConfig::Reload();
 }
 
 template<>
@@ -175,8 +182,11 @@ struct SerializeHelper<MotionState>
 		serialize.NumberFixed_Unbounded("external_inertia_x", value.externalInertiaVelocity.X);
 		serialize.NumberFixed_Unbounded("external_inertia_y", value.externalInertiaVelocity.Y);
 
-		// Turning and collision state: all of it affects later turns, so it must survive saving/loading and rejoining.
+		// Turning, roll and collision state: all of it affects later turns, so it must survive saving/loading and rejoining.
 		serialize.NumberFixed_Unbounded("angular_velocity", value.angularVelocity);
+		serialize.NumberFixed_Unbounded("impact_angular_velocity", value.impactAngularVelocity);
+		serialize.NumberFixed_Unbounded("roll_angle", value.rollAngle);
+		serialize.NumberFixed_Unbounded("roll_velocity", value.rollVelocity);
 		serialize.Bool("predicted_collision", value.predictedCollision);
 		serialize.Bool("has_face_target", value.hasFaceTarget);
 		serialize.NumberFixed_Unbounded("face_target_angle", value.faceTargetAngle);
@@ -271,6 +281,12 @@ void CCmpUnitMotionManager::Register(CCmpUnitMotion* component, ICmpPhysicalBody
 {
 	MotionState state(static_cast<ICmpPosition*>(QueryInterface(GetSimContext(), ent, IID_Position)), component, physicalBody);
 
+	// Set maxRollAngle
+	if (physicalBody)
+		state.maxRollAngle = physicalBody->GetMaxRollAngle();
+	else
+		state.maxRollAngle = fixed::Zero();
+
 	if (!formationController)
 		m_Units.insert(ent, state);
 	else
@@ -346,6 +362,11 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 				it->second.needUpdate = false;
 				continue;
 			}
+
+			// Update maxRollAngle from the component (it may have been loaded after registration)
+			if (it->second.cmpPhysicalBody)
+				it->second.maxRollAngle = it->second.cmpPhysicalBody->GetMaxRollAngle();
+			it->second.spinDecay = it->second.cmpUnitMotion->GetSpinDecay();
 
 			it->second.cmpUnitMotion->PreMove(it->second);
 			it->second.initialPos = it->second.cmpPosition->GetPosition2D();
@@ -442,6 +463,12 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			target.impulseVelocity += force.velocityChange;
 			target.impulsePressure = static_cast<uint8_t>(std::min<int>(PushConfig::MAX_PRESSURE,
 				target.impulsePressure + force.pressureIncrease));
+
+			// Spin (around the vertical axis) and roll (tilting sideways) from the impact.
+			if (!force.angularImpulse.IsZero())
+				ImpactEffects::AddSpinImpulse(target, force.angularImpulse);
+			if (!force.rollImpulse.IsZero())
+				ImpactEffects::AddRollImpulse(target, force.rollImpulse);
 		}
 	}
 

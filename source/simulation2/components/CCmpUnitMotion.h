@@ -39,7 +39,9 @@
 #include "simulation2/components/ICmpValueModificationManager.h"
 #include "simulation2/components/ICmpVisual.h"
 #include "simulation2/components/ICmpPhysicalBody.h"
+#include "simulation2/helpers/ChargeConfig.h"
 #include "simulation2/helpers/HeadingControl.h"
+#include "simulation2/helpers/ImpactEffects.h"
 #include "simulation2/helpers/MomentumModel.h"
 #include "simulation2/helpers/ObstructionResolution.h"
 #include "simulation2/helpers/PathFollowing.h"
@@ -242,6 +244,9 @@ public:
 	// How fast the unit gains and loses turning speed, in radians per second squared
 	fixed m_TemplateTurnAcceleration;
 
+	// How fast the spin from an impact decays, if this unit overrides the default in charge.xml
+	std::optional<fixed> m_TemplateSpinDecay;
+
 	struct Ticket {
 		std::uint32_t m_Ticket = 0; // asynchronous request ID we're waiting for, or 0 if none
 		enum Type {
@@ -333,6 +338,11 @@ public:
 			"<element name='TurnAcceleration' a:help='How fast the unit gains and loses turning speed, in radians per second squared. It starts turning at this rate, up to its TurnRate, and brakes at it to stop on its heading.'>"
 				"<ref name='positiveDecimal'/>"
 			"</element>"
+			"<optional>"
+				"<element name='SpinDecay' a:help='Fraction of the spin from an impact that the unit loses every 0.2 seconds, independent of turn length (0 to 1). Defaults to charge.xml.'>"
+					"<ref name='nonNegativeDecimal'/>"
+				"</element>"
+			"</optional>"
 			"<element name='PassabilityClass' a:help='Identifies the terrain passability class (values are defined in special/pathfinder.xml).'>"
 				"<text/>"
 			"</element>"
@@ -379,6 +389,11 @@ public:
 			m_TemplateDriftCorrection = fixed::Zero();
 
 		m_TemplateTurnAcceleration = paramNode.GetChild("TurnAcceleration").ToFixed();
+
+		if (paramNode.GetChild("SpinDecay").IsOk())
+			m_TemplateSpinDecay = paramNode.GetChild("SpinDecay").ToFixed();
+		else
+			m_TemplateSpinDecay.reset();
 
 		m_PassClassName = paramNode.GetChild("PassabilityClass").ToString();
 		SetPassabilityData(m_PassClassName);
@@ -759,6 +774,11 @@ public:
 			return kept;
 		const fixed braked{std::max(speed - m_WalkSpeed.Multiply(dt) / stoppingTime, fixed::Zero())};
 		return std::min(kept, braked);
+	}
+
+	fixed GetSpinDecay() const
+	{
+		return m_TemplateSpinDecay.value_or(ChargeConfig::Get().spinDecay);
 	}
 
 private:
@@ -1236,11 +1256,15 @@ void CCmpUnitMotion::PreMove(MotionState& state)
 	state.poppedBlockedCorner = false;
 
 	// Determine if this unit needs to be processed this turn
-	// A unit needs update if it's in-world AND (moving OR has a pending move request).
+	// A unit needs update if it's in-world AND (moving OR has a pending move request OR is still rolling/spinning).
+	// The roll and impact spin are integrated in PerformMove and applied in PostMove, both skipped for sleeping units:
+	// otherwise a struck unit pushed into an obstacle would stop moving, go to sleep, and freeze mid-roll. All three
+	// values snap to exactly zero once settled, so the unit goes back to sleep on its own.
 	state.needUpdate = state.cmpPosition->IsInWorld() &&
 		(m_CurrentSpeed != fixed::Zero() ||
 		m_LastTurnSpeed != fixed::Zero() ||
 		m_MoveRequest.m_Type != MoveRequest::NONE ||
+		ImpactEffects::IsActive(state) ||
 		state.hasFaceTarget); // still turning to face something (PerformMove clears it once aligned)
 
 	if (!m_BlockMovement)
@@ -1342,6 +1366,13 @@ void CCmpUnitMotion::PostMove(MotionState& state, fixed dt)
 		// Calculate the mean speed over this past turn.
 		CFixedVector2D offset = state.pos - state.initialPos;
 		UpdateMovementState(state.speed, offset.Length() / dt);
+	}
+
+	// Apply roll
+	if (ImpactEffects::HasRoll(state))
+	{
+		ImpactEffects::SettleRoll(state);
+		state.cmpPosition->SetRoll(state.rollAngle);
 	}
 
 	// Braking can legitimately leave us with a speed that isn't quite zero, so "our position changed" is not
@@ -1804,6 +1835,11 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 				effectiveTurnAcceleration, dt))
 			state.hasFaceTarget = false;
 	}
+
+	// Impact spin (from charges and other external forces), on top of the unit's own turning, then roll.
+	// NB: angle is state.angle, which IntegrateSpin rotates.
+	ImpactEffects::IntegrateSpin(state, dt);
+	ImpactEffects::IntegrateRoll(state, dt);
 
 	// The unit's own movement, before the external forces below are added: what it falls back on if the step with
 	// them in it is blocked.

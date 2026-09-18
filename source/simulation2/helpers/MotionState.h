@@ -99,6 +99,16 @@ struct MotionState
 	// or its destination on arrival. Set by FaceTowardsPoint, cleared once aligned.
 	bool hasFaceTarget = false;
 	entity_angle_t faceTargetAngle;
+
+	// Angular velocity from hits, kept apart from angularVelocity so it doesn't interfere with pathfinding turning
+	fixed impactAngularVelocity;
+	fixed spinDecay;  // Fraction of impactAngularVelocity lost every IMPACT_REFERENCE_TIME
+
+	// Roll effect (rotation around forward axis)
+	// Positive = tilt to the right, Negative = tilt to the left
+	fixed rollAngle;           // Current roll angle in radians
+	fixed rollVelocity;        // How fast the roll is changing (radians/sec)
+	fixed maxRollAngle;        // Maximum roll angle for this unit (0 = no roll)
 };
 
 #endif // INCLUDED_MOTIONSTATE

@@ -89,6 +89,8 @@ void CCmpImpulseQueue::Serialize(ISerializer& serialize)
         serialize.NumberFixed_Unbounded("velocity_change_x", req.velocityChange.X);
         serialize.NumberFixed_Unbounded("velocity_change_y", req.velocityChange.Y);
         serialize.NumberU8_Unbounded("pressure", req.pressureIncrease);
+        serialize.NumberFixed_Unbounded("angular_impulse", req.angularImpulse);
+        serialize.NumberFixed_Unbounded("roll_impulse", req.rollImpulse);
     }
 }
 
@@ -111,6 +113,8 @@ void CCmpImpulseQueue::Deserialize(const CParamNode& paramNode, IDeserializer& d
         deserialize.NumberFixed_Unbounded("velocity_change_x", req.velocityChange.X);
         deserialize.NumberFixed_Unbounded("velocity_change_y", req.velocityChange.Y);
         deserialize.NumberU8_Unbounded("pressure", req.pressureIncrease);
+        deserialize.NumberFixed_Unbounded("angular_impulse", req.angularImpulse);
+        deserialize.NumberFixed_Unbounded("roll_impulse", req.rollImpulse);
         m_PendingImpulses.push_back(req);
     }
 }

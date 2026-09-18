@@ -133,6 +133,7 @@
   </UnitMotion>
   <PhysicalBody>
     <Weight>10</Weight>
+    <MaxRollAngle>0.0</MaxRollAngle>
   </PhysicalBody>
   <Visibility>
     <RetainInFog>false</RetainInFog>

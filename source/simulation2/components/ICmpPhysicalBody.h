@@ -24,7 +24,7 @@
 #include <cstdint>
 
 /**
- * A unit's physical body: its weight, whether it takes part in pushing, and how crowded it is
+ * A unit's physical body: its weight and roll limit, whether it takes part in pushing, and how crowded it is
  * (pressure). The pushing itself is computed by UnitCollision and the motion manager.
  */
 class ICmpPhysicalBody : public IComponent
@@ -45,6 +45,8 @@ public:
 	virtual uint8_t GetPressure() const = 0;
 	virtual void SetPressure(uint8_t pressure) = 0;
 	virtual void AddPressure(uint8_t pressure) = 0;
+
+	virtual fixed GetMaxRollAngle() const = 0;
 };
 
 #endif // INCLUDED_ICMPPHYSICALBODY

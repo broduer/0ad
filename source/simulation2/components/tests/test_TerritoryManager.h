@@ -166,8 +166,13 @@ public:
 	fixed GetDistanceTravelled() const override { return fixed::Zero(); }
 	void GetInterpolatedPosition2D(float, float&, float&, float&) const override {}
 	CMatrix3D GetInterpolatedTransform(float) const override { return CMatrix3D(); }
+	void SetRoll(entity_angle_t roll) override { m_Roll = roll; }
+	entity_angle_t GetRoll() const override { return m_Roll; }
 
 	CFixedVector3D m_Pos;
+
+private:
+	entity_angle_t m_Roll = entity_angle_t::FromInt(0);
 };
 
 

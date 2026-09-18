@@ -108,6 +108,11 @@ public:
 	CFixedVector3D m_TurretPosition;
 	std::set<entity_id_t> m_Turrets;
 
+	entity_angle_t m_Roll;
+
+	float m_InterpolatedRoll;
+	float m_LastInterpolatedRoll;
+
 	// Not serialized:
 	AnchorType m_ActorAnchorType;
 	float m_InterpolatedRotX, m_InterpolatedRotY, m_InterpolatedRotZ;
@@ -177,6 +182,11 @@ public:
 		m_ActorFloating = false;
 
 		m_EnabledMessageInterpolate = false;
+
+		m_Roll = entity_angle_t::FromInt(0);
+
+		m_InterpolatedRoll = 0.0f;
+		m_LastInterpolatedRoll = 0.0f;
 	}
 
 	void Deinit() override
@@ -200,6 +210,7 @@ public:
 		serialize.NumberFixed_Unbounded("rot y", m_RotY);
 		serialize.NumberFixed_Unbounded("rot z", m_RotZ);
 		serialize.NumberFixed_Unbounded("rot y speed", m_RotYSpeed);
+		serialize.NumberFixed_Unbounded("roll", m_Roll);
 		serialize.NumberFixed_Unbounded("altitude", m_Y);
 		serialize.Bool("relative", m_RelativeToGround);
 		serialize.Bool("floating", m_Floating);
@@ -259,6 +270,7 @@ public:
 		deserialize.NumberFixed_Unbounded("rot y", m_RotY);
 		deserialize.NumberFixed_Unbounded("rot z", m_RotZ);
 		deserialize.NumberFixed_Unbounded("rot y speed", m_RotYSpeed);
+		deserialize.NumberFixed_Unbounded("roll", m_Roll);
 		deserialize.NumberFixed_Unbounded("altitude", m_Y);
 		deserialize.Bool("relative", m_RelativeToGround);
 		deserialize.Bool("floating", m_Floating);
@@ -761,6 +773,13 @@ public:
 		// Apply terrain roll (Z rotation)
 		m.RotateZ(Interpolate(m_LastInterpolatedRotZ, m_InterpolatedRotZ, frameOffset));
 
+		// Interpolate roll between last turn and current
+		float rollAngle = Interpolate(m_LastInterpolatedRoll, m_InterpolatedRoll, frameOffset);
+		if (rollAngle != 0.0f)
+		{
+			m.RotateZ(rollAngle);
+		}
+
 		CVector3D pos(x, y, z);
 		pos.Y += GetConstructionProgressOffset(pos);
 
@@ -811,6 +830,25 @@ public:
 		pos1.Y += GetConstructionProgressOffset(pos1);
 	}
 
+	void SetRoll(entity_angle_t roll) override
+	{
+		m_Roll = roll;
+		// Clamp to reasonable range
+		if (m_Roll > entity_angle_t::Pi() / 2)
+			m_Roll = entity_angle_t::Pi() / 2;
+		else if (m_Roll < -entity_angle_t::Pi() / 2)
+			m_Roll = -entity_angle_t::Pi() / 2;
+
+		// Update the target interpolated value
+		m_InterpolatedRoll = m_Roll.ToFloat();
+		UpdateMessageSubscriptions();
+	}
+
+	entity_angle_t GetRoll() const override
+	{
+		return m_Roll;
+	}
+
 	void HandleMessage(const CMessage& msg, bool /*global*/) override
 	{
 		switch (msg.GetType())
@@ -829,9 +867,11 @@ public:
 			// Store the current interpolated values as "last" for the next turn
 			m_LastInterpolatedRotX = m_InterpolatedRotX;
 			m_LastInterpolatedRotZ = m_InterpolatedRotZ;
+			m_LastInterpolatedRoll = m_InterpolatedRoll;
 
 			// Update interpolated values to current target
 			m_InterpolatedRotY = m_RotY.ToFloat();
+			m_InterpolatedRoll = m_Roll.ToFloat();
 
 			// Also on a turn in place: the terrain's pitch and roll depend on the heading.
 			if (m_InWorld && (m_LastX != m_X || m_LastZ != m_Z || m_LastRotY != m_RotY))

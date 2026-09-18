@@ -25,20 +25,23 @@
 #include <vector>
 
 /**
- * A kick queued for a unit: a linear displacement for this turn, a velocity change and pressure.
+ * A kick queued for a unit: a linear displacement for this turn, a velocity change, pressure, and spin/roll impulses.
  * Collected from various sources (collision pushes, knockback...) and consumed in a coordinated
  * phase during UnitMotionManager::Move.
  */
 struct ImpulseRequest
 {
 	ImpulseRequest() = default;
-	ImpulseRequest(const entity_id_t t, const CFixedVector2D& f, const uint8_t p = 0)
-		: target{t}, force{f}, pressureIncrease{p} {}
+	ImpulseRequest(const entity_id_t t, const CFixedVector2D& f, const uint8_t p = 0,
+		const fixed a = fixed::Zero(), const fixed r = fixed::Zero())
+		: target{t}, force{f}, pressureIncrease{p}, angularImpulse{a}, rollImpulse{r} {}
 
 	entity_id_t target{INVALID_ENTITY};
 	CFixedVector2D force;          // Displacement this turn only (collision pushes)
 	CFixedVector2D velocityChange; // Added to the unit's velocity (m/s), which then carries on as momentum (hits)
 	uint8_t pressureIncrease{0};
+	fixed angularImpulse{fixed::Zero()}; // Y-axis rotation impulse (spinning/turning)
+	fixed rollImpulse{fixed::Zero()};    // X-axis rotation impulse (tilting/rolling)
 };
 
 class ICmpImpulseQueue : public IComponent

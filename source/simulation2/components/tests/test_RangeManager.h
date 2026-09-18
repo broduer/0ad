@@ -92,10 +92,15 @@ public:
 	fixed GetDistanceTravelled() const override { return fixed::Zero(); }
 	void GetInterpolatedPosition2D(float /*frameOffset*/, float& x, float& z, float& rotY) const override { x = z = rotY = 0; }
 	CMatrix3D GetInterpolatedTransform(float /*frameOffset*/) const override { return CMatrix3D(); }
+	void SetRoll(entity_angle_t roll) override { m_Roll = roll; }
+	entity_angle_t GetRoll() const override { return m_Roll; }
 
 	CFixedVector3D m_Pos;
 	entity_pos_t m_HeightOffset = entity_pos_t::Zero();
 	bool m_InWorld = true;
+
+private:
+	entity_angle_t m_Roll = entity_angle_t::FromInt(0);
 };
 
 class MockObstructionRgm : public ICmpObstruction

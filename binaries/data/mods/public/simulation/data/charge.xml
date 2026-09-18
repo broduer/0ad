@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- How a hit spins and rolls a unit, for all units. -->
+<!-- Values outside their bounds are ignored with a warning, and the default is used. -->
+<Charge>
+    <!-- Roll is a visual flourish, not physics: a hull shoved sideways leans -->
+  <!-- the way it was shoved. Roll impulse per unit of sideways velocity -->
+  <!-- change, capped at RollMaxVelocity. -->
+  <!-- Bounds: 0 or more. -->
+  <RollStrength>0.1</RollStrength>
+
+  <!-- Roll impulses smaller than this are dropped. -->
+  <!-- Bounds: 0 or more. -->
+  <RollImpulseMin>0.001</RollImpulseMin>
+
+  <!-- After the hit, the spin decays by friction, and the roll swings back -->
+  <!-- to level on a damped spring. Both stop once too small to see, so the -->
+  <!-- unit can go back to sleep. -->
+
+  <!-- Fastest spin, in radians per second. -->
+  <!-- Bounds: 0 or more. -->
+  <SpinMaxVelocity>6</SpinMaxVelocity>
+
+  <!-- Share of the spin lost every 0.2 seconds, whatever the turn length. -->
+  <!-- A unit can set its own with UnitMotion/SpinDecay. -->
+  <!-- Bounds: 0 to 1. -->
+  <SpinDecay>0.15</SpinDecay>
+
+  <!-- Spins slower than this, in radians per second, stop. Too low keeps -->
+  <!-- every unit brushed by a charge awake, turning invisibly. -->
+  <!-- Bounds: 0 or more. -->
+  <SpinRestVelocity>0.05</SpinRestVelocity>
+
+  <!-- Fastest roll, in multiples of the unit's MaxRollAngle per second. -->
+  <!-- Bounds: 0 or more. -->
+  <RollMaxVelocity>2</RollMaxVelocity>
+
+  <!-- Stiffness and damping of the spring back to level: acceleration is -->
+  <!-- -RollSpring x angle - RollDamping x velocity. -->
+  <!-- Bounds: 0 or more. -->
+  <RollSpring>1.8</RollSpring>
+  <RollDamping>0.4</RollDamping>
+
+  <!-- How far the spring may swing the roll, in multiples of the unit's -->
+  <!-- MaxRollAngle. -->
+  <!-- Bounds: 0 or more. -->
+  <RollOvershoot>1.5</RollOvershoot>
+
+  <!-- Rolls slower than this, in radians per second, stop. -->
+  <!-- Bounds: 0 or more. -->
+  <RollRestVelocity>0.001</RollRestVelocity>
+
+  <!-- A stopped roll smaller than this, in radians, is levelled. -->
+  <!-- Bounds: 0 or more. -->
+  <RollSettledAngle>0.01</RollSettledAngle>
+
+</Charge>

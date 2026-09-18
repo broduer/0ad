@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -253,6 +253,9 @@ public:
 	 * Must not be called unless IsInWorld is true.
 	 */
 	virtual CMatrix3D GetInterpolatedTransform(float frameOffset) const = 0;
+
+	virtual void SetRoll(entity_angle_t roll) = 0;
+	virtual entity_angle_t GetRoll() const = 0;
 
 	DECLARE_INTERFACE_TYPE(Position)
 };
