@@ -1013,7 +1013,8 @@ void CCmpUnitMotion::PathResult(std::uint32_t ticket, const WaypointPath& path)
 				CmpPtr<ICmpPathfinder> cmpPathfinder(GetSystemEntity());
 				ENSURE(cmpPathfinder);
 				const Waypoint& secondWpt = m_LongPath.m_Waypoints[m_LongPath.m_Waypoints.size() - 2];
-				if (cmpPathfinder->CheckMovement(GetObstructionFilter(), pos.X, pos.Y, secondWpt.x, secondWpt.z, m_Clearance, m_PassClass))
+				// Static obstructions and terrain only: units in the way are pushed, not pathed around.
+				if (cmpPathfinder->CheckStaticMovement(GetObstructionFilter(), pos.X, pos.Y, secondWpt.x, secondWpt.z, m_Clearance, m_PassClass))
 					m_LongPath.m_Waypoints.pop_back();
 			}
 

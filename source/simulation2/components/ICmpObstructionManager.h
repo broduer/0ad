@@ -257,6 +257,12 @@ public:
 	virtual bool TestUnitLine(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, entity_pos_t r, bool relaxClearanceForUnits) const = 0;
 
 	/**
+	 * Like TestLine, but only against static shapes (buildings, walls, trees...): unit shapes aren't even gathered.
+	 * @return true if there is a collision
+	 */
+	virtual bool TestStaticLine(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, entity_pos_t r) const = 0;
+
+	/**
 	 * Collision test a static square shape against the current set of shapes.
 	 * @param filter filter to restrict the shapes that are being tested against
 	 * @param x X coordinate of center

@@ -152,6 +152,12 @@ public:
 	virtual bool CheckMovement(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, entity_pos_t r, pass_class_t passClass) const = 0;
 
 	/**
+	 * Like CheckMovement, but ignores unit obstructions: only static obstructions and terrain can block the line.
+	 * Returns true if the movement is okay.
+	 */
+	virtual bool CheckStaticMovement(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, entity_pos_t r, pass_class_t passClass) const = 0;
+
+	/**
 	 * Check whether a unit placed here is valid and doesn't hit any obstructions
 	 * or impassable terrain.
 	 * When onlyCenterPoint = true, only check the center tile of the unit

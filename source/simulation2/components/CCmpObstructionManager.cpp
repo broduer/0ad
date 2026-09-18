@@ -499,6 +499,7 @@ public:
 
 	bool TestLine(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, entity_pos_t r, bool relaxClearanceForUnits = false) const override;
 	bool TestUnitLine(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, entity_pos_t r, bool relaxClearanceForUnits) const override;
+	bool TestStaticLine(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, entity_pos_t r) const override;
 	bool TestStaticShape(const IObstructionTestFilter& filter, entity_pos_t x, entity_pos_t z, entity_pos_t a, entity_pos_t w, entity_pos_t h, std::vector<entity_id_t>* out) const override;
 	bool TestUnitShape(const IObstructionTestFilter& filter, entity_pos_t x, entity_pos_t z, entity_pos_t r, std::vector<entity_id_t>* out) const override;
 
@@ -913,6 +914,18 @@ bool CCmpObstructionManager::TestLine(const IObstructionTestFilter& filter, enti
 		if (Geometry::TestRayAASquare(CFixedVector2D(x0, z0) - center, CFixedVector2D(x1, z1) - center, halfSize))
 			return true;
 	}
+
+	return TestStaticLine(filter, x0, z0, x1, z1, r);
+}
+
+bool CCmpObstructionManager::TestStaticLine(const IObstructionTestFilter& filter, entity_pos_t x0, entity_pos_t z0, entity_pos_t x1, entity_pos_t z1, entity_pos_t r) const
+{
+	// Check that both end points are within the world (which means the whole line must be)
+	if (!IsInWorld(x0, z0, r) || !IsInWorld(x1, z1, r))
+		return true;
+
+	const CFixedVector2D posMin{std::min(x0, x1) - r, std::min(z0, z1) - r};
+	const CFixedVector2D posMax{std::max(x0, x1) + r, std::max(z0, z1) + r};
 
 	std::vector<entity_id_t> staticShapes;
 	m_StaticSubdivision.GetInRange(staticShapes, posMin, posMax);
