@@ -38,10 +38,13 @@
 #include "simulation2/components/ICmpUnitMotionManager.h"
 #include "simulation2/components/ICmpValueModificationManager.h"
 #include "simulation2/components/ICmpVisual.h"
+#include "simulation2/components/ICmpPhysicalBody.h"
 #include "simulation2/helpers/PathGoal.h"
 #include "simulation2/helpers/Pathfinding.h"
 #include "simulation2/helpers/Position.h"
 #include "simulation2/helpers/Render.h"
+#include "simulation2/helpers/PushConfig.h"
+#include "simulation2/helpers/MotionState.h"
 #include "simulation2/serialization/SerializeTemplates.h"
 #include "simulation2/serialization/SerializedPathfinder.h"
 #include "simulation2/serialization/SerializedTypes.h"
@@ -172,7 +175,7 @@ public:
 
 	bool m_IsFormationController;
 
-	fixed m_TemplateWalkSpeed, m_TemplateRunMultiplier, m_TemplateAcceleration, m_TemplateWeight;
+	fixed m_TemplateWalkSpeed, m_TemplateRunMultiplier, m_TemplateAcceleration;
 	pass_class_t m_PassClass;
 	std::string m_PassClassName;
 
@@ -184,9 +187,6 @@ public:
 	fixed m_WalkSpeed, m_RunMultiplier;
 
 	bool m_FacePointAfterMove;
-
-	// Whether the unit participates in pushing.
-	bool m_Pushing = false;
 
 	// Whether the unit blocks movement (& is blocked by movement blockers)
 	// Cached from ICmpObstruction.
@@ -287,9 +287,6 @@ public:
 			"<element name='PassabilityClass' a:help='Identifies the terrain passability class (values are defined in special/pathfinder.xml).'>"
 				"<text/>"
 			"</element>"
-			"<element name='Weight' a:help='Makes this unit both push harder and harder to push. 10 is considered the base value.'>"
-				"<ref name='positiveDecimal'/>"
-			"</element>"
 			"<optional>"
 				"<element name='DisablePushing'>"
 					"<data type='boolean'/>"
@@ -314,8 +311,6 @@ public:
 		m_InstantTurnAngle = paramNode.GetChild("InstantTurnAngle").ToFixed();
 
 		m_Acceleration = m_TemplateAcceleration = paramNode.GetChild("Acceleration").ToFixed();
-
-		m_TemplateWeight = paramNode.GetChild("Weight").ToFixed();
 
 		m_PassClassName = paramNode.GetChild("PassabilityClass").ToString();
 		SetPassabilityData(m_PassClassName);
@@ -364,7 +359,6 @@ public:
 		serialize.NumberFixed_Unbounded("acceleration", m_Acceleration);
 
 		serialize.Bool("facePointAfterMove", m_FacePointAfterMove);
-		serialize.Bool("pushing", m_Pushing);
 
 		Serializer(serialize, "long path", m_LongPath.m_Waypoints);
 		Serializer(serialize, "short path", m_ShortPath.m_Waypoints);
@@ -408,7 +402,12 @@ public:
 		case MT_Create:
 		{
 			if (!ENTITY_IS_LOCAL(GetEntityId()))
-				CmpPtr<ICmpUnitMotionManager>(GetSystemEntity())->Register(this, GetEntityId(), m_IsFormationController);
+			{
+				CmpPtr<ICmpUnitMotionManager> cmpMotionMgr(GetSystemEntity());
+				ICmpPhysicalBody* physicalBody = static_cast<ICmpPhysicalBody*>(
+					QueryInterface(GetSimContext(), GetEntityId(), IID_PhysicalBody));
+				cmpMotionMgr->Register(this, physicalBody, GetEntityId(), m_IsFormationController);
+			}
 			break;
 		}
 		case MT_Destroy:
@@ -513,11 +512,6 @@ public:
 	void SetAcceleration(fixed acceleration) override
 	{
 		m_Acceleration = acceleration;
-	}
-
-	entity_pos_t GetWeight() const
-	{
-		return m_TemplateWeight;
 	}
 
 	pass_class_t GetPassabilityClass() const override
@@ -653,7 +647,9 @@ private:
 	void SetParticipateInPushing(bool pushing)
 	{
 		CmpPtr<ICmpUnitMotionManager> cmpUnitMotionManager(GetSystemEntity());
-		m_Pushing = pushing && cmpUnitMotionManager->IsPushingActivated();
+		CmpPtr<ICmpPhysicalBody> cmpPhysicalBody(GetEntityHandle());
+		if (cmpPhysicalBody)
+			cmpPhysicalBody->SetEnabled(pushing && cmpUnitMotionManager->IsPushingActivated());
 	}
 
 	void SetPassabilityData(const std::string& passClassName)
@@ -791,9 +787,9 @@ private:
 	 */
 	void OnTurnStart();
 
-	void PreMove(CCmpUnitMotionManager::MotionState& state);
-	void Move(CCmpUnitMotionManager::MotionState& state, fixed dt);
-	void PostMove(CCmpUnitMotionManager::MotionState& state, fixed dt);
+	void PreMove(MotionState& state);
+	void Move(MotionState& state, fixed dt);
+	void PostMove(MotionState& state, fixed dt);
 
 	bool PossiblyAtDestination() const override;
 
@@ -863,7 +859,8 @@ private:
 	 */
 	bool ShouldCollideWithMovingUnits() const
 	{
-		return !m_Pushing && m_BlockMovement;
+		CmpPtr<ICmpPhysicalBody> cmpPhysicalBody(GetEntityHandle());
+		return (!cmpPhysicalBody || !cmpPhysicalBody->IsPushingEnabled()) && m_BlockMovement;
 	}
 
 	/**
@@ -1066,9 +1063,16 @@ void CCmpUnitMotion::OnTurnStart()
 	}
 }
 
-void CCmpUnitMotion::PreMove(CCmpUnitMotionManager::MotionState& state)
+void CCmpUnitMotion::PreMove(MotionState& state)
 {
-	state.ignore = !m_Pushing || !m_BlockMovement;
+	// Check whether our physical body takes part in pushing (the manager already holds the component pointer)
+	ICmpPhysicalBody* const cmpPhysicalBody{state.cmpPhysicalBody};
+	const bool pushingEnabled{cmpPhysicalBody && cmpPhysicalBody->IsPushingEnabled()};
+
+	// Unit should be ignored by push calculations if:
+	// - Pushing participation is disabled, OR
+	// - Unit doesn't block movement (e.g., projectiles, birds)
+	state.ignore = !pushingEnabled || !m_BlockMovement;
 
 	state.wasObstructed = false;
 	state.wentStraight = false;
@@ -1084,13 +1088,13 @@ void CCmpUnitMotion::PreMove(CCmpUnitMotionManager::MotionState& state)
 
 	// Update moving flag, this is an internal construct used for pushing,
 	// so it does not really reflect whether the unit is actually moving or not.
-	state.isMoving = m_Pushing && m_MoveRequest.m_Type != MoveRequest::NONE;
+	state.isMoving = pushingEnabled && m_MoveRequest.m_Type != MoveRequest::NONE;
 	CmpPtr<ICmpObstruction> cmpObstruction(GetEntityHandle());
 	if (cmpObstruction)
 		cmpObstruction->SetMovingFlag(state.isMoving);
 }
 
-void CCmpUnitMotion::Move(CCmpUnitMotionManager::MotionState& state, fixed dt)
+void CCmpUnitMotion::Move(MotionState& state, fixed dt)
 {
 	PROFILE("Move");
 
@@ -1099,10 +1103,11 @@ void CCmpUnitMotion::Move(CCmpUnitMotionManager::MotionState& state, fixed dt)
 	// to it, then throw away our current path and go straight to it.
 	state.wentStraight = TryGoingStraightToTarget(state.initialPos, true);
 
-	state.wasObstructed = PerformMove(dt, state.cmpPosition->GetTurnRate(), m_ShortPath, m_LongPath, state.pos, state.speed, state.angle, state.pushingPressure);
+	state.wasObstructed = PerformMove(dt, state.cmpPosition->GetTurnRate(), m_ShortPath, m_LongPath, state.pos, state.speed, state.angle,
+		state.cmpPhysicalBody ? state.cmpPhysicalBody->GetPressure() : 0);
 }
 
-void CCmpUnitMotion::PostMove(CCmpUnitMotionManager::MotionState& state, fixed dt)
+void CCmpUnitMotion::PostMove(MotionState& state, fixed dt)
 {
 	// Update our speed over this turn so that the visual actor shows the correct animation.
 	if (state.pos == state.initialPos)
@@ -1239,9 +1244,8 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate, WaypointPath& 
 		// Values below this pressure don't slow the unit down (avoids slowing groups down).
 		constexpr int pressureMinThreshold = 10;
 
-		// Lower speed up to a floor to prevent units from getting stopped.
-		// This helped pushing particularly for fast units, since they'll end up slowing down.
-		constexpr int maxPressure = CCmpUnitMotionManager::MAX_PRESSURE - pressureMinThreshold - 80;
+		// Lower speed up to a floor to prevent units from getting stopped
+		constexpr int maxPressure = PushConfig::MAX_PRESSURE - pressureMinThreshold - 80;
 		constexpr entity_pos_t floorSpeed = entity_pos_t::FromFraction(3, 2);
 		static_assert(maxPressure > 0);
 

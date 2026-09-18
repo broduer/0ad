@@ -21,13 +21,23 @@
     <MovingExtension>4.0</MovingExtension>
 
     <!-- Pushing force depends on the distance between units. -->
-    <!-- This controls that effect. A value of 1 means pushing -->
-    <!-- is always FULL or OFF. A value of  1 / (Radius + Extensions) means -->
-    <!-- "normal force" when units are touching, and stronger force -->
-    <!-- when units are overlapping. -->
-    <!-- In general, Spread * (Radius + Extensions) ought to be slightly higher than 1 -->
-    <!-- to compensate somewhat for unit clearances (defined below) -->
-    <!-- being somewhat smaller than the units' actual footprints. -->
+    <!-- The maximum pushing distance (maxDist) is: -->
+    <!--   maxDist = combinedClearance * Radius + Extension -->
+    <!-- Where combinedClearance is the sum of unit clearances with correction. -->
+    <!-- -->
+    <!-- The force tapers off linearly from maxDist down to combinedSpread, -->
+    <!-- where combinedSpread = maxDist * Spread. -->
+    <!-- -->
+    <!-- Within combinedSpread distance, units receive maximum pushing force. -->
+    <!-- At maxDist distance, units receive zero force. -->
+    <!-- In between, force scales linearly. -->
+    <!-- -->
+    <!-- A Spread value of 0 means force always decreases linearly from -->
+    <!-- maxDist to 0. A Spread value of 1 means force is always at maximum -->
+    <!-- within maxDist (full on/off). -->
+    <!-- -->
+    <!-- For realistic crowd behavior, Spread should be around 0.4-0.6, -->
+    <!-- giving a good balance between smooth movement and strong repulsion -->
     <StaticSpread>0.9</StaticSpread>
     <MovingSpread>0.4</MovingSpread>
 

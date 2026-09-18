@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -103,6 +103,9 @@ COMPONENT(FoggingScripted)
 INTERFACE(Footprint)
 COMPONENT(Footprint)
 
+INTERFACE(ImpulseQueue)
+COMPONENT(ImpulseQueue)
+
 INTERFACE(GarrisonHolder)
 COMPONENT(GarrisonHolderScripted)
 
@@ -133,6 +136,9 @@ COMPONENT(OverlayRenderer)
 
 INTERFACE(Ownership)
 COMPONENT(Ownership)
+
+INTERFACE(PhysicalBody)
+COMPONENT(PhysicalBody)
 
 INTERFACE(ParticleManager)
 COMPONENT(ParticleManager)

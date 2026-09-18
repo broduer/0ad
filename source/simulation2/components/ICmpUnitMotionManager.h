@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,6 +25,7 @@
 #include <js/Value.h>
 
 class CCmpUnitMotion;
+class ICmpPhysicalBody;
 
 /**
  * UnitMotionManager - handles motion for CCmpUnitMotion.
@@ -42,7 +43,7 @@ private:
 	 */
 	friend class CCmpUnitMotion;
 
-	virtual void Register(CCmpUnitMotion* component, entity_id_t ent, bool formationController) = 0;
+	virtual void Register(CCmpUnitMotion* component, ICmpPhysicalBody* physicalBody, entity_id_t ent, bool formationController) = 0;
 	virtual void Unregister(entity_id_t ent) = 0;
 
 	/**
