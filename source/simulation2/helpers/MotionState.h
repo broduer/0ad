@@ -93,6 +93,11 @@ struct MotionState
 
 	// Angular velocity from pathfinding (existing)
 	fixed angularVelocity;
+
+	// A heading the unit keeps turning towards, with angular momentum, while it has no move request: an attack target,
+	// or its destination on arrival. Set by FaceTowardsPoint, cleared once aligned.
+	bool hasFaceTarget = false;
+	entity_angle_t faceTargetAngle;
 };
 
 #endif // INCLUDED_MOTIONSTATE

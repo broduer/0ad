@@ -90,6 +90,19 @@ public:
 		return PushConfig::GetInstance().IsEnabled();
 	}
 
+	MotionState* GetMotionState(entity_id_t ent)
+	{
+		auto it = m_Units.find(ent);
+		if (it != m_Units.end())
+			return &it->second;
+
+		it = m_FormationControllers.find(ent);
+		if (it != m_FormationControllers.end())
+			return &it->second;
+
+		return nullptr;
+	}
+
 private:
 	void OnDeserialized();
 	void ResetSubdivisions();

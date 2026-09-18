@@ -705,25 +705,29 @@ public:
 	 */
 	void StopMoving() override
 	{
-		if (m_FacePointAfterMove)
+		// Face the destination only when we actually arrived. When a move is interrupted, e.g. by a new order that stops
+		// the current move first, facing the abandoned destination would snap the unit toward it right before it starts
+		// turning to its new heading. Nor when standing on it: the unit comes to rest anywhere within the distance it
+		// may stop at, and what small remainder is left of the way to the point says nothing about where to
+		// face, while the heading it arrived with does.
+		CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
+		std::optional<CFixedVector2D> facePoint;
+		if (m_FacePointAfterMove && cmpPosition && cmpPosition->IsInWorld() && PossiblyAtDestination())
 		{
-			CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
-			if (cmpPosition && cmpPosition->IsInWorld())
-			{
-				// Not when standing on the destination: the unit comes to rest anywhere within the distance it may
-				// stop at, and what small remainder is left of the way to the point says nothing about where to
-				// face, while the heading it arrived with does.
-				CFixedVector2D targetPos;
-				if (ComputeTargetPosition(targetPos) &&
-					(targetPos - cmpPosition->GetPosition2D()).CompareLength(Pathfinding::NAVCELL_SIZE + StoppingMargin()) > 0)
-					FaceTowardsPointFromPos(cmpPosition->GetPosition2D(), targetPos.X, targetPos.Y);
-			}
+			CFixedVector2D targetPos;
+			if (ComputeTargetPosition(targetPos) &&
+				(targetPos - cmpPosition->GetPosition2D()).CompareLength(Pathfinding::NAVCELL_SIZE + StoppingMargin()) > 0)
+				facePoint = targetPos;
 		}
 
 		m_MoveRequest = MoveRequest();
 		m_ExpectedPathTicket.clear();
 		m_LongPath.m_Waypoints.clear();
 		m_ShortPath.m_Waypoints.clear();
+
+		// Only now that the move request is cleared: facing requests are ignored while moving.
+		if (facePoint)
+			FaceTowardsPointFromPos(cmpPosition->GetPosition2D(), facePoint->X, facePoint->Y);
 	}
 
 	entity_pos_t GetUnitClearance() const override
@@ -1236,7 +1240,8 @@ void CCmpUnitMotion::PreMove(MotionState& state)
 	state.needUpdate = state.cmpPosition->IsInWorld() &&
 		(m_CurrentSpeed != fixed::Zero() ||
 		m_LastTurnSpeed != fixed::Zero() ||
-		m_MoveRequest.m_Type != MoveRequest::NONE);
+		m_MoveRequest.m_Type != MoveRequest::NONE ||
+		state.hasFaceTarget); // still turning to face something (PerformMove clears it once aligned)
 
 	if (!m_BlockMovement)
 		return;
@@ -1791,6 +1796,14 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 					effectiveTurnAcceleration, dt);
 		}
 	}
+	else if (!hasMoveRequest && state.hasFaceTarget)
+	{
+		// Keep turning towards a heading set by FaceTowardsPoint (an attack target, or our destination on
+		// arrival) until aligned, with angular momentum. The unit is kept awake meanwhile (see PreMove).
+		if (HeadingControl::TurnWithMomentum(angle, state.angularVelocity, state.faceTargetAngle, effectiveTurnRate,
+				effectiveTurnAcceleration, dt))
+			state.hasFaceTarget = false;
+	}
 
 	// The unit's own movement, before the external forces below are added: what it falls back on if the step with
 	// them in it is blocked.
@@ -2239,6 +2252,8 @@ bool CCmpUnitMotion::PathingUpdateNeeded(const CFixedVector2D& from) const
 
 void CCmpUnitMotion::FaceTowardsPoint(entity_pos_t x, entity_pos_t z)
 {
+	// The motion system does the actual turning, every turn and with angular momentum (see FaceTowardsPointFromPos).
+	// UnitAI calls this repeatedly while attacking, which just keeps the target heading current.
 	CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
 	if (!cmpPosition || !cmpPosition->IsInWorld())
 		return;
@@ -2249,17 +2264,30 @@ void CCmpUnitMotion::FaceTowardsPoint(entity_pos_t x, entity_pos_t z)
 
 void CCmpUnitMotion::FaceTowardsPointFromPos(const CFixedVector2D& pos, entity_pos_t x, entity_pos_t z)
 {
-	CFixedVector2D target(x, z);
-	CFixedVector2D offset = target - pos;
-	if (!offset.IsZero())
-	{
-		entity_angle_t angle = atan2_approx(offset.X, offset.Y);
+	const CFixedVector2D offset{CFixedVector2D(x, z) - pos};
+	if (offset.IsZero())
+		return;
+	const entity_angle_t targetAngle{atan2_approx(offset.X, offset.Y)};
 
+	CmpPtr<CCmpUnitMotionManager> cmpMotionMgr(GetSystemEntity());
+	MotionState* state{cmpMotionMgr ? cmpMotionMgr->GetMotionState(GetEntityId()) : nullptr};
+	if (!state)
+	{
+		// Not handled by the motion manager, so nothing would keep turning us over the following turns.
 		CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
-		if (!cmpPosition)
-			return;
-		cmpPosition->TurnTo(angle);
+		if (cmpPosition && cmpPosition->IsInWorld())
+			cmpPosition->TurnTo(targetAngle);
+		return;
 	}
+
+	// While moving, the movement controller owns our heading.
+	if (m_MoveRequest.m_Type != MoveRequest::NONE)
+		return;
+
+	// Don't turn here: set a heading that PerformMove turns towards every turn, with angular momentum and the max turn rate,
+	// until aligned (PreMove keeps us awake meanwhile). Turning in one call could only ever take a single step.
+	state->hasFaceTarget = true;
+	state->faceTargetAngle = targetAngle;
 }
 
 // The pathfinder cannot go to "rounded rectangles" goals, which are what happens with square targets and a non-null range.
@@ -2495,6 +2523,13 @@ bool CCmpUnitMotion::MoveTo(MoveRequest request)
 	m_MoveRequest = request;
 	m_FailedMovements = 0;
 	m_FollowKnownImperfectPathCountdown = 0;
+
+	// Movement owns our heading from now on: drop any heading we were turning towards.
+	{
+		CmpPtr<CCmpUnitMotionManager> cmpMotionMgr(GetSystemEntity());
+		if (MotionState* state{cmpMotionMgr ? cmpMotionMgr->GetMotionState(GetEntityId()) : nullptr})
+			state->hasFaceTarget = false;
+	}
 
 	ComputePathToGoal(cmpPosition->GetPosition2D(), goal);
 	return true;

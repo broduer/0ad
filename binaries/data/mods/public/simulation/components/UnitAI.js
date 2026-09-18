@@ -2421,17 +2421,29 @@ UnitAI.prototype.UnitFsmSpec = {
 					// Units with no cheering time do not cheer.
 					this.shouldCheer = cmpUnitAI && (!cmpUnitAI.IsAnimal() || cmpUnitAI.IsDangerousAnimal()) && this.cheeringTime > 0;
 
+					// Start a timer to continuously face the target while attacking
+					this.StartTimer(200, 200);
 					return false;
 				},
 
 				"leave": function()
 				{
+					this.StopTimer();
 					const cmpBuildingAI = Engine.QueryInterface(this.entity, IID_BuildingAI);
 					if (cmpBuildingAI)
 						cmpBuildingAI.SetUnitAITarget(0);
 					const cmpAttack = Engine.QueryInterface(this.entity, IID_Attack);
 					if (cmpAttack)
 						cmpAttack.StopAttacking();
+				},
+
+				"Timer": function(msg)
+				{
+					// Continuously face the target while attacking
+					if (this.order && this.order.data && this.order.data.target)
+						// Only face if the target is still alive
+						if (this.TargetIsAlive(this.order.data.target))
+							this.FaceTowardsTarget(this.order.data.target);
 				},
 
 				"OutOfRange": function()

@@ -15,6 +15,7 @@
       </Bonuses>
       <PrepareTime op="mul">0.25</PrepareTime>
       <RepeatTime op="mul">0.5</RepeatTime>
+      <MaxAngle>3.1416</MaxAngle>
       <MaxRange op="mul">1.25</MaxRange>
     </Ranged>
   </Attack>

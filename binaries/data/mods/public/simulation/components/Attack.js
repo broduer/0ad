@@ -34,6 +34,7 @@ Attack.prototype.Schema =
 			"</Damage>" +
 			"<MaxRange>4.0</MaxRange>" +
 			"<RepeatTime>1000</RepeatTime>" +
+			"<MaxAngle>0.5</MaxAngle>" +
 			"<Bonuses>" +
 				"<Bonus1>" +
 					"<Civ>achae</Civ>" +
@@ -122,6 +123,11 @@ Attack.prototype.Schema =
 				"<element name='MaxRange' a:help='Maximum attack range (in meters)'><ref name='nonNegativeDecimal'/></element>" +
 				"<optional>" +
 					"<element name='MinRange' a:help='Minimum attack range (in meters). Defaults to 0.'><ref name='nonNegativeDecimal'/></element>" +
+				"</optional>" +
+				"<optional>" +
+					"<element name='MaxAngle' a:help='Maximum angle (in radians) between the attacker&apos;s facing direction and the direction to the target to allow the attack. Defaults to 0.5. Use PI (3.1416) to allow attacking in any direction.'>" +
+						"<ref name='nonNegativeDecimal'/>" +
+					"</element>" +
 				"</optional>" +
 				"<optional>"+
 					"<element name='Origin' a:help='The offset from which the attack occurs, relative to the entity position. Defaults to {0,0,0}.'>" +
@@ -625,6 +631,9 @@ Attack.prototype.StartAttacking = function(target, type, callerIID, force)
 	if (!this.CanAttack(target, [type]))
 		return false;
 
+	// Set the target immediately so the angle check works
+	this.target = target;
+
 	const cmpResistance = QueryMiragedInterface(target, IID_Resistance);
 	if (!cmpResistance || !cmpResistance.AddAttacker(this.entity))
 		return false;
@@ -632,22 +641,13 @@ Attack.prototype.StartAttacking = function(target, type, callerIID, force)
 	const timings = this.GetTimers(type);
 	const cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
 
-	// If the repeat time since the last attack hasn't elapsed,
-	// delay the action to avoid attacking too fast.
+	// If the repeat time since the last attack hasn't elapsed, the first hit is delayed (see StartAttackCycle);
+	// the range checks below are phased against that same delay.
 	let prepare = timings.prepare;
 	if (this.lastAttacked)
 	{
 		const repeatLeft = this.lastAttacked + timings.repeat - cmpTimer.GetTime();
 		prepare = Math.max(prepare, repeatLeft);
-	}
-
-	const cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
-	if (cmpVisual)
-	{
-		cmpVisual.SelectAnimation("attack_" + type.toLowerCase(), false, 1.0);
-		cmpVisual.SetAnimationSyncRepeat(timings.repeat);
-		// The first hit lands when the timer below first fires, at a turn end: put the action frame there.
-		cmpVisual.SetAnimationSyncOffset(this.TimerFiringDelay(prepare, cmpTimer.GetLatestTurnLength()));
 	}
 
 	// Find the number of range checks needed during repeat time.
@@ -667,9 +667,73 @@ Attack.prototype.StartAttacking = function(target, type, callerIID, force)
 	this.target = target;
 	this.callerIID = callerIID;
 	this.force = force;
-	this.timer = cmpTimer.SetInterval(this.entity, IID_Attack, "Attack", prepare, timings.repeat, type);
+
+	// Attack straight away if we already face the target; otherwise turn first, checking every turn.
+	this.animationStarted = false;
+	if (this.IsTargetInFacingAngle(type))
+		this.StartAttackCycle(type);
+	else
+		this.WaitToFace(type);
+
 	this.checkTimer = cmpTimer.SetInterval(this.entity, IID_Attack, "RepeatRangeCheck", checkStart, repeatPerCheck, type);
 	return true;
+};
+
+/**
+ * Start or restart an attack cycle: play the attack animation and arm the attack timer so that each hit lands
+ * on the animation's action frame. Also used when a unit that was turning to face its target becomes aligned.
+ * @param {string} type - The type of attack to use.
+ */
+Attack.prototype.StartAttackCycle = function(type)
+{
+	const timings = this.GetTimers(type);
+	const cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
+
+	// If the repeat time since the last attack hasn't elapsed,
+	// delay the action to avoid attacking too fast.
+	let prepare = timings.prepare;
+	if (this.lastAttacked)
+		prepare = Math.max(prepare, this.lastAttacked + timings.repeat - cmpTimer.GetTime());
+
+	const cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
+	if (cmpVisual)
+	{
+		cmpVisual.SelectAnimation("attack_" + type.toLowerCase(), false, 1.0);
+		cmpVisual.SetAnimationSyncRepeat(timings.repeat);
+		// The first hit lands when the timer below first fires, at a turn end: put the action frame there.
+		cmpVisual.SetAnimationSyncOffset(this.TimerFiringDelay(prepare, cmpTimer.GetLatestTurnLength()));
+	}
+	this.animationStarted = true;
+
+	if (this.timer)
+		cmpTimer.CancelTimer(this.timer);
+	this.timer = cmpTimer.SetInterval(this.entity, IID_Attack, "Attack", prepare, timings.repeat, type);
+	delete this.waitingToFace;
+};
+
+/**
+ * Wait until we face the target before attacking: stop the attack animation (so the unit doesn't swing at empty air)
+ * and check every turn rather than once per attack period, so an aligned unit doesn't stand idle.
+ * @param {string} type - The type of attack to use.
+ */
+Attack.prototype.WaitToFace = function(type)
+{
+	if (this.animationStarted)
+	{
+		Engine.QueryInterface(this.entity, IID_Visual)?.SelectAnimation("idle", false, 1.0);
+		this.animationStarted = false;
+	}
+
+	if (this.waitingToFace)
+		return;
+
+	const cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
+	// The turn length is 0 until the first turn has run; poll once per attack period until then.
+	const pollInterval = cmpTimer.GetLatestTurnLength() || this.GetTimers(type).repeat;
+	if (this.timer)
+		cmpTimer.CancelTimer(this.timer);
+	this.timer = cmpTimer.SetInterval(this.entity, IID_Attack, "Attack", pollInterval, pollInterval, type);
+	this.waitingToFace = true;
 };
 
 /**
@@ -685,6 +749,8 @@ Attack.prototype.StopAttacking = function(reason)
 	cmpTimer.CancelTimer(this.checkTimer);
 	delete this.timer;
 	delete this.checkTimer;
+	delete this.animationStarted;
+	delete this.waitingToFace;
 
 	const cmpResistance = QueryMiragedInterface(this.target, IID_Resistance);
 	if (cmpResistance)
@@ -722,8 +788,23 @@ Attack.prototype.Attack = function(type, lateness)
 		return;
 	}
 
-	// ToDo: Enable entities to keep facing a target.
+	// Always turn towards the target first, so a unit that isn't facing it yet keeps turning.
 	Engine.QueryInterface(this.entity, IID_UnitAI)?.FaceTowardsTarget(this.target);
+
+	// Don't attack until we face the target; check again every turn meanwhile.
+	if (!this.IsTargetInFacingAngle(type))
+	{
+		this.WaitToFace(type);
+		return;
+	}
+
+	// We've just come to face the target: play the wind-up and land the hit on its action frame, rather than hitting
+	// on this tick while the animation's action frame is still `prepare` ms away.
+	if (!this.animationStarted)
+	{
+		this.StartAttackCycle(type);
+		return;
+	}
 
 	const cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
 	this.lastAttacked = cmpTimer.GetTime() - lateness;
@@ -969,6 +1050,53 @@ Attack.prototype.IsTargetInRange = function(target, type)
 		this.entity, target, range.min, range.max, false);
 };
 
+Attack.prototype.GetMaxAngle = function(type)
+{
+	const templateAngle = this.template[type]?.MaxAngle;
+	const maxAngle = templateAngle === undefined ? this.DEFAULT_MAX_ANGLE : +templateAngle;
+	return ApplyValueModificationsToEntity("Attack/" + type + "/MaxAngle", maxAngle, this.entity);
+};
+
+Attack.prototype.IsTargetInFacingAngle = function(type)
+{
+	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
+	if (!cmpPosition || !cmpPosition.IsInWorld())
+		return false;
+
+	const target = this.target;
+	if (!target)
+		return false;
+
+	const cmpTargetPosition = Engine.QueryInterface(target, IID_Position);
+	if (!cmpTargetPosition || !cmpTargetPosition.IsInWorld())
+		return false;
+
+	// Get direction from attacker to target
+	const selfPos = cmpPosition.GetPosition2D();
+	const targetPos = cmpTargetPosition.GetPosition2D();
+	const dirToTarget = targetPos.sub(selfPos);
+
+	// Check if positions are the same
+	if (dirToTarget.x === 0 && dirToTarget.y === 0)
+		return true;
+
+	// Get attacker's facing angle (in radians)
+	const facingAngle = cmpPosition.GetRotation().y;
+
+	// Calculate angle to target
+	const targetAngle = Math.atan2(dirToTarget.x, dirToTarget.y);
+
+	// Calculate the smallest angle difference
+	let angleDiff = targetAngle - facingAngle;
+	// Normalize to [-PI, PI]
+	while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+	while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+	angleDiff = Math.abs(angleDiff);
+
+	const maxAngle = this.GetMaxAngle(type);
+	return angleDiff <= maxAngle;
+};
+
 Attack.prototype.OnValueModification = function(msg)
 {
 	if (msg.component != "Attack")
@@ -1007,5 +1135,12 @@ Attack.prototype.GetRangeOverlays = function(type = "Ranged")
  * visibly slowed or hurried, so it keeps its speed and lands between turn ends as before.
  */
 Attack.prototype.ALIGN_FLIGHT_MAX_CHANGE = 0.25;
+
+/**
+ * Maximum angle (in radians) between the attacker's facing direction and the direction to the target for an attack
+ * to land, when the attack's template doesn't set MaxAngle. Templates can set PI (3.1416) to allow attacking in
+ * any direction (e.g. arrow ships).
+ */
+Attack.prototype.DEFAULT_MAX_ANGLE = 0.5;
 
 Engine.RegisterComponentType(IID_Attack, "Attack", Attack);

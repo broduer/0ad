@@ -178,6 +178,8 @@ struct SerializeHelper<MotionState>
 		// Turning and collision state: all of it affects later turns, so it must survive saving/loading and rejoining.
 		serialize.NumberFixed_Unbounded("angular_velocity", value.angularVelocity);
 		serialize.Bool("predicted_collision", value.predictedCollision);
+		serialize.Bool("has_face_target", value.hasFaceTarget);
+		serialize.NumberFixed_Unbounded("face_target_angle", value.faceTargetAngle);
 	}
 };
 

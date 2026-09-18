@@ -16,6 +16,7 @@
         <FriendlyFire>false</FriendlyFire>
         <LaunchPoint y="5"/>
       </Projectile>
+      <MaxAngle>2.25</MaxAngle>
       <PreferredClasses datatype="tokens">Human</PreferredClasses>
     </Ranged>
   </Attack>
