@@ -446,7 +446,8 @@ void CGame::Update(const double deltaRealTime, bool doInterpolate)
 				g_GUI->SendEventToAll(EventNameSimulationUpdate);
 			}
 
-			GetView()->GetLOSTexture().MakeDirty();
+			if (m_GameView)
+				m_GameView->GetLOSTexture().MakeDirty();
 		}
 
 		if (CRenderer::IsInitialised())
