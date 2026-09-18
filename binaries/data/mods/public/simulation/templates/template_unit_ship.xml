@@ -88,7 +88,10 @@
   </UnitAI>
   <UnitMotion>
     <PassabilityClass>ship</PassabilityClass>
-    <InstantTurnAngle>10</InstantTurnAngle>
-    <Acceleration op="mul">0.1</Acceleration>
+    <Drifting>0.9</Drifting>
+    <DriftCorrection>0.3</DriftCorrection>
+    <Inertia>10.5</Inertia>
+    <TurnAcceleration>1</TurnAcceleration>
+    <Cornering>0.9</Cornering>
   </UnitMotion>
 </Entity>

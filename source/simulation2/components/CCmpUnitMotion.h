@@ -39,6 +39,10 @@
 #include "simulation2/components/ICmpValueModificationManager.h"
 #include "simulation2/components/ICmpVisual.h"
 #include "simulation2/components/ICmpPhysicalBody.h"
+#include "simulation2/helpers/HeadingControl.h"
+#include "simulation2/helpers/MomentumModel.h"
+#include "simulation2/helpers/ObstructionResolution.h"
+#include "simulation2/helpers/PathFollowing.h"
 #include "simulation2/helpers/PathGoal.h"
 #include "simulation2/helpers/Pathfinding.h"
 #include "simulation2/helpers/Position.h"
@@ -55,6 +59,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -135,6 +140,23 @@ constexpr std::uint8_t ALTERNATE_PATH_TYPE_EVERY = 6;
 constexpr std::uint8_t BACKUP_HACK_DELAY = 10;
 
 /**
+ * Share of its own speed a unit has to keep for it to count as moving at all, so slow units moving normally
+ * aren't taken for stuck (see MinProgressSpeed).
+ * Braking can legitimately shave the speed down to a crawl, so 'didn't move exactly zero' is not a
+ * usable test for progress: a unit inching along at a thousandth of a navcell per turn is stuck, but
+ * it still passes every IsZero() check, keeps its animation running and never reaches the failed-movement
+ * handling. Anything below this is treated as standing still.
+ */
+constexpr fixed MIN_PROGRESS_SHARE = fixed::FromFraction(1, 10);
+
+/**
+ * Likewise for rotation (radians/second): turning slower than this, a unit isn't pivoting, it's just settling.
+ * (Turning in place is deliberate and must not be counted as a stall - a high-inertia unit spends
+ * several turns doing it.)
+ */
+constexpr entity_angle_t MIN_ROTATION_SPEED = entity_angle_t::FromFraction(1, 20);
+
+/**
  * After this many failed computations, start sending "VERY_OBSTRUCTED" messages instead.
  * Should probably be larger than ALTERNATE_PATH_TYPE_DELAY.
  */
@@ -175,7 +197,9 @@ public:
 
 	bool m_IsFormationController;
 
-	fixed m_TemplateWalkSpeed, m_TemplateRunMultiplier, m_TemplateAcceleration;
+	fixed m_TemplateWalkSpeed, m_TemplateRunMultiplier;
+	// The share of top speed given up at a right angle or sharper: 1 - Cornering, see the schema.
+	fixed m_TemplateTurnBraking;
 	pass_class_t m_PassClass;
 	std::string m_PassClassName;
 
@@ -205,6 +229,18 @@ public:
 	// When reaching the end, we'll go through HandleObstructedMove and reset regardless.
 	// To still recompute now and then (the target may be moving), this is a countdown decremented on each frame.
 	std::uint8_t m_FollowKnownImperfectPathCountdown = 0;
+
+	// Inertia strength multiplier for movement blending
+	fixed m_TemplateInertia;
+
+	// How much inertia carries over when not actively moving (0-1)
+	fixed m_TemplateDrifting;
+
+	// How much to boost pathfinding when drifting (0 = none, 1 = max)
+	fixed m_TemplateDriftCorrection;
+
+	// How fast the unit gains and loses turning speed, in radians per second squared
+	fixed m_TemplateTurnAcceleration;
 
 	struct Ticket {
 		std::uint32_t m_Ticket = 0; // asynchronous request ID we're waiting for, or 0 if none
@@ -250,10 +286,6 @@ public:
 	// The speed achieved at the end of the current turn.
 	fixed m_CurrentSpeed;
 
-	fixed m_InstantTurnAngle;
-
-	fixed m_Acceleration;
-
 	// Currently active paths (storing waypoints in reverse order).
 	// The last item in each path is the point we're currently heading towards.
 	WaypointPath m_LongPath;
@@ -278,10 +310,27 @@ public:
 					"<ref name='positiveDecimal'/>"
 				"</element>"
 			"</optional>"
-			"<element name='InstantTurnAngle' a:help='Angle we can turn instantly. Any value greater than pi will disable turning times. Avoid zero since it stops the entity every turn.'>"
-				"<ref name='positiveDecimal'/>"
-			"</element>"
-			"<element name='Acceleration' a:help='Acceleration (in meters per second^2).'>"
+			"<optional>"
+				"<element name='Drifting' a:help='Fraction of its momentum a unit keeps every 0.2 seconds when not following a path, independent of turn length. Push momentum decays by this alone; the unit&apos;s own momentum keeps at least Inertia / (1 + Inertia). 1 = keep full speed.'>"
+					"<ref name='nonNegativeDecimal'/>"
+				"</element>"
+			"</optional>"
+			"<optional>"
+				"<element name='Cornering' a:help='Share of its speed a unit keeps through a right angle or sharper turn. 1 = full speed (wide arcs), 0.7 = seven tenths, 0 = stop and turn in place. The code brakes by the rest.'>"
+					"<ref name='nonNegativeDecimal'/>"
+				"</element>"
+			"</optional>"
+			"<optional>"
+				"<element name='Inertia' a:help='Inertia strength multiplier for movement blending. Higher values make units harder to turn/stop.'>"
+					"<ref name='nonNegativeDecimal'/>"
+				"</element>"
+			"</optional>"
+			"<optional>"
+				"<element name='DriftCorrection' a:help='How tightly the unit holds its path: the fraction of its sideways drift it cancels each turn (at a cost in speed), how much it faces its waypoint rather than its direction of travel, and how close it has to get to a waypoint. 0 = none, 1 = full.'>"
+					"<ref name='nonNegativeDecimal'/>"
+				"</element>"
+			"</optional>"
+			"<element name='TurnAcceleration' a:help='How fast the unit gains and loses turning speed, in radians per second squared. It starts turning at this rate, up to its TurnRate, and brakes at it to stop on its heading.'>"
 				"<ref name='positiveDecimal'/>"
 			"</element>"
 			"<element name='PassabilityClass' a:help='Identifies the terrain passability class (values are defined in special/pathfinder.xml).'>"
@@ -308,9 +357,28 @@ public:
 		if (paramNode.GetChild("RunMultiplier").IsOk())
 			m_RunMultiplier = m_TemplateRunMultiplier = paramNode.GetChild("RunMultiplier").ToFixed();
 
-		m_InstantTurnAngle = paramNode.GetChild("InstantTurnAngle").ToFixed();
+		// Cornering is the share of speed kept through a turn; what the steering wants is the share given up.
+		if (paramNode.GetChild("Cornering").IsOk())
+			m_TemplateTurnBraking = fixed::FromInt(1) - paramNode.GetChild("Cornering").ToFixed();
+		else
+			m_TemplateTurnBraking = fixed::FromFraction(2, 10);
 
-		m_Acceleration = m_TemplateAcceleration = paramNode.GetChild("Acceleration").ToFixed();
+		if (paramNode.GetChild("Drifting").IsOk())
+			m_TemplateDrifting = paramNode.GetChild("Drifting").ToFixed();
+		else
+			m_TemplateDrifting = fixed::FromFraction(1, 10); // Minimal drifting but will only have effect if inertia isn't null
+
+		if (paramNode.GetChild("Inertia").IsOk())
+			m_TemplateInertia = paramNode.GetChild("Inertia").ToFixed();
+		else
+			m_TemplateInertia = fixed::Zero(); // No inertia by default
+
+		if (paramNode.GetChild("DriftCorrection").IsOk())
+			m_TemplateDriftCorrection = paramNode.GetChild("DriftCorrection").ToFixed();
+		else
+			m_TemplateDriftCorrection = fixed::Zero();
+
+		m_TemplateTurnAcceleration = paramNode.GetChild("TurnAcceleration").ToFixed();
 
 		m_PassClassName = paramNode.GetChild("PassabilityClass").ToString();
 		SetPassabilityData(m_PassClassName);
@@ -354,9 +422,15 @@ public:
 		serialize.NumberFixed_Unbounded("last turn speed", m_LastTurnSpeed);
 		serialize.NumberFixed_Unbounded("current speed", m_CurrentSpeed);
 
-		serialize.NumberFixed_Unbounded("instant turn angle", m_InstantTurnAngle);
-
-		serialize.NumberFixed_Unbounded("acceleration", m_Acceleration);
+		serialize.NumberFixed_Unbounded("turn_braking", m_TemplateTurnBraking);
+		// Formation controllers take these from their members (see SetFormationMotionParameters); everyone else keeps
+		// the template values, so there's nothing to save for them.
+		if (m_IsFormationController)
+		{
+			serialize.NumberFixed_Unbounded("inertia", m_TemplateInertia);
+			serialize.NumberFixed_Unbounded("drifting", m_TemplateDrifting);
+			serialize.NumberFixed_Unbounded("drift correction", m_TemplateDriftCorrection);
+		}
 
 		serialize.Bool("facePointAfterMove", m_FacePointAfterMove);
 
@@ -500,18 +574,16 @@ public:
 		WaypointPath shortPath = m_ShortPath;
 		WaypointPath longPath = m_LongPath;
 
-		PerformMove(dt, cmpPosition->GetTurnRate(), shortPath, longPath, pos, speed, angle, 0);
-		return pos;
-	}
+		MotionState tempState(nullptr, const_cast<CCmpUnitMotion*>(this), nullptr);
+		tempState.pos = pos;
+		tempState.speed = speed;
+		tempState.angle = angle;
+		tempState.inertiaVelocity = CFixedVector2D();
+		tempState.externalVelocity = CFixedVector2D();
+		tempState.angularVelocity = fixed::Zero();
 
-	fixed GetAcceleration() const override
-	{
-		return m_Acceleration;
-	}
-
-	void SetAcceleration(fixed acceleration) override
-	{
-		m_Acceleration = acceleration;
+		PerformMove(dt, cmpPosition->GetTurnRate(), shortPath, longPath, tempState, 0);
+		return tempState.pos;
 	}
 
 	pass_class_t GetPassabilityClass() const override
@@ -532,6 +604,34 @@ public:
 			return;
 		}
 		SetPassabilityData(passClassName);
+	}
+
+	fixed GetInertia() const override
+	{
+		return m_TemplateInertia;
+	}
+
+	fixed GetDrifting() const override
+	{
+		return m_TemplateDrifting;
+	}
+
+	void SetFormationMotionParameters(const fixed inertia, const fixed drifting) override
+	{
+		if (!m_IsFormationController)
+		{
+			LOGWARNING("Only formation controllers can change their motion parameters");
+			return;
+		}
+		// Momentum comes from the members, so the controller never outruns the heaviest of them.
+		m_TemplateInertia = inertia;
+		m_TemplateDrifting = drifting;
+
+		// Steering doesn't: the controller is a marker the members follow, so it holds its path as precisely as it can
+		// and stops to turn rather than sweeping wide arcs the members then have to chase (which would have them circling
+		// in forests). What the formation looks like comes from the members' own steering.
+		m_TemplateTurnBraking = fixed::FromInt(1);
+		m_TemplateDriftCorrection = fixed::FromInt(1);
 	}
 
 	fixed GetCurrentSpeed() const override
@@ -610,8 +710,12 @@ public:
 			CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
 			if (cmpPosition && cmpPosition->IsInWorld())
 			{
+				// Not when standing on the destination: the unit comes to rest anywhere within the distance it may
+				// stop at, and what small remainder is left of the way to the point says nothing about where to
+				// face, while the heading it arrived with does.
 				CFixedVector2D targetPos;
-				if (ComputeTargetPosition(targetPos))
+				if (ComputeTargetPosition(targetPos) &&
+					(targetPos - cmpPosition->GetPosition2D()).CompareLength(Pathfinding::NAVCELL_SIZE + StoppingMargin()) > 0)
 					FaceTowardsPointFromPos(cmpPosition->GetPosition2D(), targetPos.X, targetPos.Y);
 			}
 		}
@@ -627,7 +731,52 @@ public:
 		return m_Clearance;
 	}
 
+	/**
+	 * Fraction of our own (pathfinding) inertia kept every IMPACT_REFERENCE_TIME when not following a path, e.g. after
+	 * stopping. Inertia / (1 + Inertia) coasts us about speed · IMPACT_REFERENCE_TIME · (1 + Inertia), the same
+	 * stopping distance the braking code assumes; Drifting can only lengthen that.
+	 * Arrivals are braked first, so they coast little. Moves interrupted at speed (stop orders, new orders) coast too.
+	 */
+	fixed GetInertiaKeep() const
+	{
+		const fixed inertiaKeep{m_TemplateInertia / (fixed::FromInt(1) + m_TemplateInertia)};
+		return std::max(m_TemplateDrifting, inertiaKeep);
+	}
+
+	/**
+	 * The speed left after coasting for dt with no order: the GetInertiaKeep() share, but never more than braking at
+	 * the constant deceleration arrivals use (see PathFollowing::PredictiveBrakeFactor), so the glide ends.
+	 */
+	fixed DecayCoastingSpeed(const fixed speed, const fixed dt) const
+	{
+		const fixed kept{speed.Multiply(PushConfig::DecayFactor(GetInertiaKeep(), dt))};
+		const fixed stoppingTime{PushConfig::IMPACT_REFERENCE_TIME.Multiply(fixed::FromInt(1) + m_TemplateInertia) * 2};
+		if (stoppingTime <= fixed::Zero())
+			return kept;
+		const fixed braked{std::max(speed - m_WalkSpeed.Multiply(dt) / stoppingTime, fixed::Zero())};
+		return std::min(kept, braked);
+	}
+
 private:
+	/**
+	 * The slowest a unit can go and still count as moving: MIN_PROGRESS_SHARE of its own speed.
+	 */
+	fixed MinProgressSpeed() const
+	{
+		return m_Speed.Multiply(MIN_PROGRESS_SHARE);
+	}
+
+	/**
+	 * How far from the end of its path a unit brakes to a stop: a navcell inside the distance at which it is
+	 * in range of a point or a target, which is its clearance (see PossiblyAtDestination), so it comes to rest in
+	 * range rather than creeping up on the edge of it. A formation slot is reached by the centre.
+	 */
+	fixed StoppingMargin() const
+	{
+		return m_MoveRequest.m_Type == MoveRequest::OFFSET ? fixed::Zero() :
+			std::max(m_Clearance - Pathfinding::NAVCELL_SIZE, fixed::Zero());
+	}
+
 	bool IsFormationMember() const
 	{
 		return m_FormationController != INVALID_ENTITY;
@@ -798,7 +947,10 @@ private:
 	 * This does not send actually change the position.
 	 * @returns true if the move was obstructed.
 	 */
-	bool PerformMove(fixed dt, const fixed& turnRate, WaypointPath& shortPath, WaypointPath& longPath, CFixedVector2D& pos, fixed& speed, entity_angle_t& angle, uint8_t pushingPressure) const;
+	bool PerformMove(fixed dt, const fixed& turnRate,
+					WaypointPath& shortPath, WaypointPath& longPath,
+					MotionState& state,
+					uint8_t pushingPressure) const;
 
 	/**
 	 * Update other components on our speed.
@@ -1074,21 +1226,30 @@ void CCmpUnitMotion::PreMove(MotionState& state)
 	// - Unit doesn't block movement (e.g., projectiles, birds)
 	state.ignore = !pushingEnabled || !m_BlockMovement;
 
+	// Reset state flags for this turn
 	state.wasObstructed = false;
 	state.wentStraight = false;
+	state.poppedBlockedCorner = false;
 
-	// If we were idle and will still be, no need for an update.
+	// Determine if this unit needs to be processed this turn
+	// A unit needs update if it's in-world AND (moving OR has a pending move request).
 	state.needUpdate = state.cmpPosition->IsInWorld() &&
-		(m_CurrentSpeed != fixed::Zero() || m_LastTurnSpeed != fixed::Zero() || m_MoveRequest.m_Type != MoveRequest::NONE);
+		(m_CurrentSpeed != fixed::Zero() ||
+		m_LastTurnSpeed != fixed::Zero() ||
+		m_MoveRequest.m_Type != MoveRequest::NONE);
 
 	if (!m_BlockMovement)
 		return;
 
+	// Set control group for formation-based force filtering
+	// Units in the same formation don't apply forces to each other
 	state.controlGroup = IsFormationMember() ? m_FormationController : INVALID_ENTITY;
 
-	// Update moving flag, this is an internal construct used for pushing,
-	// so it does not really reflect whether the unit is actually moving or not.
+	// Update moving flag used by force calculations
+	// Note: This doesn't reflect actual movement, just intent/motion state
 	state.isMoving = pushingEnabled && m_MoveRequest.m_Type != MoveRequest::NONE;
+
+	// Update obstruction manager's moving flag for collision filtering
 	CmpPtr<ICmpObstruction> cmpObstruction(GetEntityHandle());
 	if (cmpObstruction)
 		cmpObstruction->SetMovingFlag(state.isMoving);
@@ -1103,13 +1264,66 @@ void CCmpUnitMotion::Move(MotionState& state, fixed dt)
 	// to it, then throw away our current path and go straight to it.
 	state.wentStraight = TryGoingStraightToTarget(state.initialPos, true);
 
-	state.wasObstructed = PerformMove(dt, state.cmpPosition->GetTurnRate(), m_ShortPath, m_LongPath, state.pos, state.speed, state.angle,
-		state.cmpPhysicalBody ? state.cmpPhysicalBody->GetPressure() : 0);
+	uint8_t pressure = state.cmpPhysicalBody ? state.cmpPhysicalBody->GetPressure() : 0;
+
+	state.wasObstructed = PerformMove(dt, state.cmpPosition->GetTurnRate(),
+									m_ShortPath, m_LongPath,
+									state,
+									pressure);
+
+	// Update inertia based on what actually happened this turn
+	if (state.pos != state.initialPos)
+	{
+		CFixedVector2D offset = state.pos - state.initialPos;
+		CFixedVector2D totalVelocity = offset.Multiply(fixed::FromInt(1) / dt);
+
+		// Split the velocity into pathfinding and external components.
+		// PerformMove stored everything external applied this turn (push + carried external inertia)
+		// in externalInertiaVelocity, so pathfinding inertia is the remainder.
+		CFixedVector2D ownVelocity{totalVelocity - state.externalInertiaVelocity};
+
+		// A unit with no order has no momentum of its own to gain, only what is left of the last order's
+		// to lose. Without this, a pushed unit whose step was cut short - blocked, or slid along an
+		// obstacle - would have the push that never happened booked as own momentum against it, and
+		// with a heavy unit's inertia keep it for seconds, walking into its neighbours on it: a herd
+		// shoved about would churn on its own long after the shoving stopped. The rest of what happened
+		// is the push that did.
+		if (!IsMoveRequested())
+		{
+			ownVelocity = MomentumModel::ClampSpeed(ownVelocity, DecayCoastingSpeed(state.inertiaVelocity.Length(), dt));
+			state.externalInertiaVelocity = totalVelocity - ownVelocity;
+		}
+		state.inertiaVelocity = ownVelocity;
+	}
+	else if (state.wasObstructed)
+	{
+		state.inertiaVelocity = state.inertiaVelocity.Multiply(fixed::FromFloat(0.5f));
+		state.externalInertiaVelocity = state.externalInertiaVelocity.Multiply(fixed::FromFloat(0.5f));
+	}
+	else
+	{
+		// Standing still: momentum decays as it does while drifting. Kept forever, it would be resurrected by the next
+		// order's blend, and a unit "starting" to move would already be at speed.
+		state.inertiaVelocity = IsMoveRequested() ?
+			state.inertiaVelocity.Multiply(PushConfig::DecayFactor(GetInertiaKeep(), dt)) :
+			MomentumModel::ClampSpeed(state.inertiaVelocity, DecayCoastingSpeed(state.inertiaVelocity.Length(), dt));
+	}
+
+	// Negligible inertia doesn't decay away on its own (see SnapNegligible): without this, units that finished moving
+	// would keep creeping by a raw fixed-point unit per turn and never go back to sleep.
+	// Without a move request, stop as soon as the glide left isn't visible (see CoastingRestSpeed). Not with one: a slow
+	// unit accelerating from rest builds its inertia from speeds that low, and would never get going.
+	state.inertiaVelocity = IsMoveRequested() ? MomentumModel::SnapNegligible(state.inertiaVelocity) :
+		MomentumModel::SnapBelow(state.inertiaVelocity,
+			MomentumModel::CoastingRestSpeed(PushConfig::DecayFactor(GetInertiaKeep(), dt), dt));
 }
 
 void CCmpUnitMotion::PostMove(MotionState& state, fixed dt)
 {
 	// Update our speed over this turn so that the visual actor shows the correct animation.
+	// The heading was already rate-limited by the heading controller in PerformMove, so it's applied as is.
+	// Moving and turning in a single call advertises the position change once, not once per call: every
+	// MT_PositionChanged subscriber (obstructions, range queries, vision...) handles it right away.
 	if (state.pos == state.initialPos)
 	{
 		if (state.angle != state.initialAngle)
@@ -1118,23 +1332,67 @@ void CCmpUnitMotion::PostMove(MotionState& state, fixed dt)
 	}
 	else
 	{
-		// Update the Position component after our movement (if we actually moved anywhere)
-		CFixedVector2D offset = state.pos - state.initialPos;
 		state.cmpPosition->MoveAndTurnTo(state.pos.X, state.pos.Y, state.angle);
 
 		// Calculate the mean speed over this past turn.
+		CFixedVector2D offset = state.pos - state.initialPos;
 		UpdateMovementState(state.speed, offset.Length() / dt);
 	}
 
-	if (state.wasObstructed && HandleObstructedMove(state.pos != state.initialPos))
+	// Braking can legitimately leave us with a speed that isn't quite zero, so "our position changed" is not
+	// the same as "we got somewhere": a unit inching forward by a fraction of a navcell per turn never reaches
+	// its waypoint, never counts as obstructed, and so never reaches the failed-movement handling that would
+	// repath it or eventually tell UnitAI to give up - meanwhile it keeps resetting the counter below, so it
+	// stays that way forever. Hold it to real progress instead.
+	// Two things excuse standing still: turning in place, which is deliberate and takes a high-inertia unit
+	// several turns, and waiting on a path we've asked for and not yet been given. Anything else is stuck -
+	// with no waypoints at all most of all, since nothing will move it until something asks for a path for it.
+	const bool madeProgress{(state.pos - state.initialPos).CompareLength(MinProgressSpeed().Multiply(dt)) >= 0};
+	const bool hasPath{!m_ShortPath.m_Waypoints.empty() || !m_LongPath.m_Waypoints.empty()};
+	const bool awaitingFirstPath{!hasPath && m_ExpectedPathTicket.m_Ticket != 0};
+	const bool turning{(state.angle - state.initialAngle).Absolute() >= MIN_ROTATION_SPEED.Multiply(dt)};
+
+	if (!madeProgress && IsMoveRequested() && !state.wasObstructed && !awaitingFirstPath && !turning)
+		state.wasObstructed = true;
+
+	if (state.wasObstructed && HandleObstructedMove(madeProgress))
 		return;
-	else if (!state.wasObstructed && state.pos != state.initialPos)
+	else if (!state.wasObstructed && madeProgress)
 		m_FailedMovements = 0;
 
-	const bool needPathUpdate{PathingUpdateNeeded(state.pos)};
+	// PathingUpdateNeeded asks whether our path is still good enough. With no path at all it compares our shape
+	// against the goal's, so it can answer "close enough" while PossiblyAtDestination, which decides whether we've
+	// arrived, says we haven't (for a point or a formation slot it checks our position against the point).
+	// A unit caught between the two holds an order but has no waypoints and no path request: ask for a path now,
+	// rather than let it coast to a stop and get one only once the check above counts it as stuck.
+	// Only with a move request, since PossiblyAtDestination is always false without one.
+	const bool needPathUpdate{PathingUpdateNeeded(state.pos) ||
+		(IsMoveRequested() && !hasPath && m_ExpectedPathTicket.m_Ticket == 0 && !PossiblyAtDestination())};
 
+	// If we popped a corner waypoint although the straight line to the next target is obstructed
+	// (we couldn't reach it without circling back), path around the obstruction from here
+	// instead of heading straight into it.
+	// Not while a long path request is pending: we wait for one path at a time, so this would drop it. Its new
+	// waypoints won't fix the corner either - we're sitting on it, so their waypoint there is usually popped the same
+	// way - but once they arrive this runs again and paths around it.
+	if (!needPathUpdate && !state.wasObstructed && state.poppedBlockedCorner &&
+		(m_ExpectedPathTicket.m_Ticket == 0 || m_ExpectedPathTicket.m_Type == Ticket::SHORT_PATH))
+	{
+		if (!m_LongPath.m_Waypoints.empty())
+		{
+			const PathGoal subgoal{PathGoal::CIRCLE, m_LongPath.m_Waypoints.back().x, m_LongPath.m_Waypoints.back().z,
+				Pathfinding::NAVCELL_SIZE * 2};
+			RequestShortPath(state.pos, subgoal, false);
+		}
+		else
+		{
+			PathGoal goal;
+			if (ComputeGoal(goal, m_MoveRequest))
+				RequestShortPath(state.pos, goal, false);
+		}
+	}
 	// If we're following a long-path, check if we might run into units in advance, to smoothe motion.
-	if (!needPathUpdate && !state.wasObstructed && m_LongPath.m_Waypoints.size() >= 1 && m_ShortPath.m_Waypoints.empty())
+	else if (!needPathUpdate && !state.wasObstructed && m_LongPath.m_Waypoints.size() >= 1 && m_ShortPath.m_Waypoints.empty())
 	{
 		ICmpObstructionManager::tag_t specificIgnore;
 		if (m_MoveRequest.m_Type == MoveRequest::ENTITY)
@@ -1179,6 +1437,13 @@ void CCmpUnitMotion::PostMove(MotionState& state, fixed dt)
 	}
 	else if (m_FollowKnownImperfectPathCountdown > 0)
 		--m_FollowKnownImperfectPathCountdown;
+
+	// NB: there's deliberately no displacement-based path re-evaluation here. Being carried away from the
+	// current waypoint is what turning and drifting look like, so it can't tell a push from a manoeuvre.
+	// Repathing is driven by events instead: PathingUpdateNeeded (the goal moved), HandleObstructedMove
+	// (movement actually blocked), the TestUnitLine look-ahead (units in the way) and poppedBlockedCorner.
+	// A pushed unit keeps its path and steers at the same waypoint from its new position; if the push put
+	// an obstacle in between, the next move is obstructed and that handling takes over.
 }
 
 bool CCmpUnitMotion::PossiblyAtDestination() const
@@ -1218,20 +1483,20 @@ bool CCmpUnitMotion::PossiblyAtDestination() const
 	}
 }
 
-bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate, WaypointPath& shortPath, WaypointPath& longPath, CFixedVector2D& pos, fixed& speed, entity_angle_t& angle, uint8_t pushingPressure) const
+bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
+                                WaypointPath& shortPath, WaypointPath& longPath,
+                                MotionState& state,
+                                uint8_t pushingPressure) const
 {
-	// If there are no waypoint, behave as though we were obstructed and let HandleObstructedMove handle it.
-	if (shortPath.m_Waypoints.empty() && longPath.m_Waypoints.empty())
-		return true;
-
-	// Wrap the angle to (-Pi, Pi].
-	while (angle > entity_angle_t::Pi())
-		angle -= entity_angle_t::Pi() * 2;
-	while (angle < -entity_angle_t::Pi())
-		angle += entity_angle_t::Pi() * 2;
-
-	CmpPtr<ICmpPathfinder> cmpPathfinder(GetSystemEntity());
+	const ICmpPathfinder* const cmpPathfinder{
+		static_cast<const ICmpPathfinder*>(QueryInterface(GetSimContext(), SYSTEM_ENTITY, IID_Pathfinder))};
 	ENSURE(cmpPathfinder);
+
+    CFixedVector2D& pos = state.pos;
+    fixed& speed = state.speed;
+    entity_angle_t& angle = state.angle;
+    const CFixedVector2D& inertiaVelocity = state.inertiaVelocity;
+    const CFixedVector2D& externalVelocity = state.externalVelocity;
 
 	fixed basicSpeed = m_Speed;
 	// If in formation, run to keep up; otherwise just walk.
@@ -1262,130 +1527,439 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate, WaypointPath& 
 	// TODO: would be nice to support terrain-dependent speed again.
 	fixed maxSpeed = basicSpeed;
 
-	fixed timeLeft = dt;
-	fixed zero = fixed::Zero();
+	// Calculate desired velocity from pathfinding
+	CFixedVector2D pathfindingVelocity;
+	const bool hasPathfinding{!shortPath.m_Waypoints.empty() || !longPath.m_Waypoints.empty()};
 
-	ICmpObstructionManager::tag_t specificIgnore;
-	if (m_MoveRequest.m_Type == MoveRequest::ENTITY)
+	// The waypoint we're heading for (there is one exactly when hasPathfinding), and the way to it.
+	// pos doesn't change before the move is applied, so everything below shares these.
+	const std::optional<CFixedVector2D> currentWaypoint{PathFollowing::CurrentWaypoint(shortPath, longPath)};
+	const CFixedVector2D toWaypoint{currentWaypoint ? *currentWaypoint - pos : CFixedVector2D{}};
+
+	// Where the unit is pointing. Steering and drift correction both work relative to it, and the heading
+	// only changes further down, so the sine and cosine behind it are worth paying for just once.
+	const CFixedVector2D facingDir{HeadingControl::FacingDirection(angle)};
+
+	if (hasPathfinding)
 	{
-		CmpPtr<ICmpObstruction> cmpTargetObstruction(GetSimContext(), m_MoveRequest.m_Entity);
-		if (cmpTargetObstruction)
-			specificIgnore = cmpTargetObstruction->GetObstruction();
+		// Steer for the current waypoint.
+		// Collision avoidance uses last turn's prediction, as the prediction runs after this point.
+		pathfindingVelocity = PathFollowing::SteeringVelocity(toWaypoint, facingDir, speed, maxSpeed, m_TemplateInertia,
+			m_TemplateTurnBraking, state.predictedCollision);
 	}
 
-	while (timeLeft > zero)
-	{
-		// If we ran out of path, we have to stop.
-		if (shortPath.m_Waypoints.empty() && longPath.m_Waypoints.empty())
-			break;
+	// ========================================
+	// STEP 1: PREDICTIVE COLLISION AVOIDANCE
+	// Check if inertia will cause a collision, and if so,
+	// prepare to rely more on pathfinding
+	// ========================================
+	bool hasMoveRequest = IsMoveRequested();
+	fixed inertiaStrength = m_TemplateInertia;
+	fixed effectiveDriftCorrection = m_TemplateDriftCorrection; // Will be boosted if collision predicted
 
-		CFixedVector2D target;
-		if (shortPath.m_Waypoints.empty())
-			target = CFixedVector2D(longPath.m_Waypoints.back().x, longPath.m_Waypoints.back().z);
-		else
-			target = CFixedVector2D(shortPath.m_Waypoints.back().x, shortPath.m_Waypoints.back().z);
-
-		CFixedVector2D offset = target - pos;
-
-		if (turnRate > zero && !offset.IsZero())
+	// Ignore our target's obstruction when checking movement, if we're moving to an entity.
+	const ICmpObstructionManager::tag_t specificIgnore{[this]() -> ICmpObstructionManager::tag_t {
+		if (m_MoveRequest.m_Type == MoveRequest::ENTITY)
 		{
-			fixed angleDiff = angle - atan2_approx(offset.X, offset.Y);
-			fixed absoluteAngleDiff = angleDiff.Absolute();
-			if (absoluteAngleDiff > entity_angle_t::Pi())
-				absoluteAngleDiff = entity_angle_t::Pi() * 2 - absoluteAngleDiff;
+			CmpPtr<ICmpObstruction> cmpTargetObstruction(GetSimContext(), m_MoveRequest.m_Entity);
+			if (cmpTargetObstruction)
+				return cmpTargetObstruction->GetObstruction();
+		}
+		return {};
+	}()};
 
-			// We only rotate to the instantTurnAngle angle. The rest we rotate during movement.
-			if (absoluteAngleDiff > m_InstantTurnAngle)
+	// Recomputed just below; the steering velocity above deliberately used last turn's value.
+	state.predictedCollision = false;
+
+	if (hasPathfinding && hasMoveRequest && !inertiaVelocity.IsZero())
+	{
+		const CFixedVector2D predictedPos{MomentumModel::PredictPosition(pos, pathfindingVelocity, inertiaVelocity,
+			inertiaStrength, maxSpeed, dt)};
+
+		// Test if this multi-turn prediction collides with terrain or static obstructions. Units are left out:
+		// pushing resolves unit contacts, and treating an idle unit ahead (e.g. a charge target) as a wall
+		// maxed out drift correction for no reason.
+		const bool willCollide{!cmpPathfinder->CheckStaticMovement(
+			GetObstructionFilter(specificIgnore),
+			pos.X, pos.Y,
+			predictedPos.X, predictedPos.Y,
+			m_Clearance, m_PassClass)};
+
+		state.predictedCollision = willCollide;
+
+		// Boost drift correction to maximum.
+		if (willCollide)
+			effectiveDriftCorrection = fixed::FromInt(1);
+	}
+
+	// ========================================
+	// STEP 2: BLEND PATHFINDING WITH INERTIA
+	// Combine desired movement direction with momentum
+	// ========================================
+	CFixedVector2D combinedVelocity;
+
+	// External inertia (from past pushes) carries over and decays by the drifting factor,
+	// whether or not the unit is actively moving. Drifting is per IMPACT_REFERENCE_TIME, not per turn.
+	const fixed driftKeep{PushConfig::DecayFactor(m_TemplateDrifting, dt)};
+	const CFixedVector2D externalCarry{state.externalInertiaVelocity.Multiply(driftKeep)};
+
+	// combinedVelocity is our own movement until the external forces are added at the end: the unit steers and brakes
+	// what it controls, but can't steer or brake against being pushed.
+	if (hasMoveRequest && hasPathfinding)
+	{
+		combinedVelocity = MomentumModel::ClampSpeed(
+			MomentumModel::BlendWithInertia(pathfindingVelocity, inertiaVelocity, inertiaStrength), maxSpeed);
+	}
+	else
+	{
+		// No path to follow - just drift with damping. With no order at all, stop as soon as the glide left isn't
+		// visible (see CoastingRestSpeed). With one - waiting for a path, or the turn after going straight, which
+		// clears the short path - keep drifting, so a slow unit isn't stopped dead in the middle of its order.
+		const fixed coastKeep{PushConfig::DecayFactor(GetInertiaKeep(), dt)};
+		if (hasMoveRequest)
+			combinedVelocity = MomentumModel::SnapNegligible(inertiaVelocity.Multiply(coastKeep));
+		else
+		{
+			const CFixedVector2D coasting{MomentumModel::SnapBelow(inertiaVelocity, MomentumModel::CoastingRestSpeed(coastKeep, dt))};
+			combinedVelocity = MomentumModel::SnapNegligible(
+				MomentumModel::ClampSpeed(coasting, DecayCoastingSpeed(coasting.Length(), dt)));
+		}
+	}
+
+	// Set when our own braking - the drift correction cost below, or the turn cap further down - brings us
+	// to a full stop. That's deliberate, so PerformMove must not report it as an obstruction.
+	bool stoppedToTurn{false};
+
+	// ========================================
+	// STEP 3: DRIFT CORRECTION (After blending)
+	// Reduce lateral movement at the cost of speed
+	// ========================================
+	if (hasMoveRequest && hasPathfinding &&
+		!inertiaVelocity.IsZero() && effectiveDriftCorrection > fixed::Zero())
+		stoppedToTurn = MomentumModel::CorrectDrift(combinedVelocity, inertiaVelocity, facingDir, effectiveDriftCorrection, maxSpeed);
+
+	// Speed carried by momentum this turn, before the unit's own braking below.
+	// The waypoint acceptance radius uses it, so braking for a waypoint doesn't shrink that waypoint's radius.
+	// combinedVelocity isn't touched again until the brake multipliers are applied, so every speed needed
+	// between here and there is this one: reuse it rather than pay another isqrt64 per site.
+	const fixed unbrakedSpeed{combinedVelocity.Length()};
+
+	// 1. PATH TURN: How much the unit needs to turn to face the waypoint (for angular momentum)
+	entity_angle_t pathDesiredAngle = angle;
+	fixed pathNeededTurn = fixed::Zero();
+
+	if (hasPathfinding && hasMoveRequest)
+	{
+		// Not normalized first: an angle doesn't depend on the length, and scaling down to a unit vector
+		// throws away precision here rather than adding any - a direction under one metre keeps only its
+		// fractional bits, where the raw offset still has its whole ones. It also costs a square root.
+		if (!toWaypoint.IsZero())
+		{
+			pathDesiredAngle = atan2_approx(toWaypoint.X, toWaypoint.Y);
+			pathNeededTurn = HeadingControl::WrapAngle(pathDesiredAngle - angle).Absolute();
+		}
+	}
+
+	// 2. MOVEMENT TURN: How much the movement direction differs from current facing (for slowdown)
+	entity_angle_t movementDesiredAngle = angle;
+	fixed movementNeededTurn = fixed::Zero();
+
+	if (unbrakedSpeed > fixed::FromFloat(0.1f))
+	{
+		movementDesiredAngle = atan2_approx(combinedVelocity.X, combinedVelocity.Y);
+		movementNeededTurn = HeadingControl::WrapAngle(movementDesiredAngle - angle).Absolute();
+	}
+
+	// ========================================
+	// TURN SLOWDOWN + PROXIMITY BRAKING
+	// ========================================
+
+	// NB: proximity braking lives here too, so this isn't gated on the turn braking:
+	// a unit that never slows down for turns still has to slow down near its waypoints.
+	if (hasMoveRequest && hasPathfinding && !combinedVelocity.IsZero())
+	{
+		// 1. TURN SLOWDOWN
+		// Slow down for the turn we still have to make (facing to waypoint), not only for how far we are
+		// already skidding sideways: drift correction removes that skid, so keying off it alone would mean
+		// a high DriftCorrection cancels the slowdown. Keep the skid as well, so sliding units also brake.
+		fixed turnBrakeMultiplier{fixed::FromInt(1)};
+		if (const std::optional<fixed> turnSpeedCap{PathFollowing::TurnSpeedCap(std::max(pathNeededTurn, movementNeededTurn),
+				m_TemplateTurnBraking, maxSpeed)})
+		{
+			if (unbrakedSpeed > *turnSpeedCap && unbrakedSpeed > fixed::Epsilon())
+				turnBrakeMultiplier = *turnSpeedCap / unbrakedSpeed;
+
+			// A unit told to stop and turn isn't stuck: it still rotates below, and PerformMove must not
+			// report that as an obstruction.
+			stoppedToTurn = stoppedToTurn || *turnSpeedCap <= fixed::Zero();
+		}
+
+		// 2. PROXIMITY BRAKING
+		// Slow down near the waypoint, more so when not heading straight at it. The turning circle grows with speed
+		// (radius = speed / turn rate): a unit arriving too fast can't turn tightly enough to reach its waypoint, and
+		// circles it instead.
+		fixed proximityBrakeMultiplier{fixed::FromInt(1)};
+		if (currentWaypoint)
+		{
+			const fixed distanceToWaypoint{toWaypoint.Length()};
+			const fixed alignmentToWaypoint{distanceToWaypoint > fixed::Epsilon() ?
+				PathFollowing::Alignment(combinedVelocity, unbrakedSpeed, toWaypoint, distanceToWaypoint) :
+				fixed::Zero()};
+
+			// Higher inertia brakes earlier. No braking has been applied yet, so this is unbrakedSpeed.
+			const fixed brakingDistance{PathFollowing::StoppingDistance(unbrakedSpeed, dt, m_TemplateInertia)};
+
+			// How sharply the path turns at this waypoint (1 = straight on, 0 = right angle or sharper).
+			// Only a corner we can't cut counts: if the straight line to the next waypoint is clear,
+			// the waypoint will be popped and the corner cut, so there's nothing to brake for
+			// (e.g. unoptimized paths in open terrain).
+			// Falls back to our alignment to the waypoint for the last waypoint.
+			fixed cornerAlignment{alignmentToWaypoint};
+			if (const std::optional<CFixedVector2D> nextWaypoint{PathFollowing::NextWaypoint(shortPath, longPath)};
+				nextWaypoint && distanceToWaypoint > fixed::Epsilon() && distanceToWaypoint < brakingDistance)
 			{
-				// Stop moving when rotating this far.
-				speed = zero;
-
-				fixed maxRotation = turnRate.Multiply(timeLeft);
-
-				// Figure out whether rotating will increase or decrease the angle, and how far we need to rotate in that direction.
-				int direction = (entity_angle_t::Zero() < angleDiff && angleDiff <= entity_angle_t::Pi()) || angleDiff < -entity_angle_t::Pi() ? -1 : 1;
-
-				// Can't rotate far enough, just rotate in the correct direction.
-				if (absoluteAngleDiff - m_InstantTurnAngle > maxRotation)
+				const CFixedVector2D nextLeg{*nextWaypoint - *currentWaypoint};
+				if (!nextLeg.IsZero())
 				{
-					angle += maxRotation * direction;
-					if (angle * direction > entity_angle_t::Pi())
-						angle -= entity_angle_t::Pi() * 2 * direction;
+					const fixed geometricCorner{PathFollowing::Alignment(toWaypoint, distanceToWaypoint,
+						nextLeg, nextLeg.Length())};
+
+					// Only test the line when the corner would brake more than our heading error does.
+					// Only terrain and static obstructions make a corner uncuttable: pushing resolves units.
+					if (geometricCorner < alignmentToWaypoint &&
+						!cmpPathfinder->CheckStaticMovement(GetObstructionFilter(specificIgnore),
+							pos.X, pos.Y, nextWaypoint->X, nextWaypoint->Y, m_Clearance, m_PassClass))
+						cornerAlignment = geometricCorner;
+				}
+			}
+
+			// Brake both for heading error (drifting off the waypoint direction) and for a sharp corner.
+			// Passing a waypoint also lowers alignmentToWaypoint, but the turning-circle pop handles that case.
+			if (distanceToWaypoint < brakingDistance)
+				proximityBrakeMultiplier = PathFollowing::ProximityBrakeScale(distanceToWaypoint, brakingDistance,
+					unbrakedSpeed, std::min(alignmentToWaypoint, cornerAlignment));
+		}
+
+		combinedVelocity = combinedVelocity.Multiply(turnBrakeMultiplier.Multiply(proximityBrakeMultiplier));
+	}
+
+	// PREDICTIVE BRAKING: stop where the move ends, as far ahead as inertia takes to stop. That is short of the end
+	// of the path by StoppingMargin(), so the unit is at a crawl when its order ends rather than at speed.
+	if (hasMoveRequest && hasPathfinding && !combinedVelocity.IsZero())
+		if (const std::optional<CFixedVector2D> finalWaypoint{PathFollowing::FinalWaypoint(shortPath, longPath)})
+		{
+			const CFixedVector2D toEnd{*finalWaypoint - pos};
+			const fixed margin{StoppingMargin()};
+
+			// Only the last stopping distance needs braking. On this branch combinedVelocity is at most maxSpeed
+			// (it's clamped when blended, and every multiplier since is at most 1), so its stopping distance is at
+			// most the one at maxSpeed. Comparing squares against that skips both square roots below for units
+			// still far from the end of their path.
+			const fixed maxStoppingDistance{PathFollowing::StoppingDistance(maxSpeed, dt, m_TemplateInertia)};
+			if (toEnd.CompareLength(maxStoppingDistance + margin) < 0)
+				if (const std::optional<fixed> brakeFactor{PathFollowing::PredictiveBrakeFactor(
+						std::max(toEnd.Length() - margin, fixed::Zero()), combinedVelocity.Length(), maxSpeed,
+						maxStoppingDistance, dt)})
+					combinedVelocity = combinedVelocity.Multiply(*brakeFactor);
+		}
+
+	// PATHFINDING ANGULAR MOMENTUM
+	const fixed effectiveTurnRate{turnRate};
+	const fixed effectiveTurnAcceleration{m_TemplateTurnAcceleration};
+
+	if (hasPathfinding && hasMoveRequest)
+	{
+		// Face the waypoint, pulled towards the direction of travel as far as drift correction allows.
+		// pathDesiredAngle is already the waypoint's heading (or our own, standing on it).
+		const entity_angle_t desiredAngle{HeadingControl::PathFacingAngle(pathDesiredAngle,
+			pathfindingVelocity + inertiaVelocity.Multiply(inertiaStrength), fixed::FromInt(1) - effectiveDriftCorrection)};
+
+		// Turn with angular momentum, the same rule as every other heading change.
+		HeadingControl::TurnWithMomentum(angle, state.angularVelocity, desiredAngle, effectiveTurnRate,
+			effectiveTurnAcceleration, dt);
+	}
+	else if (hasMoveRequest && !hasPathfinding)
+	{
+		// A move request without a path yet (e.g. the first turns of a new order, while the path is computed):
+		// face the move target, with angular momentum like every other turn.
+		CFixedVector2D targetPos;
+		if (ComputeTargetPosition(targetPos))
+		{
+			const CFixedVector2D toTarget{targetPos - pos};
+			if (!toTarget.IsZero())
+				HeadingControl::TurnWithMomentum(angle, state.angularVelocity, atan2_approx(toTarget.X, toTarget.Y), effectiveTurnRate,
+					effectiveTurnAcceleration, dt);
+		}
+	}
+
+	// The unit's own movement, before the external forces below are added: what it falls back on if the step with
+	// them in it is blocked.
+	const CFixedVector2D ownVelocity{combinedVelocity};
+
+	// Add external forces: carried-over momentum and this turn's pushes
+	combinedVelocity = combinedVelocity + externalCarry + externalVelocity;
+	speed = combinedVelocity.Length();
+
+	// Everything external applied this turn becomes next turn's external inertia.
+	state.externalInertiaVelocity = MomentumModel::CarryExternalInertia(externalCarry, externalVelocity);
+
+	// Stopping to turn in place is deliberate, not an obstruction: the facing was already rotated above.
+	if (combinedVelocity.IsZero())
+		return hasPathfinding && !stoppedToTurn;
+
+	CFixedVector2D movement = combinedVelocity.Multiply(dt);
+	CFixedVector2D target = pos + movement;
+
+	bool canMove{cmpPathfinder->CheckMovement(GetObstructionFilter(specificIgnore),
+		pos.X, pos.Y, target.X, target.Y, m_Clearance, m_PassClass)};
+
+	// The step is tested as one line with the pushes in it, so a unit pressed sideways into an obstacle by its
+	// neighbours fails it every turn, however clear its own way is, and never moves again. A push can't shove a
+	// unit into what it can't walk into, and it mustn't cost it its own step either: a blocked step is tried
+	// again without the pushes, and if that goes, the push is lost, momentum and all, as a push into a wall is.
+	if (!canMove && !ownVelocity.IsZero() && ownVelocity != combinedVelocity)
+	{
+		const CFixedVector2D ownTarget{pos + ownVelocity.Multiply(dt)};
+		if (cmpPathfinder->CheckMovement(GetObstructionFilter(specificIgnore),
+				pos.X, pos.Y, ownTarget.X, ownTarget.Y, m_Clearance, m_PassClass))
+		{
+			target = ownTarget;
+			combinedVelocity = ownVelocity;
+			speed = ownVelocity.Length();
+			state.externalInertiaVelocity = CFixedVector2D();
+			canMove = true;
+		}
+	}
+
+	if (canMove)
+	{
+		pos = target;
+		// ========================================
+		// WAYPOINT POPPING WITH OBSTRUCTION CHECK
+		// ========================================
+
+		// Both tests below answer "no" beyond this: the acceptance radius is at most the stopping distance at max
+		// speed times a scale under 2 (see AcceptanceRadius), and CannotReach is only asked within that distance.
+		const fixed popRange{PathFollowing::StoppingDistance(maxSpeed, dt, m_TemplateInertia) * 2};
+
+		while (const std::optional<CFixedVector2D> currentWaypoint{PathFollowing::CurrentWaypoint(shortPath, longPath)})
+		{
+			const CFixedVector2D waypoint{*currentWaypoint};
+			const std::optional<CFixedVector2D> nextWaypoint{PathFollowing::NextWaypoint(shortPath, longPath)};
+			const CFixedVector2D toWaypoint{waypoint - pos};
+			// Whether the unit is already past this waypoint, towards the next one. A unit pushed past its waypoint
+			// by others then goes on to the next, instead of turning round to go back for it.
+			const bool passed{nextWaypoint && PathFollowing::PassedWaypoint(pos, waypoint, *nextWaypoint)};
+
+			// Too far to pop, so don't pay for the two tests below - nor for the square root, when comparing
+			// squares already settles it. Length() rounds its root down, so only a margin of one ulp proves
+			// the strict comparison: at exactly popRange² the floored root can still land on popRange.
+			if (!passed && toWaypoint.CompareLength(popRange + fixed::Epsilon()) >= 0)
+				break;
+
+			const fixed distanceToWaypoint{toWaypoint.Length()};
+			if (!passed && distanceToWaypoint > popRange)
+				break;
+
+			// The end of the path is what the unit brakes for, so it is kept until the unit is on it, or within
+			// its StoppingMargin() of it and already in range of the goal.
+			const bool isCloseEnough{nextWaypoint ?
+				distanceToWaypoint <= PathFollowing::AcceptanceRadius(pos, waypoint, nextWaypoint, combinedVelocity, speed,
+					distanceToWaypoint, unbrakedSpeed, maxSpeed, m_TemplateInertia, effectiveDriftCorrection, dt) :
+				distanceToWaypoint <= Pathfinding::NAVCELL_SIZE ||
+					(distanceToWaypoint <= StoppingMargin() && PossiblyAtDestination())};
+			// Can we still reach this waypoint, or would we have to circle back to it?
+			// Only asked within our stopping distance at max speed. Never for the end of the path, which the unit
+			// brakes onto: giving up on it would end the move at speed.
+			const bool cannotReach{nextWaypoint && PathFollowing::CannotReach(pos, waypoint, combinedVelocity, speed,
+				distanceToWaypoint, angle, effectiveTurnRate, effectiveTurnAcceleration,
+				PathFollowing::StoppingDistance(maxSpeed, dt, m_TemplateInertia))};
+
+			// Pop it once we're close enough, once we're past it, or as soon as we know we can't reach it without circling
+			if (!isCloseEnough && !cannotReach && !passed)
+				break;
+
+			// Before popping the waypoint, check that we can go straight on to what comes after it: the next waypoint,
+			// or the final goal if this is the last waypoint overall. This prevents cutting corners around
+			// terrain/obstructions. Units don't count: pushing resolves them, and an idle unit near a corner
+			// would otherwise keep the waypoint, forcing pops and short path requests.
+			std::optional<CFixedVector2D> nextTarget{nextWaypoint};
+			if (!nextTarget)
+			{
+				PathGoal finalGoal;
+				if (ComputeGoal(finalGoal, m_MoveRequest))
+					nextTarget = finalGoal.NearestPointOnGoal(pos);
+			}
+
+			if (nextTarget && !cmpPathfinder->CheckStaticMovement(GetObstructionFilter(specificIgnore),
+					pos.X, pos.Y, nextTarget->X, nextTarget->Y, m_Clearance, m_PassClass))
+			{
+				// The line is obstructed: keep the waypoint as a corner point, unless
+				// - we're extremely close to it (within 2 navcells), so we don't circle it;
+				// - or we can't reach it without circling back: orbiting a corner is worse than letting obstruction
+				//   handling deal with it.
+
+				// ... And only if we're actually travelling. Circling is a problem for a unit with speed; a stopped
+				// one that pops waypoints it never reached just deletes its own path and asks for a new one from the
+				// same spot, turn after turn. The acceptance radius is deliberately computed from the unbraked speed,
+				// so a braked-to-a-crawl unit "reaches" waypoints over a metre away without moving at all.
+				const bool travelling{speed >= MinProgressSpeed()};
+				const bool canPop{distanceToWaypoint <= Pathfinding::NAVCELL_SIZE / 2 ||
+					(travelling && (distanceToWaypoint <= Pathfinding::NAVCELL_SIZE * 2 || cannotReach))};
+				// We're popping onto an obstructed line: PostMove will path around it.
+				state.poppedBlockedCorner = canPop;
+				if (!canPop)
 					break;
-				}
-				// Rotate towards the next waypoint and continue moving.
-				angle = atan2_approx(offset.X, offset.Y);
-				timeLeft = std::min(maxRotation, maxRotation - absoluteAngleDiff + m_InstantTurnAngle) / turnRate;
 			}
+
+			if (shortPath.m_Waypoints.empty())
+				longPath.m_Waypoints.pop_back();
 			else
-			{
-				// Modify the speed depending on the angle difference.
-				fixed sin, cos;
-				sincos_approx(angleDiff, sin, cos);
-				speed = speed.Multiply(cos);
-				angle = atan2_approx(offset.X, offset.Y);
-			}
+				shortPath.m_Waypoints.pop_back();
 		}
+		// Movement succeeded - no obstruction
+		return false;
+	}
+	else
+	{
+		// Movement was obstructed
+		const CFixedVector2D originalPos{pos};
+		const CFixedVector2D originalMovement{target - pos};
 
-		// Work out how far we can travel in timeLeft.
-		fixed accelTime = std::min(timeLeft, (maxSpeed - speed) / m_Acceleration);
-		fixed accelDist = speed.Multiply(accelTime) + accelTime.Square().Multiply(m_Acceleration) / 2;
-		fixed maxdist = accelDist + maxSpeed.Multiply(timeLeft - accelTime);
-
-		// If the target is close, we can move there directly.
-		fixed offsetLength = offset.Length();
-		if (offsetLength <= maxdist)
+		if (!hasPathfinding)
 		{
-			if (cmpPathfinder->CheckMovement(GetObstructionFilter(specificIgnore), pos.X, pos.Y, target.X, target.Y, m_Clearance, m_PassClass))
-			{
-				pos = target;
-
-				// Spend the rest of the time heading towards the next waypoint.
-				// Either we still need to accelerate after, or we have reached maxSpeed.
- 				// The former is much less likely than the latter: usually we can reach
-				// maxSpeed within one waypoint. So the Sqrt is not too bad.
-				if (offsetLength <= accelDist)
-				{
-					fixed requiredTime = (-speed + (speed.Square() + offsetLength.Multiply(m_Acceleration).Multiply(fixed::FromInt(2))).Sqrt()) / m_Acceleration;
-					timeLeft -= requiredTime;
-					speed += m_Acceleration.Multiply(requiredTime);
-				}
-				else
-				{
-					timeLeft -= accelTime + (offsetLength - accelDist) / maxSpeed;
-					speed = maxSpeed;
-				}
-
-				if (shortPath.m_Waypoints.empty())
-					longPath.m_Waypoints.pop_back();
-				else
-					shortPath.m_Waypoints.pop_back();
-
-				continue;
-			}
-			else
-			{
-				// Error - path was obstructed.
-				return true;
-			}
+			// No path to follow (pushed, drifting, or waiting for a path): slide along the obstacle.
+			if (ObstructionResolution::TrySlide(pos, originalMovement, GetEntityId(), *cmpPathfinder,
+					GetObstructionFilter(specificIgnore), m_Clearance, m_PassClass))
+				return false;
 		}
 		else
 		{
-			// Not close enough, so just move in the right direction.
-			offset.Normalize(maxdist);
-			target = pos + offset;
+			// Following a path: step sideways around the obstacle, keeping the current waypoint in sight.
+			if (ObstructionResolution::TryPerpendicularNudge(pos, originalMovement,
+					PathFollowing::CurrentWaypoint(shortPath, longPath).value_or(CFixedVector2D{}), *cmpPathfinder,
+					GetObstructionFilter(specificIgnore), m_Clearance, m_PassClass))
+			{
+				// Update pathfinding inertia based on actual movement
+				state.inertiaVelocity = (pos - originalPos).Multiply(fixed::FromInt(1) / dt);
 
-			speed = std::min(maxSpeed, speed + m_Acceleration.Multiply(timeLeft));
-
-			if (cmpPathfinder->CheckMovement(GetObstructionFilter(specificIgnore), pos.X, pos.Y, target.X, target.Y, m_Clearance, m_PassClass))
-				pos = target;
-			else
-				return true;
-
-			break;
+				// Skip waypoint popping for now - we'll handle it next turn
+				return false;
+			}
 		}
+
+		// On a path but pushed off it against something static, with no nudge to be had: slide along the obstacle
+		// as a unit without a path does, by what the unit itself meant to move. Pressed by a crowd into the trees
+		// at the edge of a chokepoint, it works its way along them instead of standing there asking for paths.
+		if (hasPathfinding && !ownVelocity.IsZero() &&
+			ObstructionResolution::TrySlide(pos, ownVelocity.Multiply(dt), GetEntityId(), *cmpPathfinder,
+				GetObstructionFilter(specificIgnore), m_Clearance, m_PassClass))
+			return false;
+
+		// Units that weren't asked to move (e.g. idle units being pushed into a wall)
+		// shouldn't trigger obstruction handling.
+		return hasMoveRequest;
 	}
-	return false;
 }
 
 void CCmpUnitMotion::UpdateMovementState(entity_pos_t speed, entity_pos_t meanSpeed)
@@ -1393,7 +1967,10 @@ void CCmpUnitMotion::UpdateMovementState(entity_pos_t speed, entity_pos_t meanSp
 	CmpPtr<ICmpVisual> cmpVisual(GetEntityHandle());
 	if (cmpVisual)
 	{
-		if (meanSpeed == fixed::Zero())
+		// A crawl below the progress threshold is standing still as far as the eye is concerned. Braking
+		// can leave a unit with a speed that is not quite zero, and walking on the spot for it is exactly
+		// what makes a stuck unit look like it's still on its way somewhere.
+		if (meanSpeed < MinProgressSpeed())
 			cmpVisual->SelectMovementAnimation("idle", fixed::FromInt(1));
 		else
 			cmpVisual->SelectMovementAnimation(meanSpeed > (m_WalkSpeed / 2).Multiply(m_RunMultiplier + fixed::FromInt(1)) ? "run" : "walk", meanSpeed);

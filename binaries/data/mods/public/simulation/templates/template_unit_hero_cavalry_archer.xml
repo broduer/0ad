@@ -44,6 +44,5 @@
   </UnitAI>
   <UnitMotion>
     <WalkSpeed op="mul">0.85</WalkSpeed>
-    <Acceleration op="mul">0.85</Acceleration>
   </UnitMotion>
 </Entity>

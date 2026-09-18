@@ -94,7 +94,6 @@
   </TreasureCollector>
   <UnitMotion>
     <WalkSpeed op="mul">1.2</WalkSpeed>
-    <Acceleration op="mul">1.8</Acceleration>
   </UnitMotion>
   <Vision>
     <Range>100</Range>

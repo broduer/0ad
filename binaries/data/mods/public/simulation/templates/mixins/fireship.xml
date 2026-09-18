@@ -28,7 +28,6 @@
   <Loot disable=""/>
   <UnitMotion>
     <WalkSpeed>17</WalkSpeed>
-    <Acceleration op="mul">2</Acceleration>
   </UnitMotion>
   <Upgrade disable=""/>
 </Entity>

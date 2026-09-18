@@ -57,6 +57,10 @@
   <UnitMotion>
     <WalkSpeed op="mul">2</WalkSpeed>
     <RunMultiplier>1.4</RunMultiplier>
+    <Cornering>0.7</Cornering>
+    <Drifting>0.0</Drifting>
+    <Inertia>1.0</Inertia>
+    <DriftCorrection>0.5</DriftCorrection>
   </UnitMotion>
   <PhysicalBody>
     <Weight>70</Weight>

@@ -55,7 +55,10 @@
   </StatusBars>
   <UnitMotion>
     <PassabilityClass>large</PassabilityClass>
-    <Acceleration op="mul">0.3</Acceleration>
+    <TurnAcceleration>4</TurnAcceleration>
+    <Inertia>2</Inertia>
+    <DriftCorrection>0.85</DriftCorrection>
+    <Cornering>0.1</Cornering>
   </UnitMotion>
   <PhysicalBody>
     <Weight op="mul">50.0</Weight>

@@ -48,6 +48,7 @@ struct MotionState
 	ICmpPosition* cmpPosition;
 	CCmpUnitMotion* cmpUnitMotion;
 	ICmpPhysicalBody* cmpPhysicalBody;
+
 	// Position before units start moving
 	CFixedVector2D initialPos;
 	// Transient position during the movement.
@@ -71,12 +72,27 @@ struct MotionState
 
 	bool wentStraight = false;
 	bool wasObstructed = false;
+	// A waypoint was popped although the straight line to the next target is obstructed
+	// (it couldn't be reached without circling back), so a short path should be requested.
+	bool poppedBlockedCorner = false;
+
+	// Whether a collision was predicted last turn. Carried over between turns (not reset in PreMove):
+	// the steering velocity is computed before the prediction runs, so it can only use the previous result.
+	bool predictedCollision = false;
+
 	// Clone of the obstruction manager flag for efficiency
 	bool isMoving = false;
 	// What this turn's queued impulses (collision pushes) add up to, accumulated as they are
 	// consumed and applied further down the same update. Transient, so not serialized: the queue is drained every turn.
 	CFixedVector2D impulseForce;
 	uint8_t impulsePressure = 0;
+
+	CFixedVector2D inertiaVelocity;         // Our own momentum (last turn's movement minus the external part); steers our facing
+	CFixedVector2D externalInertiaVelocity; // Momentum from pushes and hits, carried over; doesn't affect our facing
+	CFixedVector2D externalVelocity;        // This turn's velocity from queued impulses
+
+	// Angular velocity from pathfinding (existing)
+	fixed angularVelocity;
 };
 
 #endif // INCLUDED_MOTIONSTATE

@@ -82,7 +82,7 @@
   </StatusBars>
   <UnitMotion>
     <PassabilityClass>large</PassabilityClass>
-    <Acceleration op="mul">0.5</Acceleration>
+    <Inertia>2</Inertia>
   </UnitMotion>
   <PhysicalBody>
     <Weight op="mul">60.0</Weight>

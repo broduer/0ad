@@ -23,6 +23,8 @@
 #include "simulation2/system/ParamNode.h"
 #include "simulation2/helpers/Position.h"
 
+#include <algorithm>
+
 class PushConfig
 {
 public:
@@ -35,9 +37,35 @@ public:
 	static constexpr entity_pos_t PRESSURE_STATIC_FACTOR = entity_pos_t::FromInt(2);
 	static constexpr int PRESSURE_DISTANCE_FACTOR = 5;
 	static constexpr int PUSHING_GRID_SIZE = 20;  // meters per grid cell
+	// Seconds that decay factors (e.g. Drifting) are defined over, so the effects last as long at any turn length.
+	// 0.2 s is the single player turn length the effects were tuned at.
+	static constexpr fixed IMPACT_REFERENCE_TIME = fixed::FromFraction(1, 5);
+
+	/**
+	 * The fraction of a decaying quantity left after dt seconds, when it keeps keepPerReference of itself every
+	 * IMPACT_REFERENCE_TIME. Lets per-turn style factors (Drifting, stagger recovery) take the same time at any turn length.
+	 * Fixed point has no deterministic pow: whole reference steps are applied exactly and the remainder linearly,
+	 * which is exact at 200 ms turns and within about 0.1% of the exponential at 500 ms.
+	 */
+	static fixed DecayFactor(const fixed keepPerReference, const fixed dt)
+	{
+		if (dt <= fixed::Zero())
+			return fixed::FromInt(1);
+
+		const fixed keep{std::max(keepPerReference, fixed::Zero())};
+		fixed factor{fixed::FromInt(1)};
+		fixed remaining{dt};
+		while (remaining >= IMPACT_REFERENCE_TIME && factor > fixed::Zero())
+		{
+			factor = factor.Multiply(keep);
+			remaining -= IMPACT_REFERENCE_TIME;
+		}
+		const fixed partialKeep{std::max(fixed::FromInt(1) - (fixed::FromInt(1) - keep).Multiply(remaining / IMPACT_REFERENCE_TIME), fixed::Zero())};
+		return factor.Multiply(partialKeep);
+	}
+
 	// These could be runtime-configurable, but are currently hardcoded
 	static constexpr int MAX_PUSH_DAMPING_PRESSURE = 160;  // Cap for pressure-based damping
-	static constexpr int MIN_PRESSURE_IF_OBSTRUCTED = 80;   // Minimum pressure when obstructed
 
 	struct RuntimeConfig
 	{
@@ -204,7 +232,6 @@ public:
 	}
 
 	// Accessors for hardcoded constants (for consistency)
-	static int GetMinPressureIfObstructed() { return MIN_PRESSURE_IF_OBSTRUCTED; }
 
 private:
 	PushConfig() : m_Loaded(false) {}

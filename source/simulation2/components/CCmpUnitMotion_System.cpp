@@ -88,6 +88,9 @@ MotionState::MotionState(
 	, wentStraight(false)
 	, wasObstructed(false)
 	, isMoving(false)
+	, inertiaVelocity()
+	, externalVelocity ()
+	, angularVelocity (fixed::Zero())
 {
 }
 
@@ -163,10 +166,18 @@ template<>
 struct SerializeHelper<MotionState>
 {
 	template<typename S>
-	void operator()(S& /*serialize*/, const char* /*name*/,
-		Serialize::qualify<S, MotionState> /*value*/)
+	void operator()(S& serialize, const char* /*name*/,
+		Serialize::qualify<S, MotionState> value)
 	{
-		// Nothing to save: pushing pressure is kept by PhysicalBody, and everything else is rebuilt every turn.
+		// Serialize persistent inertia state
+		serialize.NumberFixed_Unbounded("inertia_x", value.inertiaVelocity.X);
+		serialize.NumberFixed_Unbounded("inertia_y", value.inertiaVelocity.Y);
+		serialize.NumberFixed_Unbounded("external_inertia_x", value.externalInertiaVelocity.X);
+		serialize.NumberFixed_Unbounded("external_inertia_y", value.externalInertiaVelocity.Y);
+
+		// Turning and collision state: all of it affects later turns, so it must survive saving/loading and rejoining.
+		serialize.NumberFixed_Unbounded("angular_velocity", value.angularVelocity);
+		serialize.Bool("predicted_collision", value.predictedCollision);
 	}
 };
 
@@ -431,10 +442,10 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 	}
 
 	// ========================================
-	// PRESSURE DAMPING
+	// EXTERNAL VELOCITY
 	// ========================================
-	// Dampen the queued pushes by the pushing pressure.
-	// They are applied after each unit's own movement, below.
+	// Turn the impulses into external velocity. PerformMove adds it to the unit's movement,
+	// which is collision-checked there.
 	if (IsPushingActivated())
 	{
 		PROFILE2("MotionMgr_ApplyForces");
@@ -449,6 +460,8 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			if (hasPressure && state->cmpPhysicalBody)
 				state->cmpPhysicalBody->AddPressure(state->impulsePressure);
 
+			state->externalVelocity = CFixedVector2D{};
+
 			// Wake up units that received significant forces
 			if (hasSignificantForce && !state->needUpdate)
 			{
@@ -462,21 +475,25 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 				}
 			}
 
-			if (!state->needUpdate || state->ignore || !state->cmpPhysicalBody || !hasSignificantForce)
-			{
-				state->impulseForce = CFixedVector2D{};
+			if (!state->needUpdate || state->ignore || !state->cmpPhysicalBody || !hasSignificantForce ||
+				dt <= fixed::Zero())
 				continue;
-			}
 
 			// Pressure damping
 			const uint8_t currentPressure{state->cmpPhysicalBody->GetPressure()};
 			const uint8_t dampingCap{std::min<uint8_t>(PushConfig::MAX_PUSH_DAMPING_PRESSURE, currentPressure)};
 			const fixed damping{entity_pos_t::FromInt(PushConfig::MAX_PRESSURE - dampingCap) / PushConfig::MAX_PRESSURE};
+			const CFixedVector2D dampedForce{state->impulseForce.Multiply(damping)};
+
 			// Queued impulses are per-turn displacements (weight ratio and dt already applied in
-			// UnitCollision::ComputePairPush).
-			state->impulseForce = state->impulseForce.Multiply(damping);
+			// UnitCollision::ComputePairPush), so convert to a velocity for PerformMove.
+			const CFixedVector2D externalVelocity{dampedForce.Multiply(fixed::FromInt(1) / dt)};
+
+			// Ignore negligible velocities
+			if (externalVelocity.CompareLength(entity_pos_t::FromFraction(1, 100)) >= 0)
+				state->externalVelocity = externalVelocity;
 #if DEBUG_RENDER
-			RenderForceVector(*state, state->impulseForce, state->wasObstructed);
+			RenderForceVector(*state, state->externalVelocity, state->wasObstructed);
 #endif
 		}
 	}
@@ -487,17 +504,14 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 	{
 		PROFILE2("MotionMgr_MoveLoop");
 		const auto& cfg = PushConfig::GetInstance().GetRuntimeConfig();
-		CmpPtr<ICmpPathfinder> cmpPathfinder(GetSystemEntity());
-		ENSURE(cmpPathfinder);
-		const ICmpPathfinder& pathfinder{*cmpPathfinder.operator->()};
 		for (auto* vec : assigned)
 		{
 			for (auto& it : *vec)
 			{
 				if (it->second.needUpdate)
 				{
+					// Always call Move - it will handle both active and inertia movement
 					it->second.cmpUnitMotion->Move(it->second, dt);
-					ApplyPush(it->second, pathfinder);
 				}
 
 				// Decay pressure after moving
@@ -542,42 +556,6 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 		vec->clear();
 }
 
-void CCmpUnitMotionManager::ApplyPush(MotionState& state, const ICmpPathfinder& pathfinder)
-{
-	if (state.impulseForce.IsZero() || !state.cmpPhysicalBody)
-		return;
-
-	CCmpUnitMotion& cmpUnitMotion{*state.cmpUnitMotion};
-	const CFixedVector2D push{state.impulseForce};
-	state.impulseForce = CFixedVector2D{};
-
-	// If there was an attempt at movement, and we're getting pushed significantly and
-	// away from where we'd like to go (measured by a low dot product)
-	// then mark the unit as obstructed, but push anyways.
-	// (this helps units stop earlier in many situations in a realistic-ish manner).
-	if (state.pos != state.initialPos &&
-		(state.pos - state.initialPos).Dot(state.pos + push - state.initialPos) < entity_pos_t::FromInt(1) / 2 &&
-		state.cmpPhysicalBody->GetPressure() > 30)
-	{
-		state.wasObstructed = true;
-		state.cmpPhysicalBody->SetPressure(std::max<uint8_t>(PushConfig::MIN_PRESSURE_IF_OBSTRUCTED,
-			state.cmpPhysicalBody->GetPressure()));
-		// Push anyways.
-	}
-
-	// Prevent pushed units from crossing uncrossable boundaries
-	// (we can assume that normal movement didn't push units into impassable terrain).
-	if (!pathfinder.CheckMovement(cmpUnitMotion.GetObstructionFilter(), state.pos.X, state.pos.Y,
-		state.pos.X + push.X, state.pos.Y + push.Y, cmpUnitMotion.m_Clearance, cmpUnitMotion.m_PassClass))
-	{
-		// Mark them as obstructed - this could possibly be optimised
-		// perhaps it'd make more sense to mark the pushers as blocked.
-		state.wasObstructed = true;
-		state.wentStraight = false;
-		return;
-	}
-	state.pos += push;
-}
 
 #if DEBUG_RENDER
 void RenderDebugOverlay(SceneCollector& collector, const CFrustum& frustum, bool /*culling*/)

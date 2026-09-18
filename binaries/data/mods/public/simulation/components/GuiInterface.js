@@ -604,8 +604,7 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 	if (cmpUnitMotion)
 		ret.speed = {
 			"walk": cmpUnitMotion.GetWalkSpeed(),
-			"run": cmpUnitMotion.GetWalkSpeed() * cmpUnitMotion.GetRunMultiplier(),
-			"acceleration": cmpUnitMotion.GetAcceleration()
+			"run": cmpUnitMotion.GetWalkSpeed() * cmpUnitMotion.GetRunMultiplier()
 		};
 
 	const cmpUpkeep = Engine.QueryInterface(ent, IID_Upkeep);

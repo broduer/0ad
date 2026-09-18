@@ -52,7 +52,6 @@
   <UnitMotion>
     <PassabilityClass>large</PassabilityClass>
     <WalkSpeed op="mul">0.55</WalkSpeed>
-    <Acceleration op="mul">0.275</Acceleration>
   </UnitMotion>
   <PhysicalBody>
     <Weight op="mul">10.0</Weight>

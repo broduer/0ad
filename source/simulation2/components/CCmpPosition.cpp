@@ -116,6 +116,8 @@ public:
 
 	bool m_EnabledMessageInterpolate;
 
+	entity_angle_t m_LastRotY;
+
 	static std::string GetSchema()
 	{
 		return
@@ -165,6 +167,7 @@ public:
 		m_RotYSpeed = paramNode.GetChild("TurnRate").ToFixed();
 
 		m_RotX = m_RotY = m_RotZ = entity_angle_t::FromInt(0);
+		m_LastRotY = m_RotY;
 		m_InterpolatedRotX = m_InterpolatedRotY = m_InterpolatedRotZ = 0.f;
 		m_LastInterpolatedRotX = m_LastInterpolatedRotZ = 0.f;
 
@@ -264,6 +267,7 @@ public:
 		// TODO: should there be range checks on all these values?
 
 		m_InterpolatedRotY = m_RotY.ToFloat();
+		m_LastRotY = m_RotY;
 
 		deserialize.NumberU32_Unbounded("turret parent", m_TurretParent);
 		if (m_TurretParent != INVALID_ENTITY)
@@ -586,6 +590,7 @@ public:
 				y -= cmpPosition->GetRotation().Y;
 		}
 		m_RotY = y;
+		m_LastRotY = y;
 		m_InterpolatedRotY = m_RotY.ToFloat();
 
 		if (m_InWorld)
@@ -678,7 +683,17 @@ public:
 		x = Interpolate(m_LastX.ToFloat(), m_X.ToFloat(), frameOffset);
 		z = Interpolate(m_LastZ.ToFloat(), m_Z.ToFloat(), frameOffset);
 
-		rotY = m_InterpolatedRotY;
+		// Interpolate rotation the same way as position - using frameOffset
+		// This keeps position and rotation perfectly synchronized
+		float lastRotY = m_LastRotY.ToFloat();
+		float currentRotY = m_RotY.ToFloat();
+
+		// Handle angle wrapping for shortest path
+		float delta = currentRotY - lastRotY;
+		if (delta > std::numbers::pi_v<float>) delta -= 2 * std::numbers::pi_v<float>;
+		else if (delta < -std::numbers::pi_v<float>) delta += 2 * std::numbers::pi_v<float>;
+
+		rotY = lastRotY + delta * frameOffset;
 	}
 
 	CMatrix3D GetInterpolatedTransform(float frameOffset) const override
@@ -740,16 +755,19 @@ public:
 
 		CMatrix3D m;
 
-		// linear interpolation is good enough (for RotX/Z).
-		// As you always stay close to zero angle.
+		// Apply terrain pitch (X rotation)
 		m.SetXRotation(Interpolate(m_LastInterpolatedRotX, m_InterpolatedRotX, frameOffset));
+
+		// Apply terrain roll (Z rotation)
 		m.RotateZ(Interpolate(m_LastInterpolatedRotZ, m_InterpolatedRotZ, frameOffset));
 
 		CVector3D pos(x, y, z);
-
 		pos.Y += GetConstructionProgressOffset(pos);
 
+		// Apply Y rotation (yaw) - this rotates the unit to face its direction
 		m.RotateY(rotY + std::numbers::pi_v<float>);
+
+		// Translate to final position
 		m.Translate(pos);
 
 		return m;
@@ -801,45 +819,22 @@ public:
 		{
 			PROFILE("Position::Interpolate");
 
-			const CMessageInterpolate& msgData = static_cast<const CMessageInterpolate&> (msg);
-
-			float rotY = m_RotY.ToFloat();
-
-			if (rotY != m_InterpolatedRotY)
-			{
-				float rotYSpeed = m_RotYSpeed.ToFloat();
-				float delta = rotY - m_InterpolatedRotY;
-				// Wrap delta to -PI..PI
-				delta = fmodf(delta + std::numbers::pi_v<float>, 2.f * std::numbers::pi_v<float>); // range -2PI..2PI
-				if (delta < 0) delta += 2.f * std::numbers::pi_v<float>; // range 0..2PI
-				delta -= std::numbers::pi_v<float>; // range -PI..PI
-				// Clamp to max rate
-				float deltaClamped = Clamp(delta, -rotYSpeed*msgData.deltaSimTime, +rotYSpeed*msgData.deltaSimTime);
-				// Calculate new orientation, in a peculiar way in order to make sure the
-				// result gets close to m_orientation (rather than being n*2*PI out)
-				m_InterpolatedRotY = rotY + deltaClamped - delta;
-
-				// update the visual XZ rotation
-				if (m_InWorld)
-				{
-					m_LastInterpolatedRotX = m_InterpolatedRotX;
-					m_LastInterpolatedRotZ = m_InterpolatedRotZ;
-
-					UpdateXZRotation();
-				}
-
-				UpdateMessageSubscriptions();
-			}
-
+			// The heading is simulated, so nothing about the rotation changes within a turn: the pitch and
+			// roll are set at turn start and blended across the turn (see GetInterpolatedTransform).
+			UpdateMessageSubscriptions();
 			break;
 		}
 		case MT_TurnStart:
 		{
-
+			// Store the current interpolated values as "last" for the next turn
 			m_LastInterpolatedRotX = m_InterpolatedRotX;
 			m_LastInterpolatedRotZ = m_InterpolatedRotZ;
 
-			if (m_InWorld && (m_LastX != m_X || m_LastZ != m_Z))
+			// Update interpolated values to current target
+			m_InterpolatedRotY = m_RotY.ToFloat();
+
+			// Also on a turn in place: the terrain's pitch and roll depend on the heading.
+			if (m_InWorld && (m_LastX != m_X || m_LastZ != m_Z || m_LastRotY != m_RotY))
 				UpdateXZRotation();
 
 			// Store the positions from the turn before
@@ -848,6 +843,7 @@ public:
 
 			m_LastX = m_X;
 			m_LastZ = m_Z;
+			m_LastRotY = m_RotY;
 			m_LastYDifference = entity_pos_t::Zero();
 
 			break;

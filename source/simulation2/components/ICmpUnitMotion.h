@@ -160,17 +160,6 @@ public:
 	virtual CFixedVector2D EstimateFuturePosition(const fixed dt) const = 0;
 
 	/**
-	 * Get the current acceleration.
-	 */
-	virtual fixed GetAcceleration() const = 0;
-
-	/**
-	 * Set the current acceleration.
-	 * @param acceleration The acceleration.
-	 */
-	virtual void SetAcceleration(fixed acceleration) = 0;
-
-	/**
 	 * Set whether the unit will turn to face the target point after finishing moving.
 	 */
 	virtual void SetFacePointAfterMove(bool facePointAfterMove) = 0;
@@ -191,6 +180,19 @@ public:
 	 * Sets the passability class name (as defined in pathfinder.xml)
 	 */
 	virtual void SetPassabilityClassName(const std::string& passClassName) = 0;
+
+	/**
+	 * Momentum parameters (see the UnitMotion schema). A formation controller takes them from its members,
+	 * so it carries no less momentum than the heaviest of them and they can keep their slots.
+	 */
+	virtual fixed GetInertia() const = 0;
+	virtual fixed GetDrifting() const = 0;
+
+	/**
+	 * Replace the movement handling parameters. Only formation controllers can change them.
+	 * Their steering (turn slowdown, drift correction) isn't taken from the members: see the implementation.
+	 */
+	virtual void SetFormationMotionParameters(fixed inertia, fixed drifting) = 0;
 
 	/**
 	 * Get the unit clearance (used by the Obstruction component)

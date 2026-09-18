@@ -41,10 +41,11 @@ DEFINE_INTERFACE_METHOD("GetWalkSpeed", ICmpUnitMotion, GetWalkSpeed)
 DEFINE_INTERFACE_METHOD("GetRunMultiplier", ICmpUnitMotion, GetRunMultiplier)
 DEFINE_INTERFACE_METHOD("EstimateFuturePosition", ICmpUnitMotion, EstimateFuturePosition)
 DEFINE_INTERFACE_METHOD("SetSpeedMultiplier", ICmpUnitMotion, SetSpeedMultiplier)
-DEFINE_INTERFACE_METHOD("GetAcceleration", ICmpUnitMotion, GetAcceleration)
-DEFINE_INTERFACE_METHOD("SetAcceleration", ICmpUnitMotion, SetAcceleration)
 DEFINE_INTERFACE_METHOD("GetPassabilityClassName", ICmpUnitMotion, GetPassabilityClassName)
 DEFINE_INTERFACE_METHOD("SetPassabilityClassName", ICmpUnitMotion, SetPassabilityClassName)
+DEFINE_INTERFACE_METHOD("GetInertia", ICmpUnitMotion, GetInertia)
+DEFINE_INTERFACE_METHOD("GetDrifting", ICmpUnitMotion, GetDrifting)
+DEFINE_INTERFACE_METHOD("SetFormationMotionParameters", ICmpUnitMotion, SetFormationMotionParameters)
 DEFINE_INTERFACE_METHOD("GetUnitClearance", ICmpUnitMotion, GetUnitClearance)
 DEFINE_INTERFACE_METHOD("SetFacePointAfterMove", ICmpUnitMotion, SetFacePointAfterMove)
 DEFINE_INTERFACE_METHOD("GetFacePointAfterMove", ICmpUnitMotion, GetFacePointAfterMove)
@@ -151,16 +152,6 @@ public:
 		return m_Script.Call<CFixedVector2D>("EstimateFuturePosition", dt);
 	}
 
-	fixed GetAcceleration() const override
-	{
-		return m_Script.Call<fixed>("GetAcceleration");
-	}
-
-	void SetAcceleration(fixed acceleration) override
-	{
-		m_Script.CallVoid("SetAcceleration", acceleration);
-	}
-
 	void SetFacePointAfterMove(bool facePointAfterMove) override
 	{
 		m_Script.CallVoid("SetFacePointAfterMove", facePointAfterMove);
@@ -184,6 +175,21 @@ public:
 	void SetPassabilityClassName(const std::string& passClassName) override
 	{
 		return m_Script.CallVoid("SetPassabilityClassName", passClassName);
+	}
+
+	fixed GetInertia() const override
+	{
+		return m_Script.Call<fixed>("GetInertia");
+	}
+
+	fixed GetDrifting() const override
+	{
+		return m_Script.Call<fixed>("GetDrifting");
+	}
+
+	void SetFormationMotionParameters(fixed inertia, fixed drifting) override
+	{
+		m_Script.CallVoid("SetFormationMotionParameters", inertia, drifting);
 	}
 
 	entity_pos_t GetUnitClearance() const override

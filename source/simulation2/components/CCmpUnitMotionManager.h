@@ -99,11 +99,6 @@ private:
 	void MoveFormations(fixed dt);
 	void Move(EntityMap<MotionState>& ents, fixed dt);
 
-	/**
-	 * Move a unit by the push it received this turn, unless that crosses an obstruction.
-	 */
-	void ApplyPush(MotionState& state, const ICmpPathfinder& pathfinder);
-
 	// Debug rendering, only defined when DEBUG_RENDER is enabled in CCmpUnitMotion_System.cpp.
 	void RenderGridCell(const std::vector<EntityMap<MotionState>::iterator>& cell,
 						ICmpPosition* pos);

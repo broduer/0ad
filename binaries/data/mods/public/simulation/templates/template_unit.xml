@@ -125,8 +125,11 @@
     <PassabilityClass>default</PassabilityClass>
     <WalkSpeed>9</WalkSpeed>
     <RunMultiplier>1.67</RunMultiplier>
-    <InstantTurnAngle>1.5</InstantTurnAngle>
-    <Acceleration>35</Acceleration>
+    <Cornering>0.1</Cornering>
+    <Drifting>0.0</Drifting>
+    <Inertia>0.05</Inertia>
+    <TurnAcceleration>48</TurnAcceleration>
+    <DriftCorrection>0.6</DriftCorrection>
   </UnitMotion>
   <PhysicalBody>
     <Weight>10</Weight>

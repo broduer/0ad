@@ -320,7 +320,19 @@ Formation.prototype.SetFinishedEntity = function(ent)
 	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
 	const cmpEntPosition = Engine.QueryInterface(ent, IID_Position);
 	if (cmpEntPosition && cmpEntPosition.IsInWorld() && cmpPosition && cmpPosition.IsInWorld())
-		cmpEntPosition.TurnTo(cmpPosition.GetRotation().y);
+	{
+		const angle = cmpPosition.GetRotation().y;
+		// UnitMotion turns the entity at its own turn rate, and ignores facing requests while moving.
+		const cmpUnitMotion = Engine.QueryInterface(ent, IID_UnitMotion);
+		if (cmpUnitMotion)
+		{
+			const pos = cmpEntPosition.GetPosition2D();
+			cmpUnitMotion.StopMoving();
+			cmpUnitMotion.FaceTowardsPoint(pos.x + Math.sin(angle), pos.y + Math.cos(angle));
+		}
+		else
+			cmpEntPosition.TurnTo(angle);
+	}
 
 	this.finishedEntities.add(ent);
 };
@@ -935,9 +947,12 @@ Formation.prototype.ComputeMotionParameters = function()
 		return;
 
 	let minSpeed = Infinity;
-	let minAcceleration = Infinity;
 	let maxClearance = 0;
 	let maxPassClass = "default";
+	// The controller handles like its least agile member, so every member can keep its slot.
+	let maxInertia = 0;
+	let maxDrifting = 0;
+	let hasMovingMember = false;
 
 	const cmpPathfinder = Engine.QueryInterface(SYSTEM_ENTITY, IID_Pathfinder);
 	for (const ent of this.members)
@@ -946,7 +961,9 @@ Formation.prototype.ComputeMotionParameters = function()
 		if (!cmpUnitMotion)
 			continue;
 		minSpeed = Math.min(minSpeed, cmpUnitMotion.GetWalkSpeed());
-		minAcceleration = Math.min(minAcceleration, cmpUnitMotion.GetAcceleration());
+		maxInertia = Math.max(maxInertia, cmpUnitMotion.GetInertia());
+		maxDrifting = Math.max(maxDrifting, cmpUnitMotion.GetDrifting());
+		hasMovingMember = true;
 
 		const passClass = cmpUnitMotion.GetPassabilityClassName();
 		const clearance = cmpPathfinder.GetClearance(cmpPathfinder.GetPassabilityClass(passClass));
@@ -960,8 +977,11 @@ Formation.prototype.ComputeMotionParameters = function()
 
 	const cmpUnitMotion = Engine.QueryInterface(this.entity, IID_UnitMotion);
 	cmpUnitMotion.SetSpeedMultiplier(minSpeed / cmpUnitMotion.GetWalkSpeed());
-	cmpUnitMotion.SetAcceleration(minAcceleration);
 	cmpUnitMotion.SetPassabilityClassName(maxPassClass);
+	if (hasMovingMember)
+	{
+		cmpUnitMotion.SetFormationMotionParameters(maxInertia, maxDrifting);
+	}
 };
 
 Formation.prototype.UpdateTwinFormationsForMerge = function()

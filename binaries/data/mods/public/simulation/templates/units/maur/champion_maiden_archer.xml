@@ -60,6 +60,5 @@
   </VisualActor>
   <UnitMotion>
     <WalkSpeed op="add">2.0</WalkSpeed>
-    <Acceleration op="add">15.0</Acceleration>
   </UnitMotion>
 </Entity>
