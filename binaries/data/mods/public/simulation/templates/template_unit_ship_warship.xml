@@ -43,6 +43,9 @@
     <WalkSpeed>10</WalkSpeed>
     <Acceleration op="mul">1.8</Acceleration>
   </UnitMotion>
+  <PhysicalBody>
+    <Weight>200</Weight>
+  </PhysicalBody>
   <Vision>
     <Range>80</Range>
   </Vision>

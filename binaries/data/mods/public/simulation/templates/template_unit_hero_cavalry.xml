@@ -58,4 +58,7 @@
     <WalkSpeed op="mul">2</WalkSpeed>
     <RunMultiplier>1.4</RunMultiplier>
   </UnitMotion>
+  <PhysicalBody>
+    <Weight>70</Weight>
+  </PhysicalBody>
 </Entity>

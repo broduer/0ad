@@ -88,4 +88,7 @@
     <WalkSpeed op="mul">1.6</WalkSpeed>
     <Acceleration op="mul">1.25</Acceleration>
   </UnitMotion>
+  <PhysicalBody>
+    <Weight>200</Weight>
+  </PhysicalBody>
 </Entity>

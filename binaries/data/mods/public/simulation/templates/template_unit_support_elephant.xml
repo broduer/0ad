@@ -71,7 +71,7 @@
     <Acceleration op="mul">0.3</Acceleration>
   </UnitMotion>
   <PhysicalBody>
-    <Weight op="mul">5.0</Weight>
+    <Weight op="mul">30.0</Weight>
   </PhysicalBody>
   <Vision>
     <Range>50</Range>

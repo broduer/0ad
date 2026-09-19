@@ -85,6 +85,6 @@
     <Acceleration op="mul">0.5</Acceleration>
   </UnitMotion>
   <PhysicalBody>
-    <Weight op="mul">5.0</Weight>
+    <Weight op="mul">60.0</Weight>
   </PhysicalBody>
 </Entity>

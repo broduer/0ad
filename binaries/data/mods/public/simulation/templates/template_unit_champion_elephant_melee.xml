@@ -22,6 +22,8 @@
       <PreferredClasses datatype="tokens">Unit+!Ship</PreferredClasses>
     </Melee>
   </Attack>
+  <PhysicalBody>
+  </PhysicalBody>
   <Identity>
     <VisibleClasses datatype="tokens">Melee</VisibleClasses>
   </Identity>
