@@ -90,5 +90,6 @@
   </UnitMotion>
   <PhysicalBody>
     <Weight>200</Weight>
+    <MaxRollAngle>1</MaxRollAngle>
   </PhysicalBody>
 </Entity>
