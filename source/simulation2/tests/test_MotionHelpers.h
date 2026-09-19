@@ -20,6 +20,8 @@
 #include "maths/Fixed.h"
 #include "maths/FixedVector2D.h"
 #include "simulation2/helpers/HeadingControl.h"
+#include "simulation2/helpers/ImpactEffects.h"
+#include "simulation2/helpers/MotionState.h"
 #include "simulation2/helpers/MomentumModel.h"
 #include "simulation2/helpers/PathFollowing.h"
 #include "simulation2/helpers/Pathfinding.h"
@@ -256,6 +258,112 @@ public:
 		const CFixedVector2D carried{fixed::FromInt(1), fixed::Zero()};
 		const CFixedVector2D applied{fixed::Zero(), fixed::FromInt(1)};
 		TS_ASSERT_EQUALS(MomentumModel::CarryExternalInertia(carried, applied), CFixedVector2D(fixed::FromInt(1), fixed::FromInt(1)));
+	}
+
+	void test_AddSpinImpulse_is_capped()
+	{
+		MotionState state{nullptr, nullptr, nullptr};
+		ImpactEffects::AddSpinImpulse(state, fixed::FromInt(2));
+		TS_ASSERT_EQUALS(state.impactAngularVelocity, fixed::FromInt(2));
+		ImpactEffects::AddSpinImpulse(state, fixed::FromInt(5));
+		TS_ASSERT_EQUALS(state.impactAngularVelocity, fixed::FromInt(6));
+		ImpactEffects::AddSpinImpulse(state, -fixed::FromInt(20));
+		TS_ASSERT_EQUALS(state.impactAngularVelocity, -fixed::FromInt(6));
+	}
+
+	void test_AddRollImpulse()
+	{
+		MotionState rigid{nullptr, nullptr, nullptr};
+		rigid.rollVelocity = fixed::FromInt(1);
+		ImpactEffects::AddRollImpulse(rigid, fixed::FromInt(1));
+		TS_ASSERT_EQUALS(rigid.rollVelocity, fixed::Zero());
+
+		// Max roll 0.5: velocity capped at 1 per second, angle at 0.5.
+		MotionState ship{nullptr, nullptr, nullptr};
+		ship.maxRollAngle = fixed::FromFraction(1, 2);
+		ship.rollAngle = -fixed::FromInt(1);
+		ImpactEffects::AddRollImpulse(ship, fixed::FromInt(3));
+		TS_ASSERT_EQUALS(ship.rollVelocity, fixed::FromInt(1));
+		TS_ASSERT_EQUALS(ship.rollAngle, -fixed::FromFraction(1, 2));
+	}
+
+	void test_IntegrateSpin()
+	{
+		const fixed dt{fixed::FromFraction(1, 5)};
+		MotionState state{nullptr, nullptr, nullptr};
+		// The default SpinDecay loses 0.15 of the spin every 0.2 s.
+		const fixed keep{fixed::FromInt(1) - fixed::FromFraction(15, 100)};
+
+		// Nothing to do without spin.
+		state.angle = fixed::FromInt(1);
+		ImpactEffects::IntegrateSpin(state, dt);
+		TS_ASSERT_EQUALS(state.angle, fixed::FromInt(1));
+
+		// Rotates, wraps through PI, and decays by friction.
+		const entity_angle_t start{entity_angle_t::Pi() - fixed::FromFraction(1, 10)};
+		state.angle = start;
+		state.impactAngularVelocity = fixed::FromInt(1);
+		ImpactEffects::IntegrateSpin(state, dt);
+		TS_ASSERT_EQUALS(state.angle, start + fixed::FromInt(1).Multiply(dt) - entity_angle_t::Pi() * 2);
+		TS_ASSERT(state.angle < fixed::Zero());
+		TS_ASSERT_EQUALS(state.impactAngularVelocity, keep);
+
+		// Down to exactly zero.
+		for (int turn{0}; turn < 100 && ImpactEffects::IsActive(state); ++turn)
+			ImpactEffects::IntegrateSpin(state, dt);
+		TS_ASSERT(!ImpactEffects::IsActive(state));
+
+		// An invisible spin stops right away instead of keeping the unit awake: 0.04 rad/s turns under a hundredth of a
+		// radian, then snaps. A visible one keeps going.
+		state.impactAngularVelocity = fixed::FromFraction(4, 100);
+		ImpactEffects::IntegrateSpin(state, dt);
+		TS_ASSERT_EQUALS(state.impactAngularVelocity, fixed::Zero());
+		state.impactAngularVelocity = fixed::FromFraction(1, 10);
+		ImpactEffects::IntegrateSpin(state, dt);
+		TS_ASSERT_EQUALS(state.impactAngularVelocity, fixed::FromFraction(1, 10).Multiply(keep));
+
+		// The decay is per 0.2 s, not per turn: a 0.4 s turn keeps the share of two 0.2 s turns.
+		state.impactAngularVelocity = fixed::FromInt(1);
+		ImpactEffects::IntegrateSpin(state, fixed::FromFraction(2, 5));
+		TS_ASSERT_EQUALS(state.impactAngularVelocity, keep.Multiply(keep));
+
+		// A unit's own SpinDecay replaces the default.
+		state.spinDecay = fixed::FromFraction(1, 2);
+		state.impactAngularVelocity = fixed::FromInt(1);
+		ImpactEffects::IntegrateSpin(state, dt);
+		TS_ASSERT_EQUALS(state.impactAngularVelocity, fixed::FromFraction(1, 2));
+	}
+
+	void test_IntegrateRoll_needs_a_max_roll_angle()
+	{
+		MotionState state{nullptr, nullptr, nullptr};
+		state.rollAngle = fixed::FromInt(1);
+		ImpactEffects::IntegrateRoll(state, fixed::FromFraction(1, 5));
+		TS_ASSERT_EQUALS(state.rollAngle, fixed::FromInt(1));
+		// A stray roll on a unit that can't roll doesn't keep it awake.
+		TS_ASSERT(!ImpactEffects::HasRoll(state));
+		TS_ASSERT(!ImpactEffects::IsActive(state));
+	}
+
+	void test_IntegrateRoll_settles_level()
+	{
+		const fixed dt{fixed::FromFraction(1, 5)};
+		MotionState ship{nullptr, nullptr, nullptr};
+		ship.maxRollAngle = fixed::FromFraction(1, 2);
+		ImpactEffects::AddRollImpulse(ship, fixed::FromInt(1));
+
+		// As the motion manager does it: integrate, then settle while there is a roll to show.
+		int turn{0};
+		for (; turn < 2000 && ImpactEffects::HasRoll(ship); ++turn)
+		{
+			ImpactEffects::IntegrateRoll(ship, dt);
+			TS_ASSERT_LESS_THAN_EQUALS(ship.rollAngle.Absolute(), ship.maxRollAngle.Multiply(fixed::FromFraction(3, 2)));
+			if (ImpactEffects::HasRoll(ship))
+				ImpactEffects::SettleRoll(ship);
+		}
+		TS_ASSERT(!ImpactEffects::HasRoll(ship));
+		TS_ASSERT_EQUALS(ship.rollAngle, fixed::Zero());
+		TS_ASSERT_EQUALS(ship.rollVelocity, fixed::Zero());
 	}
 
 	static WaypointPath MakePath(const std::vector<int>& xs)
