@@ -21,6 +21,7 @@
         <Damage>
           <Crush>50</Crush>
         </Damage>
+        <Knockback>25</Knockback>
       </Splash>
     </Ranged>
   </Attack>

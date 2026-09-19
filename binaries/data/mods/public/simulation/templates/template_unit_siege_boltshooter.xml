@@ -16,6 +16,7 @@
         <Gravity>9.81</Gravity>
         <FriendlyFire>false</FriendlyFire>
         <LaunchPoint y="3"/>
+        <Knockback>175</Knockback>
       </Projectile>
       <PreferredClasses datatype="tokens">Human</PreferredClasses>
       <RangeOverlay>
@@ -30,6 +31,7 @@
         <Damage>
           <Pierce>80</Pierce>
         </Damage>
+        <Knockback>60</Knockback>
       </Splash>
     </Ranged>
   </Attack>

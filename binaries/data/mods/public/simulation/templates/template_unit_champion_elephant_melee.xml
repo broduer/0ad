@@ -15,6 +15,7 @@
         <Damage>
           <Hack>30</Hack>
         </Damage>
+        <Knockback>125</Knockback>
       </Splash>
       <MaxRange>5</MaxRange>
       <PrepareTime>750</PrepareTime>

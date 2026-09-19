@@ -18,6 +18,7 @@
       <PreferredClasses datatype="tokens">
         Warship
       </PreferredClasses>
+      <Knockback>400</Knockback>
     </Melee>
   </Attack>
   <Cost>

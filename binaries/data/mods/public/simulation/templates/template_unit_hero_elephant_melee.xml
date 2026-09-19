@@ -15,11 +15,13 @@
         <Damage>
           <Hack>45</Hack>
         </Damage>
+        <Knockback>225</Knockback>
       </Splash>
       <MaxRange>5</MaxRange>
       <PrepareTime>750</PrepareTime>
       <RepeatTime>1500</RepeatTime>
      <PreferredClasses datatype="tokens">!Ship</PreferredClasses>
+     <Knockback>175</Knockback>
     </Melee>
   </Attack>
   <Cost>
