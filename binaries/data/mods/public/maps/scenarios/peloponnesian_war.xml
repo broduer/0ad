@@ -39,10 +39,10 @@
 	<ScriptSettings><![CDATA[
 {
   "CircularMap": true,
-  "Description": "A real-world map of the Greek homeland.",
+  "Description": "The Greek homeland in 431 BC, at the outbreak of the Peloponnesian War. A Spartan-led alliance containing Thebes and Corinth is facing Athens and its allies including Thessaly and Acarnania in fight for hegemony over Greece.",
   "Keywords": [],
   "LockTeams": false,
-  "Name": "Peloponnesian Wars",
+  "Name": "Peloponnesian War",
   "PlayerData": [
     null,
     {
@@ -71,16 +71,16 @@
           "z": 0
         }
       },
-      "Team": -1
+      "Team": 0
     },
     {
-      "Civ": "spart",
+      "Civ": "athen",
       "Color": {
         "b": 20,
         "g": 20,
         "r": 150
       },
-      "Name": "Sparta",
+      "Name": "Thessaly",
       "Resources": {
         "food": 700,
         "metal": 500,
@@ -99,7 +99,7 @@
           "z": 0
         }
       },
-      "Team": -1
+      "Team": 0
     },
     {
       "Civ": "athen",
@@ -108,14 +108,14 @@
         "g": 165,
         "r": 50
       },
-      "Name": "Elis",
+      "Name": "Acarnania",
       "Resources": {
         "food": 700,
         "metal": 500,
         "stone": 500,
         "wood": 700
       },
-      "Team": -1
+      "Team": 0
     },
     {
       "Civ": "athen",
@@ -131,7 +131,7 @@
         "stone": 500,
         "wood": 700
       },
-      "Team": -1
+      "Team": 1
     },
     {
       "Civ": "athen",
@@ -147,27 +147,31 @@
         "stone": 500,
         "wood": 700
       },
-      "Team": -1
+      "Team": 1
     },
     {
-      "Civ": "athen",
+      "Civ": "spart",
       "Color": {
-        "b": 200,
-        "g": 80,
-        "r": 160
+        "b": 20,
+        "g": 20,
+        "r": 150
       },
-      "Name": "Thessaly",
+      "Name": "Sparta",
       "Resources": {
         "food": 700,
         "metal": 500,
         "stone": 500,
         "wood": 700
       },
-      "Team": -1
+      "Team": 1
     }
   ],
-  "Preview": "peloponnese_scenario.png",
+  "Preview": "peloponnesian_wars.png",
   "RevealMap": false,
+  "TriggerScripts": [
+	"scripts/TriggerHelper.js",
+	"scenarios/peloponnesian_war.js"
+  ],
   "VictoryConditions": [
     "conquest"
   ]
