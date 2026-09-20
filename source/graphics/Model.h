@@ -243,6 +243,8 @@ private:
 	// that can play on a model. Not always up-to-date - currently CalcBounds()
 	// updates it when necessary.
 	CBoundingBoxAligned m_ObjectBounds;
+	/// The animation m_ObjectBounds was calculated for, if any.
+	const CSkeletonAnim* m_ObjectBoundsSource = nullptr;
 	// animation currently playing on this model, if any
 	CSkeletonAnim* m_Anim = nullptr;
 	// time (in MS) into the current animation

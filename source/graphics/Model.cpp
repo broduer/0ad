@@ -42,6 +42,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <mutex>
 #include <random>
 #include <utility>
 #include <vector>
@@ -75,18 +76,26 @@ CModel::~CModel()
 // CalcBound: calculate the world space bounds of this model
 void CModel::CalcBounds()
 {
-	// Need to calculate the object bounds first, if that hasn't already been done
+	// Calculate the object bounds first if needed, locking only to compute
+	// bounds shared through the modeldef or animation.
+	static std::mutex sharedBoundsMutex;
 	if (! (m_Anim && m_Anim->m_AnimDef))
 	{
 		if (m_ObjectBounds.IsEmpty())
+		{
+			const std::lock_guard<std::mutex> lock{sharedBoundsMutex};
 			CalcStaticObjectBounds();
+		}
+		m_ObjectBoundsSource = nullptr;
 	}
-	else
+	else if (m_ObjectBoundsSource != m_Anim || m_ObjectBounds.IsEmpty())
 	{
+		const std::lock_guard<std::mutex> lock{sharedBoundsMutex};
 		if (m_Anim->m_ObjectBounds.IsEmpty())
 			CalcAnimatedObjectBounds(m_Anim->m_AnimDef, m_Anim->m_ObjectBounds);
 		ENSURE(! m_Anim->m_ObjectBounds.IsEmpty()); // (if this happens, it'll be recalculating the bounds every time)
 		m_ObjectBounds = m_Anim->m_ObjectBounds;
+		m_ObjectBoundsSource = m_Anim;
 	}
 
 	// Ensure the transform is set correctly before we use it

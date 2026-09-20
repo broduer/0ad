@@ -20,6 +20,7 @@
 #include "ICmpUnitRenderer.h"
 
 #include "graphics/Color.h"
+#include "graphics/Model.h"
 #include "graphics/ModelAbstract.h"
 #include "graphics/Overlay.h"
 #include "graphics/Unit.h"
@@ -30,7 +31,9 @@
 #include "maths/Frustum.h"
 #include "maths/Matrix3D.h"
 #include "maths/Vector3D.h"
+#include "ps/Future.h"
 #include "ps/Profile.h"
+#include "ps/TaskManager.h"
 #include "renderer/RenderingOptions.h"
 #include "renderer/Scene.h"
 #include "simulation2/MessageTypes.h"
@@ -44,6 +47,8 @@
 #include "simulation2/system/Message.h"
 #include "tools/atlas/GameInterface/GameLoop.h"
 
+#include <algorithm>
+#include <atomic>
 #include <cstddef>
 #include <string>
 #include <utility>
@@ -136,6 +141,8 @@ public:
 	std::vector<tag_t> m_UnitTagsFree;
 
 	int m_FrameNumber;
+	int m_LastParallelUpdateFrame = -1;
+	std::vector<uint32_t> m_UnitsToPosition;
 	float m_FrameOffset;
 
 	bool m_EnableDebugOverlays;
@@ -278,6 +285,14 @@ public:
 
 	void UpdateVisibility(SUnit& unit) const;
 
+	/**
+	 * Safe to call concurrently for different units.
+	 * @return false if the unit has no position.
+	 */
+	bool PositionUnit(SUnit& unit) const;
+
+	void UpdateUnitsInParallel(const CFrustum& frustum, bool culling);
+
 	float GetFrameOffset() const override
 	{
 		return m_FrameOffset;
@@ -400,6 +415,74 @@ void CCmpUnitRenderer::Interpolate(float frameTime, float frameOffset)
 	}
 }
 
+bool CCmpUnitRenderer::PositionUnit(SUnit& unit) const
+{
+	CmpPtr<ICmpPosition> cmpPosition(unit.entity);
+	if (!cmpPosition)
+		return false;
+
+	CModelAbstract& unitModel = unit.actor->GetModel();
+	unitModel.SetTransform(CMatrix3D(cmpPosition->GetInterpolatedTransform(m_FrameOffset)));
+	if (CModel* model = unitModel.ToCModel())
+		model->ValidatePosition();
+	unit.worldBoundsRec = unitModel.GetWorldBoundsRec();
+	unit.flattened.clear();
+	SceneCollector::Flatten(&unitModel, unit.flattened);
+	return true;
+}
+
+void CCmpUnitRenderer::UpdateUnitsInParallel(const CFrustum& frustum, const bool culling)
+{
+	m_UnitsToPosition.clear();
+	for (size_t i = 0; i < m_Units.size(); ++i)
+	{
+		SUnit& unit = m_Units[i];
+		if (!unit.actor || unit.lastTransformFrame == m_FrameNumber)
+			continue;
+		if (unit.visibilityDirty)
+			UpdateVisibility(unit);
+		if (unit.visibility == LosVisibility::HIDDEN)
+			continue;
+		if (culling && !frustum.IsSphereVisible(unit.sweptBounds.GetCenter(), unit.sweptBounds.GetRadius()))
+			continue;
+		m_UnitsToPosition.push_back(static_cast<uint32_t>(i));
+	}
+
+	constexpr size_t BATCH = 16;
+	const size_t count = m_UnitsToPosition.size();
+	if (count < 4 * BATCH)
+		return;
+
+	std::atomic<size_t> next{0};
+	const auto work = [this, &next, count]() {
+		for (;;)
+		{
+			const size_t begin = next.fetch_add(BATCH, std::memory_order_relaxed);
+			if (begin >= count)
+				return;
+			const size_t end = std::min(begin + BATCH, count);
+			for (size_t k = begin; k < end; ++k)
+			{
+				SUnit& unit = m_Units[m_UnitsToPosition[k]];
+				if (PositionUnit(unit))
+					unit.lastTransformFrame = m_FrameNumber;
+			}
+		}
+	};
+
+	// More workers cost more to wake than they save.
+	constexpr size_t MAX_HELPERS = 12;
+	const size_t helpers = std::min<size_t>(
+		std::min(MAX_HELPERS, g_TaskManager.GetNumberOfWorkers()), (count + BATCH - 1) / BATCH - 1);
+	std::vector<Future<void>> futures;
+	futures.reserve(helpers);
+	for (size_t i = 0; i < helpers; ++i)
+		futures.emplace_back(g_TaskManager, work);
+	work();
+	for (Future<void>& future : futures)
+		future.Get();
+}
+
 void CCmpUnitRenderer::RenderSubmit(SceneCollector& collector, const CFrustum& frustum, bool culling)
 {
 	// TODO: need a coarse culling pass based on some kind of spatial data
@@ -409,6 +492,13 @@ void CCmpUnitRenderer::RenderSubmit(SceneCollector& collector, const CFrustum& f
 	// per frame - one for shadow generation, one for water reflections, etc.)
 
 	PROFILE3("UnitRenderer::RenderSubmit");
+
+	// Units only visible to later cull groups are positioned in the loop below.
+	if (m_LastParallelUpdateFrame != m_FrameNumber)
+	{
+		m_LastParallelUpdateFrame = m_FrameNumber;
+		UpdateUnitsInParallel(frustum, culling);
+	}
 
 	for (size_t i = 0; i < m_Units.size(); ++i)
 	{
@@ -436,21 +526,10 @@ void CCmpUnitRenderer::RenderSubmit(SceneCollector& collector, const CFrustum& f
 
 		unit.culled = false;
 
-		CModelAbstract& unitModel = unit.actor->GetModel();
-
 		if (unit.lastTransformFrame != m_FrameNumber)
 		{
-			CmpPtr<ICmpPosition> cmpPosition(unit.entity);
-			if (!cmpPosition)
+			if (!PositionUnit(unit))
 				continue;
-
-			CMatrix3D transform(cmpPosition->GetInterpolatedTransform(m_FrameOffset));
-
-			unitModel.SetTransform(transform);
-			unit.worldBoundsRec = unitModel.GetWorldBoundsRec();
-			unit.flattened.clear();
-			SceneCollector::Flatten(&unitModel, unit.flattened);
-
 			unit.lastTransformFrame = m_FrameNumber;
 		}
 
