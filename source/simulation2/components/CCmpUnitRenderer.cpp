@@ -92,6 +92,11 @@ public:
 		CBoundingBoxAligned worldBoundsRec;
 
 		/**
+		 * The model and its visible props, as of lastTransformFrame.
+		 */
+		std::vector<CModelAbstract*> flattened;
+
+		/**
 		 * Worst-case bounding shape, relative to position. Needs to account
 		 * for all possible animations, orientations, etc.
 		 */
@@ -222,6 +227,7 @@ public:
 		unit->actor = actor;
 		unit->lastTransformFrame = -1;
 		unit->worldBoundsRec = CBoundingBoxAligned{};
+		unit->flattened.clear();
 		unit->flags = flags;
 		unit->boundsApprox = boundsApprox;
 		unit->inWorld = false;
@@ -442,6 +448,8 @@ void CCmpUnitRenderer::RenderSubmit(SceneCollector& collector, const CFrustum& f
 
 			unitModel.SetTransform(transform);
 			unit.worldBoundsRec = unitModel.GetWorldBoundsRec();
+			unit.flattened.clear();
+			SceneCollector::Flatten(&unitModel, unit.flattened);
 
 			unit.lastTransformFrame = m_FrameNumber;
 		}
@@ -449,7 +457,8 @@ void CCmpUnitRenderer::RenderSubmit(SceneCollector& collector, const CFrustum& f
 		if (culling && !frustum.IsBoxVisible(unit.worldBoundsRec))
 			continue;
 
-		collector.SubmitRecursive(&unitModel);
+		for (CModelAbstract* node : unit.flattened)
+			collector.SubmitNode(node);
 	}
 
 	for (size_t i = 0; i < m_DebugSpheres.size(); ++i)

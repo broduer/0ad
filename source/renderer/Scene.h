@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -145,6 +145,16 @@ public:
 	 * so you shouldn't have to reimplement it.
 	 */
 	virtual void SubmitRecursive(CModelAbstract* model);
+
+	/**
+	 * Submit one node of a model tree, without its props.
+	 */
+	void SubmitNode(CModelAbstract* model);
+
+	/**
+	 * Append @p model and its visible props in submission order.
+	 */
+	static void Flatten(CModelAbstract* model, std::vector<CModelAbstract*>& out);
 };
 
 
