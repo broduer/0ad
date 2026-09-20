@@ -35,7 +35,6 @@
 #include "graphics/TextRenderer.h"
 #include "graphics/TextureManager.h"
 #include "lib/alignment.h"
-#include "lib/allocators/STLAllocators.h"
 #include "lib/code_generation.h"
 #include "lib/debug.h"
 #include "maths/Matrix3D.h"
@@ -44,6 +43,7 @@
 #include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
 #include "ps/Game.h"
+#include "ps/memory/AllocatorAdapter.h"
 #include "ps/memory/LinearAllocator.h"
 #include "ps/Profile.h"
 #include "renderer/AlphaMapCalculator.h"
@@ -843,7 +843,7 @@ void CPatchRData::Update(CSimulation2* simulation)
 
 // std::map types with appropriate arena allocators and default comparison operator
 template<class Key, class Value>
-using PooledBatchMap = std::map<Key, Value, std::less<Key>, ProxyAllocator<std::pair<Key const, Value>, PS::Memory::ScopedLinearAllocator>>;
+using PooledBatchMap = std::map<Key, Value, std::less<Key>, PS::Memory::AllocatorAdapter<std::pair<Key const, Value>, PS::Memory::ScopedLinearAllocator>>;
 
 // Equivalent to "m[k]", when it returns a arena-allocated std::map (since we can't
 // use the default constructor in that case)
@@ -866,7 +866,7 @@ typename M::mapped_type& PooledPairGet(M& m, const typename M::key_type& k, PS::
 }
 
 // Each multidraw batch has a list of index counts, and a list of pointers-to-first-indexes
-using BatchElements = std::pair<std::vector<u32, ProxyAllocator<u32, PS::Memory::ScopedLinearAllocator>>, std::vector<u32, ProxyAllocator<u32, PS::Memory::ScopedLinearAllocator>>>;
+using BatchElements = std::pair<std::vector<u32, PS::Memory::AllocatorAdapter<u32, PS::Memory::ScopedLinearAllocator>>, std::vector<u32, PS::Memory::AllocatorAdapter<u32, PS::Memory::ScopedLinearAllocator>>>;
 
 // Group batches by index buffer
 using IndexBufferBatches = PooledBatchMap<CVertexBuffer*, BatchElements>;
@@ -1037,7 +1037,7 @@ struct SBlendStackItem
 	{
 	}
 
-	using SplatStack = std::vector<CPatchRData::SSplat, ProxyAllocator<CPatchRData::SSplat, PS::Memory::ScopedLinearAllocator>>;
+	using SplatStack = std::vector<CPatchRData::SSplat, PS::Memory::AllocatorAdapter<CPatchRData::SSplat, PS::Memory::ScopedLinearAllocator>>;
 	CVertexBuffer::VBChunk* vertices;
 	CVertexBuffer::VBChunk* indices;
 	SplatStack splats;
@@ -1054,7 +1054,7 @@ void CPatchRData::RenderBlends(
 
 	PS::Memory::ScopedLinearAllocator scopedLinearAllocator{g_Renderer.GetLinearAllocator()};
 
-	using BatchesStack = std::vector<SBlendBatch, ProxyAllocator<SBlendBatch, PS::Memory::ScopedLinearAllocator>>;
+	using BatchesStack = std::vector<SBlendBatch, PS::Memory::AllocatorAdapter<SBlendBatch, PS::Memory::ScopedLinearAllocator>>;
 	BatchesStack batches((BatchesStack::allocator_type(scopedLinearAllocator)));
 
 	CShaderDefines contextBlend = context;
@@ -1066,7 +1066,7 @@ void CPatchRData::RenderBlends(
  	// to avoid heavy reallocations
  	batches.reserve(256);
 
-	using BlendStacks = std::vector<SBlendStackItem, ProxyAllocator<SBlendStackItem, PS::Memory::ScopedLinearAllocator>>;
+	using BlendStacks = std::vector<SBlendStackItem, PS::Memory::AllocatorAdapter<SBlendStackItem, PS::Memory::ScopedLinearAllocator>>;
 	BlendStacks blendStacks((BlendStacks::allocator_type(scopedLinearAllocator)));
 	blendStacks.reserve(patches.size());
 

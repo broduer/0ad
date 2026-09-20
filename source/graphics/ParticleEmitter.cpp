@@ -25,13 +25,13 @@
 #include "graphics/ParticleManager.h"
 #include "graphics/RenderableObject.h"
 #include "graphics/TextureManager.h"
-#include "lib/allocators/STLAllocators.h"
 #include "lib/debug.h"
 #include "lib/types.h"
 #include "maths/Matrix3D.h"
-#include "ps/memory/LinearAllocator.h"
 #include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
+#include "ps/memory/AllocatorAdapter.h"
+#include "ps/memory/LinearAllocator.h"
 #include "renderer/Renderer.h"
 #include "renderer/Scene.h"
 #include "renderer/SceneRenderer.h"
@@ -184,7 +184,7 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 
 	PS::Memory::ScopedLinearAllocator scopedLinearAllocator{g_Renderer.GetLinearAllocator()};
 
-	using ParticlesVector = std::vector<SParticle, ProxyAllocator<SParticle, PS::Memory::ScopedLinearAllocator>>;
+	using ParticlesVector = std::vector<SParticle, PS::Memory::AllocatorAdapter<SParticle, PS::Memory::ScopedLinearAllocator>>;
 	ParticlesVector sortedParticles((ParticlesVector::allocator_type(scopedLinearAllocator)));
 
 	m_LastFrameNumber = frameNumber;

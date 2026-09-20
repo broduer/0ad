@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,11 +19,11 @@
 #define INCLUDED_TEXTRENDERER
 
 #include "graphics/Color.h"
-#include "lib/allocators/STLAllocators.h"
 #include "maths/Rect.h"
 #include "maths/Vector2D.h"
 #include "ps/CStrIntern.h"
 #include "ps/memory/LinearAllocator.h"
+#include "ps/memory/AllocatorAdapter.h"
 
 #include <cstddef>
 #include <list>
@@ -161,7 +161,7 @@ private:
 		CVector2D translate;
 		CColor color;
 		CFont* font;
-		using SBatchRunList = std::list<SBatchRun, ProxyAllocator<SBatchRun, PS::Memory::ScopedLinearAllocator>>;
+		using SBatchRunList = std::list<SBatchRun, PS::Memory::AllocatorAdapter<SBatchRun, PS::Memory::ScopedLinearAllocator>>;
 		SBatchRunList runs;
 
 		SBatch(PS::Memory::ScopedLinearAllocator& allocator) : runs{allocator} {}
@@ -180,7 +180,7 @@ private:
 
 	bool m_Dirty = true;
 
-	using SBatchList = std::list<SBatch, ProxyAllocator<SBatch, PS::Memory::ScopedLinearAllocator>>;
+	using SBatchList = std::list<SBatch, PS::Memory::AllocatorAdapter<SBatch, PS::Memory::ScopedLinearAllocator>>;
 	SBatchList m_Batches;
 };
 

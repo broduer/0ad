@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -211,9 +211,9 @@ void CTextRenderer::Render(
 	const CVector2D& transformScale, const CVector2D& translation,
 	const bool debugFontBox, const CColor& debugBoxColor)
 {
-	std::vector<u16, ProxyAllocator<u16, PS::Memory::ScopedLinearAllocator>> indices{m_ScopedLinearAllocator};
-	std::vector<CVector2D, ProxyAllocator<CVector2D, PS::Memory::ScopedLinearAllocator>> positions{m_ScopedLinearAllocator};
-	std::vector<CVector2D, ProxyAllocator<CVector2D, PS::Memory::ScopedLinearAllocator>> uvs{m_ScopedLinearAllocator};
+	std::vector<u16, PS::Memory::AllocatorAdapter<u16, PS::Memory::ScopedLinearAllocator>> indices{m_ScopedLinearAllocator};
+	std::vector<CVector2D, PS::Memory::AllocatorAdapter<CVector2D, PS::Memory::ScopedLinearAllocator>> positions{m_ScopedLinearAllocator};
+	std::vector<CVector2D, PS::Memory::AllocatorAdapter<CVector2D, PS::Memory::ScopedLinearAllocator>> uvs{m_ScopedLinearAllocator};
 
 	// Try to merge non-consecutive batches that share the same font/color/translate:
 	// sort the batch list by font, then merge the runs of adjacent compatible batches

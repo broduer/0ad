@@ -31,7 +31,6 @@
 #include "graphics/Texture.h"
 #include "graphics/TextureManager.h"
 #include "lib/alignment.h"
-#include "lib/allocators/STLAllocators.h"
 #include "lib/debug.h"
 #include "lib/hash.h"
 #include "maths/Matrix3D.h"
@@ -40,6 +39,7 @@
 #include "ps/CLogger.h"
 #include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
+#include "ps/memory/AllocatorAdapter.h"
 #include "ps/memory/LinearAllocator.h"
 #include "ps/Profile.h"
 #include "renderer/MikktspaceWrap.h"
@@ -349,14 +349,14 @@ void ModelRenderer::Render(
 
 	PS::Memory::ScopedLinearAllocator scopedLinearAllocator{g_Renderer.GetLinearAllocator()};
 
-	using ModelListAllocator = ProxyAllocator<CModel*, PS::Memory::ScopedLinearAllocator>;
+	using ModelListAllocator = PS::Memory::AllocatorAdapter<CModel*, PS::Memory::ScopedLinearAllocator>;
 	using ModelList_t = std::vector<CModel*, ModelListAllocator>;
 	using MaterialBuckets_t = std::unordered_map<
 		SMRMaterialBucketKey,
 		ModelList_t,
 		SMRMaterialBucketKeyHash,
 		std::equal_to<SMRMaterialBucketKey>,
-		ProxyAllocator<
+		PS::Memory::AllocatorAdapter<
 			std::pair<const SMRMaterialBucketKey, ModelList_t>,
 			PS::Memory::ScopedLinearAllocator>>;
 
@@ -387,10 +387,10 @@ void ModelRenderer::Render(
 		}
 	}
 
-	using SortByDistItemsAllocator = ProxyAllocator<SMRSortByDistItem, PS::Memory::ScopedLinearAllocator>;
+	using SortByDistItemsAllocator = PS::Memory::AllocatorAdapter<SMRSortByDistItem, PS::Memory::ScopedLinearAllocator>;
 	std::vector<SMRSortByDistItem, SortByDistItemsAllocator> sortByDistItems((SortByDistItemsAllocator(scopedLinearAllocator)));
 
-	using SortByTechItemsAllocator = ProxyAllocator<CShaderTechniquePtr, PS::Memory::ScopedLinearAllocator>;
+	using SortByTechItemsAllocator = PS::Memory::AllocatorAdapter<CShaderTechniquePtr, PS::Memory::ScopedLinearAllocator>;
 	std::vector<CShaderTechniquePtr, SortByTechItemsAllocator> sortByDistTechs((SortByTechItemsAllocator(scopedLinearAllocator)));
 		// indexed by sortByDistItems[i].techIdx
 		// (which stores indexes instead of CShaderTechniquePtr directly
@@ -398,7 +398,7 @@ void ModelRenderer::Render(
 		// if we just stored raw CShaderTechnique* and assumed the shader manager
 		// will keep it alive long enough)
 
-	using TechBucketsAllocator =  ProxyAllocator<SMRTechBucket, PS::Memory::ScopedLinearAllocator>;
+	using TechBucketsAllocator = PS::Memory::AllocatorAdapter<SMRTechBucket, PS::Memory::ScopedLinearAllocator>;
 	std::vector<SMRTechBucket, TechBucketsAllocator> techBuckets((TechBucketsAllocator(scopedLinearAllocator)));
 
 	{
@@ -514,18 +514,18 @@ void ModelRenderer::Render(
 		// This vector keeps track of texture changes during rendering. It is kept outside the
 		// loops to avoid excessive reallocations. The token allocation of 64 elements
 		// should be plenty, though it is reallocated below (at a cost) if necessary.
-		using TextureListAllocator = ProxyAllocator<CTexture*, PS::Memory::ScopedLinearAllocator>;
+		using TextureListAllocator = PS::Memory::AllocatorAdapter<CTexture*, PS::Memory::ScopedLinearAllocator>;
 		std::vector<CTexture*, TextureListAllocator> currentTexs((TextureListAllocator(scopedLinearAllocator)));
 		currentTexs.reserve(64);
 
 		// texBindings holds the identifier bindings in the shader, which can no longer be defined
 		// statically in the ShaderRenderModifier class. texBindingNames uses interned strings to
 		// keep track of when bindings need to be reevaluated.
-		using BindingListAllocator = ProxyAllocator<int32_t, PS::Memory::ScopedLinearAllocator>;
+		using BindingListAllocator = PS::Memory::AllocatorAdapter<int32_t, PS::Memory::ScopedLinearAllocator>;
 		std::vector<int32_t, BindingListAllocator> texBindings((BindingListAllocator(scopedLinearAllocator)));
 		texBindings.reserve(64);
 
-		using BindingNamesListAllocator = ProxyAllocator<CStrIntern, PS::Memory::ScopedLinearAllocator>;
+		using BindingNamesListAllocator = PS::Memory::AllocatorAdapter<CStrIntern, PS::Memory::ScopedLinearAllocator>;
 		std::vector<CStrIntern, BindingNamesListAllocator> texBindingNames((BindingNamesListAllocator(scopedLinearAllocator)));
 		texBindingNames.reserve(64);
 

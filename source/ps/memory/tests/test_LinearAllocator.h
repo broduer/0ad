@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -17,7 +17,7 @@
 
 #include "lib/self_test.h"
 
-#include "lib/allocators/STLAllocators.h"
+#include "ps/memory/AllocatorAdapter.h"
 #include "ps/memory/LinearAllocator.h"
 
 #include <algorithm>
@@ -67,8 +67,8 @@ public:
 		{
 			PS::Memory::ScopedLinearAllocator scopedAllocator1{allocator};
 			PS::Memory::ScopedLinearAllocator scopedAllocator2{allocator};
-			ProxyAllocator<int, PS::Memory::ScopedLinearAllocator> proxyAllocator1{scopedAllocator1};
-			ProxyAllocator<int, PS::Memory::ScopedLinearAllocator> proxyAllocator2{scopedAllocator2};
+			PS::Memory::AllocatorAdapter<int, PS::Memory::ScopedLinearAllocator> proxyAllocator1{scopedAllocator1};
+			PS::Memory::AllocatorAdapter<int, PS::Memory::ScopedLinearAllocator> proxyAllocator2{scopedAllocator2};
 			TS_ASSERT_EQUALS(proxyAllocator1, proxyAllocator1);
 			TS_ASSERT_DIFFERS(proxyAllocator1, proxyAllocator2);
 		}

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -23,8 +23,8 @@
 #include "gui/ObjectBases/IGUIObject.h"
 #include "lib/alignment.h"
 #include "lib/allocators/DynamicArena.h"
-#include "lib/allocators/STLAllocators.h"
 #include "lib/types.h"
+#include "ps/memory/AllocatorAdapter.h"
 
 #include <algorithm>
 #include <utility>
@@ -60,7 +60,7 @@ public:
 	static void RecurseVisibleObject(IGUIObject* object, void(IGUIObject::* callbackFunction)(Args... args), Args&&... args)
 	{
 		using Arena = Allocators::DynamicArena<128 * KiB>;
-		using ObjectListAllocator = ProxyAllocator<VisibleObject, Arena>;
+		using ObjectListAllocator = PS::Memory::AllocatorAdapter<VisibleObject, Arena>;
 		Arena arena;
 
 		std::vector<VisibleObject, ObjectListAllocator> visibleObjects((ObjectListAllocator(arena)));
