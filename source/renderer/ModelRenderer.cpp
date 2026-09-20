@@ -152,7 +152,7 @@ void ModelRenderer::BuildPositionAndNormals(
 		PROFILE("software transform");
 		// just copy regular positions, transform normals to world space
 		const CMatrix3D& transform = model->GetTransform();
-		const CMatrix3D& invtransform = model->GetInvTransform();
+		const CMatrix3D invtransform = model->GetInvTransform();
 		for (size_t j = 0; j < numVertices; ++j)
 		{
 			transform.Transform(vertices[j].m_Coords, Position[j]);

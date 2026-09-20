@@ -68,9 +68,8 @@ public:
 	{
 		if (m_Transform == transform)
 			return;
-		// store transform, calculate inverse
+		// store transform
 		m_Transform=transform;
-		m_Transform.GetInverse(m_InvTransform);
 		// normal recalculation likely required on transform change; flag it
 		SetDirty(RENDERDATA_UPDATE_VERTICES);
 		// need to rebuild world space bounds
@@ -79,7 +78,7 @@ public:
 	// get object to world space transform
 	const CMatrix3D& GetTransform() const { return m_Transform; }
 	// get world to object space transform
-	const CMatrix3D& GetInvTransform() const { return m_InvTransform; }
+	CMatrix3D GetInvTransform() const { return m_Transform.GetInverse(); }
 
 	// mark some part of the renderdata as dirty, and requiring
 	// an update on next render
@@ -140,8 +139,6 @@ protected:
 	CBoundingBoxAligned m_WorldBounds;
 	// local->world space transform
 	CMatrix3D m_Transform;
-	// world->local space transform
-	CMatrix3D m_InvTransform;
 	// object renderdata
 	CRenderData* m_RenderData;
 

@@ -345,6 +345,7 @@ void CDecalRData::BuildVertexData()
 	CmpPtr<ICmpWaterManager> cmpWaterManager(*m_Simulation, SYSTEM_ENTITY);
 
 	std::vector<SDecalVertex> vertices((i1 - i0 + 1) * (j1 - j0 + 1));
+	const CMatrix3D invTransform{m_Decal->GetInvTransform()};
 
 	for (ssize_t j = j0, idx = 0; j <= j1; ++j)
 	{
@@ -363,7 +364,7 @@ void CDecalRData::BuildVertexData()
 			m_Decal->m_Terrain->CalcNormal(i, j, vertex.m_Normal);
 
 			// Map from world space back into decal texture space.
-			CVector3D inv = m_Decal->GetInvTransform().Transform(vertex.m_Position);
+			CVector3D inv = invTransform.Transform(vertex.m_Position);
 			vertex.m_UV.X = 0.5f + (inv.X - decal.m_OffsetX) / decal.m_SizeX;
 			// Flip V to match our texture convention.
 			vertex.m_UV.Y = 0.5f - (inv.Z - decal.m_OffsetZ) / decal.m_SizeZ;

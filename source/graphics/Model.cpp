@@ -43,6 +43,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <mutex>
+#include <optional>
 #include <random>
 #include <utility>
 #include <vector>
@@ -135,6 +136,7 @@ const CBoundingBoxAligned CModel::GetObjectSelectionBoundsRec()
 	CBoundingBoxAligned objBounds = GetObjectBounds();		// updates the (children-not-included) object-space bounds if necessary
 
 	// now extend these bounds to include the props' selection bounds (if any)
+	std::optional<CMatrix3D> invTransform;
 	for (size_t i = 0; i < m_Props.size(); ++i)
 	{
 		const Prop& prop = m_Props[i];
@@ -166,11 +168,12 @@ const CBoundingBoxAligned CModel::GetObjectSelectionBoundsRec()
 		// (taking into account animation and everything).
 		//
 		// From this, it is clear that either O or B x O is the object-space transformation matrix of the prop. So,
-		// all we need to do is apply our own inverse world-transform T^(-1) to T' to get our desired result. Luckily,
-		// this is precomputed upon setting the transform matrix (see @ref SetTransform), so it is free to fetch.
+		// all we need to do is apply our own inverse world-transform T^(-1) to T' to get our desired result.
 
 		CMatrix3D propObjectTransform = prop.m_Model->GetTransform(); // T'
-		propObjectTransform.Concatenate(GetInvTransform()); // T^(-1) x T'
+		if (!invTransform)
+			invTransform = GetInvTransform();
+		propObjectTransform.Concatenate(*invTransform); // T^(-1) x T'
 
 		// Transform the prop's bounds into our object coordinate space
 		CBoundingBoxAligned transformedPropSelectionBounds;
