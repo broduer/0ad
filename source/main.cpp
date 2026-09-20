@@ -345,7 +345,8 @@ static void RendererIncrementalLoad()
 {
 	PROFILE3("renderer incremental load");
 
-	const double maxTime = 0.1f;
+	// In a running game this shares the frame with rendering.
+	const double maxTime = g_Game && g_Game->IsGameStarted() ? 0.002 : 0.1;
 
 	double startTime = timer_Time();
 	bool more;
