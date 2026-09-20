@@ -31,48 +31,6 @@ class CVector3D;
 class CVector4D;
 struct SColor4ub;
 
-namespace
-{
-
-uint32_t GetAttributeSize(const Renderer::Backend::Format format)
-{
-	switch (format)
-	{
-	case Renderer::Backend::Format::R8G8B8A8_UNORM:
-	case Renderer::Backend::Format::R8G8B8A8_UINT:
-		return sizeof(std::uint8_t) * 4;
-	case Renderer::Backend::Format::A8_UNORM:
-		return sizeof(std::uint8_t);
-	case Renderer::Backend::Format::R16_UNORM:
-	case Renderer::Backend::Format::R16_UINT:
-	case Renderer::Backend::Format::R16_SINT:
-	case Renderer::Backend::Format::R16_SFLOAT:
-		return sizeof(std::uint16_t);
-	case Renderer::Backend::Format::R16G16_UNORM:
-	case Renderer::Backend::Format::R16G16_UINT:
-	case Renderer::Backend::Format::R16G16_SINT:
-	case Renderer::Backend::Format::R16G16_SFLOAT:
-		return sizeof(std::uint16_t) * 2;
-	case Renderer::Backend::Format::R16G16B16_SFLOAT:
-		return sizeof(std::uint16_t) * 3;
-	case Renderer::Backend::Format::R16G16B16A16_SFLOAT:
-		return sizeof(std::uint16_t) * 4;
-	case Renderer::Backend::Format::R32_SFLOAT:
-		return sizeof(float);
-	case Renderer::Backend::Format::R32G32_SFLOAT:
-		return sizeof(float) * 2;
-	case Renderer::Backend::Format::R32G32B32_SFLOAT:
-		return sizeof(float) * 3;
-	case Renderer::Backend::Format::R32G32B32A32_SFLOAT:
-		return sizeof(float) * 4;
-	default:
-		break;
-	};
-	return 0;
-}
-
-} // anonymous namespace
-
 VertexArray::VertexArray(
 	const Renderer::Backend::IBuffer::Type type, const uint32_t usage)
 	: m_Type(type), m_Usage(usage)
@@ -117,7 +75,7 @@ void VertexArray::SetMinimumAttributeAlignment(const uint32_t minimumAttributeAl
 void VertexArray::AddAttribute(Attribute* attr)
 {
 	// Attribute is supported is its size is greater than zero.
-	ENSURE(GetAttributeSize(attr->format) > 0 && "Unsupported attribute.");
+	ENSURE(GetVertexAttributeSize(attr->format) > 0 && "Unsupported attribute.");
 
 	attr->vertexArray = this;
 	m_Attributes.push_back(attr);
@@ -251,7 +209,7 @@ void VertexArray::Layout()
 		if (attr->format == Renderer::Backend::Format::UNDEFINED)
 			continue;
 
-		const uint32_t attrSize = GetAttributeSize(attr->format);
+		const uint32_t attrSize = GetVertexAttributeSize(attr->format);
 		ENSURE(attrSize > 0);
 
 		attr->offset = m_Stride;

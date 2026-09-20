@@ -118,6 +118,7 @@ public:
 		const CStr& name, const CShaderDefines& defines) override;
 
 	bool UseFramebufferInvalidating() const { return m_UseFramebufferInvalidating; }
+	bool UseClientVertexArrays() const { return m_UseClientVertexArrays; }
 
 	bool IsTextureFormatSupported(const Format format) const override;
 
@@ -157,6 +158,7 @@ private:
 	CDeviceCommandContext* m_ActiveCommandContext = nullptr;
 
 	bool m_UseFramebufferInvalidating = false;
+	bool m_UseClientVertexArrays = false;
 
 	struct Query
 	{

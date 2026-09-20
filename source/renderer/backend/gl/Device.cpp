@@ -424,7 +424,10 @@ std::unique_ptr<IDevice> CDevice::Create(SDL_Window* window)
 	capabilities.storage = false;
 	capabilities.timestamps = false;
 #else
-	capabilities.instancing =
+	// Apple's GL draws instanced arrays slowly and stalls on updates to buffers
+	// that queued draws still use, while client-side vertex arrays stay cheap.
+	device->m_UseClientVertexArrays = device->m_Name.rfind("Apple", 0) == 0;
+	capabilities.instancing = !device->m_UseClientVertexArrays &&
 		(version >= GLAD_MAKE_VERSION(3, 3) ||
 		(GLAD_GL_ARB_draw_instanced && GLAD_GL_ARB_instanced_arrays));
 	GLint maxStorageBufferSize{0};

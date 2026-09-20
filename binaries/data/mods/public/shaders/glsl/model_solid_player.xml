@@ -8,6 +8,10 @@
 		<stream name="uv0" attribute="a_uv0"/>
 		<stream name="uv1" attribute="a_uv1" if="USE_AO"/>
 		<stream name="uv2" attribute="a_tangent" if="USE_INSTANCING"/>
+		<stream name="uv3" attribute="a_instanceTransform0" if="USE_INSTANCING"/>
+		<stream name="uv4" attribute="a_instanceTransform1" if="USE_INSTANCING"/>
+		<stream name="uv5" attribute="a_instanceTransform2" if="USE_INSTANCING"/>
+		<stream name="uv6" attribute="a_instanceTransform3" if="USE_INSTANCING"/>
 	</vertex>
 
 	<fragment file="glsl/model_solid_player.fs"/>

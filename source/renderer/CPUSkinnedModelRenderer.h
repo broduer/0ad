@@ -54,6 +54,9 @@ public:
 	void RenderModel(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		Renderer::Backend::IShaderProgram* shader, CModel* model, CModelRData* data) override;
+	void RenderModels(
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
+		Renderer::Backend::IShaderProgram* shader, const std::span<CModel* const> models) override;
 
 	/**
 	 * For CPU skinning we need to mark dynamic buffer chunks as needed before rendering.

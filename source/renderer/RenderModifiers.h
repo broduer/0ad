@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -59,6 +59,16 @@ public:
 	virtual void BeginPass(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		Renderer::Backend::IShaderProgram* shader) = 0;
+
+	/**
+	 * Return whether the shader takes the model transform per instance.
+	 */
+	virtual bool UsesInstanceAttributes() const { return false; }
+
+	/**
+	 * Return whether PrepareModel would change state for the model.
+	 */
+	virtual bool WouldChangeModelState(CModel*) const { return true; }
 
 	/**
 	 * PrepareModel: Called before rendering the given model.
@@ -126,6 +136,13 @@ public:
 	void PrepareModel(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		CModel* model) override;
+
+	bool UsesInstanceAttributes() const override
+	{
+		return m_BindingInstancingTransform < 0;
+	}
+
+	bool WouldChangeModelState(CModel* model) const override;
 
 private:
 	int32_t m_BindingInstancingTransform = -1;

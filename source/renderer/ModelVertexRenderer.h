@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -138,6 +138,20 @@ public:
 	virtual void RenderModel(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		Renderer::Backend::IShaderProgram* shader, CModel* model, CModelRData* data) = 0;
+
+	/**
+	 * Return whether RenderModels can draw models sharing a modeldef.
+	 */
+	virtual bool CanInstance() const { return false; }
+
+	/**
+	 * RenderModels: Draw models sharing the prepared modeldef and state.
+	 * Requires CanInstance().
+	 */
+	virtual void RenderModels(
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
+		Renderer::Backend::IShaderProgram* shader,
+		const std::span<CModel* const> models) = 0;
 };
 
 

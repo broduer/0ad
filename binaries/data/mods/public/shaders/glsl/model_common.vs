@@ -15,6 +15,12 @@ VERTEX_INPUT_ATTRIBUTE(3, vec2, a_uv0);
 #if USE_AO
 VERTEX_INPUT_ATTRIBUTE(4, vec2, a_uv1);
 #endif
+#if USE_INSTANCING
+VERTEX_INPUT_ATTRIBUTE(5, vec4, a_instanceTransform0);
+VERTEX_INPUT_ATTRIBUTE(6, vec4, a_instanceTransform1);
+VERTEX_INPUT_ATTRIBUTE(7, vec4, a_instanceTransform2);
+VERTEX_INPUT_ATTRIBUTE(8, vec4, a_instanceTransform3);
+#endif
 
 vec4 fakeCos(vec4 x)
 {
@@ -25,6 +31,9 @@ vec4 fakeCos(vec4 x)
 void main()
 {
   #if (USE_INSTANCING)
+    mat4 instancingTransform = mat4(
+      a_instanceTransform0, a_instanceTransform1,
+      a_instanceTransform2, a_instanceTransform3);
     vec4 position = instancingTransform * vec4(a_vertex, 1.0);
     mat3 normalMatrix = mat3(instancingTransform[0].xyz, instancingTransform[1].xyz, instancingTransform[2].xyz);
     vec3 normal = normalMatrix * a_normal;

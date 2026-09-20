@@ -38,6 +38,7 @@
 #include <memory>
 #include <span>
 #include <utility>
+#include <vector>
 
 namespace Renderer::Backend { enum class Format; }
 namespace Renderer::Backend::GL { class CBuffer; }
@@ -192,6 +193,18 @@ private:
 	void BindTexture(const uint32_t unit, const GLenum target, const GLuint handle);
 	void BindBuffer(const IBuffer::Type type, CBuffer* buffer);
 
+	/**
+	 * Upload and bind vertex data, returning its offset.
+	 */
+	uint32_t UploadVertexData(const void* data, const uint32_t dataSize);
+
+	/**
+	 * Upload a binding slot's data, unless the device reads it from client
+	 * memory, and point its attributes at it.
+	 */
+	void UploadVertexBufferData(const uint32_t bindingSlot, const void* data,
+		const uint32_t dataSize, const bool instancing);
+
 	CDevice* m_Device = nullptr;
 
 	SGraphicsPipelineStateDesc m_GraphicsPipelineStateDesc{};
@@ -208,6 +221,11 @@ private:
 	CBuffer* m_VertexBuffer = nullptr;
 	CBuffer* m_IndexBuffer = nullptr;
 	const void* m_IndexBufferData = nullptr;
+
+	// Used buffers keep their data until Flush.
+	std::vector<std::unique_ptr<IBuffer>> m_VertexUploadBuffers;
+	size_t m_VertexUploadIndex = 0;
+	uint32_t m_VertexUploadOffset = 0;
 
 	bool m_InsideFramebufferPass = false;
 	bool m_InsidePass = false;

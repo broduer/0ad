@@ -56,6 +56,13 @@ public:
 	void RenderModel(Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		Renderer::Backend::IShaderProgram* shader, CModel* model, CModelRData* data) override;
 
+	bool CanInstance() const override { return true; }
+
+	void RenderModels(
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
+		Renderer::Backend::IShaderProgram* shader,
+		const std::span<CModel* const> models) override;
+
 protected:
 	InstancingModelRendererInternals* m;
 };

@@ -648,6 +648,12 @@ void CShaderProgram::Bind(CShaderProgram* previousShaderProgram)
 
 	if (previousShaderProgram)
 	{
+		// Attribute array state is shared across programs.
+		for (const int index : m_ActiveVertexAttributes)
+			if (previousShaderProgram->m_ConstantAttributes & (1u << index))
+				glEnableVertexAttribArray(index);
+		previousShaderProgram->m_ConstantAttributes = 0;
+
 		std::vector<int>::iterator itPrevious = previousShaderProgram->m_ActiveVertexAttributes.begin();
 		std::vector<int>::iterator itNext = m_ActiveVertexAttributes.begin();
 		while (
@@ -700,6 +706,7 @@ void CShaderProgram::Unbind()
 
 	for (const int index : m_ActiveVertexAttributes)
 		glDisableVertexAttribArray(index);
+	m_ConstantAttributes = 0;
 }
 
 int32_t CShaderProgram::GetBindingSlot(const CStrIntern name) const
@@ -847,6 +854,14 @@ void CShaderProgram::VertexAttribPointer(
 		std::lower_bound(m_ActiveVertexAttributes.begin(), m_ActiveVertexAttributes.end(), attributeLocation);
 	if (it == m_ActiveVertexAttributes.end() || *it != attributeLocation)
 		return;
+
+	ENSURE(attributeLocation < 32);
+	const uint32_t attributeBit = 1u << attributeLocation;
+	if (m_ConstantAttributes & attributeBit)
+	{
+		glEnableVertexAttribArray(attributeLocation);
+		m_ConstantAttributes &= ~attributeBit;
+	}
 	const GLint size = GLSizeFromFormat(format);
 	const GLenum type = GLTypeFromFormat(format);
 	const GLboolean normalized = NormalizedFromFormat(format);
@@ -854,15 +869,28 @@ void CShaderProgram::VertexAttribPointer(
 		attributeLocation, size, type, normalized, stride,
 		static_cast<const std::uint8_t*>(data) + offset);
 #if CONFIG2_GLES
-	ENSURE(!m_Device->GetCapabilities().instancing);
+	ENSURE(rate == VertexAttributeRate::PER_VERTEX);
 #else
-	if (rate == VertexAttributeRate::PER_INSTANCE)
-		ENSURE(m_Device->GetCapabilities().instancing);
 	if (m_Device->GetCapabilities().instancing)
-	{
 		glVertexAttribDivisorARB(attributeLocation, rate == VertexAttributeRate::PER_INSTANCE ? 1 : 0);
-	}
+	else
+		ENSURE(rate == VertexAttributeRate::PER_VERTEX);
 #endif
+	m_ValidStreams |= GetStreamMask(stream);
+}
+
+void CShaderProgram::VertexAttribConstant(
+	const VertexAttributeStream stream, const Format format, const void* value)
+{
+	const int attributeLocation = GetAttributeLocationFromStream(m_Device, stream);
+	if (!std::ranges::binary_search(m_ActiveVertexAttributes, attributeLocation))
+		return;
+
+	ENSURE(attributeLocation < 32);
+	ENSURE(format == Format::R32G32B32A32_SFLOAT);
+	glDisableVertexAttribArray(attributeLocation);
+	glVertexAttrib4fv(attributeLocation, static_cast<const GLfloat*>(value));
+	m_ConstantAttributes |= 1u << attributeLocation;
 	m_ValidStreams |= GetStreamMask(stream);
 }
 

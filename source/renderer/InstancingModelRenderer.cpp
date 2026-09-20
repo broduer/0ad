@@ -36,6 +36,7 @@
 #include "third_party/mikktspace/weldmesh.h"
 
 #include <algorithm>
+#include <iterator>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -164,7 +165,7 @@ IModelDef::IModelDef(const CModelDefPtr& mdef)
 	const uint32_t stride = m_Array.GetStride();
 	constexpr size_t MAX_UV = 2;
 
-	PS::StaticVector<Renderer::Backend::SVertexAttributeFormat, 5 + MAX_UV> attributes{
+	PS::StaticVector<Renderer::Backend::SVertexAttributeFormat, 4 + 5 + MAX_UV> attributes{
 		{Renderer::Backend::VertexAttributeStream::POSITION,
 			m_Position.format, m_Position.offset, stride,
 			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
@@ -188,6 +189,8 @@ IModelDef::IModelDef(const CModelDefPtr& mdef)
 		m_Tangent.format, m_Tangent.offset, stride,
 		Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0});
 
+	std::ranges::copy(ModelRenderer::GetInstanceTransformAttributes(), std::back_inserter(attributes));
+
 	m_VertexInputLayout = g_Renderer.GetVertexInputLayout({attributes.begin(), attributes.end()});
 }
 
@@ -195,6 +198,7 @@ struct InstancingModelRendererInternals
 {
 	/// Previously prepared modeldef
 	IModelDef* imodeldef;
+	std::vector<float> transforms;
 };
 
 
@@ -260,11 +264,41 @@ void InstancingModelRenderer::PrepareModelDef(
 }
 
 
+// Render models sharing the prepared modeldef
+void InstancingModelRenderer::RenderModels(
+	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
+	Renderer::Backend::IShaderProgram*, const std::span<CModel* const> models)
+{
+	if (models.empty())
+		return;
+	std::vector<float>& transforms = m->transforms;
+	transforms.clear();
+	transforms.reserve(models.size() * 16);
+	for (CModel* model : models)
+	{
+		const std::span<const float, 16> matrix = model->GetTransform().AsFloatArray();
+		transforms.insert(transforms.end(), matrix.begin(), matrix.end());
+	}
+	deviceCommandContext->SetVertexBufferData(
+		MODEL_INSTANCE_BINDING_SLOT, transforms.data(),
+		static_cast<uint32_t>(transforms.size() * sizeof(float)));
+
+	const size_t numberOfFaces = models[0]->GetModelDef()->GetNumFaces();
+	deviceCommandContext->DrawIndexedInstanced(
+		m->imodeldef->m_IndexArray.GetOffset(), numberOfFaces * 3, 0,
+		static_cast<uint32_t>(models.size()), 0);
+
+	g_Renderer.m_Stats.m_DrawCalls++;
+	g_Renderer.m_Stats.m_ModelTris += numberOfFaces * models.size();
+}
+
 // Render one model
 void InstancingModelRenderer::RenderModel(Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	Renderer::Backend::IShaderProgram*, CModel* model, CModelRData*)
 {
 	const CModelDefPtr& mdldef = model->GetModelDef();
+
+	ModelRenderer::BindModelTransform(deviceCommandContext, *model);
 
 	// Render the lot.
 	const size_t numberOfFaces = mdldef->GetNumFaces();

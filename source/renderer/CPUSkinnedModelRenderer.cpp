@@ -264,6 +264,13 @@ void CPUSkinnedModelVertexRenderer::PrepareModelDef(
 		0, m->modelDefRData->m_Array.GetBuffer(), firstVertexOffset);
 }
 
+void CPUSkinnedModelVertexRenderer::RenderModels(
+	Renderer::Backend::IDeviceCommandContext*, Renderer::Backend::IShaderProgram*,
+	const std::span<CModel* const>)
+{
+	debug_warn("RenderModels called on a renderer without instancing support");
+}
+
 // Render one model
 void CPUSkinnedModelVertexRenderer::RenderModel(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext, Renderer::Backend::IShaderProgram*,

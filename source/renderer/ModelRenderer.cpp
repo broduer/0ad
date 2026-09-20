@@ -40,6 +40,7 @@
 #include "ps/CLogger.h"
 #include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
+#include "ps/containers/StaticVector.h"
 #include "ps/memory/LinearAllocator.h"
 #include "ps/Profile.h"
 #include "renderer/MikktspaceWrap.h"
@@ -52,13 +53,18 @@
 #include "renderer/TimeManager.h"
 #include "renderer/VertexArray.h"
 #include "renderer/WaterManager.h"
+#include "renderer/backend/IDevice.h"
 #include "renderer/backend/IDeviceCommandContext.h"
 #include "renderer/backend/IShaderProgram.h"
 
 #include <algorithm>
+#include <compare>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <iterator>
+#include <numeric>
+#include <optional>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -203,23 +209,104 @@ struct SMRSortByDistItem
 	float dist;
 };
 
-struct SMRBatchModel
+struct SMRBatchKey
 {
-	bool operator()(CModel* a, CModel* b)
+	const CModelDef* modelDef;
+	const CTexture* texture;
+	// Interned static uniforms.
+	const void* uniforms;
+
+	auto operator<=>(const SMRBatchKey&) const = default;
+};
+
+/**
+ * A model with its batch key, copied so sorting doesn't dereference the model.
+ */
+struct SMRBatchItem
+{
+	SMRBatchKey key;
+	CModel* model;
+	uint32_t group;
+
+	static SMRBatchItem Of(CModel* model)
 	{
-		if (a->GetModelDef() < b->GetModelDef())
-			return true;
-		if (b->GetModelDef() < a->GetModelDef())
-			return false;
-
-		if (a->GetMaterial().GetDiffuseTexture() < b->GetMaterial().GetDiffuseTexture())
-			return true;
-		if (b->GetMaterial().GetDiffuseTexture() < a->GetMaterial().GetDiffuseTexture())
-			return false;
-
-		return a->GetMaterial().GetStaticUniforms() < b->GetMaterial().GetStaticUniforms();
+		const CMaterial& material = model->GetMaterial();
+		return {{model->GetModelDef().get(), material.GetDiffuseTexture().get(),
+			material.GetStaticUniforms().GetInterned()}, model, 0};
 	}
 };
+
+struct SMRBatchGroup
+{
+	SMRBatchKey key;
+	uint32_t count;
+	uint32_t start;
+};
+
+constexpr size_t MAX_BATCH_GROUPS = 32;
+using SMRBatchGroups = PS::StaticVector<SMRBatchGroup, MAX_BATCH_GROUPS>;
+
+/**
+ * Group items by key, or return nothing if there are too many keys.
+ */
+std::optional<SMRBatchGroups> GroupBatchItems(const std::span<SMRBatchItem> items)
+{
+	SMRBatchGroups groups;
+	for (SMRBatchItem& item : items)
+	{
+		SMRBatchGroup* group = std::ranges::find(groups, item.key, &SMRBatchGroup::key);
+		if (group == groups.end())
+		{
+			if (groups.full())
+				return std::nullopt;
+			group = &groups.emplace_back(item.key, 0u, 0u);
+		}
+		++group->count;
+		item.group = static_cast<uint32_t>(group - groups.begin());
+	}
+	return groups;
+}
+
+/**
+ * Sort models by batch key.
+ */
+template<typename Models, typename Items, typename Ordered>
+void SortModelsForBatching(Models& models, Items& items, Ordered& ordered)
+{
+	if (models.size() < 2)
+		return;
+	items.clear();
+	items.reserve(models.size());
+	std::ranges::transform(models, std::back_inserter(items), &SMRBatchItem::Of);
+
+	std::optional<SMRBatchGroups> grouped{GroupBatchItems(items)};
+	if (!grouped)
+	{
+		std::ranges::sort(items, {}, &SMRBatchItem::key);
+		std::ranges::transform(items, models.begin(), &SMRBatchItem::model);
+		return;
+	}
+	SMRBatchGroups& groups{*grouped};
+	if (groups.size() < 2)
+		return;
+
+	PS::StaticVector<uint32_t, MAX_BATCH_GROUPS> order;
+	order.resize(groups.size());
+	std::iota(order.begin(), order.end(), 0u);
+	std::ranges::sort(order, {},
+		[&groups](const uint32_t group) -> const SMRBatchKey& { return groups[group].key; });
+	std::uint32_t start{0};
+	for (const std::uint32_t group : order)
+	{
+		groups[group].start = start;
+		start += groups[group].count;
+	}
+
+	ordered.resize(models.size());
+	for (const SMRBatchItem& item : items)
+		ordered[groups[item.group].start++] = item.model;
+	std::ranges::copy(ordered, models.begin());
+}
 
 struct SMRCompareSortByDistItem
 {
@@ -280,6 +367,26 @@ struct SMRCompareTechBucket
 		return a.tech < b.tech;
 	}
 };
+
+std::array<Renderer::Backend::SVertexAttributeFormat, 4> ModelRenderer::GetInstanceTransformAttributes()
+{
+	const auto row = [](const uint32_t index)
+	{
+		return Renderer::Backend::SVertexAttributeFormat{
+			static_cast<Renderer::Backend::VertexAttributeStream>(
+				static_cast<uint32_t>(Renderer::Backend::VertexAttributeStream::UV3) + index),
+			Renderer::Backend::Format::R32G32B32A32_SFLOAT, index * 16, MODEL_INSTANCE_STRIDE,
+			Renderer::Backend::VertexAttributeRate::PER_INSTANCE, MODEL_INSTANCE_BINDING_SLOT};
+	};
+	return {row(0), row(1), row(2), row(3)};
+}
+
+void ModelRenderer::BindModelTransform(
+	Renderer::Backend::IDeviceCommandContext* deviceCommandContext, const CModel& model)
+{
+	deviceCommandContext->SetVertexBufferData(
+		MODEL_INSTANCE_BINDING_SLOT, model.GetTransform().AsFloatArray().data(), MODEL_INSTANCE_STRIDE);
+}
 
 void ModelRenderer::Render(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
@@ -401,6 +508,11 @@ void ModelRenderer::Render(
 	using TechBucketsAllocator =  ProxyAllocator<SMRTechBucket, PS::Memory::ScopedLinearAllocator>;
 	std::vector<SMRTechBucket, TechBucketsAllocator> techBuckets((TechBucketsAllocator(scopedLinearAllocator)));
 
+	using BatchItemsAllocator = ProxyAllocator<SMRBatchItem, PS::Memory::ScopedLinearAllocator>;
+	std::vector<SMRBatchItem, BatchItemsAllocator> batchItems((BatchItemsAllocator(scopedLinearAllocator)));
+	std::vector<CModel*, ModelListAllocator> batchOrdered((ModelListAllocator(scopedLinearAllocator)));
+	const bool supportsInstancing = deviceCommandContext->GetDevice()->GetCapabilities().instancing;
+
 	{
 		PROFILE3("processing material buckets");
 		for (MaterialBuckets_t::iterator it = materialBuckets.begin(); it != materialBuckets.end(); ++it)
@@ -442,7 +554,7 @@ void ModelRenderer::Render(
 				// TODO: This only sorts by base texture. While this is an OK approximation
 				// for most cases (as related samplers are usually used together), it would be better
 				// to take all the samplers into account when sorting here.
-				std::sort(it->second.begin(), it->second.end(), SMRBatchModel());
+				SortModelsForBatching(it->second, batchItems, batchOrdered);
 
 				// Add a tech bucket pointing at this model list
 				SMRTechBucket techBucket{tech, it->second};
@@ -567,6 +679,19 @@ void ModelRenderer::Render(
 				CModelDef* currentModeldef = NULL;
 				CShaderUniforms currentStaticUniforms;
 
+				// Accumulate models sharing the bound state, flushing on any state change.
+				const bool instanced =
+					modelVertexRenderer.CanInstance() && modifier.UsesInstanceAttributes() &&
+					supportsInstancing;
+				std::vector<CModel*, ModelListAllocator> run((ModelListAllocator(scopedLinearAllocator)));
+				const auto flushRun = [&]()
+				{
+					if (run.empty())
+						return;
+					modelVertexRenderer.RenderModels(deviceCommandContext, shader, run);
+					run.clear();
+				};
+
 				for (size_t idx = idxTechStart; idx < idxTechEnd; ++idx)
 				{
 					for (CModel* model : techBuckets[idx].models)
@@ -608,6 +733,7 @@ void ModelRenderer::Render(
 							CTexture* newTex = samp.Sampler.get();
 							if (texBindings[s] >= 0 && newTex != currentTexs[s])
 							{
+								flushRun();
 								newTex->UploadBackendTextureIfNeeded(deviceCommandContext);
 								deviceCommandContext->SetTexture(
 									texBindings[s], newTex->GetBackendTexture());
@@ -619,6 +745,7 @@ void ModelRenderer::Render(
 						CModelDef* newModeldef = model->GetModelDef().get();
 						if (newModeldef != currentModeldef)
 						{
+							flushRun();
 							currentModeldef = newModeldef;
 							modelVertexRenderer.PrepareModelDef(deviceCommandContext, *currentModeldef);
 						}
@@ -627,6 +754,7 @@ void ModelRenderer::Render(
 						CShaderUniforms newStaticUniforms = model->GetMaterial().GetStaticUniforms();
 						if (newStaticUniforms != currentStaticUniforms)
 						{
+							flushRun();
 							currentStaticUniforms = newStaticUniforms;
 							currentStaticUniforms.BindUniforms(deviceCommandContext, shader);
 						}
@@ -640,6 +768,7 @@ void ModelRenderer::Render(
 							{
 								if (!boundTime)
 								{
+									flushRun();
 									deviceCommandContext->SetUniform(
 										shader->GetBindingSlot(rq.second), time);
 									boundTime = true;
@@ -649,6 +778,7 @@ void ModelRenderer::Render(
 							{
 								if (!boundWaterTexture)
 								{
+									flushRun();
 									const double period = 1.6;
 									const WaterManager& waterManager = g_Renderer.GetSceneRenderer().GetWaterManager();
 									if (waterManager.m_RenderWater && waterManager.WillRenderFancyWater())
@@ -672,6 +802,7 @@ void ModelRenderer::Render(
 							{
 								if (!boundSkyCube)
 								{
+									flushRun();
 									deviceCommandContext->SetTexture(
 										shader->GetBindingSlot(str_skyCube),
 										g_Renderer.GetSceneRenderer().GetSkyManager().GetSkyCube());
@@ -680,14 +811,20 @@ void ModelRenderer::Render(
 							}
 						}
 
+						if (modifier.WouldChangeModelState(model))
+							flushRun();
 						modifier.PrepareModel(deviceCommandContext, model);
 
 						CModelRData* rdata = static_cast<CModelRData*>(model->GetRenderData());
 						ENSURE(rdata->GetKey() == &modelVertexRenderer);
 
-						modelVertexRenderer.RenderModel(deviceCommandContext, shader, model, rdata);
+						if (instanced)
+							run.push_back(model);
+						else
+							modelVertexRenderer.RenderModel(deviceCommandContext, shader, model, rdata);
 					}
 				}
+				flushRun();
 
 				deviceCommandContext->EndPass();
 			}
