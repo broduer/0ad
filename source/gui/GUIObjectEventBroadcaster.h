@@ -22,9 +22,9 @@
 
 #include "gui/ObjectBases/IGUIObject.h"
 #include "lib/alignment.h"
-#include "lib/allocators/DynamicArena.h"
 #include "lib/types.h"
 #include "ps/memory/AllocatorAdapter.h"
+#include "ps/memory/LinearAllocator.h"
 
 #include <algorithm>
 #include <utility>
@@ -59,11 +59,10 @@ public:
 	template<typename... Args>
 	static void RecurseVisibleObject(IGUIObject* object, void(IGUIObject::* callbackFunction)(Args... args), Args&&... args)
 	{
-		using Arena = Allocators::DynamicArena<128 * KiB>;
-		using ObjectListAllocator = PS::Memory::AllocatorAdapter<VisibleObject, Arena>;
-		Arena arena;
+		PS::Memory::LinearAllocator allocator{128 * KiB, 4 * MiB};
+		using ObjectListAllocator = PS::Memory::AllocatorAdapter<VisibleObject, PS::Memory::LinearAllocator>;
 
-		std::vector<VisibleObject, ObjectListAllocator> visibleObjects((ObjectListAllocator(arena)));
+		std::vector<VisibleObject, ObjectListAllocator> visibleObjects((ObjectListAllocator(allocator)));
 		CollectVisibleObjectsRecursively(object->GetVisibleChildren(), &visibleObjects);
 		for (VisibleObject& visibleObject : visibleObjects)
 			visibleObject.bufferedZ = visibleObject.object->GetBufferedZ();
