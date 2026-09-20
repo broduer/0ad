@@ -49,6 +49,7 @@
 #include "third_party/mikktspace/weldmesh.h"
 
 #include <algorithm>
+#include <iterator>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -273,7 +274,7 @@ ModelDefRData::ModelDefRData(const CModelDefPtr& modelDef)
 
 	constexpr size_t MAX_UV{2};
 
-	PS::StaticVector<Renderer::Backend::SVertexAttributeFormat, 3 + MAX_UV> attributes{
+	PS::StaticVector<Renderer::Backend::SVertexAttributeFormat, 4 + 3 + MAX_UV> attributes{
 		{Renderer::Backend::VertexAttributeStream::POSITION,
 			m_Position.format, 0, OUTPUT_POSITION_STRIDE,
 			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
@@ -294,6 +295,8 @@ ModelDefRData::ModelDefRData(const CModelDefPtr& modelDef)
 			stream, m_UVs[uv].format, m_UVs[uv].offset, m_UVArray.GetStride(),
 			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 2});
 	}
+
+	std::ranges::copy(ModelRenderer::GetInstanceTransformAttributes(), std::back_inserter(attributes));
 
 	m_VertexInputLayout = g_Renderer.GetVertexInputLayout({attributes.begin(), attributes.end()});
 }
@@ -475,6 +478,13 @@ void GPUSkinnedModelModelRenderer::PrepareModelDef(
 	}
 }
 
+void GPUSkinnedModelModelRenderer::RenderModels(
+	Renderer::Backend::IDeviceCommandContext*, Renderer::Backend::IShaderProgram*,
+	const std::span<CModel* const>)
+{
+	debug_warn("RenderModels called on a renderer without instancing support");
+}
+
 void GPUSkinnedModelModelRenderer::RenderModel(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext, Renderer::Backend::IShaderProgram*,
 	CModel* model, CModelRData* data)
@@ -483,6 +493,8 @@ void GPUSkinnedModelModelRenderer::RenderModel(
 
 	// Render the lot.
 	const size_t numberOfFaces{model->GetModelDef()->GetNumFaces()};
+
+	ModelRenderer::BindModelTransform(deviceCommandContext, *model);
 
 	deviceCommandContext->SetVertexBuffer(
 		0, modelRData->m_PositionHandle->m_Owner->GetBuffer(),

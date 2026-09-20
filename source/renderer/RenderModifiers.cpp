@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -113,6 +113,18 @@ void ShaderRenderModifier::BeginPass(
 		deviceCommandContext->SetUniform(
 			m_BindingPlayerColor, m_PlayerColor.AsFloatArray());
 	}
+}
+
+bool ShaderRenderModifier::WouldChangeModelState(CModel* model) const
+{
+	if (m_BindingShadingColor >= 0 && m_ShadingColor != model->GetShadingColor())
+		return true;
+	if (m_BindingPlayerColor >= 0 &&
+		m_PlayerColor != g_Game->GetPlayerColor(model->GetPlayerID()))
+	{
+		return true;
+	}
+	return m_BindingInstancingTransform >= 0;
 }
 
 void ShaderRenderModifier::PrepareModel(

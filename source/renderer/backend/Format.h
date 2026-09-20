@@ -18,6 +18,8 @@
 #ifndef INCLUDED_RENDERER_BACKEND_FORMAT
 #define INCLUDED_RENDERER_BACKEND_FORMAT
 
+#include <cstdint>
+
 namespace Renderer
 {
 
@@ -84,6 +86,49 @@ inline bool IsDepthFormat(const Format format)
 		format == Format::D24_UNORM_S8_UINT ||
 		format == Format::D32_SFLOAT ||
 		format == Format::D32_SFLOAT_S8_UINT;
+}
+
+/**
+ * Return the attribute size of the format, or zero if unsupported.
+ */
+constexpr uint32_t GetVertexAttributeSize(const Format format)
+{
+	switch (format)
+	{
+	case Format::R8G8B8A8_UNORM:
+	case Format::R8G8B8A8_UINT:
+		return sizeof(std::uint8_t) * 4;
+	case Format::A8_UNORM:
+	case Format::R8_UNORM:
+		return sizeof(std::uint8_t);
+	case Format::R8G8_UNORM:
+	case Format::R8G8_UINT:
+		return sizeof(std::uint8_t) * 2;
+	case Format::R16_UNORM:
+	case Format::R16_UINT:
+	case Format::R16_SINT:
+	case Format::R16_SFLOAT:
+		return sizeof(std::uint16_t);
+	case Format::R16G16_UNORM:
+	case Format::R16G16_UINT:
+	case Format::R16G16_SINT:
+	case Format::R16G16_SFLOAT:
+		return sizeof(std::uint16_t) * 2;
+	case Format::R16G16B16_SFLOAT:
+		return sizeof(std::uint16_t) * 3;
+	case Format::R16G16B16A16_SFLOAT:
+		return sizeof(std::uint16_t) * 4;
+	case Format::R32_SFLOAT:
+		return sizeof(float);
+	case Format::R32G32_SFLOAT:
+		return sizeof(float) * 2;
+	case Format::R32G32B32_SFLOAT:
+		return sizeof(float) * 3;
+	case Format::R32G32B32A32_SFLOAT:
+		return sizeof(float) * 4;
+	default:
+		return 0;
+	}
 }
 
 } // namespace Backend

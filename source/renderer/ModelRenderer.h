@@ -26,8 +26,10 @@
 
 #include "graphics/MeshManager.h"
 #include "graphics/RenderableObject.h"
+#include "renderer/backend/IShaderProgram.h"
 #include "renderer/SceneRenderer.h"
 
+#include <array>
 #include <memory>
 #include <span>
 #include <vector>
@@ -71,6 +73,13 @@ private:
 	/// The key for model renderer identification
 	const void* m_Key;
 };
+
+
+/**
+ * Binding slot of the instance transform.
+ */
+constexpr uint32_t MODEL_INSTANCE_BINDING_SLOT = 3;
+constexpr uint32_t MODEL_INSTANCE_STRIDE = 64;
 
 
 /**
@@ -171,6 +180,17 @@ public:
 	 * The new vertices cannot be used with existing face index and must be welded/reindexed.
 	 */
 	static void GenTangents(const CModelDefPtr& mdef, std::vector<float>& newVertices, bool gpuSkinning);
+
+	/**
+	 * Return the vertex attributes of the instance transform.
+	 */
+	static std::array<Renderer::Backend::SVertexAttributeFormat, 4> GetInstanceTransformAttributes();
+
+	/**
+	 * Bind a model's transform as instance attributes.
+	 */
+	static void BindModelTransform(
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext, const CModel& model);
 };
 
 #endif // INCLUDED_MODELRENDERER

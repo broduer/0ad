@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -97,6 +97,10 @@ public:
 	{
 		return m_Items != b.m_Items;
 	}
+	/**
+	 * Return a pointer that is equal exactly for equal mappings.
+	 */
+	const void* GetInterned() const { return m_Items; }
 
 	struct SItems
 	{

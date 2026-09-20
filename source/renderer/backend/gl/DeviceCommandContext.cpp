@@ -38,6 +38,7 @@
 #include "renderer/backend/gl/Texture.h"
 
 #include <algorithm>
+#include <bit>
 #include <cstring>
 #include <limits>
 #include <vector>
@@ -53,6 +54,9 @@ namespace GL
 
 namespace
 {
+
+constexpr uint32_t VERTEX_UPLOAD_BUFFER_SIZE = 4 * 1024 * 1024;
+constexpr uint32_t VERTEX_UPLOAD_ALIGNMENT = 32;
 
 bool operator==(const SStencilOpState& lhs, const SStencilOpState& rhs)
 {
@@ -608,6 +612,17 @@ void CDeviceCommandContext::Flush()
 			BindTexture(unit, GL_TEXTURE_2D, 0);
 	}
 	BindBuffer(CBuffer::Type::INDEX, nullptr);
+
+	// Orphan only once the draws using these buffers are submitted.
+	const size_t usedUploadBuffers = m_VertexUploadOffset ? m_VertexUploadIndex + 1 : 0;
+	for (size_t index = 0; index < usedUploadBuffers; ++index)
+	{
+		CBuffer* buffer = m_VertexUploadBuffers[index]->As<CBuffer>();
+		BindBuffer(CBuffer::Type::VERTEX, buffer);
+		glBufferData(GL_ARRAY_BUFFER, buffer->GetSize(), nullptr, GL_DYNAMIC_DRAW);
+	}
+	m_VertexUploadIndex = 0;
+	m_VertexUploadOffset = 0;
 	BindBuffer(CBuffer::Type::VERTEX, nullptr);
 }
 
@@ -1084,23 +1099,92 @@ void CDeviceCommandContext::SetVertexBufferData(
 	ENSURE(data);
 	ENSURE(m_ShaderProgram);
 	ENSURE(dataSize > 0);
-	BindBuffer(CBuffer::Type::VERTEX, nullptr);
+
+#if CONFIG2_GLES
+	const bool instancing = false;
+#else
+	const bool instancing = m_Device->GetCapabilities().instancing;
+#endif
+
+	bool needsUpload = false;
 	for (size_t index = 0; index < m_VertexAttributeFormat.size(); ++index)
 	{
 		if (!m_VertexAttributeFormat[index].active || m_VertexAttributeFormat[index].bindingSlot != bindingSlot)
 			continue;
 		ENSURE(m_VertexAttributeFormat[index].initialized);
-		const VertexAttributeStream stream = static_cast<VertexAttributeStream>(index);
 		// We don't know how many vertices will be used in a draw command, so we
 		// assume at least one vertex.
-		ENSURE(dataSize >= m_VertexAttributeFormat[index].offset + m_VertexAttributeFormat[index].stride);
-		m_ShaderProgram->VertexAttribPointer(stream,
+		ENSURE(dataSize >= m_VertexAttributeFormat[index].offset +
+			GetVertexAttributeSize(m_VertexAttributeFormat[index].format));
+		if (m_VertexAttributeFormat[index].rate == VertexAttributeRate::PER_INSTANCE && !instancing)
+		{
+			m_ShaderProgram->VertexAttribConstant(
+				static_cast<VertexAttributeStream>(index), m_VertexAttributeFormat[index].format,
+				static_cast<const std::uint8_t*>(data) + m_VertexAttributeFormat[index].offset);
+		}
+		else
+			needsUpload = true;
+	}
+
+	if (needsUpload)
+		UploadVertexBufferData(bindingSlot, data, dataSize, instancing);
+}
+
+void CDeviceCommandContext::UploadVertexBufferData(
+	const uint32_t bindingSlot, const void* data, const uint32_t dataSize, const bool instancing)
+{
+	const bool client{m_Device->UseClientVertexArrays()};
+	uint32_t offset = 0;
+	if (client)
+		BindBuffer(CBuffer::Type::VERTEX, nullptr);
+	else
+		offset = UploadVertexData(data, dataSize);
+	for (size_t index = 0; index < m_VertexAttributeFormat.size(); ++index)
+	{
+		if (!m_VertexAttributeFormat[index].active || m_VertexAttributeFormat[index].bindingSlot != bindingSlot)
+			continue;
+		if (m_VertexAttributeFormat[index].rate == VertexAttributeRate::PER_INSTANCE && !instancing)
+			continue;
+		m_ShaderProgram->VertexAttribPointer(static_cast<VertexAttributeStream>(index),
 			m_VertexAttributeFormat[index].format,
-			m_VertexAttributeFormat[index].offset,
+			m_VertexAttributeFormat[index].offset + offset,
 			m_VertexAttributeFormat[index].stride,
 			m_VertexAttributeFormat[index].rate,
-			data);
+			client ? data : nullptr);
 	}
+}
+
+uint32_t CDeviceCommandContext::UploadVertexData(const void* data, const uint32_t dataSize)
+{
+	uint64_t offset = (static_cast<uint64_t>(m_VertexUploadOffset) + VERTEX_UPLOAD_ALIGNMENT - 1) &
+		~static_cast<uint64_t>(VERTEX_UPLOAD_ALIGNMENT - 1);
+	if (m_VertexUploadOffset && offset + dataSize > m_VertexUploadBuffers[m_VertexUploadIndex]->GetSize())
+	{
+		++m_VertexUploadIndex;
+		offset = 0;
+	}
+	if (m_VertexUploadIndex == m_VertexUploadBuffers.size() ||
+		m_VertexUploadBuffers[m_VertexUploadIndex]->GetSize() < dataSize)
+	{
+		const auto begin = m_VertexUploadBuffers.begin() + m_VertexUploadIndex;
+		auto spare = std::find_if(begin, m_VertexUploadBuffers.end(),
+			[dataSize](const std::unique_ptr<IBuffer>& buffer) { return buffer->GetSize() >= dataSize; });
+		if (spare == m_VertexUploadBuffers.end())
+		{
+			const uint64_t roundedSize = std::bit_ceil(static_cast<uint64_t>(dataSize));
+			const uint32_t bufferSize = static_cast<uint32_t>(std::clamp<uint64_t>(roundedSize,
+				VERTEX_UPLOAD_BUFFER_SIZE, std::numeric_limits<uint32_t>::max()));
+			m_VertexUploadBuffers.emplace_back(m_Device->CreateBuffer(
+				"VertexUploadBuffer", IBuffer::Type::VERTEX, bufferSize, IBuffer::Usage::DYNAMIC));
+			spare = m_VertexUploadBuffers.end() - 1;
+		}
+		std::iter_swap(m_VertexUploadBuffers.begin() + m_VertexUploadIndex, spare);
+	}
+
+	BindBuffer(CBuffer::Type::VERTEX, m_VertexUploadBuffers[m_VertexUploadIndex]->As<CBuffer>());
+	glBufferSubData(GL_ARRAY_BUFFER, offset, dataSize, data);
+	m_VertexUploadOffset = static_cast<uint32_t>(offset + dataSize);
+	return static_cast<uint32_t>(offset);
 }
 
 void CDeviceCommandContext::SetIndexBuffer(IBuffer* buffer)

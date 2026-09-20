@@ -143,6 +143,12 @@ public:
 		const uint32_t offset, const uint32_t stride,
 		const VertexAttributeRate rate, const void* data);
 
+	/**
+	 * Set the stream to a constant R32G32B32A32_SFLOAT value.
+	 */
+	void VertexAttribConstant(
+		const VertexAttributeStream stream, const Format format, const void* value);
+
 	bool IsStreamActive(const VertexAttributeStream stream) const;
 
 	bool HasImageUniforms() const { return m_HasImageUniforms; }
@@ -170,6 +176,9 @@ private:
 	int m_StreamFlags;
 
 	int m_ValidStreams; // which streams have been specified via VertexPointer etc since the last Bind
+
+	// Bitmask of constant attributes.
+	uint32_t m_ConstantAttributes = 0;
 
 	bool m_HasImageUniforms{false};
 
