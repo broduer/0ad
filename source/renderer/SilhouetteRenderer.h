@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -23,6 +23,7 @@
 #include "graphics/ShaderTechniquePtr.h"
 #include "maths/BoundingBoxAligned.h"
 
+#include <memory>
 #include <vector>
 
 class CCamera;
@@ -36,6 +37,7 @@ class SilhouetteRenderer
 {
 public:
 	SilhouetteRenderer();
+	~SilhouetteRenderer();
 
 	void AddOccluder(CPatch* patch);
 	void AddOccluder(CModel* model);
@@ -83,6 +85,10 @@ private:
 
 	CShaderTechniquePtr m_ShaderTech;
 	Renderer::Backend::IVertexInputLayout* m_VertexInputLayout = nullptr;
+
+	// Storage ComputeSubmissions reuses between frames.
+	struct SScratch;
+	std::unique_ptr<SScratch> m_Scratch;
 };
 
 #endif // INCLUDED_SILHOUETTERENDERER

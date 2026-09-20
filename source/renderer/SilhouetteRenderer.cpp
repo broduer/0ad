@@ -56,11 +56,6 @@
 // For debugging
 static const bool g_DisablePreciseIntersections = false;
 
-SilhouetteRenderer::SilhouetteRenderer()
-{
-	m_DebugEnabled = false;
-}
-
 void SilhouetteRenderer::AddOccluder(CPatch* patch)
 {
 	m_SubmittedPatchOccluders.push_back(patch);
@@ -162,6 +157,51 @@ static Entry EntryCreate(int type, std::uint16_t id, std::uint16_t x)
 static int EntryGetId(Entry e) { return e & 0xffff; }
 static int EntryGetType(Entry e) { return (e >> 16) & 3; }
 
+struct SilhouetteRenderer::SScratch
+{
+	std::vector<Occluder> occluders;
+	std::vector<Caster> casters;
+	std::vector<Entry> entries;
+	std::vector<Entry> entryScratch;
+};
+
+SilhouetteRenderer::SilhouetteRenderer()
+	: m_Scratch{std::make_unique<SScratch>()}
+{
+	m_DebugEnabled = false;
+}
+
+SilhouetteRenderer::~SilhouetteRenderer() = default;
+
+// Radix-sort the entries, skipping any pass where all entries share the digit.
+static void SortEntries(std::vector<Entry>& entries, std::vector<Entry>& scratch)
+{
+	if (entries.size() < 64)
+	{
+		std::sort(entries.begin(), entries.end());
+		return;
+	}
+	scratch.resize(entries.size());
+	for (int shift = 0; shift < 32; shift += 8)
+	{
+		size_t counts[256] = {};
+		for (const Entry entry : entries)
+			++counts[(entry >> shift) & 0xff];
+		if (counts[(entries[0] >> shift) & 0xff] == entries.size())
+			continue;
+		size_t total = 0;
+		for (size_t& count : counts)
+		{
+			const size_t here = count;
+			count = total;
+			total += here;
+		}
+		for (const Entry entry : entries)
+			scratch[counts[(entry >> shift) & 0xff]++] = entry;
+		entries.swap(scratch);
+	}
+}
+
 struct ActiveList
 {
 	std::vector<std::uint16_t> m_Ids;
@@ -252,9 +292,13 @@ void SilhouetteRenderer::ComputeSubmissions(const CCamera& camera)
 	m_VisibleModelOccluders.clear();
 	m_VisibleModelCasters.clear();
 
-	std::vector<Occluder> occluders;
-	std::vector<Caster> casters;
-	std::vector<Entry> entries;
+	std::vector<Occluder>& occluders{m_Scratch->occluders};
+	std::vector<Caster>& casters{m_Scratch->casters};
+	std::vector<Entry>& entries{m_Scratch->entries};
+	std::vector<Entry>& entryScratch{m_Scratch->entryScratch};
+	occluders.clear();
+	casters.clear();
+	entries.clear();
 
 	occluders.reserve(m_SubmittedModelOccluders.size() + m_SubmittedPatchOccluders.size());
 	casters.reserve(m_SubmittedModelCasters.size());
@@ -360,7 +404,7 @@ void SilhouetteRenderer::ComputeSubmissions(const CCamera& camera)
 
 	{
 		PROFILE("sorting");
-		std::sort(entries.begin(), entries.end());
+		SortEntries(entries, entryScratch);
 	}
 
 	{
