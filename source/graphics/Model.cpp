@@ -275,24 +275,32 @@ void CModel::ValidatePosition()
 	m_PositionValid = true;
 
 	CMatrix3D translate;
-	CVector3D objTranslation = m_Transform.GetTranslation();
+
+	// Only props that follow the terrain need the object height; compute it on demand.
+	bool haveObjectHeight = false;
 	float objectHeight = 0.0f;
+	std::optional<CmpPtr<ICmpTerrain>> terrain;
+	const auto needObjectHeight = [&]() {
+		if (haveObjectHeight)
+			return;
+		haveObjectHeight = true;
+		const CVector3D objTranslation = m_Transform.GetTranslation();
+		terrain.emplace(m_Simulation, SYSTEM_ENTITY);
+		if (*terrain)
+			objectHeight = (*terrain)->GetExactGroundLevel(objTranslation.X, objTranslation.Z);
 
-	CmpPtr<ICmpTerrain> cmpTerrain(m_Simulation, SYSTEM_ENTITY);
-	if (cmpTerrain)
-		objectHeight = cmpTerrain->GetExactGroundLevel(objTranslation.X, objTranslation.Z);
-
-	// Object height is incorrect for floating objects. We use water height instead.
-	if (m_Flags & ModelFlag::FLOAT_ON_WATER)
-	{
-		CmpPtr<ICmpWaterManager> cmpWaterManager(m_Simulation, SYSTEM_ENTITY);
-		if (cmpWaterManager)
+		// Object height is incorrect for floating objects. We use water height instead.
+		if (m_Flags & ModelFlag::FLOAT_ON_WATER)
 		{
-			const float waterHeight = cmpWaterManager->GetExactWaterLevel(objTranslation.X, objTranslation.Z);
-			if (waterHeight >= objectHeight)
-				objectHeight = waterHeight;
+			CmpPtr<ICmpWaterManager> cmpWaterManager(m_Simulation, SYSTEM_ENTITY);
+			if (cmpWaterManager)
+			{
+				const float waterHeight = cmpWaterManager->GetExactWaterLevel(objTranslation.X, objTranslation.Z);
+				if (waterHeight >= objectHeight)
+					objectHeight = waterHeight;
+			}
 		}
-	}
+	};
 
 	// re-position and validate all props
 	for (const Prop& prop : m_Props)
@@ -312,8 +320,12 @@ void CModel::ValidatePosition()
 		}
 
 		// Adjust prop height to terrain level when needed
-		if (cmpTerrain && (prop.m_MaxHeight != 0.f || prop.m_MinHeight != 0.f))
+		const bool followsTerrain = prop.m_MaxHeight != 0.f || prop.m_MinHeight != 0.f;
+		if (followsTerrain)
+			needObjectHeight();
+		if (followsTerrain && *terrain)
 		{
+			CmpPtr<ICmpTerrain>& cmpTerrain = *terrain;
 			const CVector3D& propTranslation = proptransform.GetTranslation();
 			const float propTerrain = cmpTerrain->GetExactGroundLevel(propTranslation.X, propTranslation.Z);
 			const float translateHeight = std::min(prop.m_MaxHeight, std::max(prop.m_MinHeight, propTerrain - objectHeight));
