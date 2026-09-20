@@ -211,7 +211,7 @@ void CNetClient::SetupConnection(ENetHost* enetClient)
 	bool ok = session->Connect(m_ServerAddressOrHostname, m_ServerPort, enetClient);
 	SetAndOwnSession(session);
 	if (ok)
-		m_PollingThread = std::thread(Threading::HandleExceptions<CNetClientSession::RunNetLoop>::Wrapper, m_Session);
+		m_PollingThread = Threading::CreateThread(Threading::HandleExceptions<CNetClientSession::RunNetLoop>::Wrapper, m_Session);
 	else
 		throw std::runtime_error{"Failed to connect to server"};
 }

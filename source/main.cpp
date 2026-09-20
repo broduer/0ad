@@ -73,6 +73,7 @@ that of Atlas depending on commandline parameters.
 #include "ps/Pyrogenesis.h"
 #include "ps/Replay.h"
 #include "ps/TaskManager.h"
+#include "ps/ThreadAffinity.h"
 #include "ps/TouchInput.h"
 #include "ps/UserReport.h"
 #include "ps/VideoMode.h"
@@ -341,6 +342,23 @@ static int ProgressiveLoad()
 }
 
 
+static void UpdateMainThreadAffinity()
+{
+	static bool inGame = false;
+	if (!g_Game || !g_Game->IsGameStarted())
+	{
+		if (inGame)
+			ThreadAffinity::RestoreCurrentThreadAffinity();
+		inGame = false;
+		return;
+	}
+	if (inGame)
+		return;
+	inGame = true;
+	if (g_ConfigDB.Get("renderthread.pin", true))
+		ThreadAffinity::PinCurrentThreadToRenderCpu();
+}
+
 static void RendererIncrementalLoad()
 {
 	PROFILE3("renderer incremental load");
@@ -403,6 +421,8 @@ static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency)
 	ReloadChangedFiles();
 
 	ProgressiveLoad();
+
+	UpdateMainThreadAffinity();
 
 	RendererIncrementalLoad();
 

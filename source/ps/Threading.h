@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,6 +19,10 @@
 #define INCLUDED_THREADING
 
 #include "lib/sysdep/os.h"
+#include "ps/ThreadAffinity.h"
+
+#include <thread>
+#include <utility>
 
 #if OS_WIN
 #include "lib/sysdep/os/win/wseh.h"
@@ -26,6 +30,16 @@
 
 namespace Threading
 {
+
+/**
+ * Create a thread that doesn't inherit a temporary render-thread affinity.
+ */
+template<typename Callable, typename... Args>
+std::thread CreateThread(Callable&& callable, Args&&... args)
+{
+	const ThreadAffinity::ScopedUnpin unpin;
+	return std::thread(std::forward<Callable>(callable), std::forward<Args>(args)...);
+}
 
 /**
  * Wrap a function to handle exceptions.

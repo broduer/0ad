@@ -32,6 +32,7 @@
 #include "ps/Loader.h"
 #include "scriptinterface/JSON.h"
 #include "ps/TaskManager.h"
+#include "ps/Threading.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/Interface.h"
 #include "scriptinterface/Request.h"
@@ -173,7 +174,7 @@ Interface::Interface(std::string const serverAddress)
 	std::string address = serverAddress.substr(0, sepIndex);
 	int port = std::stoi(serverAddress.substr(sepIndex + 1, serverAddress.length() - sepIndex - 1));
 
-	m_HttpServerThread = std::thread([this, address, port](){
+	m_HttpServerThread = Threading::CreateThread([this, address, port](){
 		if (!m_HttpServer->listen(address, port))
 		{
 			LOGERROR("Failed to start http server");

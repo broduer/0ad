@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,6 +22,7 @@
 #include "lib/debug.h"
 #include "maths/MathUtil.h"
 #include "ps/Profiler2.h"
+#include "ps/ThreadAffinity.h"
 #include "ps/Threading.h"
 
 #include <atomic>
@@ -71,7 +72,7 @@ public:
 	template<typename T, void(T::* callable)()>
 	void Start(T* object)
 	{
-		m_Thread = std::thread(HandleExceptions<DoStart<T, callable>>::Wrapper, object);
+		m_Thread = Threading::CreateThread(HandleExceptions<DoStart<T, callable>>::Wrapper, object);
 	}
 	template<typename T, void(T::* callable)()>
 	static void DoStart(T* object);
@@ -252,6 +253,7 @@ void WorkerThread::RunUntilDeath()
 	std::string name = "Task Mgr #" + std::to_string(n++);
 	debug_SetThreadName(name.c_str());
 	g_Profiler2.RegisterCurrentThread(name);
+	ThreadAffinity::KeepCurrentThreadOffRenderCore();
 
 
 	std::function<void()> task;

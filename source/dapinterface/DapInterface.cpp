@@ -25,6 +25,7 @@
 #include "lib/sysdep/os.h"
 #include "ps/CLogger.h"
 #include "ps/Filesystem.h"
+#include "ps/Threading.h"
 #include "scriptinterface/Context.h"
 #include "scriptinterface/Exceptions.h"
 #include "scriptinterface/FunctionWrapper.h"
@@ -134,7 +135,7 @@ namespace DAP
 
 		void StartServerThread()
 		{
-			m_ServerThread = std::thread(&Interface::SocketHandler::AcceptConnections, this);
+			m_ServerThread = Threading::CreateThread(&Interface::SocketHandler::AcceptConnections, this);
 		}
 
 		void AcceptConnections()

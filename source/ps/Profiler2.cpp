@@ -35,6 +35,7 @@
 #include "ps/Profiler2GPU.h"
 #include "ps/Pyrogenesis.h"
 #include "ps/TaskManager.h"
+#include "ps/Threading.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -130,7 +131,7 @@ void CProfiler2::EnableHTTP()
 		res.set_header("Access-Control-Allow-Origin", "*");
 	});
 
-	m_HttpServerThread = std::thread([this](){
+	m_HttpServerThread = Threading::CreateThread([this](){
 		using namespace std::literals;
 		const int listeningPort{CConfigDB::GetIfInitialised("profiler2.server.port", 8000)};
 		const std::string listeningServer{CConfigDB::GetIfInitialised("profiler2.server", "127.0.0.1"s)};

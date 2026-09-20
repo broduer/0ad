@@ -144,12 +144,12 @@ CNetServerWorker::CNetServerWorker(const bool continueSavedGame, std::uint16_t p
 	m_State = SERVER_STATE_PREGAME;
 
 	// Launch the worker thread
-	m_WorkerThread = std::thread(Threading::HandleExceptions<RunThread>::Wrapper, this,
+	m_WorkerThread = Threading::CreateThread(Threading::HandleExceptions<RunThread>::Wrapper, this,
 		std::move(initAttributes));
 
 #if CONFIG2_MINIUPNPC
 	// Launch the UPnP thread
-	m_UPnPThread = std::thread(Threading::HandleExceptions<SetupUPnP>::Wrapper, port);
+	m_UPnPThread = Threading::CreateThread(Threading::HandleExceptions<SetupUPnP>::Wrapper, port);
 #endif
 }
 

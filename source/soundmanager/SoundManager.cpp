@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -63,7 +63,7 @@ public:
 		m_DeadItems = new ItemsList;
 		m_Shutdown = false;
 
-		m_WorkerThread = std::thread(Threading::HandleExceptions<RunThread>::Wrapper, this);
+		m_WorkerThread = Threading::CreateThread(Threading::HandleExceptions<RunThread>::Wrapper, this);
 	}
 
 	~CSoundManagerWorker()
