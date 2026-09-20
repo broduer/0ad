@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -85,6 +85,11 @@ public:
 		 * if a model is visible in multiple cull groups.
 		 */
 		int lastTransformFrame;
+
+		/**
+		 * World bounds of the model and its props, as of lastTransformFrame.
+		 */
+		CBoundingBoxAligned worldBoundsRec;
 
 		/**
 		 * Worst-case bounding shape, relative to position. Needs to account
@@ -216,6 +221,7 @@ public:
 		unit->entity = entity;
 		unit->actor = actor;
 		unit->lastTransformFrame = -1;
+		unit->worldBoundsRec = CBoundingBoxAligned{};
 		unit->flags = flags;
 		unit->boundsApprox = boundsApprox;
 		unit->inWorld = false;
@@ -435,11 +441,12 @@ void CCmpUnitRenderer::RenderSubmit(SceneCollector& collector, const CFrustum& f
 			CMatrix3D transform(cmpPosition->GetInterpolatedTransform(m_FrameOffset));
 
 			unitModel.SetTransform(transform);
+			unit.worldBoundsRec = unitModel.GetWorldBoundsRec();
 
 			unit.lastTransformFrame = m_FrameNumber;
 		}
 
-		if (culling && !frustum.IsBoxVisible(unitModel.GetWorldBoundsRec()))
+		if (culling && !frustum.IsBoxVisible(unit.worldBoundsRec))
 			continue;
 
 		collector.SubmitRecursive(&unitModel);
