@@ -982,6 +982,57 @@ public:
 		TS_ASSERT_LESS_THAN(abreast, circleReach);
 		TS_ASSERT_LESS_THAN(circleReach, astern);
 	}
+	void test_Pushing_visits_every_pair_across_cells()
+	{
+		// The pass sweeps the spatial grid cell by cell and takes each pair of cells one way round. Four
+		// rows of units a metre apart, each row longer than a cell, straddle cell boundaries along x, along
+		// z and on both diagonals; what each unit ends up pushed by must be the sum of what every pair gives
+		// it on its own.
+		const UnitCollision::CollisionShape circle{entity_pos_t::FromFraction(8, 10), entity_pos_t::Zero(), false};
+		std::vector<UnitCollision::MotionStateCompact> units;
+		for (int k = 0; k < 16; ++k)
+		{
+			const fixed step{fixed::FromInt(k)};
+			const auto add = [&](const CFixedVector2D& position) {
+				units.push_back(MakeUnit(static_cast<entity_id_t>(units.size() + 1), position, circle));
+			};
+			add(CFixedVector2D{fixed::FromInt(100) + step, fixed::FromInt(100)});
+			add(CFixedVector2D{fixed::FromInt(130), fixed::FromInt(100) + step});
+			add(CFixedVector2D{fixed::FromInt(150) + step, fixed::FromInt(100) + step});
+			add(CFixedVector2D{fixed::FromInt(170) + step, fixed::FromInt(115) - step});
+		}
+
+		Grid<std::vector<size_t>> grid;
+		std::vector<std::pair<int, int>> filledCells;
+		std::vector<CFixedVector2D> pushes, velocityChanges;
+		std::vector<fixed> spins, hitSpins;
+		std::vector<UnitCollision::ContactHit> hits;
+		std::vector<uint8_t> pressures;
+		UnitCollision::ComputePushes(units, PushConfig::IMPACT_REFERENCE_TIME, grid, filledCells, pushes, spins,
+			velocityChanges, hitSpins, hits, pressures);
+
+		std::vector<CFixedVector2D> expected(units.size());
+		size_t pushingPairs{0};
+		for (size_t i = 0; i < units.size(); ++i)
+			for (size_t j = i + 1; j < units.size(); ++j)
+			{
+				std::vector<CFixedVector2D> pairPushes;
+				std::vector<fixed> pairSpins;
+				PushPair(units[i], units[j], pairPushes, pairSpins);
+				expected[i] += pairPushes[0];
+				expected[j] += pairPushes[1];
+				if (!pairPushes[0].IsZero())
+					++pushingPairs;
+			}
+		// Neighbours along every row push each other, so this is not a test that nothing happens.
+		TS_ASSERT_LESS_THAN(static_cast<size_t>(50), pushingPairs);
+		for (size_t i = 0; i < units.size(); ++i)
+		{
+			TS_ASSERT_EQUALS(pushes[i].X, expected[i].X);
+			TS_ASSERT_EQUALS(pushes[i].Y, expected[i].Y);
+		}
+	}
+
 	void test_InertiaPerMass()
 	{
 		// A round body: (r^2 + r^2) / 3.

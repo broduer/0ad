@@ -32,7 +32,6 @@
 #include "simulation2/components/ICmpObstructionManager.h"
 #include "simulation2/components/ICmpPathfinder.h"
 #include "simulation2/components/ICmpPosition.h"
-#include "simulation2/components/ICmpTerrain.h"
 #include "simulation2/components/ICmpUnitMotion.h"
 #include "simulation2/components/ICmpImpulseQueue.h"
 #include "simulation2/components/ICmpAttack.h"
@@ -55,7 +54,6 @@
 #include <limits>
 #include <string>
 #include <type_traits>
-#include <unordered_set>
 #include <map>
 #include <utility>
 #include <vector>
@@ -107,7 +105,6 @@ MotionState::MotionState(
 void CCmpUnitMotionManager::ClassInit(CComponentManager& componentManager)
 {
 	componentManager.SubscribeToMessageType(MT_Deserialized);
-	componentManager.SubscribeToMessageType(MT_TerrainChanged);
 	componentManager.SubscribeToMessageType(MT_TurnStart);
 	componentManager.SubscribeToMessageType(MT_Update_Final);
 	componentManager.SubscribeToMessageType(MT_Update_MotionUnit);
@@ -122,13 +119,6 @@ void CCmpUnitMotionManager::HandleMessage(const CMessage& msg, bool /*global*/)
 {
 	switch (msg.GetType())
 	{
-		case MT_TerrainChanged:
-		{
-			CmpPtr<ICmpTerrain> cmpTerrain(GetSystemEntity());
-			if (cmpTerrain->GetVerticesPerSide() != m_MovingUnits.width())
-				ResetSubdivisions();
-			break;
-		}
 		case MT_TurnStart:
 		{
 			OnTurnStart();
@@ -165,7 +155,7 @@ void CCmpUnitMotionManager::HandleMessage(const CMessage& msg, bool /*global*/)
 			{
 				EntityMap<MotionState>::iterator it{m_Units.find(ent)};
 				if (it != m_Units.end())
-					it->second.chargeQueried = false;
+					it->second.componentsQueried = false;
 			}
 			break;
 		}
@@ -181,7 +171,6 @@ void CCmpUnitMotionManager::HandleMessage(const CMessage& msg, bool /*global*/)
 }
 void CCmpUnitMotionManager::Init(const CParamNode&)
 {
-	ResetSubdivisions();
 	m_ComputingMotion = false;
 	// Load the settings at the start of each game.
 	PushConfig::GetInstance().Reload();
@@ -254,7 +243,6 @@ void CCmpUnitMotionManager::Serialize(ISerializer& serialize)
 void CCmpUnitMotionManager::Deserialize(const CParamNode& paramNode, IDeserializer& deserialize)
 {
 	Init(paramNode);
-	ResetSubdivisions();
 	Serializer(deserialize, "m_Units", m_Units);
 	Serializer(deserialize, "m_FormationControllers", m_FormationControllers);
 }
@@ -278,7 +266,9 @@ void CCmpUnitMotionManager::OnDeserialized()
 		it->second.cmpUnitMotion = static_cast<CCmpUnitMotion*>(static_cast<ICmpUnitMotion*>(QueryInterface(GetSimContext(), it->first, IID_UnitMotion)));
 		it->second.cmpPhysicalBody = static_cast<ICmpPhysicalBody*>(QueryInterface(GetSimContext(), it->first, IID_PhysicalBody));
 		it->second.cmpAttack = nullptr;
-		it->second.chargeQueried = false;
+		it->second.cmpObstruction = nullptr;
+		it->second.componentsQueried = false;
+		it->second.movingFlagKnown = false;
 	}
 	for (EntityMap<MotionState>::iterator it = m_FormationControllers.begin(); it != m_FormationControllers.end(); ++it)
 	{
@@ -286,19 +276,10 @@ void CCmpUnitMotionManager::OnDeserialized()
 		it->second.cmpUnitMotion = static_cast<CCmpUnitMotion*>(static_cast<ICmpUnitMotion*>(QueryInterface(GetSimContext(), it->first, IID_UnitMotion)));
 		it->second.cmpPhysicalBody = static_cast<ICmpPhysicalBody*>(QueryInterface(GetSimContext(), it->first, IID_PhysicalBody));
 		it->second.cmpAttack = nullptr;
-		it->second.chargeQueried = false;
+		it->second.cmpObstruction = nullptr;
+		it->second.componentsQueried = false;
+		it->second.movingFlagKnown = false;
 	}
-}
-
-void CCmpUnitMotionManager::ResetSubdivisions()
-{
-	CmpPtr<ICmpTerrain> cmpTerrain(GetSystemEntity());
-	if (!cmpTerrain)
-		return;
-
-	size_t size = cmpTerrain->GetMapSize();
-	std::uint16_t gridSquareSize = static_cast<std::uint16_t>(size / PushConfig::PUSHING_GRID_SIZE + 1);
-	m_MovingUnits.resize(gridSquareSize, gridSquareSize);
 }
 
 void CCmpUnitMotionManager::Register(CCmpUnitMotion* component, ICmpPhysicalBody* physicalBody, entity_id_t ent, bool formationController)
@@ -359,7 +340,6 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 #endif
 
 	PROFILE2("MotionMgr_Move");
-	std::unordered_set<std::vector<EntityMap<MotionState>::iterator>*> assigned;
 
 	CmpPtr<ICmpImpulseQueue> impulseQueue(GetSystemEntity());
 
@@ -371,6 +351,8 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 	// Reset each unit's motion state and collect it for collision pushing.
 	std::vector<UnitCollision::MotionStateCompact> compactStates;
 	std::vector<MotionState*> motionStates;
+	compactStates.reserve(ents.size());
+	motionStates.reserve(ents.size());
 
 	{
 		PROFILE2("MotionMgr_PreMove");
@@ -397,15 +379,18 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			}
 			it->second.spinDecay = it->second.cmpUnitMotion->GetSpinDecay();
 
-			// Can this entity charge? Looked up once, then kept: the query costs as much as what it is used
-			// for every turn, and the charge speed is a script call.
-			if (!it->second.chargeQueried)
+			// Can this entity charge, and does it have an obstruction shape? Looked up once, then kept: each
+			// query costs as much as what the pointer is used for every turn, and the charge speed is a
+			// script call.
+			if (!it->second.componentsQueried)
 			{
 				it->second.cmpAttack = static_cast<ICmpAttack*>(QueryInterface(GetSimContext(),
 					it->first, IID_Attack));
 				it->second.chargeMinSpeed = it->second.cmpAttack ?
 					it->second.cmpAttack->GetChargeMinSpeed() : fixed::FromInt(-1);
-				it->second.chargeQueried = true;
+				it->second.cmpObstruction = static_cast<ICmpObstruction*>(QueryInterface(GetSimContext(),
+					it->first, IID_Obstruction));
+				it->second.componentsQueried = true;
 			}
 
 			it->second.cmpUnitMotion->PreMove(it->second);
@@ -453,27 +438,8 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 
 			compactStates.push_back(compact);
 			motionStates.push_back(&it->second);
-
-			// Add to spatial grid
-			int cellX = (it->second.pos.X / PushConfig::PUSHING_GRID_SIZE).ToInt_RoundToZero();
-			int cellZ = (it->second.pos.Y / PushConfig::PUSHING_GRID_SIZE).ToInt_RoundToZero();
-			cellX = std::max(0, std::min(cellX, m_MovingUnits.width() - 1));
-			cellZ = std::max(0, std::min(cellZ, m_MovingUnits.height() - 1));
-
-			std::vector<EntityMap<MotionState>::iterator>& subdiv = m_MovingUnits.get(cellX, cellZ);
-			subdiv.emplace_back(it);
-			assigned.emplace(&subdiv);
 		}
 	}
-
-#if DEBUG_RENDER
-	// Render all grid cells
-	for (auto* vec : assigned)
-	{
-		if (!vec->empty())
-			RenderGridCell(*vec, (*vec)[0]->second.cmpPosition);
-	}
-#endif
 
 	// ========================================
 	// COLLISION PUSHES
@@ -616,9 +582,12 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 					// idle shapes but lets it pass moving ones, leaving pushing to keep moving units apart.
 					// A pushed unit still flagged idle would be shoved into its neighbours as a wall and stop
 					// them dead. Next turn PreMove sets the flag from the unit's own move request again.
-					CmpPtr<ICmpObstruction> cmpObstruction(GetSimContext(), state->cmpUnitMotion->GetEntityId());
-					if (cmpObstruction)
-						cmpObstruction->SetMovingFlag(true);
+					if (state->cmpObstruction)
+					{
+						state->cmpObstruction->SetMovingFlag(true);
+						state->movingFlagKnown = true;
+						state->movingFlag = true;
+					}
 					state->speed = state->cmpUnitMotion->GetCurrentSpeed();
 					state->angle = state->initialAngle;
 				}
@@ -664,24 +633,22 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 	{
 		PROFILE2("MotionMgr_MoveLoop");
 		const auto& cfg = PushConfig::GetInstance().GetRuntimeConfig();
-		for (auto* vec : assigned)
+		// Each unit's move reads only its own state and the obstruction shapes, which PostMove updates
+		// later, so it does not matter in what order the units are moved.
+		for (MotionState* const state : motionStates)
 		{
-			for (auto& it : *vec)
+			if (state->needUpdate)
 			{
-				if (it->second.needUpdate)
-				{
-					// Always call Move - it will handle both active and inertia movement
-					it->second.cmpUnitMotion->Move(it->second, dt);
-				}
+				// Always call Move - it will handle both active and inertia movement
+				state->cmpUnitMotion->Move(*state, dt);
+			}
 
-				// Decay pressure after moving
-				if (IsPushingActivated() && it->second.cmpPhysicalBody && it->second.cmpPhysicalBody->GetPressure() > 0)
-				{
-					uint8_t currentPressure = it->second.cmpPhysicalBody->GetPressure();
-					entity_pos_t decayed = entity_pos_t::FromInt(currentPressure).Multiply(cfg.pressureDecay);
-					uint8_t newPressure = static_cast<uint8_t>(decayed.ToInt_RoundToZero());
-					it->second.cmpPhysicalBody->SetPressure(newPressure);
-				}
+			// Decay pressure after moving
+			if (IsPushingActivated() && state->cmpPhysicalBody && state->cmpPhysicalBody->GetPressure() > 0)
+			{
+				const uint8_t currentPressure{state->cmpPhysicalBody->GetPressure()};
+				const entity_pos_t decayed{entity_pos_t::FromInt(currentPressure).Multiply(cfg.pressureDecay)};
+				state->cmpPhysicalBody->SetPressure(static_cast<uint8_t>(decayed.ToInt_RoundToZero()));
 			}
 		}
 	}
@@ -717,19 +684,10 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 	}
 
 #if DEBUG_STATS
-	int size = 0;
-	for (auto* vec : assigned)
-		size += vec->size();
-	double time = timer_Time() - start;
-	if (size > 0)
-		printf(">> Processed %d units in %f secs\n", size, time);
+	const double time{timer_Time() - start};
+	if (!motionStates.empty())
+		printf(">> Processed %zu units in %f secs\n", motionStates.size(), time);
 #endif
-
-	// ========================================
-	// CLEAR SPATIAL GRID
-	// ========================================
-	for (auto* vec : assigned)
-		vec->clear();
 }
 
 
@@ -753,39 +711,6 @@ void CCmpUnitMotionManager::ClearDebugData()
 	debugDataMotionMgr.m_Spheres.clear();
 	debugDataMotionMgr.m_Lines.clear();
 	debugDataMotionMgr.m_Quads.clear();
-}
-
-void CCmpUnitMotionManager::RenderGridCell(
-	const std::vector<EntityMap<MotionState>::iterator>& cell,
-	ICmpPosition* pos)
-{
-	if (cell.empty())
-		return;
-
-	EntityMap<MotionState>::iterator firstIt = cell[0];
-	int cellX = (firstIt->second.pos.X / PushConfig::PUSHING_GRID_SIZE).ToInt_RoundToZero();
-	int cellZ = (firstIt->second.pos.Y / PushConfig::PUSHING_GRID_SIZE).ToInt_RoundToZero();
-
-	SOverlayLine gridL;
-	entity_pos_t gridMinX = entity_pos_t::FromInt(cellX * PushConfig::PUSHING_GRID_SIZE);
-	entity_pos_t gridMinZ = entity_pos_t::FromInt(cellZ * PushConfig::PUSHING_GRID_SIZE);
-	entity_pos_t gridMaxX = gridMinX + entity_pos_t::FromInt(PushConfig::PUSHING_GRID_SIZE);
-	entity_pos_t gridMaxZ = gridMinZ + entity_pos_t::FromInt(PushConfig::PUSHING_GRID_SIZE);
-
-	fixed height = pos->GetHeightFixed();
-
-	auto addCorner = [&](entity_pos_t x, entity_pos_t z) {
-		gridL.PushCoords(CVector3D(x.ToDouble(), height.ToDouble() + 2.f, z.ToDouble()));
-	};
-
-	addCorner(gridMinX, gridMinZ);
-	addCorner(gridMaxX, gridMinZ);
-	addCorner(gridMaxX, gridMaxZ);
-	addCorner(gridMinX, gridMaxZ);
-	addCorner(gridMinX, gridMinZ);
-
-	gridL.m_Color = CColor(1, 1, 0, 1);
-	debugDataMotionMgr.m_Lines.push_back(gridL);
 }
 
 void CCmpUnitMotionManager::RenderForceVector(

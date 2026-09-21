@@ -89,8 +89,7 @@ void UnitCollision::CollisionShape::GetSegment(const CFixedVector2D& position, c
 
 void UnitCollision::BuildSpatialGrid(const std::vector<MotionStateCompact>& units, int gridSize,
 									   Grid<std::vector<size_t>>& spatialGrid, std::vector<std::pair<int, int>>& filledCells,
-									   entity_pos_t& gridMinX, entity_pos_t& gridMinZ,
-									   entity_pos_t& gridCellSize, int& gridWidth, int& gridHeight)
+									   int& gridWidth, int& gridHeight)
 {
 	// Only the cells we filled last turn can hold anything, so clearing those is proportional to the units,
 	// not to the map: with cells sized to the push range there are far more cells than units.
@@ -132,10 +131,6 @@ void UnitCollision::BuildSpatialGrid(const std::vector<MotionStateCompact>& unit
 	if (spatialGrid.width() != gridWidth || spatialGrid.height() != gridHeight)
 		spatialGrid.resize(static_cast<std::uint16_t>(gridWidth), static_cast<std::uint16_t>(gridHeight));
 
-	gridMinX = minX;
-	gridMinZ = minZ;
-	gridCellSize = entity_pos_t::FromInt(gridSize);
-
 	for (size_t i = 0; i < units.size(); ++i)
 	{
 		const auto& unit = units[i];
@@ -152,44 +147,6 @@ void UnitCollision::BuildSpatialGrid(const std::vector<MotionStateCompact>& unit
 		if (cell.empty())
 			filledCells.emplace_back(cellX, cellZ);
 		cell.push_back(i);
-	}
-}
-
-void UnitCollision::GetNeighbors(size_t unitIdx, const std::vector<MotionStateCompact>& units,
-								   const Grid<std::vector<size_t>>& spatialGrid,
-								   const entity_pos_t& gridMinX, const entity_pos_t& gridMinZ,
-								   const entity_pos_t& gridCellSize, int gridWidth, int gridHeight,
-								   std::vector<size_t>& neighbors)
-{
-	neighbors.clear();
-
-	const auto& unit = units[unitIdx];
-	if (unit.ignore)
-		return;
-
-	int cellX = ((unit.position.X - gridMinX) / gridCellSize).ToInt_RoundToZero();
-	int cellZ = ((unit.position.Y - gridMinZ) / gridCellSize).ToInt_RoundToZero();
-
-	cellX = std::max(0, std::min(cellX, gridWidth - 1));
-	cellZ = std::max(0, std::min(cellZ, gridHeight - 1));
-
-	for (int dx = -1; dx <= 1; ++dx)
-	{
-		for (int dz = -1; dz <= 1; ++dz)
-		{
-			int nx = cellX + dx;
-			int nz = cellZ + dz;
-
-			if (nx < 0 || nx >= gridWidth || nz < 0 || nz >= gridHeight)
-				continue;
-
-			const auto& cellUnits = spatialGrid.get(nx, nz);
-			for (size_t neighborIdx : cellUnits)
-			{
-				if (neighborIdx != unitIdx)
-					neighbors.push_back(neighborIdx);
-			}
-		}
 	}
 }
 
@@ -500,52 +457,63 @@ void UnitCollision::ComputePushes(
 		extension + maxHalfLength * 2};
 	const int gridSize{std::max(1, pushRange.ToInt_RoundToInfinity())};
 
-	entity_pos_t gridMinX, gridMinZ, gridCellSize;
 	int gridWidth, gridHeight;
+	BuildSpatialGrid(units, gridSize, spatialGrid, filledCells, gridWidth, gridHeight);
 
-	BuildSpatialGrid(units, gridSize, spatialGrid, filledCells,
-					 gridMinX, gridMinZ, gridCellSize, gridWidth, gridHeight);
-
-	// Reused for every unit, so it's only allocated once per turn.
-	std::vector<size_t> neighbors;
-	for (size_t i = 0; i < units.size(); ++i)
+	// Always the lower index as a: fixed-point products round towards minus infinity, so a pair taken
+	// the other way round can come out an ulp different, and every unit's result must not depend on
+	// which cell its neighbour happens to fall in.
+	const auto accumulate = [&](const size_t first, const size_t second)
 	{
-		if (units[i].ignore)
-			continue;
+		const size_t i{std::min(first, second)};
+		const size_t j{std::max(first, second)};
+		CFixedVector2D pushA, pushB, velocityChangeA, velocityChangeB;
+		fixed spinA, spinB, hitSpinA, hitSpinB;
+		uint8_t pressureA, pressureB;
 
-		GetNeighbors(i, units, spatialGrid, gridMinX, gridMinZ, gridCellSize, gridWidth, gridHeight, neighbors);
+		ComputePairPush(units[i], units[j], dt, cfg, pushA, pushB, spinA, spinB,
+			velocityChangeA, velocityChangeB, hitSpinA, hitSpinB, outHits, pressureA, pressureB);
 
-		for (size_t j : neighbors)
+		outPushes[i] += pushA;
+		outPushes[j] += pushB;
+		outSpins[i] += spinA;
+		outSpins[j] += spinB;
+		outVelocityChanges[i] += velocityChangeA;
+		outVelocityChanges[j] += velocityChangeB;
+		outHitSpins[i] += hitSpinA;
+		outHitSpins[j] += hitSpinB;
+		outPressures[i] = std::min<uint8_t>(PushConfig::MAX_PRESSURE, outPressures[i] + pressureA);
+		outPressures[j] = std::min<uint8_t>(PushConfig::MAX_PRESSURE, outPressures[j] + pressureB);
+		if (!velocityChangeA.IsZero())
+			largestImpulse[i] = std::max(largestImpulse[i], velocityChangeA.Length());
+		if (!velocityChangeB.IsZero())
+			largestImpulse[j] = std::max(largestImpulse[j], velocityChangeB.Length());
+	};
+
+	// Every pair once: the pairs within each filled cell, then the pairs between it and the four cells
+	// ahead of it - the next column, at each z, and the next row. Of any two neighbouring cells exactly
+	// one is ahead of the other, so no pair is visited twice and none is missed, and a unit still meets
+	// everything in the 3x3 block around it, which is what the cells are sized for. Ignored units were
+	// never put in the grid.
+	static constexpr std::pair<int, int> ahead[]{{1, -1}, {1, 0}, {1, 1}, {0, 1}};
+	for (const std::pair<int, int>& cellCoords : filledCells)
+	{
+		const std::vector<size_t>& cell{spatialGrid.get(cellCoords.first, cellCoords.second)};
+		for (size_t p = 0; p < cell.size(); ++p)
+			for (size_t q = p + 1; q < cell.size(); ++q)
+				accumulate(cell[p], cell[q]);
+
+		for (const std::pair<int, int>& offset : ahead)
 		{
-			if (j <= i)
+			const int nx{cellCoords.first + offset.first};
+			const int nz{cellCoords.second + offset.second};
+			if (nx < 0 || nx >= gridWidth || nz < 0 || nz >= gridHeight)
 				continue;
 
-			if (units[j].ignore)
-				continue;
-
-			CFixedVector2D pushA, pushB, velocityChangeA, velocityChangeB;
-			fixed spinA, spinB, hitSpinA, hitSpinB;
-			uint8_t pressureA, pressureB;
-
-			ComputePairPush(units[i], units[j], dt, cfg, pushA, pushB, spinA, spinB,
-				velocityChangeA, velocityChangeB, hitSpinA, hitSpinB, outHits, pressureA, pressureB);
-
-			outPushes[i] += pushA;
-			outPushes[j] += pushB;
-			outSpins[i] += spinA;
-			outSpins[j] += spinB;
-			outVelocityChanges[i] += velocityChangeA;
-			outVelocityChanges[j] += velocityChangeB;
-			outHitSpins[i] += hitSpinA;
-			outHitSpins[j] += hitSpinB;
-			outPressures[i] = std::min<uint8_t>(PushConfig::MAX_PRESSURE,
-				outPressures[i] + pressureA);
-			outPressures[j] = std::min<uint8_t>(PushConfig::MAX_PRESSURE,
-				outPressures[j] + pressureB);
-			if (!velocityChangeA.IsZero())
-				largestImpulse[i] = std::max(largestImpulse[i], velocityChangeA.Length());
-			if (!velocityChangeB.IsZero())
-				largestImpulse[j] = std::max(largestImpulse[j], velocityChangeB.Length());
+			const std::vector<size_t>& other{spatialGrid.get(nx, nz)};
+			for (const size_t i : cell)
+				for (const size_t j : other)
+					accumulate(i, j);
 		}
 	}
 

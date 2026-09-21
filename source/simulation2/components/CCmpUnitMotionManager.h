@@ -54,7 +54,6 @@ public:
 
 	// Turn-local state below, not serialised.
 
-	Grid<std::vector<EntityMap<MotionState>::iterator>> m_MovingUnits;
 	bool m_ComputingMotion;
 
 	// Spatial grid for UnitCollision, and the cells it filled last turn. Only cleared between turns, not reallocated.
@@ -105,7 +104,6 @@ public:
 
 private:
 	void OnDeserialized();
-	void ResetSubdivisions();
 	void OnTurnStart();
 
 	void MoveUnits(fixed dt);
@@ -113,8 +111,6 @@ private:
 	void Move(EntityMap<MotionState>& ents, fixed dt);
 
 	// Debug rendering, only defined when DEBUG_RENDER is enabled in CCmpUnitMotion_System.cpp.
-	void RenderGridCell(const std::vector<EntityMap<MotionState>::iterator>& cell,
-						ICmpPosition* pos);
 	void RenderForceVector(const MotionState& state,
 						const CFixedVector2D& force,
 						bool wasObstructed);

@@ -27,6 +27,7 @@ class ICmpPosition;
 class CCmpUnitMotion;
 class ICmpPhysicalBody;
 class ICmpAttack;
+class ICmpObstruction;
 
 /**
  * Motion state structure used by UnitMotionManager to track unit movement state.
@@ -50,14 +51,18 @@ struct MotionState
 	CCmpUnitMotion* cmpUnitMotion;
 	ICmpPhysicalBody* cmpPhysicalBody;
 
-	// Looked up once by the manager, the first turn the unit is in the world: an interface query per unit
-	// per turn costs as much as what the pointer is used for, and the charge speed is a script call.
-	// Reset on deserialization, like the pointers above.
+	// Looked up once by the manager, the first turn the unit is in the world: an interface query per
+	// unit per turn costs as much as what either pointer is used for.
 	ICmpAttack* cmpAttack = nullptr;
-	bool chargeQueried = false;
-	// The speed at which this unit's contacts count as charges (see ICmpAttack::GetChargeMinSpeed).
-	// Negative if it cannot charge.
+	ICmpObstruction* cmpObstruction = nullptr;
+	bool componentsQueried = false;
+	// The speed at which this unit's contacts count as charges (see ICmpAttack::GetChargeMinSpeed), read
+	// with the components above: a script call, not to be repeated every turn. Negative if it cannot charge.
 	fixed chargeMinSpeed = fixed::FromInt(-1);
+	// The moving flag last handed to the obstruction shape, so that PreMove only sets it when it changes.
+	// Unknown until first set, and again after deserialization: the shape keeps its own copy.
+	bool movingFlagKnown = false;
+	bool movingFlag = false;
 
 	// Position before units start moving
 	CFixedVector2D initialPos;

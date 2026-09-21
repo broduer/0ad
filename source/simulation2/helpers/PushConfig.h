@@ -36,7 +36,6 @@ public:
 	static constexpr int MAX_PUSHING_MULTIPLIER = 4;
 	static constexpr entity_pos_t PRESSURE_STATIC_FACTOR = entity_pos_t::FromInt(2);
 	static constexpr int PRESSURE_DISTANCE_FACTOR = 5;
-	static constexpr int PUSHING_GRID_SIZE = 20;  // meters per grid cell
 	// The body radius (the 'default' passability class clearance) the per-turn push amounts above were tuned
 	// at. A full push moves a unit about a quarter of a metre a turn whatever its size: a third of a
 	// footman's radius, a twenty-fourth of a warship's beam. Bodies that collide as their footprint (ships,
