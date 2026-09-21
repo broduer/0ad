@@ -30,8 +30,10 @@ Engine.LoadComponentScript("interfaces/Diplomacy.js");
 Engine.LoadComponentScript("interfaces/ModifiersManager.js");
 Engine.LoadComponentScript("interfaces/Formation.js");
 Engine.LoadComponentScript("interfaces/Health.js");
+Engine.LoadComponentScript("interfaces/Promotion.js");
 Engine.LoadComponentScript("interfaces/Resistance.js");
 Engine.LoadComponentScript("interfaces/TechnologyManager.js");
+Engine.LoadComponentScript("interfaces/Timer.js");
 Engine.LoadComponentScript("interfaces/Turretable.js");
 Engine.LoadComponentScript("interfaces/TurretHolder.js");
 Engine.LoadComponentScript("Attack.js");
@@ -574,3 +576,81 @@ function testCanEverReachTarget()
 testCanEverReachTarget();
 
 
+function testChargeHit(friendlyFire)
+{
+	const attacker = 50;
+	const playerEnt = 51;
+	const enemy = 52;
+	const ally = 53;
+	const attackerOwner = 1;
+	let now = 0;
+
+	AddMock(SYSTEM_ENTITY, IID_Timer, {
+		"GetTime": () => now
+	});
+	AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
+		"GetPlayerByID": () => playerEnt,
+		"GetAllPlayers": () => [0, 1, 2]
+	});
+	AddMock(playerEnt, IID_Diplomacy, {
+		"GetEnemies": () => [2]
+	});
+	AddMock(attacker, IID_Ownership, {
+		"GetOwner": () => attackerOwner
+	});
+	Engine.PostMessage = () => {};
+
+	const cmpAttack = ConstructComponent(attacker, "Attack", {
+		"Melee": {
+			"Damage": { "Hack": 10 },
+			"MaxRange": 4,
+			"RepeatTime": 1000
+		},
+		"ChargeAttack": {
+			"Damage": { "Crush": 40 },
+			...(friendlyFire && { "FriendlyFire": "true" }),
+			"HitCooldown": 500
+		}
+	});
+
+	// ChargeAttack is not an attack UnitAI can order.
+	TS_ASSERT_UNEVAL_EQUALS(cmpAttack.GetAttackTypes(), ["Melee"]);
+
+	const damageTaken = {};
+	for (const [ent, owner] of [[enemy, 2], [ally, attackerOwner]])
+	{
+		damageTaken[ent] = 0;
+		AddMock(ent, IID_Ownership, {
+			"GetOwner": () => owner
+		});
+		AddMock(ent, IID_Health, {
+			"TakeDamage": amount =>
+			{
+				damageTaken[ent] += amount;
+				return { "healthChange": -amount };
+			}
+		});
+	}
+
+	// Damage scales with the fraction of a full blow.
+	cmpAttack.PerformChargeHit(enemy, 0.5);
+	TS_ASSERT_EQUALS(damageTaken[enemy], 20);
+
+	// The same target isn't damaged again within the cooldown.
+	now = 300;
+	cmpAttack.PerformChargeHit(enemy, 1);
+	TS_ASSERT_EQUALS(damageTaken[enemy], 20);
+
+	now = 500;
+	cmpAttack.PerformChargeHit(enemy, 1);
+	TS_ASSERT_EQUALS(damageTaken[enemy], 60);
+
+	// Allies only get hurt with friendly fire.
+	cmpAttack.PerformChargeHit(ally, 1);
+	TS_ASSERT_EQUALS(damageTaken[ally], friendlyFire ? 40 : 0);
+
+	// The charger never hits itself.
+	cmpAttack.PerformChargeHit(attacker, 1);
+}
+testChargeHit(false);
+testChargeHit(true);

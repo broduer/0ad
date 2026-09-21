@@ -886,18 +886,25 @@ public:
 		return unit;
 	}
 
-	// Everything a pair exchanges in one turn: pushes, push spins, contact impulses and hit spins.
+	// Everything a pair exchanges in one turn: pushes, push spins, contact impulses, hit spins and charge hits.
 	static void PushPair(const UnitCollision::MotionStateCompact& a, const UnitCollision::MotionStateCompact& b,
-		std::vector<CFixedVector2D>& pushes, std::vector<fixed>& spins, std::vector<CFixedVector2D>& velocityChanges)
+		std::vector<CFixedVector2D>& pushes, std::vector<fixed>& spins, std::vector<CFixedVector2D>& velocityChanges,
+		std::vector<UnitCollision::ContactHit>& hits)
 	{
 		Grid<std::vector<size_t>> grid;
 		std::vector<std::pair<int, int>> filledCells;
 		std::vector<fixed> hitSpins;
-		std::vector<UnitCollision::ContactHit> hits;
 		std::vector<uint8_t> pressures;
 
 		UnitCollision::ComputePushes({a, b}, PushConfig::IMPACT_REFERENCE_TIME, grid, filledCells, pushes, spins,
 			velocityChanges, hitSpins, hits, pressures);
+	}
+
+	static void PushPair(const UnitCollision::MotionStateCompact& a, const UnitCollision::MotionStateCompact& b,
+		std::vector<CFixedVector2D>& pushes, std::vector<fixed>& spins, std::vector<CFixedVector2D>& velocityChanges)
+	{
+		std::vector<UnitCollision::ContactHit> hits;
+		PushPair(a, b, pushes, spins, velocityChanges, hits);
 	}
 
 	static void PushPair(const UnitCollision::MotionStateCompact& a, const UnitCollision::MotionStateCompact& b,
@@ -1390,6 +1397,62 @@ public:
 		TS_ASSERT_DELTA(velocityChanges[0].Length().ToDouble(), 2.0, 0.05);
 		// Each of the other two still gets its own.
 		TS_ASSERT_DELTA(velocityChanges[1].Length().ToDouble(), 2.0, 0.05);
+	}
+
+	void test_Charge_hits_what_it_runs_into()
+	{
+		// A cavalryman (weight 70, charging at 12 m/s) has ridden into a footman standing still. They are
+		// round bodies and one of them is idle, so ordinary pushing would leave them alone - but a charge
+		// is a collision, so the pair is taken: the footman is bowled over with 70/80 of the closing
+		// speed, the rider loses 10/80 of it, and the contact is reported as a hit with those numbers.
+		const UnitCollision::CollisionShape infantry{entity_pos_t::FromFraction(8, 10), entity_pos_t::Zero(), false, false};
+		const CFixedVector2D here{fixed::FromInt(100), fixed::FromInt(100)};
+		const CFixedVector2D ahead{fixed::FromInt(100), fixed::FromInt(101)};
+		const CFixedVector2D north{fixed::Zero(), fixed::FromInt(12)};
+		std::vector<CFixedVector2D> pushes, velocityChanges;
+		std::vector<fixed> spins;
+		std::vector<UnitCollision::ContactHit> hits;
+
+		UnitCollision::MotionStateCompact rider{MakeUnit(1, here, infantry, entity_angle_t::Zero(), true, north)};
+		rider.weight = fixed::FromInt(70);
+		rider.charging = true;
+		rider.minChargeSpeed = fixed::FromFraction(15, 2);
+		const UnitCollision::MotionStateCompact footman{MakeUnit(2, ahead, infantry, entity_angle_t::Zero(), false)};
+
+		PushPair(rider, footman, pushes, spins, velocityChanges, hits);
+		TS_ASSERT_EQUALS(hits.size(), 1u);
+		TS_ASSERT_EQUALS(hits[0].charger, 1u);
+		TS_ASSERT_EQUALS(hits[0].target, 2u);
+		TS_ASSERT_DELTA(hits[0].targetSpeedChange.ToDouble(), 12.0 * 70 / 80, 0.02);
+		TS_ASSERT_DELTA(hits[0].chargerSpeedChange.ToDouble(), 12.0 * 10 / 80, 0.02);
+		TS_ASSERT_DELTA(velocityChanges[1].Y.ToDouble(), 12.0 * 70 / 80, 0.02);
+		TS_ASSERT_DELTA(velocityChanges[0].Y.ToDouble(), -12.0 * 10 / 80, 0.02);
+
+		// Too slow to be a charge (it isn't flagged charging): back to ordinary pushing, where a moving
+		// footman and an idle one leave each other alone. Nothing at all happens.
+		UnitCollision::MotionStateCompact walker{MakeUnit(1, here, infantry, entity_angle_t::Zero(), true,
+			CFixedVector2D{fixed::Zero(), fixed::FromInt(3)})};
+		walker.weight = fixed::FromInt(70);
+		PushPair(walker, footman, pushes, spins, velocityChanges, hits);
+		TS_ASSERT(hits.empty());
+		TS_ASSERT(pushes[0].IsZero());
+		TS_ASSERT(velocityChanges[1].IsZero());
+
+		// Charging past, not into: bodies 1.6 m apart don't touch (radii 0.8 + 0.8), so no hit and no
+		// knockback, though the soft push still keeps them apart.
+		const CFixedVector2D beside{fixed::FromInt(102), fixed::FromInt(100)};
+		PushPair(rider, MakeUnit(2, beside, infantry, entity_angle_t::Zero(), false), pushes, spins, velocityChanges, hits);
+		TS_ASSERT(hits.empty());
+		TS_ASSERT(velocityChanges[1].IsZero());
+
+		// Two chargers meeting head-on have each hit the other.
+		UnitCollision::MotionStateCompact other{MakeUnit(2, ahead, infantry, entity_angle_t::Zero(), true, -north)};
+		other.weight = fixed::FromInt(70);
+		other.charging = true;
+		other.minChargeSpeed = fixed::FromFraction(15, 2);
+		PushPair(rider, other, pushes, spins, velocityChanges, hits);
+		TS_ASSERT_EQUALS(hits.size(), 2u);
+		TS_ASSERT_DELTA(hits[0].targetSpeedChange.ToDouble(), 12.0, 0.02);
 	}
 
 	void test_RollFromVelocityChange()
