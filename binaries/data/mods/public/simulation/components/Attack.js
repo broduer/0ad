@@ -900,11 +900,14 @@ Attack.prototype.PerformAttack = function(type, target)
 			};
 
 			const realHorizDistance = projectileData.position.horizDistanceTo(selfPosition);
-			const projectileTimeToTarget = realHorizDistance / horizSpeed;
-			const projectileDelay = delay + projectileTimeToTarget * 1000;
+			// The effects land at a turn end, so let the projectile land at the same one.
+			// Its flight time is set through its launch speed.
+			const flightTimeMs = this.AlignFlightToTurn(realHorizDistance / horizSpeed * 1000, cmpTimer.GetLatestTurnLength());
+			const projectileDelay = delay + flightTimeMs;
+			const launchSpeed = flightTimeMs > 0 ? realHorizDistance / (flightTimeMs / 1000) : horizSpeed;
 
 			projectileData.direction = Vector3D.sub(projectileData.position, selfPosition).div(realHorizDistance);
-			projectileData.projectileId = cmpProjectileManager.LaunchProjectileAtPoint(launchPoint, projectileData.position, horizSpeed, gravity, actorName, impactActorName, impactAnimationLifetime);
+			projectileData.projectileId = cmpProjectileManager.LaunchProjectileAtPoint(launchPoint, projectileData.position, launchSpeed, gravity, actorName, impactActorName, impactAnimationLifetime);
 
 			if (projectileDelay)
 				cmpTimer.SetTimeout(SYSTEM_ENTITY, IID_DelayedDamage, "Hit", projectileDelay, projectileData);
@@ -924,6 +927,22 @@ Attack.prototype.PerformAttack = function(type, target)
 	}
 	else
 		Engine.QueryInterface(SYSTEM_ENTITY, IID_DelayedDamage).Hit(data, 0);
+};
+
+/**
+ * Returns the flight time (in milliseconds) rounded to the nearest whole number of turns, at least one, so
+ * that the projectile lands at the turn end where its effects fire. When the rounding would change it by
+ * more than ALIGN_FLIGHT_MAX_CHANGE, it is lengthened by that much instead: the effects fire at the next
+ * turn end, so this still brings the landing closer to them.
+ */
+Attack.prototype.AlignFlightToTurn = function(flightTimeMs, turnLengthMs)
+{
+	if (!(flightTimeMs > 0) || !(turnLengthMs > 0))
+		return flightTimeMs;
+	const aligned = Math.max(turnLengthMs, Math.round(flightTimeMs / turnLengthMs) * turnLengthMs);
+	if (Math.abs(aligned - flightTimeMs) > this.ALIGN_FLIGHT_MAX_CHANGE * flightTimeMs)
+		return flightTimeMs * (1 + this.ALIGN_FLIGHT_MAX_CHANGE);
+	return aligned;
 };
 
 /**
@@ -972,5 +991,12 @@ Attack.prototype.GetRangeOverlays = function(type = "Ranged")
 			});
 	return rangeOverlays;
 };
+
+/**
+ * The most a projectile's flight is lengthened or shortened, as a fraction of it, to land at a turn end.
+ * A siege stone flying for seconds moves by a few percent; a short arrow flight at a long turn length would be
+ * visibly slowed or hurried, so it is only slowed by this much and lands between turn ends.
+ */
+Attack.prototype.ALIGN_FLIGHT_MAX_CHANGE = 0.25;
 
 Engine.RegisterComponentType(IID_Attack, "Attack", Attack);
