@@ -87,65 +87,42 @@ void UnitCollision::CollisionShape::GetSegment(const CFixedVector2D& position, c
 	out1 = position + half;
 }
 
-void UnitCollision::BuildSpatialGrid(const std::vector<MotionStateCompact>& units, int gridSize,
-									   Grid<std::vector<size_t>>& spatialGrid, std::vector<std::pair<int, int>>& filledCells,
-									   int& gridWidth, int& gridHeight)
+void UnitCollision::BuildSpatialGrid(const std::vector<MotionStateCompact>& units, const std::vector<int>& tierOf,
+									   const int tierIndex, const CFixedVector2D& minCorner, const CFixedVector2D& maxCorner,
+									   SpatialGridTier& tier)
 {
 	// Only the cells we filled last turn can hold anything, so clearing those is proportional to the units,
 	// not to the map: with cells sized to the push range there are far more cells than units.
-	for (const std::pair<int, int>& cell : filledCells)
-		spatialGrid.get(cell.first, cell.second).clear();
-	filledCells.clear();
+	for (const std::pair<int, int>& cell : tier.filledCells)
+		tier.grid.get(cell.first, cell.second).clear();
+	tier.filledCells.clear();
 
-	if (units.empty())
+	if (!tier.used)
 		return;
 
-	entity_pos_t minX = units[0].position.X, maxX = units[0].position.X;
-	entity_pos_t minZ = units[0].position.Y, maxZ = units[0].position.Y;
-
-	for (const auto& unit : units)
-	{
-		if (unit.position.X < minX) minX = unit.position.X;
-		if (unit.position.X > maxX) maxX = unit.position.X;
-		if (unit.position.Y < minZ) minZ = unit.position.Y;
-		if (unit.position.Y > maxZ) maxZ = unit.position.Y;
-	}
-
-	// One cell of slack, so a unit exactly on the edge still has its neighbouring cells inside the grid.
+	const int gridSize{std::max(1, (tier.maxReach * 2).ToInt_RoundToInfinity())};
 	const entity_pos_t margin{entity_pos_t::FromInt(gridSize)};
-	minX -= margin;
-	maxX += margin;
-	minZ -= margin;
-	maxZ += margin;
-
-	entity_pos_t width = maxX - minX;
-	entity_pos_t height = maxZ - minZ;
-
-	gridWidth = (width / gridSize).ToInt_RoundToNearest() + 1;
-	gridHeight = (height / gridSize).ToInt_RoundToNearest() + 1;
-
-	if (gridWidth < 1) gridWidth = 1;
-	if (gridHeight < 1) gridHeight = 1;
+	tier.minX = minCorner.X - margin;
+	tier.minZ = minCorner.Y - margin;
+	tier.cellSize = entity_pos_t::FromInt(gridSize);
+	tier.width = std::max(1, ((maxCorner.X + margin - tier.minX) / gridSize).ToInt_RoundToNearest() + 1);
+	tier.height = std::max(1, ((maxCorner.Y + margin - tier.minZ) / gridSize).ToInt_RoundToNearest() + 1);
 
 	// Resizing reallocates every cell, so only do it when the grid actually changes shape.
-	if (spatialGrid.width() != gridWidth || spatialGrid.height() != gridHeight)
-		spatialGrid.resize(static_cast<std::uint16_t>(gridWidth), static_cast<std::uint16_t>(gridHeight));
+	if (tier.grid.width() != tier.width || tier.grid.height() != tier.height)
+		tier.grid.resize(static_cast<std::uint16_t>(tier.width), static_cast<std::uint16_t>(tier.height));
 
 	for (size_t i = 0; i < units.size(); ++i)
 	{
-		const auto& unit = units[i];
-		if (unit.ignore)
+		if (tierOf[i] != tierIndex)
 			continue;
 
-		int cellX = ((unit.position.X - minX) / gridSize).ToInt_RoundToZero();
-		int cellZ = ((unit.position.Y - minZ) / gridSize).ToInt_RoundToZero();
+		const int cellX{Clamp(((units[i].position.X - tier.minX) / gridSize).ToInt_RoundToZero(), 0, tier.width - 1)};
+		const int cellZ{Clamp(((units[i].position.Y - tier.minZ) / gridSize).ToInt_RoundToZero(), 0, tier.height - 1)};
 
-		cellX = std::max(0, std::min(cellX, gridWidth - 1));
-		cellZ = std::max(0, std::min(cellZ, gridHeight - 1));
-
-		std::vector<size_t>& cell = spatialGrid.get(cellX, cellZ);
+		std::vector<size_t>& cell{tier.grid.get(cellX, cellZ)};
 		if (cell.empty())
-			filledCells.emplace_back(cellX, cellZ);
+			tier.filledCells.emplace_back(cellX, cellZ);
 		cell.push_back(i);
 	}
 }
@@ -407,8 +384,7 @@ void UnitCollision::ComputePairPush(
 void UnitCollision::ComputePushes(
 	const std::vector<MotionStateCompact>& units,
 	fixed dt,
-	Grid<std::vector<size_t>>& spatialGrid,
-	std::vector<std::pair<int, int>>& filledCells,
+	SpatialGrids& grids,
 	std::vector<CFixedVector2D>& outPushes,
 	std::vector<fixed>& outSpins,
 	std::vector<CFixedVector2D>& outVelocityChanges,
@@ -430,35 +406,60 @@ void UnitCollision::ComputePushes(
 	// The largest single contact impulse each unit took this turn, see the end of this function.
 	std::vector<fixed> largestImpulse(units.size(), fixed::Zero());
 
-	// Cells the size of the longest push, so the 3x3 block around a unit still holds every unit that could push it
-	// (see ComputePairPush: the widest pair is two units of the largest body, moving). Fixed 20 m cells would
-	// search a 60x60 m neighbourhood to find pairs at most a few metres apart.
-	// A long body reaches maxDist from its axis, so its centre can be that much further away again: the
-	// cells are sized off the largest extent on the map, which is the radius for a circular body and half
-	// the hull length for a ship. One ship therefore widens the cells for everyone, as one 'large' unit
-	// already did.
-	entity_pos_t maxRadius{entity_pos_t::Zero()};
-	entity_pos_t maxHalfLength{entity_pos_t::Zero()};
-	bool anySolid{false};
-	for (const MotionStateCompact& unit : units)
+	// How far from its centre a body can push: what ComputePairPush allows a pair is the sum of the two.
+	// Each unit goes in the tier for its reach (see SpatialGrids), and the grid spans every unit.
+	const entity_pos_t halfExtension{std::max(cfg.movingPushExtension, cfg.staticPushExtension) / 2};
+	const entity_pos_t solidHalfExtension{std::max(cfg.solidMovingPushExtension, cfg.solidStaticPushExtension) / 2};
+	std::vector<entity_pos_t> reaches(units.size());
+	std::vector<int> tierOf(units.size(), -1);
+	int tierCount{0};
+	CFixedVector2D minCorner, maxCorner;
+	bool any{false};
+	for (size_t i = 0; i < units.size(); ++i)
 	{
+		const MotionStateCompact& unit{units[i]};
 		if (unit.ignore)
 			continue;
-		maxRadius = std::max(maxRadius, unit.collisionShape.radius);
-		maxHalfLength = std::max(maxHalfLength, unit.collisionShape.halfLength);
-		anySolid = anySolid || unit.collisionShape.IsSolid();
+
+		reaches[i] = unit.collisionShape.radius.Multiply(PushConfig::PUSHING_CORRECTION).Multiply(cfg.radiusMultiplier) +
+			unit.collisionShape.halfLength +
+			(unit.collisionShape.IsSolid() ? solidHalfExtension : halfExtension);
+		int tier{0};
+		for (entity_pos_t band{TIER_BASE_REACH}; reaches[i] > band; band = band * 2)
+			++tier;
+		tierOf[i] = tier;
+		tierCount = std::max(tierCount, tier + 1);
+
+		if (!any)
+		{
+			minCorner = maxCorner = unit.position;
+			any = true;
+		}
+		minCorner.X = std::min(minCorner.X, unit.position.X);
+		minCorner.Y = std::min(minCorner.Y, unit.position.Y);
+		maxCorner.X = std::max(maxCorner.X, unit.position.X);
+		maxCorner.Y = std::max(maxCorner.Y, unit.position.Y);
 	}
+	if (!any)
+		return;
 
-	// Two solid units push each other from further off (see ComputePairPush), so their cells are wider.
-	entity_pos_t extension{std::max(cfg.movingPushExtension, cfg.staticPushExtension)};
-	if (anySolid)
-		extension = extension.Multiply(cfg.solidRangeScale);
-	const entity_pos_t pushRange{(maxRadius * 2).Multiply(PushConfig::PUSHING_CORRECTION).Multiply(cfg.radiusMultiplier) +
-		extension + maxHalfLength * 2};
-	const int gridSize{std::max(1, pushRange.ToInt_RoundToInfinity())};
-
-	int gridWidth, gridHeight;
-	BuildSpatialGrid(units, gridSize, spatialGrid, filledCells, gridWidth, gridHeight);
+	// Tiers are never dropped, so their grids stay allocated for the next ship that comes along.
+	if (grids.tiers.size() < static_cast<size_t>(tierCount))
+		grids.tiers.resize(tierCount);
+	for (SpatialGridTier& tier : grids.tiers)
+	{
+		tier.maxReach = entity_pos_t::Zero();
+		tier.used = false;
+	}
+	for (size_t i = 0; i < units.size(); ++i)
+		if (tierOf[i] >= 0)
+		{
+			SpatialGridTier& tier{grids.tiers[tierOf[i]]};
+			tier.maxReach = std::max(tier.maxReach, reaches[i]);
+			tier.used = true;
+		}
+	for (size_t t = 0; t < grids.tiers.size(); ++t)
+		BuildSpatialGrid(units, tierOf, static_cast<int>(t), minCorner, maxCorner, grids.tiers[t]);
 
 	// Always the lower index as a: fixed-point products round towards minus infinity, so a pair taken
 	// the other way round can come out an ulp different, and every unit's result must not depend on
@@ -490,30 +491,61 @@ void UnitCollision::ComputePushes(
 			largestImpulse[j] = std::max(largestImpulse[j], velocityChangeB.Length());
 	};
 
-	// Every pair once: the pairs within each filled cell, then the pairs between it and the four cells
-	// ahead of it - the next column, at each z, and the next row. Of any two neighbouring cells exactly
-	// one is ahead of the other, so no pair is visited twice and none is missed, and a unit still meets
-	// everything in the 3x3 block around it, which is what the cells are sized for. Ignored units were
-	// never put in the grid.
+	// Within a tier, every pair once: the pairs within each filled cell, then the pairs between it and the
+	// four cells ahead of it - the next column, at each z, and the next row. Of any two neighbouring cells
+	// exactly one is ahead of the other, so no pair is visited twice and none is missed, and a unit still
+	// meets everything in the 3x3 block around it, which is what the tier's cells are sized for.
 	static constexpr std::pair<int, int> ahead[]{{1, -1}, {1, 0}, {1, 1}, {0, 1}};
-	for (const std::pair<int, int>& cellCoords : filledCells)
+	for (const SpatialGridTier& tier : grids.tiers)
 	{
-		const std::vector<size_t>& cell{spatialGrid.get(cellCoords.first, cellCoords.second)};
-		for (size_t p = 0; p < cell.size(); ++p)
-			for (size_t q = p + 1; q < cell.size(); ++q)
-				accumulate(cell[p], cell[q]);
+		if (!tier.used)
+			continue;
 
-		for (const std::pair<int, int>& offset : ahead)
+		for (const std::pair<int, int>& cellCoords : tier.filledCells)
 		{
-			const int nx{cellCoords.first + offset.first};
-			const int nz{cellCoords.second + offset.second};
-			if (nx < 0 || nx >= gridWidth || nz < 0 || nz >= gridHeight)
+			const std::vector<size_t>& cell{tier.grid.get(cellCoords.first, cellCoords.second)};
+			for (size_t p = 0; p < cell.size(); ++p)
+				for (size_t q = p + 1; q < cell.size(); ++q)
+					accumulate(cell[p], cell[q]);
+
+			for (const std::pair<int, int>& offset : ahead)
+			{
+				const int nx{cellCoords.first + offset.first};
+				const int nz{cellCoords.second + offset.second};
+				if (nx < 0 || nx >= tier.width || nz < 0 || nz >= tier.height)
+					continue;
+
+				const std::vector<size_t>& other{tier.grid.get(nx, nz)};
+				for (const size_t i : cell)
+					for (const size_t j : other)
+						accumulate(i, j);
+			}
+		}
+	}
+
+	// Between tiers, the unit of the higher tier does the looking: it scans, in each lower tier's grid, the
+	// block of cells within its own reach plus that tier's longest reach - as far as any unit there that
+	// could touch it can be. Only the higher unit scans, so each such pair is found exactly once.
+	for (size_t i = 0; i < units.size(); ++i)
+	{
+		if (tierOf[i] <= 0)
+			continue;
+
+		for (int t = 0; t < tierOf[i]; ++t)
+		{
+			const SpatialGridTier& tier{grids.tiers[t]};
+			if (!tier.used)
 				continue;
 
-			const std::vector<size_t>& other{spatialGrid.get(nx, nz)};
-			for (const size_t i : cell)
-				for (const size_t j : other)
-					accumulate(i, j);
+			const entity_pos_t scanRange{reaches[i] + tier.maxReach};
+			const int cells{(scanRange / tier.cellSize).ToInt_RoundToInfinity()};
+			const int cellX{Clamp(((units[i].position.X - tier.minX) / tier.cellSize).ToInt_RoundToZero(), 0, tier.width - 1)};
+			const int cellZ{Clamp(((units[i].position.Y - tier.minZ) / tier.cellSize).ToInt_RoundToZero(), 0, tier.height - 1)};
+
+			for (int nx = std::max(0, cellX - cells); nx <= std::min(tier.width - 1, cellX + cells); ++nx)
+				for (int nz = std::max(0, cellZ - cells); nz <= std::min(tier.height - 1, cellZ + cells); ++nz)
+					for (const size_t j : tier.grid.get(nx, nz))
+						accumulate(i, j);
 		}
 	}
 

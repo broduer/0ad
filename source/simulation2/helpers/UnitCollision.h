@@ -152,7 +152,7 @@ public:
 	/**
 	 * A charging unit has run into another: the two bodies touched while closing at least as fast as
 	 * the charger's minimum charge speed. The speed changes are what the contact impulse gave each side,
-	 * in m/s, which is what the damage of the hit is scaled by.
+	 * in m/s, which is what the damage and stagger of the hit are scaled by.
 	 */
 	struct ContactHit
 	{
@@ -163,10 +163,45 @@ public:
 	};
 
 	/**
+	 * One tier of the spatial grids: the units whose reach (see ComputePushes) falls in its band, sorted into
+	 * cells sized for them. Kept by the caller between turns: only the cells filled last turn are cleared,
+	 * and the grid is only resized when its shape changes. The cell (x, z) covers
+	 * [minX + x * cellSize, minX + (x + 1) * cellSize) by the same in z, and filledCells lists the cells
+	 * holding at least one unit, in the order they were first filled.
+	 */
+	struct SpatialGridTier
+	{
+		Grid<std::vector<size_t>> grid;
+		std::vector<std::pair<int, int>> filledCells;
+		entity_pos_t minX;
+		entity_pos_t minZ;
+		entity_pos_t cellSize;
+		int width = 0;
+		int height = 0;
+		// The longest reach among this turn's members, which is half the cell size.
+		entity_pos_t maxReach;
+		// Whether any unit fell in this tier this turn.
+		bool used = false;
+	};
+
+	/**
+	 * The spatial grids of the pushing pass, one tier per band of body reach: tier 0 holds bodies reaching
+	 * up to TIER_BASE_REACH, and each tier above doubles that. Infantry and cavalry are tier 0, elephants
+	 * and siege engines tier 1, ships tier 2 or 3. Each tier's cells fit its own members, so a ship never
+	 * widens the cells the infantry are in; see ComputePushes for how the tiers meet.
+	 */
+	struct SpatialGrids
+	{
+		std::vector<SpatialGridTier> tiers;
+	};
+
+	static constexpr entity_pos_t TIER_BASE_REACH = entity_pos_t::FromInt(4);
+
+	/**
 	 * Compute pushes for all units in one batch.
 	 * @param units - compact state of all units
 	 * @param dt - timestep
-	 * @param spatialGrid, filledCells - kept by the caller between turns, see BuildSpatialGrid.
+	 * @param grids - kept by the caller between turns, see SpatialGrids.
 	 * @param outPushes - output push vectors for each unit
 	 * @param outSpins - output spin, in radians per second, for each unit. Always zero for a circular
 	 *        body, which cannot be pushed off its own centre.
@@ -181,8 +216,7 @@ public:
 	static void ComputePushes(
 		const std::vector<MotionStateCompact>& units,
 		fixed dt,
-		Grid<std::vector<size_t>>& spatialGrid,
-		std::vector<std::pair<int, int>>& filledCells,
+		SpatialGrids& grids,
 		std::vector<CFixedVector2D>& outPushes,
 		std::vector<fixed>& outSpins,
 		std::vector<CFixedVector2D>& outVelocityChanges,
@@ -192,14 +226,14 @@ public:
 
 private:
 	/**
-	 * Sort the units into cells of gridSize metres, skipping ignored ones. The grid and filledCells are kept
-	 * between turns by the caller: only the cells filled last turn are cleared, and the grid is only resized
-	 * when its shape changes. filledCells lists the cells holding at least one unit, in the order they were
-	 * first filled.
+	 * Sort the units of tier @p tierIndex into that tier's cells, sized to twice its longest reach. The grid
+	 * spans @p minCorner to @p maxCorner - every unit on the map, not only this tier's - with a cell of slack
+	 * around it, so that a unit of a higher tier scanning this grid is always inside it, and a unit exactly
+	 * on the edge still has its neighbouring cells inside. An unused tier is only cleared.
 	 */
-	static void BuildSpatialGrid(const std::vector<MotionStateCompact>& units, int gridSize,
-								  Grid<std::vector<size_t>>& spatialGrid, std::vector<std::pair<int, int>>& filledCells,
-								  int& gridWidth, int& gridHeight);
+	static void BuildSpatialGrid(const std::vector<MotionStateCompact>& units, const std::vector<int>& tierOf,
+								  int tierIndex, const CFixedVector2D& minCorner, const CFixedVector2D& maxCorner,
+								  SpatialGridTier& tier);
 
 	static void ComputePairPush(
 		const MotionStateCompact& a,

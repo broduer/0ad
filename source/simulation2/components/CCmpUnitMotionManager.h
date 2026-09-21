@@ -18,6 +18,7 @@
 #ifndef INCLUDED_CCMPUNITMOTIONMANAGER
 #define INCLUDED_CCMPUNITMOTIONMANAGER
 
+#include "graphics/Color.h"
 #include "maths/Fixed.h"
 #include "maths/FixedVector2D.h"
 #include "simulation2/components/ICmpUnitMotionManager.h"
@@ -56,9 +57,8 @@ public:
 
 	bool m_ComputingMotion;
 
-	// Spatial grid for UnitCollision, and the cells it filled last turn. Only cleared between turns, not reallocated.
-	Grid<std::vector<size_t>> m_PushGrid;
-	std::vector<std::pair<int, int>> m_PushGridFilledCells;
+	// The spatial grids of the pushing pass. Only cleared between turns, not reallocated.
+	UnitCollision::SpatialGrids m_PushGrids;
 
 	static std::string GetSchema()
 	{
@@ -111,6 +111,8 @@ private:
 	void Move(EntityMap<MotionState>& ents, fixed dt);
 
 	// Debug rendering, only defined when DEBUG_RENDER is enabled in CCmpUnitMotion_System.cpp.
+	void RenderPushGridCell(const UnitCollision::SpatialGridTier& tier, int cellX, int cellZ, fixed height,
+						const CColor& color);
 	void RenderForceVector(const MotionState& state,
 						const CFixedVector2D& force,
 						bool wasObstructed);

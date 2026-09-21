@@ -454,8 +454,25 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 		std::vector<fixed> collisionHitSpins;
 		std::vector<UnitCollision::ContactHit> collisionHits;
 		std::vector<uint8_t> collisionPressures;
-		UnitCollision::ComputePushes(compactStates, dt, m_PushGrid, m_PushGridFilledCells, collisionForces,
+		UnitCollision::ComputePushes(compactStates, dt, m_PushGrids, collisionForces,
 			collisionSpins, collisionVelocityChanges, collisionHitSpins, collisionHits, collisionPressures);
+
+#if DEBUG_RENDER
+		// The cells the pushing pass searched this turn, each drawn at the height of a unit in it, coloured
+		// by tier: yellow for the small bodies, then orange, red and magenta for each band of reach above.
+		static const CColor tierColors[]{CColor(1, 1, 0, 1), CColor(1, 0.5f, 0, 1), CColor(1, 0, 0, 1), CColor(1, 0, 1, 1)};
+		for (size_t t = 0; t < m_PushGrids.tiers.size(); ++t)
+		{
+			const UnitCollision::SpatialGridTier& tier{m_PushGrids.tiers[t]};
+			for (const std::pair<int, int>& cell : tier.filledCells)
+			{
+				const std::vector<size_t>& members{tier.grid.get(cell.first, cell.second)};
+				if (!members.empty())
+					RenderPushGridCell(tier, cell.first, cell.second, motionStates[members[0]]->cmpPosition->GetHeightFixed(),
+						tierColors[std::min<size_t>(t, 3)]);
+			}
+		}
+#endif
 
 		if (impulseQueue && !collisionForces.empty())
 		{
@@ -711,6 +728,28 @@ void CCmpUnitMotionManager::ClearDebugData()
 	debugDataMotionMgr.m_Spheres.clear();
 	debugDataMotionMgr.m_Lines.clear();
 	debugDataMotionMgr.m_Quads.clear();
+}
+
+void CCmpUnitMotionManager::RenderPushGridCell(const UnitCollision::SpatialGridTier& tier, const int cellX,
+	const int cellZ, const fixed height, const CColor& color)
+{
+	const entity_pos_t minX{tier.minX + tier.cellSize * cellX};
+	const entity_pos_t minZ{tier.minZ + tier.cellSize * cellZ};
+	const entity_pos_t maxX{minX + tier.cellSize};
+	const entity_pos_t maxZ{minZ + tier.cellSize};
+
+	SOverlayLine outline;
+	const auto addCorner = [&](const entity_pos_t x, const entity_pos_t z) {
+		outline.PushCoords(CVector3D(x.ToFloat(), height.ToFloat() + 2.f, z.ToFloat()));
+	};
+	addCorner(minX, minZ);
+	addCorner(maxX, minZ);
+	addCorner(maxX, maxZ);
+	addCorner(minX, maxZ);
+	addCorner(minX, minZ);
+
+	outline.m_Color = color;
+	debugDataMotionMgr.m_Lines.push_back(outline);
 }
 
 void CCmpUnitMotionManager::RenderForceVector(

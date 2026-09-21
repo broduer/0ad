@@ -891,12 +891,11 @@ public:
 		std::vector<CFixedVector2D>& pushes, std::vector<fixed>& spins, std::vector<CFixedVector2D>& velocityChanges,
 		std::vector<UnitCollision::ContactHit>& hits)
 	{
-		Grid<std::vector<size_t>> grid;
-		std::vector<std::pair<int, int>> filledCells;
+		UnitCollision::SpatialGrids grids;
 		std::vector<fixed> hitSpins;
 		std::vector<uint8_t> pressures;
 
-		UnitCollision::ComputePushes({a, b}, PushConfig::IMPACT_REFERENCE_TIME, grid, filledCells, pushes, spins,
+		UnitCollision::ComputePushes({a, b}, PushConfig::IMPACT_REFERENCE_TIME, grids, pushes, spins,
 			velocityChanges, hitSpins, hits, pressures);
 	}
 
@@ -984,11 +983,11 @@ public:
 	}
 	void test_Pushing_visits_every_pair_across_cells()
 	{
-		// The pass sweeps the spatial grid cell by cell and takes each pair of cells one way round. Four
-		// rows of units a metre apart, each row longer than a cell, straddle cell boundaries along x, along
-		// z and on both diagonals; what each unit ends up pushed by must be the sum of what every pair gives
-		// it on its own.
-		const UnitCollision::CollisionShape circle{entity_pos_t::FromFraction(8, 10), entity_pos_t::Zero(), false};
+		// The pass sweeps the spatial grid cell by cell and takes each pair of cells one way round, and the
+		// large bodies search the cells around them. Rows of units a metre apart, each row longer than a
+		// cell, straddle cell boundaries along x, along z and on both diagonals; what each unit ends up
+		// pushed by must be the sum of what every pair gives it on its own.
+		const UnitCollision::CollisionShape circle{entity_pos_t::FromFraction(8, 10), entity_pos_t::Zero(), false, false};
 		std::vector<UnitCollision::MotionStateCompact> units;
 		for (int k = 0; k < 16; ++k)
 		{
@@ -1000,16 +999,29 @@ public:
 			add(CFixedVector2D{fixed::FromInt(130), fixed::FromInt(100) + step});
 			add(CFixedVector2D{fixed::FromInt(150) + step, fixed::FromInt(100) + step});
 			add(CFixedVector2D{fixed::FromInt(170) + step, fixed::FromInt(115) - step});
+			// A column of footmen along a warship's side: the ship is tiers above them and has to find them
+			// across several of their cells by itself.
+			add(CFixedVector2D{fixed::FromInt(208), fixed::FromInt(92) + step});
 		}
+		// Two warships (12 x 48, so a reach of 26 m) abreast, and an elephant-sized circle beside the first:
+		// three tiers, each pair of tiers found by the higher one scanning the lower one's grid.
+		const UnitCollision::CollisionShape ship{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromInt(12), entity_pos_t::FromInt(48))};
+		const UnitCollision::CollisionShape elephant{entity_pos_t::FromInt(3), entity_pos_t::Zero(), false, false};
+		units.push_back(MakeUnit(static_cast<entity_id_t>(units.size() + 1), CFixedVector2D{fixed::FromInt(200), fixed::FromInt(100)}, ship));
+		units.push_back(MakeUnit(static_cast<entity_id_t>(units.size() + 1), CFixedVector2D{fixed::FromInt(215), fixed::FromInt(100)}, ship));
+		units.push_back(MakeUnit(static_cast<entity_id_t>(units.size() + 1), CFixedVector2D{fixed::FromInt(192), fixed::FromInt(125)}, elephant));
 
-		Grid<std::vector<size_t>> grid;
-		std::vector<std::pair<int, int>> filledCells;
+		UnitCollision::SpatialGrids grids;
 		std::vector<CFixedVector2D> pushes, velocityChanges;
 		std::vector<fixed> spins, hitSpins;
 		std::vector<UnitCollision::ContactHit> hits;
 		std::vector<uint8_t> pressures;
-		UnitCollision::ComputePushes(units, PushConfig::IMPACT_REFERENCE_TIME, grid, filledCells, pushes, spins,
+		UnitCollision::ComputePushes(units, PushConfig::IMPACT_REFERENCE_TIME, grids, pushes, spins,
 			velocityChanges, hitSpins, hits, pressures);
+		// Footmen, the elephant and the ships each fall in their own tier.
+		TS_ASSERT_EQUALS(grids.tiers.size(), static_cast<size_t>(4));
+		TS_ASSERT(grids.tiers[0].used && grids.tiers[1].used && !grids.tiers[2].used && grids.tiers[3].used);
 
 		std::vector<CFixedVector2D> expected(units.size());
 		size_t pushingPairs{0};
@@ -1421,14 +1433,13 @@ public:
 	{
 		std::vector<CFixedVector2D> pushes;
 		std::vector<fixed> spins;
-		std::vector<CFixedVector2D> velocityChanges;
-		Grid<std::vector<size_t>> grid;
-		std::vector<std::pair<int, int>> filledCells;
-		std::vector<fixed> hitSpins;
 		std::vector<UnitCollision::ContactHit> hits;
+		std::vector<CFixedVector2D> velocityChanges;
+		UnitCollision::SpatialGrids grids;
+		std::vector<fixed> hitSpins;
 		std::vector<uint8_t> pressures;
 
-		UnitCollision::ComputePushes(units, PushConfig::IMPACT_REFERENCE_TIME, grid, filledCells, pushes, spins,
+		UnitCollision::ComputePushes(units, PushConfig::IMPACT_REFERENCE_TIME, grids, pushes, spins,
 			velocityChanges, hitSpins, hits, pressures);
 		return velocityChanges;
 	}
