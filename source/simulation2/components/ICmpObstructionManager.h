@@ -82,6 +82,9 @@ public:
 		tag_t() : n(0) {}
 		explicit tag_t(std::uint32_t n) : n(n) {}
 		bool valid() const { return n != 0; }
+		// Unit shapes and static shapes are kept in separate lists, and the low bit of a tag says which
+		// list it indexes (see the tag macros in CCmpObstructionManager.cpp).
+		bool IsUnit() const { return (n & 1) == 0; }
 
 		std::uint32_t n;
 	};
@@ -412,15 +415,24 @@ class ControlGroupMovementObstructionFilter : public IObstructionTestFilter
 {
 	bool m_AvoidMoving;
 	entity_id_t m_Group;
+	bool m_AvoidUnits;
 
 public:
-	ControlGroupMovementObstructionFilter(bool avoidMoving, entity_id_t group) :
-		m_AvoidMoving(avoidMoving), m_Group(group)
+	/**
+	 * @param avoidUnits - whether unit shapes block at all. A unit's shape is a circle of its pathfinding
+	 *        clearance, which for a ship is a shore margin far wider than its body, so a solid unit passes
+	 *        them and leaves solid against solid to pushing, which has the true shape.
+	 */
+	ControlGroupMovementObstructionFilter(bool avoidMoving, entity_id_t group, bool avoidUnits = true) :
+		m_AvoidMoving(avoidMoving), m_Group(group), m_AvoidUnits(avoidUnits)
 	{}
 
-	virtual bool TestShape(tag_t, flags_t flags, entity_id_t group, entity_id_t group2) const
+	virtual bool TestShape(tag_t tag, flags_t flags, entity_id_t group, entity_id_t group2) const
 	{
 		if (group == m_Group || (group2 != INVALID_ENTITY && group2 == m_Group))
+			return false;
+
+		if (!m_AvoidUnits && tag.IsUnit())
 			return false;
 
 		if (!(flags & ICmpObstructionManager::FLAG_BLOCK_MOVEMENT))
@@ -554,10 +566,12 @@ class SkipTagAndControlGroupObstructionFilter : public IObstructionTestFilter
 	entity_id_t m_Group;
 	tag_t m_Tag;
 	bool m_AvoidMoving;
+	bool m_AvoidUnits;
 
 public:
-	SkipTagAndControlGroupObstructionFilter(tag_t tag, bool avoidMoving,  entity_id_t group) :
-	m_Tag(tag), m_Group(group), m_AvoidMoving(avoidMoving)
+	// avoidUnits: as for ControlGroupMovementObstructionFilter.
+	SkipTagAndControlGroupObstructionFilter(tag_t tag, bool avoidMoving,  entity_id_t group, bool avoidUnits = true) :
+	m_Tag(tag), m_Group(group), m_AvoidMoving(avoidMoving), m_AvoidUnits(avoidUnits)
 	{}
 
 	virtual bool TestShape(tag_t tag, flags_t flags, entity_id_t group, entity_id_t group2) const
@@ -566,6 +580,9 @@ public:
 			return false;
 
 		if (group == m_Group || (group2 != INVALID_ENTITY && group2 == m_Group))
+			return false;
+
+		if (!m_AvoidUnits && tag.IsUnit())
 			return false;
 
 		if ((flags & ICmpObstructionManager::FLAG_MOVING) && !m_AvoidMoving)

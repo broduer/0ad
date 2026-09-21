@@ -56,6 +56,33 @@
     <!-- This controls the decay rate, 1 never decays, 0 decays entirely every turn. -->
     <PressureDecay>0.6</PressureDecay>
 
+    <!-- Solid units (PhysicalBody/Solid: ships, the largest elephants) collide as their footprint, and -->
+    <!-- two of them that touch while closing on each other are stopped rigidly. -->
+    <!-- Two solid units soft push each other from further off than the ones above, so they are turned -->
+    <!-- around by the soft push before they touch, and fewer of their contacts are rigid stops. -->
+    <!-- A solid unit and a non-solid one keep the pushing radius above. -->
+    <!-- Actual pushing radius between two non-moving solid units is: -->
+    <!-- Radius * PushingRadius + SolidStaticExtension -->
+    <SolidStaticExtension>1.5</SolidStaticExtension>
+
+    <!-- Actual pushing radius between two solid units, either moving, is: -->
+    <!-- Radius * PushingRadius + SolidMovingExtension -->
+    <SolidMovingExtension>12</SolidMovingExtension>
+
+    <!-- How much harder two solid units soft push each other, on top of the push growing with their size. -->
+    <!-- A stronger push turns them around from closer, so it allows shorter extensions above. A solid unit -->
+    <!-- and a non-solid one keep the plain push: it goes both ways, and would hold the solid unit off the -->
+    <!-- crowd as much as the crowd off it. -->
+    <SolidPushScale>1</SolidPushScale>
+    <!-- Two touching solid units closing slower than this (in m/s) are left to the push rather than -->
+    <!-- stopped, so a herd walking shoulder to shoulder isn't halted at every brush. Never more than -->
+    <!-- half of what the push moves them apart by in a turn, whatever this says. -->
+    <SolidBrushSpeed>3</SolidBrushSpeed>
+    <!-- A soft push landing off a solid unit's centre also turns it. This is the share of the physical -->
+    <!-- spin it gets: the push eases overlaps apart every turn, and a full spin keeps twisting a unit on -->
+    <!-- an order against its own steering. 1 is the physical answer, 0 never turns it. -->
+    <SolidPushSpin>0.35</SolidPushSpin>
+
   </Pushing>
 
   <PassabilityClasses>

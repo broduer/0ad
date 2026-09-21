@@ -50,6 +50,18 @@ void ImpactEffects::AddRollImpulse(MotionState& state, const fixed impulse)
 	state.rollAngle = ClampSymmetric(state.rollAngle, state.maxRollAngle);
 }
 
+fixed ImpactEffects::RollFromVelocityChange(const MotionState& state, const CFixedVector2D& velocityChange)
+{
+	if (state.maxRollAngle <= fixed::Zero() || velocityChange.IsZero())
+		return fixed::Zero();
+
+	const ChargeConfig::Values& config{ChargeConfig::Get()};
+	const CFixedVector2D right{HeadingControl::FacingDirection(state.angle).Perpendicular()};
+	const fixed roll{ClampSymmetric(velocityChange.Dot(right).Multiply(config.rollStrength),
+		state.maxRollAngle.Multiply(config.rollMaxVelocityScale))};
+	return roll.Absolute() < config.rollImpulseMin ? fixed::Zero() : roll;
+}
+
 void ImpactEffects::IntegrateSpin(MotionState& state, const fixed dt)
 {
 	if (state.impactAngularVelocity.IsZero())

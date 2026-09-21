@@ -20,6 +20,7 @@
 
 #include "simulation2/system/Interface.h"
 #include "simulation2/helpers/Position.h"
+#include "simulation2/helpers/UnitCollision.h"
 
 #include <cstdint>
 
@@ -39,6 +40,12 @@ public:
 
 	// Per-unit property accessors
 	virtual entity_pos_t GetWeight() const = 0;
+
+	/**
+	 * The shape this unit collides with: the circle of its pathfinding clearance, or its footprint outline
+	 * if it is solid (PhysicalBody/Solid). See UnitCollision::DeriveCollisionShape.
+	 */
+	virtual UnitCollision::CollisionShape GetCollisionShape() const = 0;
 
 	virtual bool IsPushingEnabled() const = 0;
 

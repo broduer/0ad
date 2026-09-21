@@ -2,7 +2,14 @@
 <!-- How a hit spins and rolls a unit, for all units. -->
 <!-- Values outside their bounds are ignored with a warning, and the default is used. -->
 <Charge>
-    <!-- Roll is a visual flourish, not physics: a hull shoved sideways leans -->
+  <!-- A hit landing away from the target's centre of mass also turns it, by -->
+  <!-- as much as the lever and the hull's moment of inertia say. That needs -->
+  <!-- no strength of its own; this only scales the result for taste, so 1 is -->
+  <!-- the physical answer and 0 disables spin. -->
+  <!-- Bounds: 0 or more. -->
+  <SpinScale>1.0</SpinScale>
+
+  <!-- Roll is a visual flourish, not physics: a hull shoved sideways leans -->
   <!-- the way it was shoved. Roll impulse per unit of sideways velocity -->
   <!-- change, capped at RollMaxVelocity. -->
   <!-- Bounds: 0 or more. -->

@@ -37,6 +37,12 @@ public:
 	static constexpr entity_pos_t PRESSURE_STATIC_FACTOR = entity_pos_t::FromInt(2);
 	static constexpr int PRESSURE_DISTANCE_FACTOR = 5;
 	static constexpr int PUSHING_GRID_SIZE = 20;  // meters per grid cell
+	// The body radius (the 'default' passability class clearance) the per-turn push amounts above were tuned
+	// at. A full push moves a unit about a quarter of a metre a turn whatever its size: a third of a
+	// footman's radius, a twenty-fourth of a warship's beam. Bodies that collide as their footprint (ships,
+	// the largest elephants) scale their pushes up by the square root of their radius over this one
+	// (see UnitCollision::ComputePairPush for why not the ratio itself).
+	static constexpr entity_pos_t REFERENCE_RADIUS = entity_pos_t::FromFraction(4, 5);
 	// Seconds that decay factors (e.g. Drifting) are defined over, so the effects last as long at any turn length.
 	// 0.2 s is the single player turn length the effects were tuned at.
 	static constexpr fixed IMPACT_REFERENCE_TIME = fixed::FromFraction(1, 5);
@@ -77,6 +83,21 @@ public:
 		entity_pos_t minimalPushing;
 		entity_pos_t pressureStrength;
 		entity_pos_t pressureDecay;
+		// The extensions between two solid units, in place of the ones above, in metres. A body pushed from
+		// further away is turned around by the soft push before it touches, so fewer of its contacts are
+		// rigid ones. Solid against non-solid keeps the plain extensions.
+		entity_pos_t solidMovingPushExtension;
+		entity_pos_t solidStaticPushExtension;
+		// How much harder two solid units push each other than their size alone gives (see
+		// UnitCollision::ComputePairPush). Solid against non-solid keeps the plain push.
+		entity_pos_t solidPushScale;
+		// The fastest approach between two touching solid bodies that is still a brush, left to the soft
+		// push rather than stopped by a contact impulse (see UnitCollision::ComputePairPush), in m/s.
+		entity_pos_t solidBrushSpeed;
+		// The share of the physical spin a soft push gives a solid unit when it lands off its centre. The soft
+		// push eases an overlap apart every turn, and its full spin twists a unit on an order against its own
+		// steering turn after turn.
+		entity_pos_t solidPushSpin;
 
 		bool IsEnabled() const { return radiusMultiplier != entity_pos_t::Zero(); }
 
@@ -90,6 +111,11 @@ public:
 			minimalPushing = entity_pos_t::FromFraction(2, 10);  // 0.2
 			pressureStrength = entity_pos_t::FromInt(1);
 			pressureDecay = entity_pos_t::FromInt(6) / 10;  // 0.6
+			solidMovingPushExtension = entity_pos_t::FromInt(15) / 2;  // 7.5 meters
+			solidStaticPushExtension = entity_pos_t::FromInt(6);  // 6 meters
+			solidPushScale = entity_pos_t::FromInt(1);
+			solidBrushSpeed = entity_pos_t::FromInt(3);  // m/s
+			solidPushSpin = entity_pos_t::FromFraction(1, 4);
 		}
 
 		// Validation helper
@@ -123,6 +149,17 @@ public:
 				pressureDecay = entity_pos_t::Zero();
 			if (pressureDecay > entity_pos_t::FromInt(1))
 				pressureDecay = entity_pos_t::FromInt(1);
+
+			if (solidMovingPushExtension < entity_pos_t::Zero())
+				solidMovingPushExtension = entity_pos_t::Zero();
+			if (solidStaticPushExtension < entity_pos_t::Zero())
+				solidStaticPushExtension = entity_pos_t::Zero();
+			if (solidPushScale < entity_pos_t::Zero())
+				solidPushScale = entity_pos_t::Zero();
+			if (solidBrushSpeed < entity_pos_t::Zero())
+				solidBrushSpeed = entity_pos_t::Zero();
+			if (solidPushSpin < entity_pos_t::Zero())
+				solidPushSpin = entity_pos_t::Zero();
 		}
 	};
 
@@ -215,6 +252,26 @@ public:
 
 			m_RuntimeConfig.pressureDecay = pressureDecayNode.ToFixed();
 		}
+
+		const CParamNode solidMovingExtensionNode = pushingNode.GetChild("SolidMovingExtension");
+		if (solidMovingExtensionNode.IsOk())
+			m_RuntimeConfig.solidMovingPushExtension = solidMovingExtensionNode.ToFixed();
+
+		const CParamNode solidStaticExtensionNode = pushingNode.GetChild("SolidStaticExtension");
+		if (solidStaticExtensionNode.IsOk())
+			m_RuntimeConfig.solidStaticPushExtension = solidStaticExtensionNode.ToFixed();
+
+		const CParamNode solidPushScaleNode = pushingNode.GetChild("SolidPushScale");
+		if (solidPushScaleNode.IsOk())
+			m_RuntimeConfig.solidPushScale = solidPushScaleNode.ToFixed();
+
+		const CParamNode solidBrushSpeedNode = pushingNode.GetChild("SolidBrushSpeed");
+		if (solidBrushSpeedNode.IsOk())
+			m_RuntimeConfig.solidBrushSpeed = solidBrushSpeedNode.ToFixed();
+
+		const CParamNode solidPushSpinNode = pushingNode.GetChild("SolidPushSpin");
+		if (solidPushSpinNode.IsOk())
+			m_RuntimeConfig.solidPushSpin = solidPushSpinNode.ToFixed();
 
 		// Apply validation to all values
 		m_RuntimeConfig.Validate();

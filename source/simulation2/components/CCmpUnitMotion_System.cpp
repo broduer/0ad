@@ -28,6 +28,7 @@
 #include "ps/Profiler2.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/CCmpUnitMotionManager.h"
+#include "simulation2/components/ICmpObstruction.h"
 #include "simulation2/components/ICmpObstructionManager.h"
 #include "simulation2/components/ICmpPathfinder.h"
 #include "simulation2/components/ICmpPosition.h"
@@ -185,6 +186,7 @@ struct SerializeHelper<MotionState>
 		// Turning, roll and collision state: all of it affects later turns, so it must survive saving/loading and rejoining.
 		serialize.NumberFixed_Unbounded("angular_velocity", value.angularVelocity);
 		serialize.NumberFixed_Unbounded("impact_angular_velocity", value.impactAngularVelocity);
+		serialize.NumberFixed_Unbounded("push_spin", value.pushSpin);
 		serialize.NumberFixed_Unbounded("roll_angle", value.rollAngle);
 		serialize.NumberFixed_Unbounded("roll_velocity", value.rollVelocity);
 		serialize.Bool("predicted_collision", value.predictedCollision);
@@ -356,6 +358,7 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			it->second.impulseForce = CFixedVector2D{};
 			it->second.impulseVelocity = CFixedVector2D{};
 			it->second.impulsePressure = 0;
+			it->second.impulseSpin = fixed::Zero();
 
 			if (!it->second.cmpPosition->IsInWorld())
 			{
@@ -381,6 +384,12 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			UnitCollision::MotionStateCompact compact;
 			compact.entity = it->first;
 			compact.position = it->second.pos;
+			compact.angle = it->second.angle;
+			// The momentum the unit carries into this turn: where its mass is really going, rather than where it
+			// faces. Not last turn's displacement, which also holds last turn's soft push: that push only eased
+			// an overlap apart, and read as closing on the neighbour on the other side it would earn the unit a
+			// contact impulse back, and a unit caught between two would be thrown back and forth.
+			compact.velocity = it->second.cmpUnitMotion->CarriedVelocity(it->second, dt);
 			compact.clearance = it->second.cmpUnitMotion->GetUnitClearance();
 			compact.isMoving = it->second.isMoving;
 			compact.ignore = it->second.ignore;
@@ -388,6 +397,10 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			compact.weight = it->second.cmpPhysicalBody ?
 				it->second.cmpPhysicalBody->GetWeight() :
 				entity_pos_t::FromInt(10);
+			// Without a PhysicalBody the unit keeps the plain clearance circle.
+			compact.collisionShape = it->second.cmpPhysicalBody ?
+				it->second.cmpPhysicalBody->GetCollisionShape() :
+				UnitCollision::CollisionShape{compact.clearance, entity_pos_t::Zero(), false, false};
 
 			compactStates.push_back(compact);
 			motionStates.push_back(&it->second);
@@ -421,20 +434,31 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 		PROFILE2("MotionMgr_GenerateCollisionForces");
 
 		std::vector<CFixedVector2D> collisionForces;
+		std::vector<fixed> collisionSpins;
+		std::vector<CFixedVector2D> collisionVelocityChanges;
+		std::vector<fixed> collisionHitSpins;
 		std::vector<uint8_t> collisionPressures;
-		UnitCollision::ComputePushes(compactStates, dt, m_PushGrid, m_PushGridFilledCells, collisionForces, collisionPressures);
+		UnitCollision::ComputePushes(compactStates, dt, m_PushGrid, m_PushGridFilledCells, collisionForces,
+			collisionSpins, collisionVelocityChanges, collisionHitSpins, collisionPressures);
 
 		if (impulseQueue && !collisionForces.empty())
 		{
 			std::vector<ImpulseRequest> requests;
 			requests.reserve(compactStates.size());
 			for (size_t i = 0; i < compactStates.size(); ++i)
-				if (!collisionForces[i].IsZero() && !compactStates[i].ignore)
-					requests.emplace_back(
-						compactStates[i].entity,
-						collisionForces[i],
-						collisionPressures[i]
-					);
+				if ((!collisionForces[i].IsZero() || !collisionVelocityChanges[i].IsZero()) && !compactStates[i].ignore)
+				{
+					// A push that lands off a long body's centre also turns it; a circular body always
+					// has a zero spin here, so nothing changes for the units that have one. A contact
+					// impulse travels as a velocity change: applied at once like a hit, not built up,
+					// with its spin as impact spin and, for a unit that can roll, the lean it gives.
+					ImpulseRequest request{compactStates[i].entity, collisionForces[i], collisionPressures[i]};
+					request.pushSpin = collisionSpins[i];
+					request.velocityChange = collisionVelocityChanges[i];
+					request.angularImpulse = collisionHitSpins[i];
+					request.rollImpulse = ImpactEffects::RollFromVelocityChange(*motionStates[i], collisionVelocityChanges[i]);
+					requests.push_back(request);
+				}
 			if (!requests.empty())
 				impulseQueue->AddImpulses(requests);
 		}
@@ -461,6 +485,7 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			MotionState& target{it->second};
 			target.impulseForce += force.force;
 			target.impulseVelocity += force.velocityChange;
+			target.impulseSpin += force.pushSpin;
 			target.impulsePressure = static_cast<uint8_t>(std::min<int>(PushConfig::MAX_PRESSURE,
 				target.impulsePressure + force.pressureIncrease));
 
@@ -488,22 +513,41 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			// IMPACT_REFERENCE_TIME, so the same hit wakes the unit at any turn length.
 			const CFixedVector2D impulse{state->impulseForce + state->impulseVelocity.Multiply(PushConfig::IMPACT_REFERENCE_TIME)};
 			const bool hasPressure{state->impulsePressure > 0};
-			const bool hasSignificantForce{impulse.CompareLength(cfg.minimalPushing) > 0};
+			// A velocity change is never dropped as too small: how small it is says nothing about whether it
+			// matters. The threshold below ignores soft pushes too weak to matter, but a contact impulse is
+			// sized to cancel exactly the speed at which two bodies are closing: a small one means two bodies
+			// drifting into each other slowly, which is the very case the threshold would otherwise let
+			// through. An attack's knockback skips it too: its size is the attack's Knockback over the unit's
+			// weight, set by the template, and a pushing threshold has no business cancelling it. (Neither has
+			// anything to do with damage, which is dealt elsewhere.)
+			const bool hasVelocityChange{!state->impulseVelocity.IsZero()};
+			const bool hasSignificantForce{hasVelocityChange || impulse.CompareLength(cfg.minimalPushing) > 0};
 
 			// Apply pressure first
 			if (hasPressure && state->cmpPhysicalBody)
 				state->cmpPhysicalBody->AddPressure(state->impulsePressure);
 
 			state->externalVelocity = CFixedVector2D{};
+			// The spin is the angular effect of the push, so it is dropped and damped with it below.
+			const fixed spinThisTurn{state->impulseSpin};
+			state->impulseSpin = fixed::Zero();
 
 			// Wake up units that received significant forces
 			if (hasSignificantForce && !state->needUpdate)
 			{
 				const entity_pos_t MIN_FORCE_TO_WAKE{entity_pos_t::FromFraction(1, 10)};
-				if (impulse.Length() > MIN_FORCE_TO_WAKE)
+				if (hasVelocityChange || impulse.Length() > MIN_FORCE_TO_WAKE)
 				{
 					state->needUpdate = true;
 					state->pos = state->initialPos;
+
+					// Flag its obstruction shape as moving for this turn. The movement check blocks a unit on
+					// idle shapes but lets it pass moving ones, leaving pushing to keep moving units apart.
+					// A pushed unit still flagged idle would be shoved into its neighbours as a wall and stop
+					// them dead. Next turn PreMove sets the flag from the unit's own move request again.
+					CmpPtr<ICmpObstruction> cmpObstruction(GetSimContext(), state->cmpUnitMotion->GetEntityId());
+					if (cmpObstruction)
+						cmpObstruction->SetMovingFlag(true);
 					state->speed = state->cmpUnitMotion->GetCurrentSpeed();
 					state->angle = state->initialAngle;
 				}
@@ -519,14 +563,24 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			const fixed damping{entity_pos_t::FromInt(PushConfig::MAX_PRESSURE - dampingCap) / PushConfig::MAX_PRESSURE};
 
 			// Collision pushes are displacements for this turn (weight ratio and dt already applied in
-			// UnitCollision::ComputePairPush), so they become a velocity over dt. Knockback is a velocity change.
-			// PerformMove carries both on as external momentum, decaying by Drifting.
-			const CFixedVector2D externalVelocity{
-				(state->impulseForce.Multiply(fixed::FromInt(1) / dt) + state->impulseVelocity).Multiply(damping)};
+			// UnitCollision::ComputePairPush), so they become a velocity over dt. Knockback and contact impulses
+			// are velocity changes. PerformMove carries both on as external momentum, decaying by Drifting.
+			const CFixedVector2D pushVelocity{state->impulseForce.Multiply(fixed::FromInt(1) / dt)};
+
+			// Pressure damping applies to the soft push only. It stands for a crowd's give: a hemmed-in unit
+			// has nowhere to go, so each further shove moves it less. A velocity change is either a hit or the
+			// contact impulse that stops two bodies closing, and neither gets softer in a crowd. Damping the
+			// contact impulse would cancel only part of the closing speed, and bodies in a cluster would keep
+			// creeping into each other.
+			// The velocity change first takes away the own momentum running against it (see
+			// MomentumModel::AbsorbVelocityChange); only the rest joins the external momentum.
+			const CFixedVector2D externalImpulse{MomentumModel::AbsorbVelocityChange(state->inertiaVelocity, state->impulseVelocity)};
+			const CFixedVector2D externalVelocity{pushVelocity.Multiply(damping) + externalImpulse};
 
 			// Ignore negligible velocities
 			if (externalVelocity.CompareLength(entity_pos_t::FromFraction(1, 100)) >= 0)
 				state->externalVelocity = externalVelocity;
+			state->impulseSpin = spinThisTurn.Multiply(damping);
 #if DEBUG_RENDER
 			RenderForceVector(*state, state->externalVelocity, state->wasObstructed);
 #endif

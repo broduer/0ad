@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -143,6 +143,17 @@ int GetPerimeterDistance(int x_max, int y_max, int x, int y);
 std::pair<int, int> GetPerimeterCoordinates(int x_max, int y_max, int k);
 
 /**
+ * Returns the point on the segment @a to @b that is closest to @p point.
+ *
+ * A zero-length segment is treated as the single point @a.
+ *
+ * The dot products below are taken on vectors relative to @a, so world coordinates are safe;
+ * the segment itself must stay short enough that its squared length fits in a fixed.
+ */
+CFixedVector2D NearestPointOnSegment(
+	const CFixedVector2D& point, const CFixedVector2D& a, const CFixedVector2D& b);
+
+/**
  * Returns the minimum Euclidean distance from the given point to
  * any point on the given segment.
  *
@@ -151,6 +162,21 @@ std::pair<int, int> GetPerimeterCoordinates(int x_max, int y_max, int k);
  */
 fixed DistanceToSegment(
 	const CFixedVector2D& point, const CFixedVector2D& a, const CFixedVector2D& b);
+
+/**
+ * Returns the minimum Euclidean distance between the segments @a0 to @a1 and @b0 to @b1,
+ * along with the pair of closest points in @p outA and @p outB.
+ *
+ * Crossing segments give zero and the crossing point. Either segment may be zero-length, which
+ * makes this a point-to-segment or point-to-point distance.
+ *
+ * Inflating each segment by a radius makes this the distance between two of unit pushing's bodies
+ * (see UnitCollision::CollisionShape): the bodies touch where it equals the sum of their radii.
+ */
+fixed DistanceSegmentToSegment(
+	const CFixedVector2D& a0, const CFixedVector2D& a1,
+	const CFixedVector2D& b0, const CFixedVector2D& b1,
+	CFixedVector2D& outA, CFixedVector2D& outB);
 
 } // namespace Geometry
 

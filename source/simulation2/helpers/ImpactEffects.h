@@ -44,6 +44,14 @@ public:
 	static void AddRollImpulse(MotionState& state, const fixed impulse);
 
 	/**
+	 * The roll impulse a hit gives a unit that can roll: a ship shoved sideways leans the way it was
+	 * shoved, and IntegrateRoll's spring rights it again. A visual flourish, not physics, so it is simply
+	 * the sideways part of the velocity change (relative to the unit's facing), scaled by RollStrength
+	 * and capped as AddRollImpulse caps. Zero for a unit that can't roll, or for a negligible lean.
+	 */
+	static fixed RollFromVelocityChange(const MotionState& state, const CFixedVector2D& velocityChange);
+
+	/**
 	 * Whether the unit still has a roll to show (it can roll, and isn't level and at rest).
 	 */
 	static bool HasRoll(const MotionState& state)

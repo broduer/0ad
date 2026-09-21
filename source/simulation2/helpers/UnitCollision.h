@@ -37,6 +37,91 @@ class UnitCollision
 {
 public:
 	/**
+	 * A unit's body: a segment of 2 * halfLength along one of the entity's axes, inflated by radius.
+	 * A halfLength of zero makes it a plain circle, which is what most units are.
+	 *
+	 * A body with a segment - a long body - is what a solid unit gets from its footprint (PhysicalBody/Solid,
+	 * see DeriveCollisionShape). Several rules treat long bodies differently from circles, because a 40 m body
+	 * passing through another is far more visible than a cavalryman brushing a footman: they push and are
+	 * pushed by idle units, turn when pushed off their centre, are stopped rigidly by what they run into,
+	 * and pass other units' obstruction shapes. They also cost more to push, since every pair one is in
+	 * measures the distance between two segments rather than two points.
+	 */
+	struct CollisionShape
+	{
+		entity_pos_t radius;
+		entity_pos_t halfLength;
+		// Whether the axis runs along the entity's width (its local X) rather than its depth (local Z).
+		bool alongWidth;
+		// A solid unit (PhysicalBody/Solid) collides as its footprint outline: it is stopped rigidly by
+		// what it runs into, turns when struck off its centre, nudges idle units aside, and passes other
+		// units' obstruction shapes. Everything else is a circle of its clearance that crowds squash
+		// together.
+		bool solid;
+
+		// A shape with no length. What matters for the geometry: a circle has no axis, no lever, and no
+		// point of contact off its centre. Not the same as not being solid: a solid unit with a square
+		// footprint is a circle here, and solid all the same.
+		bool IsCircle() const { return halfLength <= entity_pos_t::Zero(); }
+		bool IsSolid() const { return solid; }
+		// How far the body reaches from its centre, in the direction it reaches furthest.
+		entity_pos_t Extent() const { return radius + halfLength; }
+
+		/**
+		 * The body's moment of inertia per unit of mass, which is its squared radius of gyration.
+		 * Taking the body as a rectangle of 2 * radius by 2 * Extent() about its centre gives
+		 * (radius^2 + Extent()^2) / 3, so a long body resists being spun far more than a round unit
+		 * of the same size does.
+		 */
+		entity_pos_t InertiaPerMass() const;
+
+		/**
+		 * The body's axis as a segment in world space, for an entity at @p position facing @p angle.
+		 * Both ends are the position itself for a circular body, which makes every distance taken
+		 * against it a plain centre-to-centre one.
+		 */
+		void GetSegment(const CFixedVector2D& position, entity_angle_t angle,
+			CFixedVector2D& out0, CFixedVector2D& out1) const;
+	};
+
+	/**
+	 * The body a footprint gives: half its width for the radius, the rest of its length for the axis, so
+	 * that what the unit collides with is exactly the outline drawn under it when selected. A square
+	 * footprint (or a circular one, given as its diameter twice) has nothing to stretch along and is a
+	 * circle of half its side.
+	 *
+	 * Only units whose PhysicalBody asks for it (CollisionShape footprint - the ships) collide as their
+	 * footprint. Everyone else is the circle of their pathfinding clearance, which is far cheaper to push
+	 * and what the pushing distances in pathfinder.xml are tuned for.
+	 */
+	static CollisionShape DeriveCollisionShape(entity_pos_t footprintWidth, entity_pos_t footprintDepth);
+
+	/**
+	 * The spin, in radians per second, that a hit gives a body struck at @p lever from its centre.
+	 *
+	 * This is the angular half of an impulse: a body struck off-centre turns as well as moves, by
+	 * omega = cross(lever, impulse) / inertia. It is written in terms of the velocity change rather than
+	 * the impulse - cross(lever, impulse / mass) / (inertia / mass) is the same thing - so that callers
+	 * can reuse the weight damping they already apply to the linear half.
+	 *
+	 * A lever of zero, which is what every circular body has, gives no spin at all: a push through the
+	 * centre of mass cannot turn anything.
+	 */
+	static fixed SpinFromVelocityChange(const CFixedVector2D& lever, const CFixedVector2D& velocityChange,
+		entity_pos_t inertiaPerMass);
+
+	/**
+	 * Where two bodies meet: the nearest points of their axes, in @p outContactA and @p outContactB, and
+	 * the distance between those axes. Each contact is the lever its body is turned about, and the line
+	 * between them is the direction the bodies push each other along. A circular body's contact is its
+	 * own centre, so it is never turned by anything.
+	 */
+	static fixed ContactBetween(
+		const CollisionShape& a, const CFixedVector2D& positionA, entity_angle_t angleA,
+		const CollisionShape& b, const CFixedVector2D& positionB, entity_angle_t angleB,
+		CFixedVector2D& outContactA, CFixedVector2D& outContactB);
+
+	/**
 	 * Compact state structure for efficient batch processing.
 	 * Contains only the data needed for push calculations (see ComputePushes).
 	 */
@@ -44,11 +129,19 @@ public:
 	{
 		entity_id_t entity;
 		CFixedVector2D position;
+		entity_angle_t angle;
+		// How the unit actually moved last turn, in m/s: what the contact impulse reads closing speeds from.
+		CFixedVector2D velocity;
 		entity_pos_t clearance;
+		CollisionShape collisionShape;
 		entity_pos_t weight;
 		bool isMoving;
 		bool ignore;
 		entity_id_t controlGroup;
+		void GetSegment(CFixedVector2D& out0, CFixedVector2D& out1) const
+		{
+			collisionShape.GetSegment(position, angle, out0, out1);
+		}
 	};
 
 	/**
@@ -57,6 +150,13 @@ public:
 	 * @param dt - timestep
 	 * @param spatialGrid, filledCells - kept by the caller between turns, see BuildSpatialGrid.
 	 * @param outPushes - output push vectors for each unit
+	 * @param outSpins - output spin, in radians per second, for each unit. Always zero for a circular
+	 *        body, which cannot be pushed off its own centre.
+	 * @param outVelocityChanges - output contact impulses, as velocity changes in m/s, for each unit: the
+	 *        rigid half of a contact, which stops two touching bodies closing on each other at once
+	 *        (see ComputePairPush). Zero unless a solid unit is involved.
+	 * @param outHitSpins - the spin (radians/second) those contact impulses give each unit: a hit's
+	 *        angular half, integrated with impact spin rather than push spin.
 	 * @param outPressures - output pressure increases for each unit
 	 */
 	static void ComputePushes(
@@ -65,6 +165,9 @@ public:
 		Grid<std::vector<size_t>>& spatialGrid,
 		std::vector<std::pair<int, int>>& filledCells,
 		std::vector<CFixedVector2D>& outPushes,
+		std::vector<fixed>& outSpins,
+		std::vector<CFixedVector2D>& outVelocityChanges,
+		std::vector<fixed>& outHitSpins,
 		std::vector<uint8_t>& outPressures);
 
 private:
@@ -90,6 +193,12 @@ private:
 		const PushConfig::RuntimeConfig& cfg,
 		CFixedVector2D& outPushA,
 		CFixedVector2D& outPushB,
+		fixed& outSpinA,
+		fixed& outSpinB,
+		CFixedVector2D& outVelocityChangeA,
+		CFixedVector2D& outVelocityChangeB,
+		fixed& outHitSpinA,
+		fixed& outHitSpinB,
 		uint8_t& outPressureA,
 		uint8_t& outPressureB);
 };

@@ -55,7 +55,7 @@ public:
 	 * The velocity a unit steers at towards its waypoint, before blending with its inertia.
 	 * It heads straight for the waypoint at max speed, except that:
 	 * - the sideways part (relative to its facing) shrinks as the unit speeds up, the more so the higher its inertia,
-	 *   so a hull at speed carves an arc instead of sliding sideways;
+	 *   so a ship at speed carves an arc instead of sliding sideways;
 	 * - it only pushes forwards, with at least (1 - turnBraking) of full throttle, so it keeps carving while turning,
 	 *   unless it's avoiding a predicted collision.
 	 * @param toWaypoint - vector from the unit to its waypoint; if zero, the unit doesn't steer.

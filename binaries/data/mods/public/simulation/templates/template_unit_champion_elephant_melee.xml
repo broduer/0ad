@@ -24,6 +24,7 @@
     </Melee>
   </Attack>
   <PhysicalBody>
+    <Solid>true</Solid>
   </PhysicalBody>
   <Identity>
     <VisibleClasses datatype="tokens">Melee</VisibleClasses>

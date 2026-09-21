@@ -93,5 +93,6 @@
     <Inertia>10.5</Inertia>
     <TurnAcceleration>1</TurnAcceleration>
     <Cornering>0.9</Cornering>
+    <StaggerRecoveryRate>0.1</StaggerRecoveryRate>
   </UnitMotion>
 </Entity>

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -428,34 +428,111 @@ std::pair<int, int> GetPerimeterCoordinates(int x_max, int y_max, int k)
 	return std::pair<int, int>(x_max, k - 4 * quarter);
 }
 
-fixed DistanceToSegment(
+CFixedVector2D NearestPointOnSegment(
 	const CFixedVector2D& point, const CFixedVector2D& a, const CFixedVector2D& b)
 {
-	// First we need to figure out from which part of the segment we should
-	// calculate distance.
 	// We split 2D space in three spaces:
 	//               |                                |
 	//             1 |                2               | 3
 	//               A--------------------------------B
-	// Here we need  | Between A and B we need to     | Here we need
-	// distance to A | calculate distance to the line | distance to B
+	// Here the      | Between A and B the nearest    | Here the
+	// nearest point | point is the projection onto   | nearest point
+	// is A          | the segment                    | is B
 	//
-	const CFixedVector2D dir = b - a;
-	// We project the point, point A, and point B upon the direction of the
-	// segment to figure out in which space the point is.
-	const fixed pointDot = dir.Dot(point);
-	const fixed aDot = dir.Dot(a);
+	const CFixedVector2D dir{b - a};
+	const fixed lengthSquared{dir.Dot(dir)};
+	// A zero-length segment is the single point A.
+	if (lengthSquared <= fixed::Zero())
+		return a;
+
+	// How far along the segment the point projects, scaled by the segment's squared length so that
+	// the comparisons below need no division.
+	const fixed along{(point - a).Dot(dir)};
 	// The point is lying in space #1.
-	if (pointDot <= aDot)
-		return (point - a).Length();
-	const fixed bDot = dir.Dot(b);
+	if (along <= fixed::Zero())
+		return a;
 	// The point is lying in space #3.
-	if (pointDot >= bDot)
-		return (point - b).Length();
+	if (along >= lengthSquared)
+		return b;
 	// The point is lying in space #2.
-	CFixedVector2D normal = dir.Perpendicular();
-	normal.Normalize();
-	return (normal.Dot(a) - normal.Dot(point)).Absolute();
+	return a + dir.Multiply(along / lengthSquared);
+}
+
+fixed DistanceToSegment(
+	const CFixedVector2D& point, const CFixedVector2D& a, const CFixedVector2D& b)
+{
+	return (point - NearestPointOnSegment(point, a, b)).Length();
+}
+
+fixed DistanceSegmentToSegment(
+	const CFixedVector2D& a0, const CFixedVector2D& a1,
+	const CFixedVector2D& b0, const CFixedVector2D& b1,
+	CFixedVector2D& outA, CFixedVector2D& outB)
+{
+	// Everything below works on vectors relative to a segment endpoint: Dot() overflows once both
+	// operands reach a few hundred, and world coordinates run into the thousands.
+	const CFixedVector2D da{a1 - a0};
+	const CFixedVector2D db{b1 - b0};
+
+	// Whether the segments properly cross, decided by the side each endpoint falls on. Written as
+	// sign comparisons rather than solving for the intersection, so near-parallel segments can't
+	// blow up a division. Touching or collinear segments fail this test and are left to the
+	// endpoint candidates below, which find their zero distance anyway.
+	const fixed aSide0{(a0 - b0).Dot(db.Perpendicular())};
+	const fixed aSide1{(a1 - b0).Dot(db.Perpendicular())};
+	const fixed bSide0{(b0 - a0).Dot(da.Perpendicular())};
+	const fixed bSide1{(b1 - a0).Dot(da.Perpendicular())};
+
+	if (((aSide0 > fixed::Zero()) != (aSide1 > fixed::Zero())) && aSide0 != fixed::Zero() && aSide1 != fixed::Zero() &&
+	    ((bSide0 > fixed::Zero()) != (bSide1 > fixed::Zero())) && bSide0 != fixed::Zero() && bSide1 != fixed::Zero())
+	{
+		// A proper crossing means the segments aren't parallel, so this denominator is non-zero, and
+		// the fraction is strictly within (0, 1).
+		const fixed denominator{da.Dot(db.Perpendicular())};
+		const fixed along{(b0 - a0).Dot(db.Perpendicular()) / denominator};
+		outA = a0 + da.Multiply(along);
+		outB = outA;
+		return fixed::Zero();
+	}
+
+	// Otherwise the minimum is attained at an endpoint of one of the two segments, so checking all four
+	// against the opposite segment finds it.
+	const CFixedVector2D endpoints[4]{a0, a1, b0, b1};
+	CFixedVector2D nearA[4], nearB[4];
+	fixed distances[4];
+	for (int i = 0; i < 4; ++i)
+	{
+		const bool fromA{i < 2};
+		const CFixedVector2D opposite{fromA ? NearestPointOnSegment(endpoints[i], b0, b1)
+		                                    : NearestPointOnSegment(endpoints[i], a0, a1)};
+		nearA[i] = fromA ? endpoints[i] : opposite;
+		nearB[i] = fromA ? opposite : endpoints[i];
+		distances[i] = (nearA[i] - nearB[i]).Length();
+	}
+
+	fixed best{distances[0]};
+	for (int i = 1; i < 4; ++i)
+		best = std::min(best, distances[i]);
+
+	// Parallel segments are equally close along a whole stretch, not at a single point, and several
+	// candidates then tie. Averaging the tied ones lands in the middle of that stretch. Picking one
+	// arbitrarily would do just as well for the distance, but callers take a lever arm from these
+	// points, and an end of the contact rather than its middle invents a torque that isn't there.
+	const fixed tolerance{fixed::Epsilon() * 4};
+	CFixedVector2D sumA, sumB;
+	int tied{0};
+	for (int i = 0; i < 4; ++i)
+		if (distances[i] <= best + tolerance)
+		{
+			sumA += nearA[i];
+			sumB += nearB[i];
+			++tied;
+		}
+
+	outA = CFixedVector2D{sumA.X / tied, sumA.Y / tied};
+	outB = CFixedVector2D{sumB.X / tied, sumB.Y / tied};
+
+	return best;
 }
 
 } // namespace Geometry

@@ -35,6 +35,9 @@ class ChargeConfig
 public:
 	struct Values
 	{
+		// Spin is the angular half of the hit's own impulse, so it needs no strength of its own; this only
+		// scales the physical result up or down for taste.
+		fixed spinScale{fixed::FromInt(1)};
 		fixed rollStrength{fixed::FromFraction(1, 10)};      // Roll impulse per unit of sideways velocity change
 		fixed rollImpulseMin{fixed::FromFraction(1, 1000)};  // Smaller roll impulses are dropped
 
@@ -78,6 +81,7 @@ public:
 		const fixed one{fixed::FromInt(1)};
 		const fixed unbounded{std::numeric_limits<fixed>::max()};
 
+		Read(node, "SpinScale", values.spinScale, zero, unbounded);
 		Read(node, "RollStrength", values.rollStrength, zero, unbounded);
 		Read(node, "RollImpulseMin", values.rollImpulseMin, zero, unbounded);
 		Read(node, "SpinMaxVelocity", values.spinMaxVelocity, zero, unbounded);

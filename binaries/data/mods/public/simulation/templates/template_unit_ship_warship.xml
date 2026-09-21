@@ -44,6 +44,7 @@
   </UnitMotion>
   <PhysicalBody>
     <Weight>200</Weight>
+    <Solid>true</Solid>
     <MaxRollAngle>0.6</MaxRollAngle>
   </PhysicalBody>
   <Vision>

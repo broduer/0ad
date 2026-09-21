@@ -123,12 +123,48 @@ public:
 	}
 
 	/**
+	 * Split a velocity change (a contact impulse or a knockback) between the unit's own momentum and its external
+	 * momentum. The part of the own momentum that runs against the change is cancelled first, caped to the change's
+	 * size: a unit stopped by what it runs into loses that speed.
+	 */
+	static CFixedVector2D AbsorbVelocityChange(CFixedVector2D& ownVelocity, const CFixedVector2D& velocityChange)
+	{
+		if (velocityChange.IsZero() || ownVelocity.IsZero())
+			return velocityChange;
+		const fixed size{velocityChange.Length()};
+		if (size <= fixed::Zero())
+			return velocityChange;
+		const CFixedVector2D direction{velocityChange.Multiply(fixed::FromInt(1) / size)};
+		const fixed against{-ownVelocity.Dot(direction)};
+		if (against <= fixed::Zero())
+			return velocityChange;
+		const fixed cancelled{std::min(against, size)};
+		ownVelocity += direction.Multiply(cancelled);
+		return velocityChange - direction.Multiply(cancelled);
+	}
+
+	/**
 	 * Next turn's external inertia: what carried over from past pushes plus what was applied this turn,
 	 * snapped to zero once negligible so it fully decays.
 	 */
 	static CFixedVector2D CarryExternalInertia(const CFixedVector2D& carried, const CFixedVector2D& applied)
 	{
 		return SnapNegligible(carried + applied);
+	}
+
+	// Spins slower than this (radians/second) are dropped for the same reason as NEGLIGIBLE_SPEED: a
+	// decaying spin never reaches zero on its own in fixed point, and would turn the unit by a raw unit a
+	// turn forever.
+	static constexpr fixed NEGLIGIBLE_SPIN{fixed::FromFraction(1, 100)};
+
+	/**
+	 * Next turn's carried push spin: what was carried into this turn plus what this turn's pushes added,
+	 * or exactly zero once it is negligible. The scalar counterpart of CarryExternalInertia.
+	 */
+	static fixed CarryPushSpin(const fixed carried, const fixed applied)
+	{
+		const fixed sum{carried + applied};
+		return sum.Absolute() < NEGLIGIBLE_SPIN ? fixed::Zero() : sum;
 	}
 };
 

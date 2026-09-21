@@ -19,13 +19,18 @@
 
 #include "maths/Fixed.h"
 #include "maths/FixedVector2D.h"
+#include "simulation2/components/ICmpObstructionManager.h"
+#include "simulation2/helpers/ChargeConfig.h"
+#include "simulation2/helpers/Geometry.h"
 #include "simulation2/helpers/HeadingControl.h"
 #include "simulation2/helpers/ImpactEffects.h"
 #include "simulation2/helpers/MotionState.h"
 #include "simulation2/helpers/MomentumModel.h"
 #include "simulation2/helpers/PathFollowing.h"
 #include "simulation2/helpers/Pathfinding.h"
+#include "simulation2/helpers/UnitCollision.h"
 
+#include <cmath>
 #include <vector>
 #include "simulation2/helpers/Position.h"
 
@@ -248,6 +253,40 @@ public:
 		const CFixedVector2D slow{fixed::FromFraction(3, 10), fixed::FromFraction(3, 10)};
 		TS_ASSERT_EQUALS(MomentumModel::SnapBelow(slow, fixed::FromFraction(1, 2)), CFixedVector2D{});
 		TS_ASSERT_EQUALS(MomentumModel::SnapBelow(slow, fixed::FromFraction(4, 10)), slow);
+	}
+
+	void test_AbsorbVelocityChange()
+	{
+		const CFixedVector2D east{fixed::FromInt(6), fixed::Zero()};
+
+		// A unit walking east at 6 m/s stopped by a 4 m/s change westwards: 4 m/s of its own momentum is gone,
+		// and nothing is left to push it back.
+		CFixedVector2D own{east};
+		CFixedVector2D left{MomentumModel::AbsorbVelocityChange(own, CFixedVector2D{fixed::FromInt(-4), fixed::Zero()})};
+		TS_ASSERT_DELTA(own.X.ToDouble(), 2.0, 0.001);
+		TS_ASSERT(left.IsZero());
+
+		// A change larger than its speed: all its own momentum goes, and the rest pushes it back. Within a
+		// rounding error of the unit direction.
+		own = east;
+		left = MomentumModel::AbsorbVelocityChange(own, CFixedVector2D{fixed::FromInt(-10), fixed::Zero()});
+		TS_ASSERT_LESS_THAN(own.Length().ToDouble(), 0.01);
+		TS_ASSERT_DELTA(left.X.ToDouble(), -4.0, 0.01);
+
+		// Only the part against the change is taken: a change northwards leaves an eastward walk alone.
+		own = east;
+		left = MomentumModel::AbsorbVelocityChange(own, CFixedVector2D{fixed::Zero(), fixed::FromInt(3)});
+		TS_ASSERT_EQUALS(own, east);
+		TS_ASSERT_DELTA(left.Y.ToDouble(), 3.0, 0.001);
+
+		// A unit standing still, or going the change's way, keeps it all as external momentum.
+		own = CFixedVector2D{};
+		left = MomentumModel::AbsorbVelocityChange(own, CFixedVector2D{fixed::FromInt(-4), fixed::Zero()});
+		TS_ASSERT_DELTA(left.X.ToDouble(), -4.0, 0.001);
+		own = east;
+		left = MomentumModel::AbsorbVelocityChange(own, CFixedVector2D{fixed::FromInt(4), fixed::Zero()});
+		TS_ASSERT_EQUALS(own, east);
+		TS_ASSERT_DELTA(left.X.ToDouble(), 4.0, 0.001);
 	}
 
 	void test_CarryExternalInertia()
@@ -665,4 +704,719 @@ public:
 		TS_ASSERT(!PathFollowing::CannotReach(pos, beside, CFixedVector2D{}, fixed::Zero(), besideDistance, fixed::Zero(),
 			turnRate, fixed::FromInt(1), maxDistance));
 	}
+
+	void test_NearestPointOnSegment()
+	{
+		const CFixedVector2D a{fixed::FromInt(10), fixed::FromInt(10)};
+		const CFixedVector2D b{fixed::FromInt(20), fixed::FromInt(10)};
+
+		// Before, after and beside the segment.
+		TS_ASSERT_EQUALS(Geometry::NearestPointOnSegment(CFixedVector2D{fixed::Zero(), fixed::Zero()}, a, b), a);
+		TS_ASSERT_EQUALS(Geometry::NearestPointOnSegment(CFixedVector2D{fixed::FromInt(50), fixed::FromInt(10)}, a, b), b);
+		TS_ASSERT_EQUALS(Geometry::NearestPointOnSegment(CFixedVector2D{fixed::FromInt(15), fixed::FromInt(40)}, a, b),
+			CFixedVector2D(fixed::FromInt(15), fixed::FromInt(10)));
+
+		// A zero-length segment is its own start point.
+		TS_ASSERT_EQUALS(Geometry::NearestPointOnSegment(CFixedVector2D{fixed::FromInt(15), fixed::FromInt(40)}, a, a), a);
+	}
+
+	void test_DistanceSegmentToSegment()
+	{
+		CFixedVector2D nearA, nearB;
+
+		// Parallel, 4 m apart.
+		TS_ASSERT_EQUALS(Geometry::DistanceSegmentToSegment(
+			CFixedVector2D{fixed::Zero(), fixed::Zero()}, CFixedVector2D{fixed::FromInt(10), fixed::Zero()},
+			CFixedVector2D{fixed::Zero(), fixed::FromInt(4)}, CFixedVector2D{fixed::FromInt(10), fixed::FromInt(4)},
+			nearA, nearB), fixed::FromInt(4));
+
+		// Crossing: zero, at the crossing point.
+		TS_ASSERT_EQUALS(Geometry::DistanceSegmentToSegment(
+			CFixedVector2D{fixed::Zero(), fixed::Zero()}, CFixedVector2D{fixed::FromInt(10), fixed::FromInt(10)},
+			CFixedVector2D{fixed::Zero(), fixed::FromInt(10)}, CFixedVector2D{fixed::FromInt(10), fixed::Zero()},
+			nearA, nearB), fixed::Zero());
+		TS_ASSERT_EQUALS(nearA, nearB);
+		TS_ASSERT_DELTA(nearA.X.ToDouble(), 5.0, 0.01);
+		TS_ASSERT_DELTA(nearA.Y.ToDouble(), 5.0, 0.01);
+
+		// T-shaped, stopping 3 m short.
+		TS_ASSERT_EQUALS(Geometry::DistanceSegmentToSegment(
+			CFixedVector2D{fixed::Zero(), fixed::Zero()}, CFixedVector2D{fixed::FromInt(10), fixed::Zero()},
+			CFixedVector2D{fixed::FromInt(5), fixed::FromInt(3)}, CFixedVector2D{fixed::FromInt(5), fixed::FromInt(9)},
+			nearA, nearB), fixed::FromInt(3));
+
+		// Collinear and overlapping: touching.
+		TS_ASSERT_EQUALS(Geometry::DistanceSegmentToSegment(
+			CFixedVector2D{fixed::Zero(), fixed::Zero()}, CFixedVector2D{fixed::FromInt(10), fixed::Zero()},
+			CFixedVector2D{fixed::FromInt(5), fixed::Zero()}, CFixedVector2D{fixed::FromInt(15), fixed::Zero()},
+			nearA, nearB), fixed::Zero());
+
+		// Both degenerate: plain point to point.
+		const CFixedVector2D p{fixed::FromInt(3), fixed::FromInt(4)};
+		TS_ASSERT_EQUALS(Geometry::DistanceSegmentToSegment(CFixedVector2D{}, CFixedVector2D{}, p, p, nearA, nearB),
+			fixed::FromInt(5));
+
+		// One degenerate: the same as point to segment.
+		const CFixedVector2D a0{fixed::FromInt(1), fixed::FromInt(1)};
+		const CFixedVector2D a1{fixed::FromInt(9), fixed::FromInt(1)};
+		TS_ASSERT_EQUALS(Geometry::DistanceSegmentToSegment(a0, a1, p, p, nearA, nearB),
+			Geometry::DistanceToSegment(p, a0, a1));
+	}
+
+	void test_DistanceSegmentToSegment_meets_parallel_segments_in_the_middle()
+	{
+		CFixedVector2D nearA, nearB;
+
+		// Two segments lying alongside each other are equally close everywhere they overlap. Callers
+		// take a lever arm from these points, so the answer has to be the middle of that overlap: an end
+		// of it would read as an off-centre contact and spin a body that is being shoved square on.
+		Geometry::DistanceSegmentToSegment(
+			CFixedVector2D{fixed::Zero(), fixed::FromInt(-15)}, CFixedVector2D{fixed::Zero(), fixed::FromInt(15)},
+			CFixedVector2D{fixed::FromInt(8), fixed::FromInt(-15)}, CFixedVector2D{fixed::FromInt(8), fixed::FromInt(15)},
+			nearA, nearB);
+		TS_ASSERT_EQUALS(nearA, CFixedVector2D(fixed::Zero(), fixed::Zero()));
+		TS_ASSERT_EQUALS(nearB, CFixedVector2D(fixed::FromInt(8), fixed::Zero()));
+
+		// Offset along their length, the overlap runs from 0 to 15 and its middle is 7.5.
+		Geometry::DistanceSegmentToSegment(
+			CFixedVector2D{fixed::Zero(), fixed::FromInt(-15)}, CFixedVector2D{fixed::Zero(), fixed::FromInt(15)},
+			CFixedVector2D{fixed::FromInt(8), fixed::Zero()}, CFixedVector2D{fixed::FromInt(8), fixed::FromInt(30)},
+			nearA, nearB);
+		TS_ASSERT_EQUALS(nearA.Y, fixed::FromFraction(15, 2));
+		TS_ASSERT_EQUALS(nearB.Y, fixed::FromFraction(15, 2));
+	}
+
+	void test_DeriveCollisionShape_keeps_round_footprints_round()
+	{
+		// A square footprint has no direction to stretch along: a circle of half its side.
+		const UnitCollision::CollisionShape square{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromInt(12), entity_pos_t::FromInt(12))};
+		TS_ASSERT(square.IsCircle());
+		TS_ASSERT_EQUALS(square.radius, entity_pos_t::FromInt(6));
+		TS_ASSERT_EQUALS(square.halfLength, entity_pos_t::Zero());
+
+		// A circular footprint of radius 4 is given as its diameter both ways, and comes back as itself.
+		const UnitCollision::CollisionShape circle{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromInt(8), entity_pos_t::FromInt(8))};
+		TS_ASSERT(circle.IsCircle());
+		TS_ASSERT_EQUALS(circle.radius, entity_pos_t::FromInt(4));
+
+		// A body with no size at all - a target without a PhysicalBody - is a point, and so a circle: the
+		// rules for solid units must not apply to it.
+		const UnitCollision::CollisionShape point{entity_pos_t::Zero(), entity_pos_t::Zero(), false, false};
+		TS_ASSERT(point.IsCircle());
+	}
+
+	void test_DeriveCollisionShape_is_the_footprint()
+	{
+		// A warship's 12 x 48 footprint: the body is that outline exactly, whatever the 10 m ship clearance
+		// says. That clearance is a shore margin for the pathfinder and would give this ship, and every
+		// smaller one, the same 10 x 40 body.
+		const UnitCollision::CollisionShape ship{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromInt(12), entity_pos_t::FromInt(48))};
+		TS_ASSERT(!ship.IsCircle());
+		TS_ASSERT_EQUALS(ship.radius, entity_pos_t::FromInt(6));
+		TS_ASSERT_EQUALS(ship.halfLength, entity_pos_t::FromInt(18));
+		TS_ASSERT_EQUALS(ship.Extent(), entity_pos_t::FromInt(24));
+
+		// A fishing boat, 4 x 10, is its own small outline too: there is no size a footprint has to reach.
+		const UnitCollision::CollisionShape fishing{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromInt(4), entity_pos_t::FromInt(10))};
+		TS_ASSERT(!fishing.IsCircle());
+		TS_ASSERT_EQUALS(fishing.radius, entity_pos_t::FromInt(2));
+		TS_ASSERT_EQUALS(fishing.halfLength, entity_pos_t::FromInt(3));
+	}
+
+	void test_DeriveCollisionShape_runs_along_the_longer_side()
+	{
+		// Deeper than wide: the body runs along the entity's forward axis.
+		TS_ASSERT(!UnitCollision::DeriveCollisionShape(entity_pos_t::FromInt(3), entity_pos_t::FromInt(6)).alongWidth);
+		// Wider than deep: it runs across instead, and is the same shape.
+		const UnitCollision::CollisionShape wide{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromInt(6), entity_pos_t::FromInt(3))};
+		TS_ASSERT(wide.alongWidth);
+		TS_ASSERT_EQUALS(wide.radius,
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromInt(3), entity_pos_t::FromInt(6)).radius);
+		TS_ASSERT_EQUALS(wide.halfLength,
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromInt(3), entity_pos_t::FromInt(6)).halfLength);
+	}
+
+	void test_CollisionShape_segment_follows_the_facing()
+	{
+		const CFixedVector2D position{fixed::FromInt(100), fixed::FromInt(100)};
+		const UnitCollision::CollisionShape body{entity_pos_t::FromInt(5), entity_pos_t::FromInt(15), false};
+		CFixedVector2D start, end;
+
+		// Facing 0 is along +Z, so the body runs north-south.
+		body.GetSegment(position, entity_angle_t::Zero(), start, end);
+		TS_ASSERT_DELTA(start.X.ToDouble(), 100.0, 0.01);
+		TS_ASSERT_DELTA(start.Y.ToDouble(), 85.0, 0.01);
+		TS_ASSERT_DELTA(end.Y.ToDouble(), 115.0, 0.01);
+
+		// Turned a quarter circle, it runs east-west.
+		body.GetSegment(position, fixed::Pi() / 2, start, end);
+		TS_ASSERT_DELTA(start.X.ToDouble(), 85.0, 0.05);
+		TS_ASSERT_DELTA(start.Y.ToDouble(), 100.0, 0.05);
+
+		// A circular body has no direction to follow.
+		const UnitCollision::CollisionShape circle{entity_pos_t::FromInt(5), entity_pos_t::Zero(), false, false};
+		circle.GetSegment(position, fixed::Pi() / 2, start, end);
+		TS_ASSERT_EQUALS(start, position);
+		TS_ASSERT_EQUALS(end, position);
+	}
+
+	// A moving unit of its own, for the pushing tests below.
+	static UnitCollision::MotionStateCompact MakeUnit(entity_id_t entity, const CFixedVector2D& position,
+		const UnitCollision::CollisionShape& body, entity_angle_t angle = entity_angle_t::Zero(), bool moving = true,
+		const CFixedVector2D& velocity = CFixedVector2D{})
+	{
+		UnitCollision::MotionStateCompact unit{};
+		unit.entity = entity;
+		unit.position = position;
+		unit.angle = angle;
+		unit.clearance = body.radius;
+		unit.collisionShape = body;
+		unit.weight = entity_pos_t::FromInt(10);
+		unit.isMoving = moving;
+		unit.ignore = false;
+		unit.controlGroup = INVALID_ENTITY;
+		unit.velocity = velocity;
+		return unit;
+	}
+
+	// Everything a pair exchanges in one turn: pushes, push spins, contact impulses and hit spins.
+	static void PushPair(const UnitCollision::MotionStateCompact& a, const UnitCollision::MotionStateCompact& b,
+		std::vector<CFixedVector2D>& pushes, std::vector<fixed>& spins, std::vector<CFixedVector2D>& velocityChanges)
+	{
+		Grid<std::vector<size_t>> grid;
+		std::vector<std::pair<int, int>> filledCells;
+		std::vector<fixed> hitSpins;
+		std::vector<uint8_t> pressures;
+
+		UnitCollision::ComputePushes({a, b}, PushConfig::IMPACT_REFERENCE_TIME, grid, filledCells, pushes, spins,
+			velocityChanges, hitSpins, pressures);
+	}
+
+	static void PushPair(const UnitCollision::MotionStateCompact& a, const UnitCollision::MotionStateCompact& b,
+		std::vector<CFixedVector2D>& pushes, std::vector<fixed>& spins)
+	{
+		std::vector<CFixedVector2D> velocityChanges;
+		PushPair(a, b, pushes, spins, velocityChanges);
+	}
+
+	static bool PushesApart(const UnitCollision::MotionStateCompact& a, const UnitCollision::MotionStateCompact& b)
+	{
+		std::vector<CFixedVector2D> pushes;
+		std::vector<fixed> spins;
+		PushPair(a, b, pushes, spins);
+
+		return pushes.size() == 2 && !pushes[0].IsZero();
+	}
+
+	// How far apart two identical units can be and still push, found by bisection rather than by
+	// repeating ComputePairPush's arithmetic here.
+	static double PushReach(const UnitCollision::CollisionShape& body, entity_angle_t angle, bool alongZ)
+	{
+		double low = 0.0, high = 200.0;
+		for (int i = 0; i < 24; ++i)
+		{
+			const double mid{(low + high) / 2};
+			const fixed offset{fixed::FromDouble(mid)};
+			const CFixedVector2D other{alongZ ? CFixedVector2D{fixed::FromInt(100), fixed::FromInt(100) + offset}
+			                                  : CFixedVector2D{fixed::FromInt(100) + offset, fixed::FromInt(100)}};
+			if (PushesApart(MakeUnit(1, CFixedVector2D{fixed::FromInt(100), fixed::FromInt(100)}, body, angle),
+			                MakeUnit(2, other, body, angle)))
+				low = mid;
+			else
+				high = mid;
+		}
+		return low;
+	}
+
+	void test_Pushing_circles_reach_exactly_as_far_as_before()
+	{
+		// The distance a pair of circles push over is unchanged by bodies: combined radius, corrected and
+		// scaled, plus the moving extension. Two circular bodies must still be a plain centre-to-centre pair.
+		const entity_pos_t clearance{entity_pos_t::FromFraction(8, 10)};
+		const UnitCollision::CollisionShape circle{clearance, entity_pos_t::Zero(), false, false};
+
+		const PushConfig::RuntimeConfig& cfg{PushConfig::GetInstance().GetRuntimeConfig()};
+		const double expected{((clearance + clearance).Multiply(PushConfig::PUSHING_CORRECTION)
+			.Multiply(cfg.radiusMultiplier) + cfg.movingPushExtension).ToDouble()};
+
+		TS_ASSERT_DELTA(PushReach(circle, entity_angle_t::Zero(), true), expected, 0.01);
+		// And it is the same in every direction.
+		TS_ASSERT_DELTA(PushReach(circle, entity_angle_t::Zero(), false), expected, 0.01);
+	}
+
+	void test_Pushing_solid_bodies_reach_further_along_their_length()
+	{
+		// A warship body, its 12 x 48 footprint: 6 m of beam, 18 m of hull either side of the centre.
+		const UnitCollision::CollisionShape ship{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromInt(12), entity_pos_t::FromInt(48))};
+
+		// Facing 0, so the ships run along Z. Line astern they push from much further apart than abreast.
+		const double astern{PushReach(ship, entity_angle_t::Zero(), true)};
+		const double abreast{PushReach(ship, entity_angle_t::Zero(), false)};
+		TS_ASSERT_DELTA(astern - abreast, (ship.halfLength * 2).ToDouble(), 0.05);
+		TS_ASSERT_LESS_THAN(abreast * 2, astern);
+
+		// Turning both ships a quarter circle swaps the two.
+		const fixed quarter{fixed::Pi() / 2};
+		TS_ASSERT_DELTA(PushReach(ship, quarter, false), astern, 0.1);
+		TS_ASSERT_DELTA(PushReach(ship, quarter, true), abreast, 0.1);
+
+		// Against the 10 m clearance circle these ships used to be: tighter broadside, longer fore and aft.
+		const UnitCollision::CollisionShape disc{entity_pos_t::FromInt(10), entity_pos_t::Zero(), false, false};
+		const double circleReach{PushReach(disc, entity_angle_t::Zero(), false)};
+		TS_ASSERT_LESS_THAN(abreast, circleReach);
+		TS_ASSERT_LESS_THAN(circleReach, astern);
+	}
+	void test_InertiaPerMass()
+	{
+		// A round body: (r^2 + r^2) / 3.
+		const UnitCollision::CollisionShape circle{entity_pos_t::FromInt(3), entity_pos_t::Zero(), false, false};
+		TS_ASSERT_DELTA(circle.InertiaPerMass().ToDouble(), (9.0 + 9.0) / 3, 0.01);
+
+		// A 12 x 48 warship: radius 6, extent 24.
+		const UnitCollision::CollisionShape ship{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromInt(12), entity_pos_t::FromInt(48))};
+		TS_ASSERT_DELTA(ship.InertiaPerMass().ToDouble(), (36.0 + 576.0) / 3, 0.05);
+
+		// The same size as a circle, but far harder to spin.
+		const UnitCollision::CollisionShape disc{entity_pos_t::FromInt(10), entity_pos_t::Zero(), false, false};
+		TS_ASSERT_LESS_THAN(disc.InertiaPerMass(), ship.InertiaPerMass());
+	}
+
+	void test_SpinFromVelocityChange()
+	{
+		const entity_pos_t inertia{entity_pos_t::FromInt(100)};
+		const CFixedVector2D sideways{fixed::FromInt(4), fixed::Zero()};
+
+		// Struck through the centre: no lever, no spin, however hard.
+		TS_ASSERT_EQUALS(UnitCollision::SpinFromVelocityChange(CFixedVector2D{}, sideways, inertia), fixed::Zero());
+
+		// Struck off one end, then the other: opposite spins of the same size.
+		const CFixedVector2D bow{fixed::Zero(), fixed::FromInt(20)};
+		const fixed atBow{UnitCollision::SpinFromVelocityChange(bow, sideways, inertia)};
+		TS_ASSERT_DIFFERS(atBow, fixed::Zero());
+		TS_ASSERT_EQUALS(UnitCollision::SpinFromVelocityChange(-bow, sideways, inertia), -atBow);
+
+		// And in the right direction. The bow, out along +Z, is shoved towards +X, so the heading has to
+		// swing from +Z towards +X: a positive entity angle (see CFixedVector2D::Rotate), which is the
+		// opposite sign from a textbook cross product. This is the case that is wrong when the ships
+		// spin away from the blow instead of with it.
+		TS_ASSERT_LESS_THAN(fixed::Zero(), atBow);
+		CFixedVector2D start, end;
+		const UnitCollision::CollisionShape longBody{entity_pos_t::FromInt(5), entity_pos_t::FromInt(20), false, true};
+		longBody.GetSegment(CFixedVector2D{}, atBow.Multiply(fixed::FromFraction(1, 10)), start, end);
+		TS_ASSERT_LESS_THAN(fixed::Zero(), end.X);
+
+		// cross(lever, velocity) / inertia: 20 * 4 / 100.
+		TS_ASSERT_DELTA(atBow.Absolute().ToDouble(), 20.0 * 4 / 100, 0.01);
+
+		// A push along the lever slides the body without turning it.
+		TS_ASSERT_EQUALS(UnitCollision::SpinFromVelocityChange(bow, CFixedVector2D{fixed::Zero(), fixed::FromInt(4)},
+			inertia), fixed::Zero());
+
+		// A heavier body to turn spins less for the same blow.
+		TS_ASSERT_LESS_THAN(
+			UnitCollision::SpinFromVelocityChange(bow, sideways, inertia * 2).Absolute(), atBow.Absolute());
+
+		// Zero inertia is meaningless rather than infinite: it must not divide by it.
+		TS_ASSERT_EQUALS(UnitCollision::SpinFromVelocityChange(bow, sideways, entity_pos_t::Zero()), fixed::Zero());
+	}
+
+	void test_Pushing_circles_never_spin()
+	{
+		// The guard on the whole land game: a round body is always pushed through its own centre, so
+		// adding rotation to pushing must leave every unit with a Circle footprint exactly as it was.
+		const UnitCollision::CollisionShape circle{entity_pos_t::FromFraction(8, 10), entity_pos_t::Zero(), false, false};
+		const CFixedVector2D here{fixed::FromInt(100), fixed::FromInt(100)};
+
+		std::vector<CFixedVector2D> pushes;
+		std::vector<fixed> spins;
+		// Offset on both axes, so neither is a special case.
+		PushPair(MakeUnit(1, here, circle),
+			MakeUnit(2, here + CFixedVector2D{fixed::FromInt(1), fixed::FromInt(1)}, circle), pushes, spins);
+
+		TS_ASSERT(!pushes[0].IsZero());
+		TS_ASSERT_EQUALS(spins[0], fixed::Zero());
+		TS_ASSERT_EQUALS(spins[1], fixed::Zero());
+	}
+
+	void test_Pushing_solid_bodies_spin_when_shoved_off_centre()
+	{
+		const UnitCollision::CollisionShape ship{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromInt(12), entity_pos_t::FromInt(48))};
+		const CFixedVector2D here{fixed::FromInt(100), fixed::FromInt(100)};
+
+		std::vector<CFixedVector2D> pushes;
+		std::vector<fixed> spins;
+
+		// Both ships run along Z. Abreast and level, each is shoved square on its middle: the nearest
+		// points are the two centres, so there is no lever and no spin.
+		PushPair(MakeUnit(1, here, ship),
+			MakeUnit(2, here + CFixedVector2D{fixed::FromInt(8), fixed::Zero()}, ship), pushes, spins);
+		TS_ASSERT(!pushes[0].IsZero());
+		TS_ASSERT_EQUALS(spins[0], fixed::Zero());
+
+		// Staggered along Z by 10 m, the solid bodies overlap over a stretch whose middle is midway between the
+		// two centres: each is shoved 5 m off its own centre, one ahead of it and one astern, and with
+		// equal and opposite pushes both swing the same way - the behaviour that was simply missing before.
+		// Equal up to the rounding of fixed-point products, which round towards minus infinity: the two
+		// levers are mirror images, so the same scale factors can land an ulp apart.
+		PushPair(MakeUnit(1, here, ship),
+			MakeUnit(2, here + CFixedVector2D{fixed::FromInt(8), fixed::FromInt(10)}, ship), pushes, spins);
+		TS_ASSERT(!pushes[0].IsZero());
+		TS_ASSERT_DIFFERS(spins[0], fixed::Zero());
+		TS_ASSERT_DELTA(spins[0].ToDouble(), spins[1].ToDouble(), 0.0001);
+
+		// Overlapping only where one's bow lies alongside the other's stern, each is shoved 14 m off its
+		// own centre but at opposite ends, so both swing the overlapping end away and turn the same way.
+		PushPair(MakeUnit(1, here, ship),
+			MakeUnit(2, here + CFixedVector2D{fixed::FromInt(4), fixed::FromInt(28)}, ship), pushes, spins);
+		TS_ASSERT_DIFFERS(spins[0], fixed::Zero());
+		TS_ASSERT_DELTA(spins[0].ToDouble(), spins[1].ToDouble(), 0.0001);
+	}
+
+	void test_CarryPushSpin()
+	{
+		// Negligible spins snap to exactly zero, so a decaying spin can't creep forever.
+		TS_ASSERT_EQUALS(MomentumModel::CarryPushSpin(fixed::FromFraction(1, 1000), fixed::FromFraction(1, 1000)),
+			fixed::Zero());
+		// Otherwise it is simply what was carried plus what was applied.
+		TS_ASSERT_EQUALS(MomentumModel::CarryPushSpin(fixed::FromInt(1), fixed::FromFraction(1, 2)),
+			fixed::FromFraction(3, 2));
+
+		// A unit whose pushes are one-shot (Drifting 0) can be pushed every turn without winding up: what
+		// it carries in is always zero, so the total each turn is one turn's worth.
+		const fixed perTurn{fixed::FromFraction(1, 2)};
+		fixed carriedIn{fixed::Zero()};
+		for (int turn = 0; turn < 10; ++turn)
+		{
+			TS_ASSERT_EQUALS(carriedIn + perTurn, perTurn);
+			carriedIn = MomentumModel::CarryPushSpin(carriedIn, perTurn).Multiply(fixed::Zero());
+		}
+
+		// With Drifting 0.9 it does build up, but stays below the geometric limit of 1 / (1 - 0.9) turns.
+		carriedIn = fixed::Zero();
+		for (int turn = 0; turn < 60; ++turn)
+			carriedIn = MomentumModel::CarryPushSpin(carriedIn, perTurn).Multiply(fixed::FromFraction(9, 10));
+		TS_ASSERT_LESS_THAN(perTurn, carriedIn);
+		TS_ASSERT_LESS_THAN(carriedIn, perTurn * 10);
+	}
+
+	// The push a pair exchanges, as the first unit sees it.
+	static fixed PushMagnitude(const UnitCollision::MotionStateCompact& a, const UnitCollision::MotionStateCompact& b)
+	{
+		std::vector<CFixedVector2D> pushes;
+		std::vector<fixed> spins;
+		PushPair(a, b, pushes, spins);
+		return pushes.size() == 2 ? pushes[0].Length() : fixed::Zero();
+	}
+
+	// The furthest apart (along X, ships along Z) two identical moving units can be while their push
+	// still clears MinimalForce - the gate the motion manager drops pushes at - found by bisection.
+	static double SignificantPushReach(const UnitCollision::CollisionShape& body)
+	{
+		const fixed threshold{PushConfig::GetInstance().GetRuntimeConfig().minimalPushing};
+		const CFixedVector2D here{fixed::FromInt(100), fixed::FromInt(100)};
+		double low = 0.0, high = 100.0;
+		for (int i = 0; i < 24; ++i)
+		{
+			const double mid{(low + high) / 2};
+			const CFixedVector2D other{fixed::FromInt(100) + fixed::FromDouble(mid), fixed::FromInt(100)};
+			if (PushMagnitude(MakeUnit(1, here, body), MakeUnit(2, other, body)) > threshold)
+				low = mid;
+			else
+				high = mid;
+		}
+		return low;
+	}
+
+	void test_Pushing_fires_before_solid_bodies_overlap()
+	{
+		// Two warships (radius 5) must be pushing hard enough to count by the time their hulls meet, at 10 m
+		// between axes, not only once they have sailed into each other.
+		const UnitCollision::CollisionShape ship{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromInt(12), entity_pos_t::FromInt(48))};
+		TS_ASSERT_LESS_THAN_EQUALS((ship.radius * 2).ToDouble(), SignificantPushReach(ship));
+
+		// Infantry already fired outside their bodies, at the spread's own distance; the floor that fixes
+		// ships must leave that exactly where it was.
+		const UnitCollision::CollisionShape infantry{entity_pos_t::FromFraction(8, 10), entity_pos_t::Zero(), false, false};
+		const PushConfig::RuntimeConfig& cfg{PushConfig::GetInstance().GetRuntimeConfig()};
+		const fixed combinedClearance{(infantry.radius * 2).Multiply(PushConfig::PUSHING_CORRECTION)};
+		const fixed maxDist{combinedClearance.Multiply(cfg.radiusMultiplier) + cfg.movingPushExtension};
+		TS_ASSERT_DELTA(SignificantPushReach(infantry), maxDist.Multiply(cfg.movingPushingSpread).ToDouble(), 0.01);
+	}
+
+	void test_Pushing_idle_units_and_long_solid_bodies()
+	{
+		const UnitCollision::CollisionShape ship{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromInt(12), entity_pos_t::FromInt(48))};
+		const UnitCollision::CollisionShape infantry{entity_pos_t::FromFraction(8, 10), entity_pos_t::Zero(), false, false};
+		const CFixedVector2D here{fixed::FromInt(100), fixed::FromInt(100)};
+		std::vector<CFixedVector2D> pushes;
+		std::vector<fixed> spins;
+
+		// A sailing ship and an anchored one push each other apart, both of them.
+		PushPair(MakeUnit(1, here, ship), MakeUnit(2, here + CFixedVector2D{fixed::FromInt(8), fixed::Zero()}, ship,
+			entity_angle_t::Zero(), false), pushes, spins);
+		TS_ASSERT(!pushes[0].IsZero());
+		TS_ASSERT(!pushes[1].IsZero());
+
+		// A walking infantryman and an idle one leave each other alone, as they always have.
+		PushPair(MakeUnit(1, here, infantry), MakeUnit(2, here + CFixedVector2D{fixed::FromInt(1), fixed::Zero()},
+			infantry, entity_angle_t::Zero(), false), pushes, spins);
+		TS_ASSERT(pushes[0].IsZero());
+		TS_ASSERT(pushes[1].IsZero());
+
+		// But a walking infantryman does deflect off an anchored ship.
+		PushPair(MakeUnit(1, here, infantry), MakeUnit(2, here + CFixedVector2D{fixed::FromInt(3), fixed::Zero()},
+			ship, entity_angle_t::Zero(), false), pushes, spins);
+		TS_ASSERT(!pushes[0].IsZero());
+		TS_ASSERT(!pushes[1].IsZero());
+
+		// Cavalry are longer than they are wide but collide as circles, like everyone but the ships: a rider passing an idle
+		// footman, or a footman passing an idle horse, leave each other alone exactly as two footmen do. A
+		// herd or a parked squadron would otherwise be shoved about by everyone walking past.
+		const UnitCollision::CollisionShape cavalry{entity_pos_t::FromFraction(8, 10), entity_pos_t::Zero(), false, false};
+		TS_ASSERT(cavalry.IsCircle());
+		TS_ASSERT(!ship.IsCircle());
+		PushPair(MakeUnit(1, here, cavalry), MakeUnit(2, here + CFixedVector2D{fixed::FromInt(1), fixed::Zero()},
+			infantry, entity_angle_t::Zero(), false), pushes, spins);
+		TS_ASSERT(pushes[0].IsZero());
+		TS_ASSERT(pushes[1].IsZero());
+	}
+
+	void test_ContactBetween_is_between_the_bodies()
+	{
+		CFixedVector2D contactA, contactB;
+
+		// Two round units, the second a little off the first's line and ahead of it: the contact is their
+		// centres, so the blow runs mostly forward and the first is turned about nothing at all. This is
+		// the cavalry-into-infantry case, and taking the contact from a wide charge zone instead would
+		// shove the target straight sideways and hand the charger a lever it doesn't have.
+		const UnitCollision::CollisionShape round{entity_pos_t::FromFraction(8, 10), entity_pos_t::Zero(), false, false};
+		const CFixedVector2D charger{fixed::FromInt(50), fixed::FromInt(50)};
+		const CFixedVector2D target{fixed::FromInt(51), fixed::FromInt(53)};
+		UnitCollision::ContactBetween(round, charger, entity_angle_t::Zero(), round, target, entity_angle_t::Zero(),
+			contactA, contactB);
+		TS_ASSERT_EQUALS(contactA, charger);
+		TS_ASSERT_EQUALS(contactB, target);
+		CFixedVector2D along{contactB - contactA};
+		along.Normalize();
+		TS_ASSERT_LESS_THAN(fixed::FromFraction(9, 10), along.Dot(CFixedVector2D{fixed::Zero(), fixed::FromInt(1)}));
+
+		// A ram (body along Z) meeting a ship lying broadside (body along X) ahead of it: each contact is
+		// on its own body, so neither lever can exceed the body that carries it.
+		const UnitCollision::CollisionShape ship{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromInt(12), entity_pos_t::FromInt(48))};
+		const CFixedVector2D ram{fixed::FromInt(50), fixed::FromInt(50)};
+		const CFixedVector2D broadside{fixed::FromInt(55), fixed::FromInt(80)};
+		UnitCollision::ContactBetween(ship, ram, entity_angle_t::Zero(), ship, broadside, fixed::Pi() / 2,
+			contactA, contactB);
+		TS_ASSERT_LESS_THAN_EQUALS((contactA - ram).Length(), ship.Extent() + fixed::Epsilon() * 4);
+		TS_ASSERT_LESS_THAN_EQUALS((contactB - broadside).Length(), ship.Extent() + fixed::Epsilon() * 4);
+		// The ram meets it with its bow, the broadside ship with its side.
+		TS_ASSERT_DELTA((contactA - ram).Length().ToDouble(), ship.halfLength.ToDouble(), 0.05);
+	}
+
+	void test_Pushing_scales_with_long_solid_bodies_only()
+	{
+		// At full overlap every pair gets the same distance factor, so the push is set by the per-turn
+		// amount alone: a quarter of a metre for two equal weights at the reference turn length.
+		const CFixedVector2D here{fixed::FromInt(100), fixed::FromInt(100)};
+		const UnitCollision::CollisionShape infantry{entity_pos_t::FromFraction(8, 10), entity_pos_t::Zero(), false, false};
+		const fixed infantryPush{PushMagnitude(MakeUnit(1, here, infantry),
+			MakeUnit(2, here + CFixedVector2D{fixed::FromInt(1), fixed::Zero()}, infantry))};
+		TS_ASSERT_DELTA(infantryPush.ToDouble(), 0.25, 0.001);
+
+		// Two warships, radius 6, are (6 + 6) / (0.8 + 0.8) = 7.5 times the size of an infantry pair, and are
+		// pushed by the square root of that, since a ship carries its pushes on as momentum, times whatever
+		// SolidPushScale pathfinder.xml sets for a pair of solid units.
+		const UnitCollision::CollisionShape ship{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromInt(12), entity_pos_t::FromInt(48))};
+		const fixed shipPush{PushMagnitude(MakeUnit(1, here, ship),
+			MakeUnit(2, here + CFixedVector2D{fixed::FromInt(8), fixed::Zero()}, ship))};
+		const double solidScale{PushConfig::GetInstance().GetRuntimeConfig().solidPushScale.ToDouble()};
+		TS_ASSERT_DELTA(shipPush.ToDouble(), 0.25 * std::sqrt(7.5) * solidScale, 0.01);
+
+		// An elephant is bigger than a footman as well, but it collides as the circle of its 3 m clearance,
+		// and its pushing was tuned as it is: exactly the infantry amount.
+		const UnitCollision::CollisionShape elephant{entity_pos_t::FromInt(3), entity_pos_t::Zero(), false, false};
+		TS_ASSERT(elephant.IsCircle());
+		const fixed elephantPush{PushMagnitude(MakeUnit(1, here, elephant),
+			MakeUnit(2, here + CFixedVector2D{fixed::FromInt(3), fixed::Zero()}, elephant))};
+		TS_ASSERT_EQUALS(elephantPush, infantryPush);
+	}
+
+	void test_MovementFilter_can_pass_unit_shapes()
+	{
+		// Unit shapes carry even tags, static ones odd.
+		const ICmpObstructionManager::tag_t unitTag{2};
+		const ICmpObstructionManager::tag_t staticTag{3};
+		TS_ASSERT(unitTag.IsUnit());
+		TS_ASSERT(!staticTag.IsUnit());
+
+		const ICmpObstructionManager::flags_t blocking{ICmpObstructionManager::FLAG_BLOCK_MOVEMENT};
+		const ICmpObstructionManager::flags_t blockingAndMoving{
+			static_cast<ICmpObstructionManager::flags_t>(blocking | ICmpObstructionManager::FLAG_MOVING)};
+		// The mover is group 1; the shapes belong to group 2, so the control-group skip never applies.
+		const entity_id_t mover{1}, other{2};
+
+		// As always with pushing on: an idle unit blocks, a moving one doesn't, a building does.
+		const ControlGroupMovementObstructionFilter usual{false, mover};
+		TS_ASSERT(usual.TestShape(unitTag, blocking, other, INVALID_ENTITY));
+		TS_ASSERT(!usual.TestShape(unitTag, blockingAndMoving, other, INVALID_ENTITY));
+		TS_ASSERT(usual.TestShape(staticTag, blocking, other, INVALID_ENTITY));
+
+		// A solid unit: no unit shape blocks it, idle or moving, while buildings still do.
+		const ControlGroupMovementObstructionFilter solidFilter{false, mover, false};
+		TS_ASSERT(!solidFilter.TestShape(unitTag, blocking, other, INVALID_ENTITY));
+		TS_ASSERT(!solidFilter.TestShape(unitTag, blockingAndMoving, other, INVALID_ENTITY));
+		TS_ASSERT(solidFilter.TestShape(staticTag, blocking, other, INVALID_ENTITY));
+
+		// The variant that also skips one specific tag behaves the same way.
+		const SkipTagAndControlGroupObstructionFilter solidIgnoringOne{ICmpObstructionManager::tag_t{4}, false, mover, false};
+		TS_ASSERT(!solidIgnoringOne.TestShape(unitTag, blocking, other, INVALID_ENTITY));
+		TS_ASSERT(solidIgnoringOne.TestShape(staticTag, blocking, other, INVALID_ENTITY));
+		const SkipTagAndControlGroupObstructionFilter usualIgnoringOne{ICmpObstructionManager::tag_t{4}, false, mover};
+		TS_ASSERT(usualIgnoringOne.TestShape(unitTag, blocking, other, INVALID_ENTITY));
+	}
+
+	void test_Pushing_contact_impulse_stops_closing_solid_bodies()
+	{
+		// Two warships (radius 6) abreast 10 m apart: their hulls overlap, and they are sailing into each
+		// other at 4 m/s each. offset runs from the second to the first, so closing is 8 m/s and equal
+		// weights each lose half of it: both are brought to a stop across the contact, at once.
+		const UnitCollision::CollisionShape ship{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromInt(12), entity_pos_t::FromInt(48))};
+		const CFixedVector2D here{fixed::FromInt(100), fixed::FromInt(100)};
+		const CFixedVector2D beside{fixed::FromInt(110), fixed::FromInt(100)};
+		const CFixedVector2D east{fixed::FromInt(4), fixed::Zero()};
+		const CFixedVector2D west{fixed::FromInt(-4), fixed::Zero()};
+		std::vector<CFixedVector2D> pushes, velocityChanges;
+		std::vector<fixed> spins;
+
+		PushPair(MakeUnit(1, here, ship, entity_angle_t::Zero(), true, east),
+			MakeUnit(2, beside, ship, entity_angle_t::Zero(), true, west), pushes, spins, velocityChanges);
+		TS_ASSERT_DELTA(velocityChanges[0].X.ToDouble(), -4.0, 0.01);
+		TS_ASSERT_DELTA(velocityChanges[1].X.ToDouble(), 4.0, 0.01);
+		TS_ASSERT_EQUALS(velocityChanges[0].Y, fixed::Zero());
+		// The soft push is still there to ease the overlap apart afterwards.
+		TS_ASSERT(!pushes[0].IsZero());
+
+		// Sailing apart instead: the impulse acts on the closing component only, so nothing.
+		PushPair(MakeUnit(1, here, ship, entity_angle_t::Zero(), true, west),
+			MakeUnit(2, beside, ship, entity_angle_t::Zero(), true, east), pushes, spins, velocityChanges);
+		TS_ASSERT(velocityChanges[0].IsZero());
+		TS_ASSERT(velocityChanges[1].IsZero());
+
+		// Closing but not yet touching (13 m between axes, radii 6 + 6): nothing either - it is the soft
+		// push's job to keep them apart before contact, not a hit's.
+		PushPair(MakeUnit(1, here, ship, entity_angle_t::Zero(), true, east),
+			MakeUnit(2, here + CFixedVector2D{fixed::FromInt(13), fixed::Zero()}, ship, entity_angle_t::Zero(), true, west),
+			pushes, spins, velocityChanges);
+		TS_ASSERT(velocityChanges[0].IsZero());
+
+		// A light boat (weight 10) running into an anchored warship (weight 200): the boat loses nearly all
+		// of its 4 m/s and the warship is nudged by the rest, in proportion - momentum is conserved.
+		UnitCollision::MotionStateCompact boat{MakeUnit(1, here, ship, entity_angle_t::Zero(), true, east)};
+		UnitCollision::MotionStateCompact warship{MakeUnit(2, beside, ship, entity_angle_t::Zero(), false)};
+		warship.weight = fixed::FromInt(200);
+		PushPair(boat, warship, pushes, spins, velocityChanges);
+		TS_ASSERT_DELTA(velocityChanges[0].X.ToDouble(), -4.0 * 200 / 210, 0.02);
+		TS_ASSERT_DELTA(velocityChanges[1].X.ToDouble(), 4.0 * 10 / 210, 0.02);
+
+		// Two elephants (4.5 x 9) walking shoulder to shoulder, touching, drifting together at half a metre
+		// a second each: a brush, which the soft push turns around by itself, so no impulse and no spin.
+		// Running into each other at 4 m/s each, the push can't keep up, and the impulse stops them.
+		const UnitCollision::CollisionShape elephant{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromFraction(9, 2), entity_pos_t::FromInt(9))};
+		const CFixedVector2D nearby{fixed::FromInt(104), fixed::FromInt(100)};
+		const CFixedVector2D drift{fixed::FromFraction(1, 2), fixed::Zero()};
+		PushPair(MakeUnit(1, here, elephant, entity_angle_t::Zero(), true, drift),
+			MakeUnit(2, nearby, elephant, entity_angle_t::Zero(), true, -drift), pushes, spins, velocityChanges);
+		TS_ASSERT(velocityChanges[0].IsZero());
+		TS_ASSERT(velocityChanges[1].IsZero());
+		TS_ASSERT(!pushes[0].IsZero());
+		PushPair(MakeUnit(1, here, elephant, entity_angle_t::Zero(), true, east),
+			MakeUnit(2, nearby, elephant, entity_angle_t::Zero(), true, west), pushes, spins, velocityChanges);
+		TS_ASSERT_DELTA(velocityChanges[0].X.ToDouble(), -4.0, 0.01);
+
+		// Two round units closing on each other get no contact impulse: crowds squash and spring back.
+		const UnitCollision::CollisionShape infantry{entity_pos_t::FromFraction(8, 10), entity_pos_t::Zero(), false, false};
+		PushPair(MakeUnit(1, here, infantry, entity_angle_t::Zero(), true, east),
+			MakeUnit(2, here + CFixedVector2D{fixed::FromInt(1), fixed::Zero()}, infantry, entity_angle_t::Zero(), true, west),
+			pushes, spins, velocityChanges);
+		TS_ASSERT(velocityChanges[0].IsZero());
+	}
+
+	// The contact impulses every unit of @p units takes in one pass.
+	static std::vector<CFixedVector2D> PushAll(const std::vector<UnitCollision::MotionStateCompact>& units)
+	{
+		std::vector<CFixedVector2D> pushes;
+		std::vector<fixed> spins;
+		std::vector<CFixedVector2D> velocityChanges;
+		Grid<std::vector<size_t>> grid;
+		std::vector<std::pair<int, int>> filledCells;
+		std::vector<fixed> hitSpins;
+		std::vector<uint8_t> pressures;
+
+		UnitCollision::ComputePushes(units, PushConfig::IMPACT_REFERENCE_TIME, grid, filledCells, pushes, spins,
+			velocityChanges, hitSpins, pressures);
+		return velocityChanges;
+	}
+
+	void test_Pushing_contact_impulses_dont_stack()
+	{
+		// A ship (12 x 48) at rest, with two others alongside to the east, both sailing into it at 4 m/s. Each
+		// pair alone would send it west at 2 m/s; together they must not send it at 4.
+		const UnitCollision::CollisionShape ship{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromInt(12), entity_pos_t::FromInt(48))};
+		const CFixedVector2D west{fixed::FromInt(-4), fixed::Zero()};
+		const std::vector<CFixedVector2D> velocityChanges{PushAll({
+			MakeUnit(1, CFixedVector2D{fixed::FromInt(100), fixed::FromInt(100)}, ship, entity_angle_t::Zero(), false),
+			MakeUnit(2, CFixedVector2D{fixed::FromInt(110), fixed::FromInt(90)}, ship, entity_angle_t::Zero(), true, west),
+			MakeUnit(3, CFixedVector2D{fixed::FromInt(110), fixed::FromInt(110)}, ship, entity_angle_t::Zero(), true, west)})};
+		TS_ASSERT_LESS_THAN(velocityChanges[0].X, fixed::Zero());
+		TS_ASSERT_DELTA(velocityChanges[0].Length().ToDouble(), 2.0, 0.05);
+		// Each of the other two still gets its own.
+		TS_ASSERT_DELTA(velocityChanges[1].Length().ToDouble(), 2.0, 0.05);
+	}
+
+	void test_RollFromVelocityChange()
+	{
+		MotionState state(nullptr, nullptr, nullptr);
+		state.angle = entity_angle_t::Zero();  // facing +Z, so +X is to the right
+		const CFixedVector2D shovedRight{fixed::FromInt(4), fixed::Zero()};
+		const ChargeConfig::Values& config{ChargeConfig::Get()};
+
+		// A unit that can't roll never does.
+		state.maxRollAngle = fixed::Zero();
+		TS_ASSERT_EQUALS(ImpactEffects::RollFromVelocityChange(state, shovedRight), fixed::Zero());
+
+		// One that can leans the way it was shoved: to the right is a positive roll, and only the sideways
+		// part counts, so a shove straight ahead leans it not at all.
+		state.maxRollAngle = fixed::FromInt(1);
+		const fixed lean{ImpactEffects::RollFromVelocityChange(state, shovedRight)};
+		TS_ASSERT_LESS_THAN(fixed::Zero(), lean);
+		TS_ASSERT_DELTA(lean.ToDouble(), 4.0 * config.rollStrength.ToDouble(), 0.01);
+		TS_ASSERT_EQUALS(ImpactEffects::RollFromVelocityChange(state, -shovedRight), -lean);
+		TS_ASSERT_EQUALS(ImpactEffects::RollFromVelocityChange(state,
+			CFixedVector2D{fixed::Zero(), fixed::FromInt(4)}), fixed::Zero());
+
+		// Capped as AddRollImpulse caps, so a huge blow can't throw a ship over.
+		const fixed cap{state.maxRollAngle.Multiply(config.rollMaxVelocityScale)};
+		TS_ASSERT_EQUALS(ImpactEffects::RollFromVelocityChange(state,
+			CFixedVector2D{fixed::FromInt(1000), fixed::Zero()}), cap);
+
+		// A negligible lean is dropped rather than left to creep.
+		TS_ASSERT_EQUALS(ImpactEffects::RollFromVelocityChange(state,
+			CFixedVector2D{fixed::FromFraction(1, 1000), fixed::Zero()}), fixed::Zero());
+	}
+
 };

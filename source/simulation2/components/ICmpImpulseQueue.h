@@ -40,8 +40,14 @@ struct ImpulseRequest
 	CFixedVector2D force;          // Displacement this turn only (collision pushes)
 	CFixedVector2D velocityChange; // Added to the unit's velocity (m/s), which then carries on as momentum (hits)
 	uint8_t pressureIncrease{0};
-	fixed angularImpulse{fixed::Zero()}; // Y-axis rotation impulse (spinning/turning)
+	fixed angularImpulse{fixed::Zero()}; // Y-axis rotation impulse (spinning/turning) from a hit; rings down by spinDecay
 	fixed rollImpulse{fixed::Zero()};    // X-axis rotation impulse (tilting/rolling)
+	// Spin (radians/second) from a collision push landing off the unit's centre: the angular half of `force`,
+	// so it is carried on exactly as the push is, decaying by Drifting rather than spinDecay. A push is
+	// recomputed every turn two units overlap, so on spinDecay this spin would pile up turn after turn
+	// even for a unit whose pushes are one-shot (Drifting 0): a blob of cavalry wound itself up to the
+	// spin cap. Using Drifting, it can only build up where the push does (e.g. on a ship).
+	fixed pushSpin{fixed::Zero()};
 };
 
 class ICmpImpulseQueue : public IComponent

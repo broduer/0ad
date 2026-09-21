@@ -87,9 +87,16 @@ struct MotionState
 	CFixedVector2D impulseForce;     // Displacement for this turn
 	CFixedVector2D impulseVelocity;  // Velocity change
 	uint8_t impulsePressure = 0;
+	// Spin from this turn's collision pushes, radians/second. Transient like impulseForce, which it is the
+	// angular half of, and gated and damped with it.
+	fixed impulseSpin{};
 
 	CFixedVector2D inertiaVelocity;         // Our own momentum (last turn's movement minus the external part); steers our facing
 	CFixedVector2D externalInertiaVelocity; // Momentum from pushes and hits, carried over; doesn't affect our facing
+	// Spin from pushes, carried over and decaying by Drifting exactly as externalInertiaVelocity does, so a
+	// push that is one-shot for the body is one-shot for the heading too. Hit spin lives in
+	// impactAngularVelocity with its own decay.
+	fixed pushSpin{};
 	CFixedVector2D externalVelocity;        // This turn's velocity from queued impulses
 
 	// Angular velocity from pathfinding (existing)

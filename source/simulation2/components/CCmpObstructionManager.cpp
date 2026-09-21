@@ -58,8 +58,8 @@
 // Internally, they are tagged (by shape) indexes into shape lists.
 // idx must be non-zero.
 #define TAG_IS_VALID(tag) ((tag).valid())
-#define TAG_IS_UNIT(tag) (((tag).n & 1) == 0)
-#define TAG_IS_STATIC(tag) (((tag).n & 1) == 1)
+#define TAG_IS_UNIT(tag) ((tag).IsUnit())
+#define TAG_IS_STATIC(tag) (!(tag).IsUnit())
 #define UNIT_INDEX_TO_TAG(idx) tag_t(((idx) << 1) | 0)
 #define STATIC_INDEX_TO_TAG(idx) tag_t(((idx) << 1) | 1)
 #define TAG_TO_INDEX(tag) ((tag).n >> 1)

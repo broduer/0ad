@@ -21,6 +21,8 @@
 
 #include "ps/CLogger.h"
 #include "simulation2/MessageTypes.h"
+#include "simulation2/components/ICmpFootprint.h"
+#include "simulation2/components/ICmpUnitMotion.h"
 #include "simulation2/helpers/PushConfig.h"
 #include "simulation2/system/Component.h"
 
@@ -58,6 +60,11 @@ public:
 				"<element name='DisableForces' a:help='Exclude this unit from pushing.'>"
 					"<data type='boolean'/>"
 				"</element>"
+			"</optional>"
+			"<optional>"
+				"<element name='Solid' a:help='A solid unit collides as its Footprint outline: it pushes and is pushed along its length, turns when struck off its centre, is stopped rigidly by what it runs into, is held off other solid units and off walls rather than pushed into them, and never squashes into a crowd. Everything else collides as a circle of its pathfinding clearance, which crowds squash together, and which the pushing distances in pathfinder.xml are tuned for. Costlier to push: every pair a solid unit is in measures segment distances. Meant for ships and melee elephants.'>"
+					"<data type='boolean'/>"
+				"</element>"
 			"</optional>";
 	}
 
@@ -66,6 +73,8 @@ public:
 
 	// Per-unit property accessors
 	entity_pos_t GetWeight() const override;
+
+	UnitCollision::CollisionShape GetCollisionShape() const override;
 
 	bool IsPushingEnabled() const override;
 
@@ -79,6 +88,7 @@ public:
 private:
 	// Template state (from XML)
 	bool m_TemplatePushingEnabled;
+	bool m_Solid;
 
 	// Global enable state
 	bool m_GlobalEnabled;
@@ -88,6 +98,12 @@ private:
 	bool m_PushingEnabled;           // Whether this unit takes part in pushing
 	uint8_t m_Pressure;              // Current pressure (crowding intensity) 0-255
 	fixed m_MaxRollAngle;            // Maximum roll angle for this unit (0 = no roll)
+
+	// Derived from the Footprint or UnitMotion component, which may not exist yet when we are
+	// initialised, so this is filled in on the first call to GetCollisionShape. It is a pure function of the
+	// template and must not be serialized: both sides of a network game recompute the same value.
+	mutable UnitCollision::CollisionShape m_CollisionShape;
+	mutable bool m_CollisionShapeKnown;
 };
 
 REGISTER_COMPONENT_TYPE(PhysicalBody)
@@ -111,6 +127,8 @@ void CCmpPhysicalBody::Init(const CParamNode& paramNode)
 	m_TemplatePushingEnabled = !paramNode.GetChild("DisableForces").IsOk() ||
 							 !paramNode.GetChild("DisableForces").ToBool();
 
+	m_Solid = paramNode.GetChild("Solid").IsOk() && paramNode.GetChild("Solid").ToBool();
+
 	// Check global force system is enabled
 	PushConfig::GetInstance().EnsureLoaded();
 	m_GlobalEnabled = PushConfig::GetInstance().IsEnabled();
@@ -118,6 +136,7 @@ void CCmpPhysicalBody::Init(const CParamNode& paramNode)
 
 	// Initialize runtime state
 	m_Pressure = 0;
+	m_CollisionShapeKnown = false;
 
 	// Ensure weight is positive
 	if (m_Weight <= entity_pos_t::Zero())
@@ -192,6 +211,37 @@ void CCmpPhysicalBody::SetEnabled(bool enabled)
 entity_pos_t CCmpPhysicalBody::GetWeight() const
 {
 	return m_Weight;
+}
+
+UnitCollision::CollisionShape CCmpPhysicalBody::GetCollisionShape() const
+{
+	if (m_CollisionShapeKnown)
+		return m_CollisionShape;
+
+	// A solid unit's body is its footprint, and anything else's is the circle of its pathfinding
+	// clearance.
+	CmpPtr<ICmpFootprint> cmpFootprint(GetEntityHandle());
+	if (m_Solid && cmpFootprint)
+	{
+		ICmpFootprint::EShape shape;
+		entity_pos_t size0, size1, height;
+		cmpFootprint->GetShape(shape, size0, size1, height);
+		m_CollisionShape = shape == ICmpFootprint::SQUARE ?
+			UnitCollision::DeriveCollisionShape(size0, size1) :
+			UnitCollision::DeriveCollisionShape(size0 * 2, size0 * 2);
+	}
+	else
+	{
+		// Without UnitMotion the entity isn't pushed at all, and has no "body". Don't
+		// cache that: the component may simply not have been created yet.
+		CmpPtr<ICmpUnitMotion> cmpUnitMotion(GetEntityHandle());
+		if (!cmpUnitMotion)
+			return UnitCollision::CollisionShape{entity_pos_t::Zero(), entity_pos_t::Zero(), false, false};
+		m_CollisionShape = UnitCollision::CollisionShape{cmpUnitMotion->GetUnitClearance(), entity_pos_t::Zero(), false, false};
+	}
+
+	m_CollisionShapeKnown = true;
+	return m_CollisionShape;
 }
 
 bool CCmpPhysicalBody::IsPushingEnabled() const

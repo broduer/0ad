@@ -776,6 +776,14 @@ public:
 		return std::min(kept, braked);
 	}
 
+	/**
+	 * The velocity a unit carries into this turn: its own momentum, and the push momentum it keeps (see Drifting).
+	 */
+	CFixedVector2D CarriedVelocity(const MotionState& state, const fixed dt) const
+	{
+		return state.inertiaVelocity + state.externalInertiaVelocity.Multiply(PushConfig::DecayFactor(m_TemplateDrifting, dt));
+	}
+
 	fixed GetSpinDecay() const
 	{
 		return m_TemplateSpinDecay.value_or(ChargeConfig::Get().spinDecay);
@@ -1042,16 +1050,32 @@ private:
 	/**
 	 * Returns an appropriate obstruction filter for use with path requests.
 	 */
+	/**
+	 * Whether other units' obstruction shapes block this unit's movement at all. They do for everyone but
+	 * a solid unit (one that collides as its footprint, see PhysicalBody/Solid) that is being
+	 * pushed: a unit's shape is a circle of its pathfinding clearance, which for a ship is a 10 m shore
+	 * margin, so an anchored ship would wall off a 39 m square that nothing can be seen touching, and a
+	 * passing ship would stop dead in open water. Solid against solid is left to pushing, which has the true
+	 * shape and pushes a moving solid unit and an idle one apart.
+	 */
+	bool ShouldCollideWithUnits() const
+	{
+		CmpPtr<ICmpPhysicalBody> cmpPhysicalBody(GetEntityHandle());
+		return !cmpPhysicalBody || !cmpPhysicalBody->IsPushingEnabled() ||
+			!cmpPhysicalBody->GetCollisionShape().IsSolid();
+	}
+
 	ControlGroupMovementObstructionFilter GetObstructionFilter() const
 	{
-		return ControlGroupMovementObstructionFilter(ShouldCollideWithMovingUnits(), GetGroup());
+		return ControlGroupMovementObstructionFilter(ShouldCollideWithMovingUnits(), GetGroup(), ShouldCollideWithUnits());
 	}
 	/**
 	 * Filter a specific tag on top of the existing control groups.
 	 */
 	SkipTagAndControlGroupObstructionFilter GetObstructionFilter(const ICmpObstructionManager::tag_t& tag) const
 	{
-		return SkipTagAndControlGroupObstructionFilter(tag, ShouldCollideWithMovingUnits(), GetGroup());
+		return SkipTagAndControlGroupObstructionFilter(tag, ShouldCollideWithMovingUnits(), GetGroup(),
+			ShouldCollideWithUnits());
 	}
 
 	/**
@@ -1638,6 +1662,8 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 	// whether or not the unit is actively moving. Drifting is per IMPACT_REFERENCE_TIME, not per turn.
 	const fixed driftKeep{PushConfig::DecayFactor(m_TemplateDrifting, dt)};
 	const CFixedVector2D externalCarry{state.externalInertiaVelocity.Multiply(driftKeep)};
+	// The heading's share of that carried push momentum, decaying by the same factor.
+	const fixed pushSpinCarry{state.pushSpin.Multiply(driftKeep)};
 
 	// combinedVelocity is our own movement until the external forces are added at the end: the unit steers and brakes
 	// what it controls, but can't steer or brake against being pushed.
@@ -1841,6 +1867,13 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 	ImpactEffects::IntegrateSpin(state, dt);
 	ImpactEffects::IntegrateRoll(state, dt);
 
+	// Spin from collision pushes: what was carried in plus what this turn's pushes added. Kept apart from
+	// the impact spin above because it follows the push momentum's decay (Drifting) rather than spinDecay,
+	// so a unit whose pushes are one-shot can't be wound up by being pushed every turn.
+	const fixed pushSpinTotal{pushSpinCarry + state.impulseSpin};
+	if (!pushSpinTotal.IsZero())
+		state.angle = HeadingControl::WrapAngle(state.angle + pushSpinTotal.Multiply(dt));
+
 	// The unit's own movement, before the external forces below are added: what it falls back on if the step with
 	// them in it is blocked.
 	const CFixedVector2D ownVelocity{combinedVelocity};
@@ -1849,8 +1882,12 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 	combinedVelocity = combinedVelocity + externalCarry + externalVelocity;
 	speed = combinedVelocity.Length();
 
-	// Everything external applied this turn becomes next turn's external inertia.
+	// Everything external applied this turn becomes next turn's external inertia, spin included. Pushes
+	// and hits carry on as momentum, decaying by Drifting. Nothing bounds the total here: a soft push is
+	// bounded by the pushing rate, and a hit by the closing speed or the attack's Knockback. A light unit
+	// rammed at speed is meant to be flung faster than it can move.
 	state.externalInertiaVelocity = MomentumModel::CarryExternalInertia(externalCarry, externalVelocity);
+	state.pushSpin = MomentumModel::CarryPushSpin(pushSpinCarry, state.impulseSpin);
 
 	// Stopping to turn in place is deliberate, not an obstruction: the facing was already rotated above.
 	if (combinedVelocity.IsZero())
