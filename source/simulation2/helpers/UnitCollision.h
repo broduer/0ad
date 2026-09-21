@@ -138,10 +138,28 @@ public:
 		bool isMoving;
 		bool ignore;
 		entity_id_t controlGroup;
+		// Moving fast enough that running into something is a charge (see ContactHit): its contacts are
+		// always found, and reported with the momentum they exchanged.
+		bool charging;
+		entity_pos_t minChargeSpeed;
+
 		void GetSegment(CFixedVector2D& out0, CFixedVector2D& out1) const
 		{
 			collisionShape.GetSegment(position, angle, out0, out1);
 		}
+	};
+
+	/**
+	 * A charging unit has run into another: the two bodies touched while closing at least as fast as
+	 * the charger's minimum charge speed. The speed changes are what the contact impulse gave each side,
+	 * in m/s, which is what the damage of the hit is scaled by.
+	 */
+	struct ContactHit
+	{
+		entity_id_t charger;
+		entity_id_t target;
+		fixed targetSpeedChange;
+		fixed chargerSpeedChange;
 	};
 
 	/**
@@ -154,9 +172,10 @@ public:
 	 *        body, which cannot be pushed off its own centre.
 	 * @param outVelocityChanges - output contact impulses, as velocity changes in m/s, for each unit: the
 	 *        rigid half of a contact, which stops two touching bodies closing on each other at once
-	 *        (see ComputePairPush). Zero unless a solid unit is involved.
+	 *        (see ComputePairPush). Zero unless a solid or a charging unit is involved.
 	 * @param outHitSpins - the spin (radians/second) those contact impulses give each unit: a hit's
 	 *        angular half, integrated with impact spin rather than push spin.
+	 * @param outHits - every contact that is a charge hit this turn, see ContactHit.
 	 * @param outPressures - output pressure increases for each unit
 	 */
 	static void ComputePushes(
@@ -168,6 +187,7 @@ public:
 		std::vector<fixed>& outSpins,
 		std::vector<CFixedVector2D>& outVelocityChanges,
 		std::vector<fixed>& outHitSpins,
+		std::vector<ContactHit>& outHits,
 		std::vector<uint8_t>& outPressures);
 
 private:
@@ -199,6 +219,7 @@ private:
 		CFixedVector2D& outVelocityChangeB,
 		fixed& outHitSpinA,
 		fixed& outHitSpinB,
+		std::vector<ContactHit>& outHits,
 		uint8_t& outPressureA,
 		uint8_t& outPressureB);
 };

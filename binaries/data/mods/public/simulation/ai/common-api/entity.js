@@ -218,9 +218,11 @@ export class Template
 		if (!attack)
 			return undefined;
 
+		// Charge is dealt by moving through units, not an attack that can be ordered.
 		const ret = [];
 		for (const type in attack)
-			ret.push(type);
+			if (type != "ChargeAttack")
+				ret.push(type);
 		return ret;
 	}
 
@@ -804,7 +806,7 @@ export class Entity extends Template
 
 		for (const type in attack)
 		{
-			if (type == "Slaughter")
+			if (type == "Slaughter" || type == "ChargeAttack")
 				continue;
 			const restrictedClasses = this.get("Attack/" + type + "/RestrictedClasses/_string");
 			if (!restrictedClasses || !MatchesClassList([aClass], restrictedClasses))
@@ -830,6 +832,8 @@ export class Entity extends Template
 
 		for (const type in attackTypes)
 		{
+			if (type == "ChargeAttack")
+				continue;
 			if (type == "Capture" ? !canCapture : target.isInvulnerable())
 				continue;
 

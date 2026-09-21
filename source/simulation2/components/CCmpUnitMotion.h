@@ -30,6 +30,7 @@
 #include "renderer/Scene.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/CCmpUnitMotionManager.h"
+#include "simulation2/components/ICmpAttack.h"
 #include "simulation2/components/ICmpObstruction.h"
 #include "simulation2/components/ICmpObstructionManager.h"
 #include "simulation2/components/ICmpPathfinder.h"
@@ -267,6 +268,8 @@ public:
 		entity_id_t m_Entity = INVALID_ENTITY;
 		CFixedVector2D m_Position;
 		entity_pos_t m_MinRange, m_MaxRange;
+		// Charging an attack target: don't brake on the final leg (see SetChargeMove).
+		bool m_Charge = false;
 
 		// For readability
 		CFixedVector2D GetOffset() const { return m_Position; };
@@ -429,6 +432,7 @@ public:
 		serialize.NumberFixed_Unbounded("target pos y", m_MoveRequest.m_Position.Y);
 		serialize.NumberFixed_Unbounded("target min range", m_MoveRequest.m_MinRange);
 		serialize.NumberFixed_Unbounded("target max range", m_MoveRequest.m_MaxRange);
+		serialize.Bool("target charge", m_MoveRequest.m_Charge);
 
 		serialize.NumberU32_Unbounded("formation controller", m_FormationController);
 
@@ -690,6 +694,16 @@ public:
 		return MoveTo(MoveRequest(target, minRange, maxRange));
 	}
 
+	void SetChargeMove() override
+	{
+		if (m_MoveRequest.m_Type != MoveRequest::ENTITY)
+			return;
+
+		CmpPtr<ICmpAttack> cmpAttack(GetEntityHandle());
+		if (cmpAttack && cmpAttack->GetChargeMinSpeed() >= fixed::Zero())
+			m_MoveRequest.m_Charge = true;
+	}
+
 	void MoveToFormationOffset(entity_id_t controller, entity_pos_t x, entity_pos_t z) override
 	{
 		// Pass the controller to the move request anyways.
@@ -754,7 +768,8 @@ public:
 	 * Fraction of our own (pathfinding) inertia kept every IMPACT_REFERENCE_TIME when not following a path, e.g. after
 	 * stopping. Inertia / (1 + Inertia) coasts us about speed · IMPACT_REFERENCE_TIME · (1 + Inertia), the same
 	 * stopping distance the braking code assumes; Drifting can only lengthen that.
-	 * Arrivals are braked first, so they coast little. Moves interrupted at speed (stop orders, new orders) coast too.
+	 * Arrivals are braked first, so they coast little; charges skip that braking (see SetChargeMove) and carry through
+	 * contact. Moves interrupted at speed (stop orders, new orders) coast too.
 	 */
 	fixed GetInertiaKeep() const
 	{
@@ -1596,6 +1611,14 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 	const std::optional<CFixedVector2D> currentWaypoint{PathFollowing::CurrentWaypoint(shortPath, longPath)};
 	const CFixedVector2D toWaypoint{currentWaypoint ? *currentWaypoint - pos : CFixedVector2D{}};
 
+	// Charging a melee target on the last leg: keep full speed, so the collision carries the momentum.
+	// Earlier legs still brake for their corners.
+	// Known limitation: arriving at full speed, a charger can end up out of attack range again - by coasting after
+	// the move ends (Drifting > 0, e.g. ram ships), by stepping over the whole range band in one long turn, or by
+	// the charge knock-back itself separating the units. UnitAI then gets OutOfRange, chases, and charges again.
+	const bool chargingFinalLeg{m_MoveRequest.m_Type == MoveRequest::ENTITY && m_MoveRequest.m_Charge &&
+		hasPathfinding && !PathFollowing::NextWaypoint(shortPath, longPath)};
+
 	// Where the unit is pointing. Steering and drift correction both work relative to it, and the heading
 	// only changes further down, so the sine and cosine behind it are worth paying for just once.
 	const CFixedVector2D facingDir{HeadingControl::FacingDirection(angle)};
@@ -1797,7 +1820,7 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 
 			// Brake both for heading error (drifting off the waypoint direction) and for a sharp corner.
 			// Passing a waypoint also lowers alignmentToWaypoint, but the turning-circle pop handles that case.
-			if (distanceToWaypoint < brakingDistance)
+			if (distanceToWaypoint < brakingDistance && !chargingFinalLeg)
 				proximityBrakeMultiplier = PathFollowing::ProximityBrakeScale(distanceToWaypoint, brakingDistance,
 					unbrakedSpeed, std::min(alignmentToWaypoint, cornerAlignment));
 		}
@@ -1807,7 +1830,7 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 
 	// PREDICTIVE BRAKING: stop where the move ends, as far ahead as inertia takes to stop. That is short of the end
 	// of the path by StoppingMargin(), so the unit is at a crawl when its order ends rather than at speed.
-	if (hasMoveRequest && hasPathfinding && !combinedVelocity.IsZero())
+	if (hasMoveRequest && hasPathfinding && !combinedVelocity.IsZero() && !chargingFinalLeg)
 		if (const std::optional<CFixedVector2D> finalWaypoint{PathFollowing::FinalWaypoint(shortPath, longPath)})
 		{
 			const CFixedVector2D toEnd{*finalWaypoint - pos};

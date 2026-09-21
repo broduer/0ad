@@ -61,6 +61,13 @@ public:
 	virtual bool MoveToTargetRange(entity_id_t target, entity_pos_t minRange, entity_pos_t maxRange) = 0;
 
 	/**
+	 * Mark the current move towards an entity as a charge on an attack target, so the unit doesn't brake on the
+	 * final leg of its path. Only applies if we're moving to an entity and have an enabled Charge component.
+	 * Any new move request clears it. Call it right after MoveToTargetRange.
+	 */
+	virtual void SetChargeMove() = 0;
+
+	/**
 	 * Join a formation, and move towards a given offset relative to the formation controller entity.
 	 * The unit will remain 'in formation' fromthe perspective of UnitMotion
 	 * until SetMemberOfFormation(INVALID_ENTITY) is passed.

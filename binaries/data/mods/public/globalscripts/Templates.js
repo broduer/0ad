@@ -231,11 +231,22 @@ function GetTemplateDataHelper(template, player, auraTemplates, resources, modif
 				"attackName": {
 					"name": template.Attack[type].AttackName._string || template.Attack[type].AttackName,
 					"context": template.Attack[type].AttackName["@context"]
-				},
+				}
+			};
+
+			// A charge is dealt by moving through units: it has no range or rate.
+			if (type == "ChargeAttack")
+			{
+				ret.attack[type].friendlyFire = template.Attack[type].FriendlyFire == "true";
+				Object.assign(ret.attack[type], getAttackEffects(template.Attack[type], "Attack/" + type));
+				continue;
+			}
+
+			Object.assign(ret.attack[type], {
 				"minRange": getAttackStat("MinRange"),
 				"maxRange": getAttackStat("MaxRange"),
 				"yOrigin": getAttackStat("Origin/Y")
-			};
+			});
 
 			ret.attack[type].elevationAdaptedRange = Math.sqrt(ret.attack[type].maxRange *
 				(2 * ret.attack[type].yOrigin + ret.attack[type].maxRange));

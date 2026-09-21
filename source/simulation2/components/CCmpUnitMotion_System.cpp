@@ -35,6 +35,9 @@
 #include "simulation2/components/ICmpTerrain.h"
 #include "simulation2/components/ICmpUnitMotion.h"
 #include "simulation2/components/ICmpImpulseQueue.h"
+#include "simulation2/components/ICmpAttack.h"
+
+#include "simulation2/helpers/ChargeConfig.h"
 #include "simulation2/helpers/UnitCollision.h"
 #include "simulation2/helpers/PushConfig.h"
 #include "simulation2/helpers/Grid.h"
@@ -109,6 +112,7 @@ void CCmpUnitMotionManager::ClassInit(CComponentManager& componentManager)
 	componentManager.SubscribeToMessageType(MT_Update_Final);
 	componentManager.SubscribeToMessageType(MT_Update_MotionUnit);
 	componentManager.SubscribeToMessageType(MT_Update_MotionFormation);
+	componentManager.SubscribeToMessageType(MT_ValueModification);
 #if DEBUG_RENDER
 	componentManager.SubscribeToMessageType(MT_RenderSubmit);
 #endif
@@ -149,6 +153,20 @@ void CCmpUnitMotionManager::HandleMessage(const CMessage& msg, bool /*global*/)
 		case MT_Deserialized:
 		{
 			OnDeserialized();
+			break;
+		}
+		case MT_ValueModification:
+		{
+			// A technology may have changed a unit's charge speed: read it again next turn.
+			const CMessageValueModification& msgData = static_cast<const CMessageValueModification&>(msg);
+			if (msgData.component != L"Attack")
+				break;
+			for (const entity_id_t ent : msgData.entities)
+			{
+				EntityMap<MotionState>::iterator it{m_Units.find(ent)};
+				if (it != m_Units.end())
+					it->second.chargeQueried = false;
+			}
 			break;
 		}
 #if DEBUG_RENDER
@@ -259,12 +277,16 @@ void CCmpUnitMotionManager::OnDeserialized()
 		// (and to ensure that they pass a CCmpUnitMotion pointer when registering).
 		it->second.cmpUnitMotion = static_cast<CCmpUnitMotion*>(static_cast<ICmpUnitMotion*>(QueryInterface(GetSimContext(), it->first, IID_UnitMotion)));
 		it->second.cmpPhysicalBody = static_cast<ICmpPhysicalBody*>(QueryInterface(GetSimContext(), it->first, IID_PhysicalBody));
+		it->second.cmpAttack = nullptr;
+		it->second.chargeQueried = false;
 	}
 	for (EntityMap<MotionState>::iterator it = m_FormationControllers.begin(); it != m_FormationControllers.end(); ++it)
 	{
 		it->second.cmpPosition = static_cast<ICmpPosition*>(QueryInterface(GetSimContext(), it->first, IID_Position));
 		it->second.cmpUnitMotion = static_cast<CCmpUnitMotion*>(static_cast<ICmpUnitMotion*>(QueryInterface(GetSimContext(), it->first, IID_UnitMotion)));
 		it->second.cmpPhysicalBody = static_cast<ICmpPhysicalBody*>(QueryInterface(GetSimContext(), it->first, IID_PhysicalBody));
+		it->second.cmpAttack = nullptr;
+		it->second.chargeQueried = false;
 	}
 }
 
@@ -371,6 +393,17 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 				it->second.maxRollAngle = it->second.cmpPhysicalBody->GetMaxRollAngle();
 			it->second.spinDecay = it->second.cmpUnitMotion->GetSpinDecay();
 
+			// Can this entity charge? Looked up once, then kept: the query costs as much as what it is used
+			// for every turn, and the charge speed is a script call.
+			if (!it->second.chargeQueried)
+			{
+				it->second.cmpAttack = static_cast<ICmpAttack*>(QueryInterface(GetSimContext(),
+					it->first, IID_Attack));
+				it->second.chargeMinSpeed = it->second.cmpAttack ?
+					it->second.cmpAttack->GetChargeMinSpeed() : fixed::FromInt(-1);
+				it->second.chargeQueried = true;
+			}
+
 			it->second.cmpUnitMotion->PreMove(it->second);
 			it->second.initialPos = it->second.cmpPosition->GetPosition2D();
 			it->second.initialAngle = it->second.cmpPosition->GetRotation().Y;
@@ -401,6 +434,18 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			compact.collisionShape = it->second.cmpPhysicalBody ?
 				it->second.cmpPhysicalBody->GetCollisionShape() :
 				UnitCollision::CollisionShape{compact.clearance, entity_pos_t::Zero(), false, false};
+
+			// Charging: able to, and moving under its own power at least as fast as its charge needs. Then
+			// what it runs into this turn is a hit, found by the pushing pass along with everything else it
+			// touches. Its own speed on an order, not the displacement above: that includes pushes, and an
+			// idle elephant shoved along at charge speed would charge its own herd.
+			compact.charging = false;
+			compact.minChargeSpeed = entity_pos_t::Zero();
+			if (it->second.chargeMinSpeed >= fixed::Zero())
+			{
+				compact.minChargeSpeed = it->second.chargeMinSpeed;
+				compact.charging = it->second.isMoving && it->second.speed >= compact.minChargeSpeed;
+			}
 
 			compactStates.push_back(compact);
 			motionStates.push_back(&it->second);
@@ -437,9 +482,10 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 		std::vector<fixed> collisionSpins;
 		std::vector<CFixedVector2D> collisionVelocityChanges;
 		std::vector<fixed> collisionHitSpins;
+		std::vector<UnitCollision::ContactHit> collisionHits;
 		std::vector<uint8_t> collisionPressures;
 		UnitCollision::ComputePushes(compactStates, dt, m_PushGrid, m_PushGridFilledCells, collisionForces,
-			collisionSpins, collisionVelocityChanges, collisionHitSpins, collisionPressures);
+			collisionSpins, collisionVelocityChanges, collisionHitSpins, collisionHits, collisionPressures);
 
 		if (impulseQueue && !collisionForces.empty())
 		{
@@ -461,6 +507,27 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 				}
 			if (!requests.empty())
 				impulseQueue->AddImpulses(requests);
+		}
+
+		// ========================================
+		// CONTACT HITS
+		// ========================================
+		// A push from a charging unit can deal damage. The pushes above found every such contact; the
+		// charger's Attack now decides what it means (damage queued for the end of the turn). A full blow
+		// is a hit at the charger's walk speed, or its run speed if charge.xml says so.
+		{
+			PROFILE2("MotionMgr_ContinuousCharge");
+			for (const UnitCollision::ContactHit& hit : collisionHits)
+			{
+				EntityMap<MotionState>::iterator it{ents.find(hit.charger)};
+				if (it == ents.end() || !it->second.cmpAttack)
+					continue;
+				fixed fullBlowSpeed{it->second.cmpUnitMotion->GetWalkSpeed()};
+				if (ChargeConfig::Get().fullBlowAtRunSpeed)
+					fullBlowSpeed = fullBlowSpeed.Multiply(it->second.cmpUnitMotion->GetRunMultiplier());
+				it->second.cmpAttack->OnChargeContact(hit.target, hit.targetSpeedChange, hit.chargerSpeedChange,
+					fullBlowSpeed);
+			}
 		}
 	}
 

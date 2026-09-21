@@ -22,4 +22,5 @@
 #include "simulation2/system/InterfaceScripted.h"
 
 BEGIN_INTERFACE_WRAPPER(PhysicalBody)
+DEFINE_INTERFACE_METHOD("GetWeight", ICmpPhysicalBody, GetWeight)
 END_INTERFACE_WRAPPER(PhysicalBody)

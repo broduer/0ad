@@ -1,4 +1,4 @@
-/* Copyright (C) 2022 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -39,6 +39,22 @@ public:
 	std::vector<CStr> GetAttackTypes() const override
 	{
 		return m_Script.Call<std::vector<CStr>>("GetAttackTypes");
+	}
+
+	fixed GetChargeMinSpeed() const override
+	{
+		return m_Script.Call<fixed>("GetChargeMinSpeed");
+	}
+
+	void OnChargeContact(entity_id_t target, fixed targetSpeedChange, fixed chargerSpeedChange,
+		fixed fullBlowSpeed) override
+	{
+		m_Script.CallVoid("HandleChargeContact", target, targetSpeedChange, chargerSpeedChange, fullBlowSpeed);
+	}
+
+	void PerformChargeHit(entity_id_t target, fixed fraction) override
+	{
+		m_Script.CallVoid("PerformChargeHit", target, fraction);
 	}
 };
 

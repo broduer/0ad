@@ -206,6 +206,7 @@ void UnitCollision::ComputePairPush(
 	CFixedVector2D& outVelocityChangeB,
 	fixed& outHitSpinA,
 	fixed& outHitSpinB,
+	std::vector<ContactHit>& outHits,
 	uint8_t& outPressureA,
 	uint8_t& outPressureB)
 {
@@ -237,11 +238,12 @@ void UnitCollision::ComputePairPush(
 	// anchored one is far worse than nudging the anchored one aside. The wake-up in the motion manager
 	// then moves the idle unit off the push it receives. Only solid units qualify: cavalry and
 	// animals are longer than they are wide too, but collide as circles, and a herd or a parked
-	// squadron must stay as unpushable as infantry are.
-	// Members of the same formation are never rigid to each other: they ignore each other as
-	// obstructions, and one crossing the formation to its slot must not be stopped by another.
+	// squadron must stay as unpushable as infantry are. A charging unit is the other exception: what
+	// it runs into is hit, standing still or not. Members of the same formation are never rigid to each
+	// other: they ignore each other as obstructions, and one crossing the formation to its slot must
+	// not be stopped by another.
 	const bool rigidContact{!sameControlGroup &&
-		(a.collisionShape.IsSolid() || b.collisionShape.IsSolid())};
+		(a.collisionShape.IsSolid() || b.collisionShape.IsSolid() || a.charging || b.charging)};
 	if (movingPush == 1 && !rigidContact)
 		return;
 
@@ -396,7 +398,7 @@ void UnitCollision::ComputePairPush(
 	// than that speed is ever taken, so it can't fling. Only an approach faster than the soft push can
 	// undo counts as one (see below): a brush is left to the push.
 	// Meant for the biggest units only (ships, elephants), a crowd of footmen is meant to squash together
-	// and spring back.
+	// and spring back, but a charge is a collision, whoever it is with.
 	if (rigidContact && offsetLength <= a.collisionShape.radius + b.collisionShape.radius)
 	{
 		// offset is the unit vector from b to a, so a is closing when its velocity relative to b runs
@@ -410,10 +412,12 @@ void UnitCollision::ComputePairPush(
 		// walking shoulder to shoulder brushes every turn, and would stop and twist at every brush. Half
 		// the push rate, to leave the push its margin over pressure damping, which the impulse skips, and
 		// never more than a walking pace: a light boat is shoved a long way by a hull's push, but running
-		// into the hull is still running into it.
+		// into the hull is still running into it. A charge hit (see below) is a blow whatever the push.
 		const fixed softRate{dt > fixed::Zero() ? (outPushA.Length() + outPushB.Length()) / dt : fixed::Zero()};
 		const fixed brush{std::min(softRate / 2, cfg.solidBrushSpeed)};
-		if (closing > brush && totalWeight > fixed::Zero())
+		const bool hitByA{a.charging && closing >= a.minChargeSpeed};
+		const bool hitByB{b.charging && closing >= b.minChargeSpeed};
+		if (closing > fixed::Zero() && (closing > brush || hitByA || hitByB) && totalWeight > fixed::Zero())
 		{
 			outVelocityChangeA = offset.Multiply(closing.Multiply(b.weight / totalWeight));
 			outVelocityChangeB = -offset.Multiply(closing.Multiply(a.weight / totalWeight));
@@ -425,6 +429,13 @@ void UnitCollision::ComputePairPush(
 				a.collisionShape.InertiaPerMass()).Multiply(spinScale);
 			outHitSpinB = SpinFromVelocityChange(contactB - b.position, outVelocityChangeB,
 				b.collisionShape.InertiaPerMass()).Multiply(spinScale);
+
+			// A charger that ran into this body fast enough has hit it. Both may be charging, and then
+			// both have. The speed each side lost or gained is what the hit's damage is scaled by.
+			if (hitByA)
+				outHits.push_back(ContactHit{a.entity, b.entity, outVelocityChangeB.Length(), outVelocityChangeA.Length()});
+			if (hitByB)
+				outHits.push_back(ContactHit{b.entity, a.entity, outVelocityChangeA.Length(), outVelocityChangeB.Length()});
 		}
 	}
 
@@ -445,10 +456,12 @@ void UnitCollision::ComputePushes(
 	std::vector<fixed>& outSpins,
 	std::vector<CFixedVector2D>& outVelocityChanges,
 	std::vector<fixed>& outHitSpins,
+	std::vector<ContactHit>& outHits,
 	std::vector<uint8_t>& outPressures)
 {
 	const auto& cfg = PushConfig::GetInstance().GetRuntimeConfig();
 
+	outHits.clear();
 	if (!cfg.IsEnabled() || units.empty())
 		return;
 
@@ -515,7 +528,7 @@ void UnitCollision::ComputePushes(
 			uint8_t pressureA, pressureB;
 
 			ComputePairPush(units[i], units[j], dt, cfg, pushA, pushB, spinA, spinB,
-				velocityChangeA, velocityChangeB, hitSpinA, hitSpinB, pressureA, pressureB);
+				velocityChangeA, velocityChangeB, hitSpinA, hitSpinB, outHits, pressureA, pressureB);
 
 			outPushes[i] += pushA;
 			outPushes[j] += pushB;

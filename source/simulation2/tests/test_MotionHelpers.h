@@ -881,6 +881,8 @@ public:
 		unit.ignore = false;
 		unit.controlGroup = INVALID_ENTITY;
 		unit.velocity = velocity;
+		unit.charging = false;
+		unit.minChargeSpeed = entity_pos_t::Zero();
 		return unit;
 	}
 
@@ -891,10 +893,11 @@ public:
 		Grid<std::vector<size_t>> grid;
 		std::vector<std::pair<int, int>> filledCells;
 		std::vector<fixed> hitSpins;
+		std::vector<UnitCollision::ContactHit> hits;
 		std::vector<uint8_t> pressures;
 
 		UnitCollision::ComputePushes({a, b}, PushConfig::IMPACT_REFERENCE_TIME, grid, filledCells, pushes, spins,
-			velocityChanges, hitSpins, pressures);
+			velocityChanges, hitSpins, hits, pressures);
 	}
 
 	static void PushPair(const UnitCollision::MotionStateCompact& a, const UnitCollision::MotionStateCompact& b,
@@ -1364,10 +1367,11 @@ public:
 		Grid<std::vector<size_t>> grid;
 		std::vector<std::pair<int, int>> filledCells;
 		std::vector<fixed> hitSpins;
+		std::vector<UnitCollision::ContactHit> hits;
 		std::vector<uint8_t> pressures;
 
 		UnitCollision::ComputePushes(units, PushConfig::IMPACT_REFERENCE_TIME, grid, filledCells, pushes, spins,
-			velocityChanges, hitSpins, pressures);
+			velocityChanges, hitSpins, hits, pressures);
 		return velocityChanges;
 	}
 

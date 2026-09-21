@@ -25,6 +25,7 @@
 BEGIN_INTERFACE_WRAPPER(UnitMotion)
 DEFINE_INTERFACE_METHOD("MoveToPointRange", ICmpUnitMotion, MoveToPointRange)
 DEFINE_INTERFACE_METHOD("MoveToTargetRange", ICmpUnitMotion, MoveToTargetRange)
+DEFINE_INTERFACE_METHOD("SetChargeMove", ICmpUnitMotion, SetChargeMove)
 DEFINE_INTERFACE_METHOD("MoveToFormationOffset", ICmpUnitMotion, MoveToFormationOffset)
 DEFINE_INTERFACE_METHOD("SetMemberOfFormation", ICmpUnitMotion, SetMemberOfFormation)
 DEFINE_INTERFACE_METHOD("IsTargetRangeReachable", ICmpUnitMotion, IsTargetRangeReachable)
@@ -65,6 +66,11 @@ public:
 	bool MoveToTargetRange(entity_id_t target, entity_pos_t minRange, entity_pos_t maxRange) override
 	{
 		return m_Script.Call<bool>("MoveToTargetRange", target, minRange, maxRange);
+	}
+
+	void SetChargeMove() override
+	{
+		m_Script.CallVoid("SetChargeMove");
 	}
 
 	void MoveToFormationOffset(entity_id_t target, entity_pos_t x, entity_pos_t z) override

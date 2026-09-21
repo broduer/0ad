@@ -26,6 +26,7 @@
 class ICmpPosition;
 class CCmpUnitMotion;
 class ICmpPhysicalBody;
+class ICmpAttack;
 
 /**
  * Motion state structure used by UnitMotionManager to track unit movement state.
@@ -48,6 +49,15 @@ struct MotionState
 	ICmpPosition* cmpPosition;
 	CCmpUnitMotion* cmpUnitMotion;
 	ICmpPhysicalBody* cmpPhysicalBody;
+
+	// Looked up once by the manager, the first turn the unit is in the world: an interface query per unit
+	// per turn costs as much as what the pointer is used for, and the charge speed is a script call.
+	// Reset on deserialization, like the pointers above.
+	ICmpAttack* cmpAttack = nullptr;
+	bool chargeQueried = false;
+	// The speed at which this unit's contacts count as charges (see ICmpAttack::GetChargeMinSpeed).
+	// Negative if it cannot charge.
+	fixed chargeMinSpeed = fixed::FromInt(-1);
 
 	// Position before units start moving
 	CFixedVector2D initialPos;

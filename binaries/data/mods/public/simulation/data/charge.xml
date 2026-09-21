@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- How a hit spins and rolls a unit, for all units. -->
+<!-- How a charge hit shapes its force, for all units that charge. -->
 <!-- Values outside their bounds are ignored with a warning, and the default is used. -->
 <Charge>
+  <!-- A charge is a collision: a unit moving at its charge speed hits whatever -->
+  <!-- its body runs into, and the momentum they exchange is plain physics. -->
+  <!-- The settings here shape what that collision looks like on the target. -->
+
   <!-- A hit landing away from the target's centre of mass also turns it, by -->
   <!-- as much as the lever and the hull's moment of inertia say. That needs -->
   <!-- no strength of its own; this only scales the result for taste, so 1 is -->
@@ -60,4 +64,9 @@
   <!-- Bounds: 0 or more. -->
   <RollSettledAngle>0.01</RollSettledAngle>
 
+  <!-- A hit deals the full Attack/ChargeAttack damage when it changes the -->
+  <!-- target's velocity by the charger's speed: its walk speed, or its run -->
+  <!-- speed. Harder hits still deal the full damage, softer ones less. -->
+  <!-- Values: walk or run. -->
+  <FullBlowSpeed>walk</FullBlowSpeed>
 </Charge>

@@ -27,7 +27,7 @@
 #include <limits>
 
 /**
- * How a hit spins and rolls a unit, shared by all units, from simulation/data/charge.xml.
+ * How a charge hit shapes its force, shared by all units, from simulation/data/charge.xml.
  * Settings missing from the file, or the whole file, keep the defaults below.
  */
 class ChargeConfig
@@ -52,6 +52,8 @@ public:
 		fixed rollRestVelocity{fixed::FromFraction(1, 1000)};     // Slower rolls stop
 		fixed rollSettledAngle{fixed::FromFraction(1, 100)};      // A roll at rest below this (radians) is levelled
 
+		// Damage
+		bool fullBlowAtRunSpeed{false};  // A full blow is a hit at the charger's run speed rather than its walk speed
 	};
 
 	static const Values& Get()
@@ -93,6 +95,16 @@ public:
 		Read(node, "RollOvershoot", values.rollOvershootScale, zero, unbounded);
 		Read(node, "RollRestVelocity", values.rollRestVelocity, zero, unbounded);
 		Read(node, "RollSettledAngle", values.rollSettledAngle, zero, unbounded);
+
+		const CParamNode& fullBlowSpeed{node.GetChild("FullBlowSpeed")};
+		if (fullBlowSpeed.IsOk())
+		{
+			const std::string& speed{fullBlowSpeed.ToString()};
+			if (speed == "walk" || speed == "run")
+				values.fullBlowAtRunSpeed = speed == "run";
+			else
+				LOGWARNING("ChargeConfig: FullBlowSpeed must be walk or run, using the default");
+		}
 
 	}
 

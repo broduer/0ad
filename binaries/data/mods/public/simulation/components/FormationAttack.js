@@ -21,6 +21,12 @@ FormationAttack.prototype.GetAttackTypes = function()
 	return [];
 };
 
+// TODO: Would be nice to have formation charging.
+FormationAttack.prototype.GetChargeMinSpeed = function()
+{
+	return -1;
+};
+
 FormationAttack.prototype.GetRange = function(target)
 {
 	var result = { "min": 0, "max": this.canAttackAsFormation ? -1 : 0 };

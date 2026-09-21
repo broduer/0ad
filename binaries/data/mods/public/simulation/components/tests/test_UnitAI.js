@@ -97,6 +97,7 @@ TestTargetEntityRenaming(
 
 		AddMock(player_ent, IID_UnitMotion, {
 			"MoveToTargetRange": () => true,
+			"SetChargeMove": () => {},
 			"GetRunMultiplier": () => 1,
 			"SetSpeedMultiplier": () => {},
 			"StopMoving": () => {}
@@ -178,6 +179,7 @@ function TestFormationExiting(mode)
 		"SetSpeedMultiplier": () => {},
 		"MoveToFormationOffset": (target, x, z) => {},
 		"MoveToTargetRange": (target, min, max) => true,
+		"SetChargeMove": () => {},
 		"PossiblyAtDestination": () => false,
 		"SetMemberOfFormation": () => {},
 		"StopMoving": () => {},
@@ -376,6 +378,7 @@ function TestMoveIntoFormationWhileAttacking()
 			"SetSpeedMultiplier": () => {},
 			"MoveToFormationOffset": (target, x, z) => {},
 			"MoveToTargetRange": (target, min, max) => true,
+			"SetChargeMove": () => {},
 			"PossiblyAtDestination": () => false,
 			"SetMemberOfFormation": () => {},
 			"StopMoving": () => {},
@@ -654,6 +657,7 @@ function TestAttemptObstructionMitigation()
 		"GetWalkSpeed": () => 1,
 		"StopMoving": () => {},
 		"MoveToTargetRange": () => true,
+		"SetChargeMove": () => {},
 		"MoveToPointRange": () => true,
 		"SetSpeedMultiplier": () => {},
 		"SetPassabilityClassName": () => {},

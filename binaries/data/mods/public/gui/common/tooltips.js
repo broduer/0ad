@@ -472,6 +472,16 @@ function getAttackTooltip(template)
 			"attackType": translateWithContext(attackTypeTemplate.attackName.context || "Name of an attack, usually the weapon.", attackTypeTemplate.attackName.name)
 		});
 
+		if (attackType == "ChargeAttack")
+		{
+			tooltips.push(sprintf(translate("%(attackLabel)s: %(effects)s at full impact%(friendlyFire)s"), {
+				"attackLabel": attackLabel,
+				"effects": attackEffectsDetails(attackTypeTemplate),
+				"friendlyFire": attackTypeTemplate.friendlyFire ? commaFont(translate(", ")) + translate("hurts allies") : ""
+			}));
+			continue;
+		}
+
 		const isVolley = !!(attackTypeTemplate.projectileCount && attackTypeTemplate.projectileCount > 1);
 
 		// Get projectile count - either volley size or garrison arrows

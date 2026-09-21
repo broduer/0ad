@@ -103,10 +103,54 @@ Attack.prototype.Schema =
 			"<RepeatTime>1000</RepeatTime>" +
 			"<MaxRange>4.0</MaxRange>" +
 		"</Slaughter>" +
+		"<ChargeAttack>" +
+			"<AttackName>Charge</AttackName>" +
+			"<Damage>" +
+				"<Hack>0.0</Hack>" +
+				"<Pierce>20.0</Pierce>" +
+				"<Crush>10.0</Crush>" +
+			"</Damage>" +
+			"<HitCooldown>1000</HitCooldown>" +
+			"<MinSpeedToCharge>7.5</MinSpeedToCharge>" +
+			"<WeightSimilarityPenalty>0.8</WeightSimilarityPenalty>" +
+		"</ChargeAttack>" +
 	"</a:example>" +
+	"<interleave>" +
+	"<optional>" +
+		"<element name='ChargeAttack' a:help='Charge: moving at speed, the unit damages whatever it runs into. The collision itself is found by unit pushing; the damage values are for a full blow and are scaled by how much momentum the hit exchanged.'>" +
+			"<interleave>" +
+				"<element name='AttackName' a:help='Name of the attack, to be displayed in the GUI.'>" +
+					"<optional>" +
+						"<attribute name='context'>" +
+							"<text/>" +
+						"</attribute>" +
+					"</optional>" +
+					"<text/>" +
+				"</element>" +
+				AttackHelper.BuildAttackEffectsSchema() +
+				"<element name='MinSpeedToCharge' a:help='Minimum speed (m/s) at which running into a unit counts as a charge. Slower contacts are ordinary bumps, left to pushing.'>" +
+					"<ref name='nonNegativeDecimal'/>" +
+				"</element>" +
+				"<element name='WeightSimilarityPenalty' a:help='How much to reduce a hit between units of similar weight. 0 = no reduction, 1 = full reduction (equal weights do nothing to each other).'>" +
+					"<ref name='nonNegativeDecimal'/>" +
+				"</element>" +
+				"<optional>" +
+					"<element name='FriendlyFire' a:help='Whether charging into non enemy units hurts them. Defaults to false.'><data type='boolean'/></element>" +
+				"</optional>" +
+				"<optional>" +
+					"<element name='HitCooldown' a:help='Time (in milliseconds) before the same target can be damaged again by this charger. Pushing is not affected. Defaults to 1000.'>" +
+						"<data type='nonNegativeInteger'/>" +
+					"</element>" +
+				"</optional>" +
+				Attack.prototype.restrictedClassesSchema +
+			"</interleave>" +
+		"</element>" +
+	"</optional>" +
 	"<oneOrMore>" +
 		"<element>" +
-			"<anyName a:help='Currently one of Melee, Ranged, Capture or Slaughter.'/>" +
+			"<anyName a:help='Currently one of Melee, Ranged, Capture or Slaughter.'>" +
+				"<except><name>ChargeAttack</name></except>" +
+			"</anyName>" +
 			"<interleave>" +
 				"<element name='AttackName' a:help='Name of the attack, to be displayed in the GUI.'>" +
 					"<optional>" +
@@ -234,7 +278,8 @@ Attack.prototype.Schema =
 				Attack.prototype.restrictedClassesSchema +
 			"</interleave>" +
 		"</element>" +
-	"</oneOrMore>";
+	"</oneOrMore>" +
+	"</interleave>";
 
 Attack.prototype.Init = function()
 {
@@ -277,6 +322,113 @@ Attack.prototype.GetRestrictedClasses = function(type)
 		return this.template[type].RestrictedClasses._string.split(/\s+/);
 
 	return [];
+};
+
+/**
+ * The speed (m/s) this unit has to be moving at for a contact to count as a charge, or -1 if it cannot
+ * charge at all. Read by the unit motion manager, which tells charging units' pushes from ordinary bumps.
+ */
+Attack.prototype.GetChargeMinSpeed = function()
+{
+	if (!this.template.ChargeAttack)
+		return -1;
+	return ApplyValueModificationsToEntity("Attack/ChargeAttack/MinSpeedToCharge",
+		+this.template.ChargeAttack.MinSpeedToCharge, this.entity);
+};
+
+/**
+ * This unit, charging, has run into target: decide what the contact means. The velocity each side lost or
+ * gained in the collision is given in m/s, and fullBlowSpeed is the speed at which a hit deals the whole
+ * ChargeAttack damage. The damage is queued for the end of the turn, because this is called from inside
+ * the motion update and dealing damage runs script that can create or destroy entities.
+ */
+Attack.prototype.HandleChargeContact = function(target, targetSpeedChange, chargerSpeedChange, fullBlowSpeed)
+{
+	if (!this.template.ChargeAttack || target == this.entity)
+		return;
+
+	const cmpPhysicalBody = Engine.QueryInterface(this.entity, IID_PhysicalBody);
+	const cmpTargetBody = Engine.QueryInterface(target, IID_PhysicalBody);
+	const chargerWeight = cmpPhysicalBody ? cmpPhysicalBody.GetWeight() : this.DEFAULT_WEIGHT;
+	const targetWeight = cmpTargetBody ? cmpTargetBody.GetWeight() : this.DEFAULT_WEIGHT;
+
+	// The share of the hit that counts, from WeightSimilarityPenalty: 1 for units of very different weight,
+	// less the more alike the two weights are, down to 1 - WeightSimilarityPenalty for equal weights (never
+	// below 0.1). Cavalry running down infantry gets the full hit; cavalry brushing cavalry gets a fraction.
+	const similarityPenalty = ApplyValueModificationsToEntity("Attack/ChargeAttack/WeightSimilarityPenalty",
+		+this.template.ChargeAttack.WeightSimilarityPenalty, this.entity);
+	const maxWeight = Math.max(chargerWeight, targetWeight);
+	const similarity = maxWeight > 0 ? 1 - Math.min(1, Math.abs(chargerWeight - targetWeight) / maxWeight) : 1;
+	const blow = Math.min(1, Math.max(0.1, 1 - similarityPenalty * similarity));
+
+	// Damage: the velocity change the target received, over the full-blow speed. 1 is a full blow dealing the
+	// whole ChargeAttack damage: a heavy charger bowls a light target over for (nearly) full damage, while a
+	// light charger barely moves, and barely hurts, a heavy one.
+	if (fullBlowSpeed <= 0)
+		return;
+	const fraction = Math.min(1, targetSpeedChange / fullBlowSpeed * blow);
+	if (fraction <= 0)
+		return;
+	if (!this.pendingChargeHits)
+		this.pendingChargeHits = [];
+	this.pendingChargeHits.push({ "target": target, "fraction": fraction });
+};
+
+Attack.prototype.OnUpdate_Final = function()
+{
+	if (!this.pendingChargeHits)
+		return;
+	// Take the list first: dealing damage can re-enter this component.
+	const hits = this.pendingChargeHits;
+	this.pendingChargeHits = undefined;
+	for (const hit of hits)
+		this.PerformChargeHit(hit.target, hit.fraction);
+};
+
+/**
+ * Deal the Attack/ChargeAttack effects to a unit hit by our charge. Called from OnUpdate_Final for each contact that
+ * already pushed the target.
+ * @param {number} target - The entity that was hit.
+ * @param {number} fraction - How much of a full blow the hit was (0..1).
+ */
+Attack.prototype.PerformChargeHit = function(target, fraction)
+{
+	if (!this.template.ChargeAttack || target == this.entity || fraction <= 0)
+		return;
+
+	const cmpOwnership = Engine.QueryInterface(this.entity, IID_Ownership);
+	const cmpTargetOwnership = Engine.QueryInterface(target, IID_Ownership);
+	if (!cmpOwnership || !cmpTargetOwnership)
+		return;
+	const attackerOwner = cmpOwnership.GetOwner();
+
+	const friendlyFire = this.template.ChargeAttack.FriendlyFire == "true";
+	if (AttackHelper.GetPlayersToDamage(attackerOwner, friendlyFire).indexOf(cmpTargetOwnership.GetOwner()) == -1)
+		return;
+
+	const cmpIdentity = Engine.QueryInterface(target, IID_Identity);
+	const restrictedClasses = this.GetRestrictedClasses("ChargeAttack");
+	if (cmpIdentity && restrictedClasses.length && MatchesClassList(cmpIdentity.GetClassesList(), restrictedClasses))
+		return;
+
+	const now = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).GetTime();
+	const cooldown = ApplyValueModificationsToEntity("Attack/ChargeAttack/HitCooldown",
+		+(this.template.ChargeAttack.HitCooldown ?? this.DEFAULT_CHARGE_HIT_COOLDOWN), this.entity);
+	if (!this.chargeHitTimes)
+		this.chargeHitTimes = {};
+	if (this.chargeHitTimes[target] !== undefined && now - this.chargeHitTimes[target] < cooldown)
+		return;
+	for (const ent in this.chargeHitTimes)
+		if (now - this.chargeHitTimes[ent] >= cooldown)
+			delete this.chargeHitTimes[ent];
+	this.chargeHitTimes[target] = now;
+
+	AttackHelper.HandleAttackEffects(target, {
+		"type": "ChargeAttack",
+		"attackData": this.GetAttackEffectsData("ChargeAttack"),
+		"attacker": this.entity,
+		"attackerOwner": attackerOwner
+	}, Math.min(1, fraction));
 };
 
 Attack.prototype.GetKnockbackForce = function(type, isSplash = false)
@@ -1191,5 +1343,11 @@ Attack.prototype.ALIGN_FLIGHT_MAX_CHANGE = 0.25;
  * any direction (e.g. arrow ships).
  */
 Attack.prototype.DEFAULT_MAX_ANGLE = 0.5;
+
+// Time before a charger can damage the same target again, when Attack/ChargeAttack has no HitCooldown.
+Attack.prototype.DEFAULT_CHARGE_HIT_COOLDOWN = 1000;
+
+// The weight of a unit without a PhysicalBody, the same the unit motion manager assumes for it.
+Attack.prototype.DEFAULT_WEIGHT = 10;
 
 Engine.RegisterComponentType(IID_Attack, "Attack", Attack);

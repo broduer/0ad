@@ -5203,7 +5203,7 @@ UnitAI.prototype.MoveToTargetAttackRange = function(target, type)
 	// Out of parabolic range: assume the terrain height difference is to blame,
 	// and close in to reassess from there.
 	if (effectiveRange.min > effectiveRange.max)
-		return cmpUnitMotion.MoveToTargetRange(target, flatRange.min,
+		return this.MoveToAttackRangeExplicit(cmpUnitMotion, target, type, flatRange.min,
 			Math.max(flatRange.min, flatRange.max / 2));
 
 	// The parabola changes while walking so be cautious:
@@ -5211,7 +5211,24 @@ UnitAI.prototype.MoveToTargetAttackRange = function(target, type)
 		(flatRange.max + effectiveRange.max) / 2 :
 		effectiveRange.max;
 
-	return cmpUnitMotion.MoveToTargetRange(target, effectiveRange.min, guessedMaxRange);
+	return this.MoveToAttackRangeExplicit(cmpUnitMotion, target, type, effectiveRange.min, guessedMaxRange);
+};
+
+/**
+ * Move into range to attack the target.
+ * A melee attack is a charge, so it doesn't brake on the final approach. (Ranged units' Charge is a get-away or
+ * trample effect, not a charge on attacking.)
+ * @return {boolean} - Whether the order to move has succeeded.
+ */
+UnitAI.prototype.MoveToAttackRangeExplicit = function(cmpUnitMotion, target, type, min, max)
+{
+	if (!cmpUnitMotion.MoveToTargetRange(target, min, max))
+		return false;
+
+	if (type == "Melee")
+		cmpUnitMotion.SetChargeMove();
+
+	return true;
 };
 
 UnitAI.prototype.MoveToTargetRangeExplicit = function(target, min, max)
