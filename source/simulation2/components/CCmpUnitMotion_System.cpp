@@ -390,7 +390,11 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 
 			// Update maxRollAngle from the component (it may have been loaded after registration)
 			if (it->second.cmpPhysicalBody)
+			{
 				it->second.maxRollAngle = it->second.cmpPhysicalBody->GetMaxRollAngle();
+				it->second.stagger = it->second.cmpPhysicalBody->GetStagger();
+				it->second.staggerRecoveryRate = it->second.cmpUnitMotion->GetStaggerRecoveryRate();
+			}
 			it->second.spinDecay = it->second.cmpUnitMotion->GetSpinDecay();
 
 			// Can this entity charge? Looked up once, then kept: the query costs as much as what it is used
@@ -513,8 +517,8 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 		// CONTACT HITS
 		// ========================================
 		// A push from a charging unit can deal damage. The pushes above found every such contact; the
-		// charger's Attack now decides what it means (damage queued for the end of the turn). A full blow
-		// is a hit at the charger's walk speed, or its run speed if charge.xml says so.
+		// charger's Attack now decides what it means (stagger now, damage queued for the end of the turn).
+		// A full blow is a hit at the charger's walk speed, or its run speed if charge.xml says so.
 		{
 			PROFILE2("MotionMgr_ContinuousCharge");
 			for (const UnitCollision::ContactHit& hit : collisionHits)
@@ -678,6 +682,22 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 					uint8_t newPressure = static_cast<uint8_t>(decayed.ToInt_RoundToZero());
 					it->second.cmpPhysicalBody->SetPressure(newPressure);
 				}
+			}
+		}
+	}
+
+	// ========================================
+	// STAGGER
+	// ========================================
+	// Stagger wears off at each unit's own recovery rate.
+	if (IsPushingActivated())
+	{
+		PROFILE2("MotionMgr_Stagger");
+		for (auto* statePtr : motionStates)
+		{
+			if (statePtr->cmpPhysicalBody)
+			{
+				statePtr->cmpPhysicalBody->DecayStagger(statePtr->staggerRecoveryRate, dt);
 			}
 		}
 	}

@@ -126,6 +126,10 @@ struct MotionState
 	fixed rollAngle;           // Current roll angle in radians
 	fixed rollVelocity;        // How fast the roll is changing (radians/sec)
 	fixed maxRollAngle;        // Maximum roll angle for this unit (0 = no roll)
+
+	// Stagger system - accumulates external forces and reduces pathfinding effectiveness
+    fixed stagger;				// 0 = no stagger, 1.0 = full stagger (uncontrolled)
+    fixed staggerRecoveryRate;  // How fast the unit recover from staggering (0.05 = slow recovery, 0.5 = fast)
 };
 
 #endif // INCLUDED_MOTIONSTATE

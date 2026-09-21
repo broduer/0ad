@@ -245,6 +245,9 @@ public:
 	// How fast the unit gains and loses turning speed, in radians per second squared
 	fixed m_TemplateTurnAcceleration;
 
+	// How fast the unit recovers from stagger
+	fixed m_TemplateStaggerRecoveryRate;
+
 	// How fast the spin from an impact decays, if this unit overrides the default in charge.xml
 	std::optional<fixed> m_TemplateSpinDecay;
 
@@ -342,6 +345,11 @@ public:
 				"<ref name='positiveDecimal'/>"
 			"</element>"
 			"<optional>"
+				"<element name='StaggerRecoveryRate' a:help='Fraction of its stagger the unit recovers every 0.2 seconds, independent of turn length (0.05 = slow, 0.5 = fast).'>"
+					"<ref name='nonNegativeDecimal'/>"
+				"</element>"
+			"</optional>"
+			"<optional>"
 				"<element name='SpinDecay' a:help='Fraction of the spin from an impact that the unit loses every 0.2 seconds, independent of turn length (0 to 1). Defaults to charge.xml.'>"
 					"<ref name='nonNegativeDecimal'/>"
 				"</element>"
@@ -392,6 +400,11 @@ public:
 			m_TemplateDriftCorrection = fixed::Zero();
 
 		m_TemplateTurnAcceleration = paramNode.GetChild("TurnAcceleration").ToFixed();
+
+		if (paramNode.GetChild("StaggerRecoveryRate").IsOk())
+			m_TemplateStaggerRecoveryRate = paramNode.GetChild("StaggerRecoveryRate").ToFixed();
+		else
+			m_TemplateStaggerRecoveryRate = fixed::FromFraction(1, 10);
 
 		if (paramNode.GetChild("SpinDecay").IsOk())
 			m_TemplateSpinDecay = paramNode.GetChild("SpinDecay").ToFixed();
@@ -797,6 +810,11 @@ public:
 	CFixedVector2D CarriedVelocity(const MotionState& state, const fixed dt) const
 	{
 		return state.inertiaVelocity + state.externalInertiaVelocity.Multiply(PushConfig::DecayFactor(m_TemplateDrifting, dt));
+	}
+
+	fixed GetStaggerRecoveryRate() const
+	{
+		return m_TemplateStaggerRecoveryRate;
 	}
 
 	fixed GetSpinDecay() const
@@ -1602,6 +1620,28 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 	// TODO: would be nice to support terrain-dependent speed again.
 	fixed maxSpeed = basicSpeed;
 
+	// ========================================
+	// STAGGER EFFECT - Reduces speed, turning, and acceleration
+	// ========================================
+	fixed staggerFactor = fixed::FromInt(1);
+	fixed turnReduction = fixed::FromInt(1);
+	fixed speedReduction = fixed::FromInt(1);
+
+	if (state.stagger > fixed::Zero())
+	{
+		// Pathfinding control reduction
+		staggerFactor = fixed::FromInt(1) - state.stagger;
+
+		// Turn rate reduction
+		turnReduction = fixed::FromInt(1) - state.stagger;
+
+		// Speed reduction (max speed is lowered)
+		speedReduction = fixed::FromInt(1) - state.stagger;
+
+		// Apply speed reduction to max speed
+		maxSpeed = maxSpeed.Multiply(speedReduction);
+	}
+
 	// Calculate desired velocity from pathfinding
 	CFixedVector2D pathfindingVelocity;
 	const bool hasPathfinding{!shortPath.m_Waypoints.empty() || !longPath.m_Waypoints.empty()};
@@ -1625,10 +1665,10 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 
 	if (hasPathfinding)
 	{
-		// Steer for the current waypoint.
+		// Steer for the current waypoint, less effectively while staggered.
 		// Collision avoidance uses last turn's prediction, as the prediction runs after this point.
 		pathfindingVelocity = PathFollowing::SteeringVelocity(toWaypoint, facingDir, speed, maxSpeed, m_TemplateInertia,
-			m_TemplateTurnBraking, state.predictedCollision);
+			m_TemplateTurnBraking, state.predictedCollision).Multiply(staggerFactor);
 	}
 
 	// ========================================
@@ -1849,8 +1889,9 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 		}
 
 	// PATHFINDING ANGULAR MOMENTUM
-	const fixed effectiveTurnRate{turnRate};
-	const fixed effectiveTurnAcceleration{m_TemplateTurnAcceleration};
+	// Apply turn reduction when staggered
+	const fixed effectiveTurnRate{turnRate.Multiply(turnReduction)};
+	const fixed effectiveTurnAcceleration{m_TemplateTurnAcceleration.Multiply(turnReduction)};
 
 	if (hasPathfinding && hasMoveRequest)
 	{

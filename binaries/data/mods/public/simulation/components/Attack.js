@@ -117,7 +117,7 @@ Attack.prototype.Schema =
 	"</a:example>" +
 	"<interleave>" +
 	"<optional>" +
-		"<element name='ChargeAttack' a:help='Charge: moving at speed, the unit damages whatever it runs into. The collision itself is found by unit pushing; the damage values are for a full blow and are scaled by how much momentum the hit exchanged.'>" +
+		"<element name='ChargeAttack' a:help='Charge: moving at speed, the unit damages and staggers whatever it runs into. The collision itself is found by unit pushing; the damage values are for a full blow and are scaled by how much momentum the hit exchanged.'>" +
 			"<interleave>" +
 				"<element name='AttackName' a:help='Name of the attack, to be displayed in the GUI.'>" +
 					"<optional>" +
@@ -134,6 +134,11 @@ Attack.prototype.Schema =
 				"<element name='WeightSimilarityPenalty' a:help='How much to reduce a hit between units of similar weight. 0 = no reduction, 1 = full reduction (equal weights do nothing to each other).'>" +
 					"<ref name='nonNegativeDecimal'/>" +
 				"</element>" +
+				"<optional>" +
+					"<element name='StaggerEfficiency' a:help='Multiplier on the stagger a hit causes. Stagger is the velocity change the hit gives a unit as a fraction of its top speed, so 1.0 means knocking off half its top speed staggers it by 0.5. Defaults to 0.5.'>" +
+						"<ref name='nonNegativeDecimal'/>" +
+					"</element>" +
+				"</optional>" +
 				"<optional>" +
 					"<element name='FriendlyFire' a:help='Whether charging into non enemy units hurts them. Defaults to false.'><data type='boolean'/></element>" +
 				"</optional>" +
@@ -339,8 +344,9 @@ Attack.prototype.GetChargeMinSpeed = function()
 /**
  * This unit, charging, has run into target: decide what the contact means. The velocity each side lost or
  * gained in the collision is given in m/s, and fullBlowSpeed is the speed at which a hit deals the whole
- * ChargeAttack damage. The damage is queued for the end of the turn, because this is called from inside
- * the motion update and dealing damage runs script that can create or destroy entities.
+ * ChargeAttack damage. Both sides are staggered at once; the damage is queued for the end of the turn,
+ * because this is called from inside the motion update and dealing damage runs script that can create
+ * or destroy entities.
  */
 Attack.prototype.HandleChargeContact = function(target, targetSpeedChange, chargerSpeedChange, fullBlowSpeed)
 {
@@ -360,6 +366,18 @@ Attack.prototype.HandleChargeContact = function(target, targetSpeedChange, charg
 	const maxWeight = Math.max(chargerWeight, targetWeight);
 	const similarity = maxWeight > 0 ? 1 - Math.min(1, Math.abs(chargerWeight - targetWeight) / maxWeight) : 1;
 	const blow = Math.min(1, Math.max(0.1, 1 - similarityPenalty * similarity));
+
+	// Stagger is how much the hit disrupts a unit's motion: the velocity change it received as a fraction of
+	// its own top speed. Weight is already in that velocity change, so a heavy unit bumping an equal barely
+	// staggers, while a light unit bowled over by a heavy one is badly shaken.
+	const staggerEfficiency = ApplyValueModificationsToEntity("Attack/ChargeAttack/StaggerEfficiency",
+		+(this.template.ChargeAttack.StaggerEfficiency ?? this.DEFAULT_STAGGER_EFFICIENCY), this.entity);
+	const cmpTargetMotion = Engine.QueryInterface(target, IID_UnitMotion);
+	if (cmpTargetBody && cmpTargetMotion && cmpTargetMotion.GetSpeed() > 0)
+		cmpTargetBody.AddStagger(targetSpeedChange / cmpTargetMotion.GetSpeed() * blow * staggerEfficiency);
+	const cmpUnitMotion = Engine.QueryInterface(this.entity, IID_UnitMotion);
+	if (cmpPhysicalBody && cmpUnitMotion && cmpUnitMotion.GetSpeed() > 0)
+		cmpPhysicalBody.AddStagger(chargerSpeedChange / cmpUnitMotion.GetSpeed() * blow * staggerEfficiency);
 
 	// Damage: the velocity change the target received, over the full-blow speed. 1 is a full blow dealing the
 	// whole ChargeAttack damage: a heavy charger bowls a light target over for (nearly) full damage, while a
@@ -1346,6 +1364,9 @@ Attack.prototype.DEFAULT_MAX_ANGLE = 0.5;
 
 // Time before a charger can damage the same target again, when Attack/ChargeAttack has no HitCooldown.
 Attack.prototype.DEFAULT_CHARGE_HIT_COOLDOWN = 1000;
+
+// Multiplier on the stagger a charge hit causes, when Attack/ChargeAttack has no StaggerEfficiency.
+Attack.prototype.DEFAULT_STAGGER_EFFICIENCY = 0.5;
 
 // The weight of a unit without a PhysicalBody, the same the unit motion manager assumes for it.
 Attack.prototype.DEFAULT_WEIGHT = 10;

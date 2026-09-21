@@ -23,4 +23,6 @@
 
 BEGIN_INTERFACE_WRAPPER(PhysicalBody)
 DEFINE_INTERFACE_METHOD("GetWeight", ICmpPhysicalBody, GetWeight)
+DEFINE_INTERFACE_METHOD("GetStagger", ICmpPhysicalBody, GetStagger)
+DEFINE_INTERFACE_METHOD("AddStagger", ICmpPhysicalBody, AddStagger)
 END_INTERFACE_WRAPPER(PhysicalBody)

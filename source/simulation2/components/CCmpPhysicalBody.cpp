@@ -28,7 +28,7 @@
 
 /**
  * A unit's physical body, see ICmpPhysicalBody.
- * Heavier units push harder and resist being pushed; pressure records how crowded it is.
+ * Heavier units push harder and resist being pushed; pressure and stagger record the impacts the unit takes.
  */
 class CCmpPhysicalBody final : public ICmpPhysicalBody
 {
@@ -85,6 +85,10 @@ public:
 	// Roll angle support
 	fixed GetMaxRollAngle() const override;
 
+	void AddStagger(fixed amount) override;
+	fixed GetStagger() const override;
+	void DecayStagger(const fixed recoveryRate, const fixed dt) override;
+
 private:
 	// Template state (from XML)
 	bool m_TemplatePushingEnabled;
@@ -98,6 +102,7 @@ private:
 	bool m_PushingEnabled;           // Whether this unit takes part in pushing
 	uint8_t m_Pressure;              // Current pressure (crowding intensity) 0-255
 	fixed m_MaxRollAngle;            // Maximum roll angle for this unit (0 = no roll)
+	fixed m_Stagger;
 
 	// Derived from the Footprint or UnitMotion component, which may not exist yet when we are
 	// initialised, so this is filled in on the first call to GetCollisionShape. It is a pure function of the
@@ -136,6 +141,7 @@ void CCmpPhysicalBody::Init(const CParamNode& paramNode)
 
 	// Initialize runtime state
 	m_Pressure = 0;
+	m_Stagger = fixed::Zero();
 	m_CollisionShapeKnown = false;
 
 	// Ensure weight is positive
@@ -158,6 +164,7 @@ void CCmpPhysicalBody::Serialize(ISerializer& serialize)
 	serialize.Bool("pushingEnabled", m_PushingEnabled);
 	serialize.NumberU8_Unbounded("pressure", m_Pressure);
 	serialize.Bool("globalEnabled", m_GlobalEnabled);
+	serialize.NumberFixed_Unbounded("stagger", m_Stagger);
 }
 
 void CCmpPhysicalBody::Deserialize(const CParamNode& paramNode, IDeserializer& deserialize)
@@ -180,6 +187,7 @@ void CCmpPhysicalBody::Deserialize(const CParamNode& paramNode, IDeserializer& d
 	deserialize.Bool("globalEnabled", globalEnabled);
 	m_GlobalEnabled = globalEnabled;
 
+	deserialize.NumberFixed_Unbounded("stagger", m_Stagger);
 }
 
 void CCmpPhysicalBody::HandleMessage(const CMessage& msg, bool /*global*/)
@@ -268,4 +276,31 @@ void CCmpPhysicalBody::AddPressure(uint8_t pressure)
 fixed CCmpPhysicalBody::GetMaxRollAngle() const
 {
     return m_MaxRollAngle;
+}
+
+void CCmpPhysicalBody::AddStagger(fixed amount)
+{
+	// Stagger doesn't cumulate and is caped to 1 for now
+	// If we want to support a "stun" that prevents units from moving at all
+	// for multiple turns, we could disable pathfinding influence in PerformMove
+	// when stagger > 1
+	m_Stagger = std::min(std::max(m_Stagger, amount), fixed::FromInt(1));
+}
+
+fixed CCmpPhysicalBody::GetStagger() const
+{
+    return m_Stagger;
+}
+
+void CCmpPhysicalBody::DecayStagger(const fixed recoveryRate, const fixed dt)
+{
+    if (m_Stagger <= fixed::Zero() || dt <= fixed::Zero())
+        return;
+
+    // recoveryRate is the fraction recovered per IMPACT_REFERENCE_TIME, so stagger lasts as long at any turn length.
+    const fixed keep{Clamp(fixed::FromInt(1) - recoveryRate, fixed::Zero(), fixed::FromInt(1))};
+    m_Stagger = m_Stagger.Multiply(PushConfig::DecayFactor(keep, dt));
+
+    if (m_Stagger < fixed::FromFraction(1, 20))
+        m_Stagger = fixed::Zero();
 }

@@ -27,6 +27,7 @@
       </Damage>
       <MinSpeedToCharge>4.0</MinSpeedToCharge>
       <WeightSimilarityPenalty>0.0</WeightSimilarityPenalty>
+      <StaggerEfficiency>1.0</StaggerEfficiency>
     </ChargeAttack>
   </Attack>
   <Cost>

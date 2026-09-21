@@ -130,6 +130,7 @@
     <Inertia>0.05</Inertia>
     <TurnAcceleration>48</TurnAcceleration>
     <DriftCorrection>0.6</DriftCorrection>
+    <StaggerRecoveryRate>0.25</StaggerRecoveryRate>
   </UnitMotion>
   <PhysicalBody>
     <Weight>10</Weight>
