@@ -18,6 +18,14 @@
       <RepeatTime>1000</RepeatTime>
       <RestrictedClasses datatype="tokens">!Domestic</RestrictedClasses>
     </Slaughter>
+    <ChargeAttack>
+      <AttackName>Charge</AttackName>
+      <Damage>
+        <Pierce>20</Pierce>
+      </Damage>
+      <MinSpeedToCharge>7.5</MinSpeedToCharge>
+      <WeightSimilarityPenalty>0.8</WeightSimilarityPenalty>
+    </ChargeAttack>
   </Attack>
   <Cost>
     <BuildTime>15</BuildTime>

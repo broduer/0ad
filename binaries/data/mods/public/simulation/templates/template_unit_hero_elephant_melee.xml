@@ -23,6 +23,14 @@
      <PreferredClasses datatype="tokens">!Ship</PreferredClasses>
      <Knockback>175</Knockback>
     </Melee>
+    <ChargeAttack>
+      <AttackName>Charge</AttackName>
+      <Damage>
+        <Crush>60</Crush>
+      </Damage>
+      <MinSpeedToCharge>4.0</MinSpeedToCharge>
+      <WeightSimilarityPenalty>0.2</WeightSimilarityPenalty>
+    </ChargeAttack>
   </Attack>
   <Cost>
     <Resources>

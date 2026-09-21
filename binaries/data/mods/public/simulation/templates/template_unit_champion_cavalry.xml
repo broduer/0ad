@@ -4,6 +4,14 @@
     <Capture>
       <Capture>3.5</Capture>
     </Capture>
+    <ChargeAttack>
+      <AttackName>Charge</AttackName>
+      <Damage>
+        <Pierce>20</Pierce>
+      </Damage>
+      <MinSpeedToCharge>7.5</MinSpeedToCharge>
+      <WeightSimilarityPenalty>0.8</WeightSimilarityPenalty>
+    </ChargeAttack>
   </Attack>
   <Cost>
     <BuildTime>25</BuildTime>

@@ -20,6 +20,14 @@
       </PreferredClasses>
       <Knockback>400</Knockback>
     </Melee>
+    <ChargeAttack>
+      <AttackName>Charge</AttackName>
+      <Damage>
+        <Crush>150</Crush>
+      </Damage>
+      <MinSpeedToCharge>4.0</MinSpeedToCharge>
+      <WeightSimilarityPenalty>0.0</WeightSimilarityPenalty>
+    </ChargeAttack>
   </Attack>
   <Cost>
     <Population>1</Population>

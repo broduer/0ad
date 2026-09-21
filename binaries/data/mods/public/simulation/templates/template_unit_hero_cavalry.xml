@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Entity parent="template_unit_hero">
+  <Attack>
+    <ChargeAttack>
+      <AttackName>Charge</AttackName>
+      <Damage>
+        <Pierce>20</Pierce>
+      </Damage>
+      <MinSpeedToCharge>7.5</MinSpeedToCharge>
+      <WeightSimilarityPenalty>0.8</WeightSimilarityPenalty>
+    </ChargeAttack>
+  </Attack>
   <Cost>
     <Resources>
       <food>300</food>

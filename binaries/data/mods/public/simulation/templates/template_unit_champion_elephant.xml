@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Entity parent="template_unit_champion">
+  <Attack>
+    <ChargeAttack>
+      <AttackName>Charge</AttackName>
+      <Damage>
+        <Crush>60</Crush>
+      </Damage>
+      <MinSpeedToCharge>0.0</MinSpeedToCharge>
+      <WeightSimilarityPenalty>0.2</WeightSimilarityPenalty>
+    </ChargeAttack>
+  </Attack>
   <Cost>
     <Population>3</Population>
     <BuildTime>36</BuildTime>
