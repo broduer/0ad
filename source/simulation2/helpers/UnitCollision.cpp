@@ -20,6 +20,11 @@
 
 #include "simulation2/helpers/ChargeConfig.h"
 #include "simulation2/helpers/Geometry.h"
+#include "ps/CLogger.h"
+
+// Logs every pair the pushing pass acts on that involves a solid unit: who pushed whom by how much, the
+// contact impulse if any, and how far apart their centres were. Says where a solid unit's shoves come from.
+#define DEBUG_PAIR_TRACE 0
 
 #include <algorithm>
 #include <cstdint>
@@ -512,6 +517,18 @@ void UnitCollision::ComputePushes(
 
 		ComputePairPush(units[i], units[j], dt, cfg, pushA, pushB, spinA, spinB,
 			velocityChangeA, velocityChangeB, hitSpinA, hitSpinB, outHits, pressureA, pressureB, correctionA, correctionB);
+#if DEBUG_PAIR_TRACE
+		if ((units[i].collisionShape.IsSolid() || units[j].collisionShape.IsSolid()) &&
+			(pushA.CompareLength(fixed::FromFraction(1, 10)) > 0 || pushB.CompareLength(fixed::FromFraction(1, 10)) > 0 ||
+			!velocityChangeA.IsZero() || !velocityChangeB.IsZero()))
+			LOGWARNING("Pair trace: %u(%s%s) - %u(%s%s): push %.2f / %.2f m, impulse %.2f / %.2f m/s, overlap correction %.2f / %.2f m, centres %.1f m apart",
+				units[i].entity, units[i].isMoving ? "moving" : "idle", units[i].collisionShape.IsSolid() ? " solid" : "",
+				units[j].entity, units[j].isMoving ? "moving" : "idle", units[j].collisionShape.IsSolid() ? " solid" : "",
+				pushA.Length().ToDouble(), pushB.Length().ToDouble(),
+				velocityChangeA.Length().ToDouble(), velocityChangeB.Length().ToDouble(),
+				correctionA.Length().ToDouble(), correctionB.Length().ToDouble(),
+				(units[i].position - units[j].position).Length().ToDouble());
+#endif
 
 		outPushes[i] += pushA;
 		outPushes[j] += pushB;

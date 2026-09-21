@@ -34,6 +34,7 @@
 #include "simulation2/components/ICmpPosition.h"
 #include "simulation2/components/ICmpUnitMotion.h"
 #include "simulation2/components/ICmpImpulseQueue.h"
+
 #include "simulation2/components/ICmpAttack.h"
 
 #include "simulation2/helpers/ChargeConfig.h"
@@ -60,6 +61,9 @@
 
 #define DEBUG_STATS 0
 #define DEBUG_RENDER 0
+// Logs a push waking an idle unit, and a pushed unit's step being rejected by the obstruction check:
+// between them they show whether pushes are shoving units into each other's blocking shapes.
+#define DEBUG_PUSH_TRACE 0
 
 #if DEBUG_RENDER
 #include "maths/Frustum.h"
@@ -598,6 +602,10 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 				const entity_pos_t MIN_FORCE_TO_WAKE{entity_pos_t::FromFraction(1, 10)};
 				if (hasVelocityChange || impulse.Length() > MIN_FORCE_TO_WAKE)
 				{
+#if DEBUG_PUSH_TRACE
+					LOGWARNING("Push woke idle entity %u (impulse %.3f)",
+						state->cmpUnitMotion->GetEntityId(), impulse.Length().ToDouble());
+#endif
 					state->needUpdate = true;
 					state->pos = state->initialPos;
 
@@ -647,6 +655,14 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			if (externalVelocity.CompareLength(entity_pos_t::FromFraction(1, 100)) >= 0)
 				state->externalVelocity = externalVelocity;
 			state->impulseSpin = spinThisTurn.Multiply(damping);
+#if DEBUG_CROWD_TRACE
+			if (state->cmpUnitMotion->IsCrowdTraced())
+				LOGWARNING("Crowd trace: entity %u pushed: %.2f m/s this turn (soft push %.2f before damping %.2f at pressure %u, +%u this turn; contact impulse %.2f; soft push vector %.3f %.3f)",
+					state->cmpUnitMotion->GetEntityId(), externalVelocity.Length().ToDouble(),
+					pushVelocity.Length().ToDouble(), damping.ToDouble(), static_cast<unsigned>(currentPressure),
+					static_cast<unsigned>(state->impulsePressure),
+					state->impulseVelocity.Length().ToDouble(), pushVelocity.X.ToDouble(), pushVelocity.Y.ToDouble());
+#endif
 #if DEBUG_RENDER
 			RenderForceVector(*state, state->externalVelocity, state->wasObstructed);
 #endif
@@ -667,6 +683,15 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			{
 				// Always call Move - it will handle both active and inertia movement
 				state->cmpUnitMotion->Move(*state, dt);
+#if DEBUG_PUSH_TRACE
+				// The blocked-step trace in CCmpUnitMotion.h says what rejected the step; this says whether
+				// that rejection ended in the unit not moving at all.
+				if (state->wasObstructed && state->cmpPhysicalBody &&
+					state->cmpPhysicalBody->GetCollisionShape().IsSolid())
+					LOGWARNING("Entity %u STOPPED: step blocked and neither sliding nor nudging found a way (push %.2f m/s, %s)",
+						state->cmpUnitMotion->GetEntityId(), state->externalVelocity.Length().ToDouble(),
+						state->isMoving ? "has a move request" : "no move request");
+#endif
 			}
 
 			// Decay pressure after moving

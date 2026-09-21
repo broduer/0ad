@@ -27,6 +27,7 @@
 #include "maths/MathUtil.h"
 #include "ps/CLogger.h"
 #include "ps/Profile.h"
+#include "ps/Profiler2.h"
 #include "renderer/Scene.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/CCmpUnitMotionManager.h"
@@ -57,6 +58,59 @@
 #include "simulation2/serialization/SerializedTypes.h"
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"
+
+// Splits PostMove into Profiler2 regions: the position message, the animation, the repath check, the
+// look-ahead line test and the obstruction handling. A region per unit per turn, so only while measuring.
+#define DEBUG_POSTMOVE_PROFILE 0
+#if DEBUG_POSTMOVE_PROFILE
+#define POSTMOVE_PROFILE(name) PROFILE2(name)
+#else
+#define POSTMOVE_PROFILE(name)
+#endif
+// Logs, for solid units and for crowd-traced units, every step the obstruction check rejects, naming the shape
+// that blocked it, whether that shape is flagged moving, how far away it is and the blocking box its
+// clearance and ours make.
+#define DEBUG_BLOCKED_STEPS 0
+// Traces, turn by turn, every unit whose template name contains DEBUG_CROWD_TRACE_TEMPLATE: what its move
+// came to (own speed, pressure slowdown, push received, whether the step was blocked and what was done
+// about it), what PostMove made of it (progress, obstruction handling, repathing), and the pushes the
+// manager handed it. For finding out what stops a unit that should be forcing its way through a crowd.
+// Turn DEBUG_BLOCKED_STEPS on with it to have the blocking shape named.
+#define DEBUG_CROWD_TRACE 0
+#define DEBUG_CROWD_TRACE_TEMPLATE "elephant"
+#if DEBUG_CROWD_TRACE
+#include "simulation2/components/ICmpTemplateManager.h"
+#endif
+
+#if DEBUG_BLOCKED_STEPS
+/**
+ * Wraps the movement filter and remembers the last shape it let through. TestLine asks the filter about
+ * each shape just before testing its geometry and returns at the first geometric hit, so once TestLine
+ * has returned true the last accepted shape is the one that blocked.
+ */
+class RecordingObstructionFilter : public IObstructionTestFilter
+{
+public:
+	explicit RecordingObstructionFilter(const IObstructionTestFilter& inner) : m_Inner(inner) {}
+
+	bool TestShape(tag_t tag, flags_t flags, entity_id_t group, entity_id_t group2) const override
+	{
+		const bool accepted{m_Inner.TestShape(tag, flags, group, group2)};
+		if (accepted)
+		{
+			m_LastTag = tag;
+			m_LastFlags = flags;
+		}
+		return accepted;
+	}
+
+	mutable tag_t m_LastTag;
+	mutable flags_t m_LastFlags{0};
+
+private:
+	const IObstructionTestFilter& m_Inner;
+};
+#endif
 #include "simulation2/system/Message.h"
 
 #include <algorithm>
@@ -242,6 +296,10 @@ public:
 	// Most notably, increases the search range of the vertex pathfinder.
 	// See HandleObstructedMove() for more details.
 	std::uint8_t m_FailedMovements = 0;
+#if DEBUG_CROWD_TRACE
+	// -1 until the template name has been looked at, then whether it matches DEBUG_CROWD_TRACE_TEMPLATE.
+	mutable int m_CrowdTraced = -1;
+#endif
 
 	// If > 0, PathingUpdateNeeded returns false always.
 	// This exists because the goal may be unreachable to the short/long pathfinder.
@@ -372,7 +430,7 @@ public:
 				"</element>"
 			"</optional>"
 			"<optional>"
-				"<element name='SpinDecay' a:help='Fraction of the spin from an impact that the unit loses every 0.2 seconds, independent of turn length (0 to 1). Defaults to charge.xml.'>"
+				"<element name='SpinDecay' a:help='Fraction of the spin from an impact that the unit loses every 0.2 seconds, independent of turn length (0 to 1). Defaults to SpinDecay in simulation/data/charge.xml.'>"
 					"<ref name='nonNegativeDecimal'/>"
 				"</element>"
 			"</optional>"
@@ -776,6 +834,10 @@ public:
 	 */
 	void StopMoving() override
 	{
+#if DEBUG_CROWD_TRACE
+		if (IsCrowdTraced())
+			LOGWARNING("Crowd trace: entity %u STOP MOVING at %.2f m/s", GetEntityId(), m_CurrentSpeed.ToDouble());
+#endif
 		// Face the destination only when we actually arrived. When a move is interrupted, e.g. by a new order that stops
 		// the current move first, facing the abandoned destination would snap the unit toward it right before it starts
 		// turning to its new heading. Nor when standing on it: the unit comes to rest anywhere within the distance it
@@ -935,6 +997,10 @@ private:
 	 */
 	void MoveFailed()
 	{
+#if DEBUG_CROWD_TRACE
+		if (IsCrowdTraced())
+			LOGWARNING("Crowd trace: entity %u MOVE FAILED at %.2f m/s", GetEntityId(), m_CurrentSpeed.ToDouble());
+#endif
 		// Don't notify if we are a formation member in a moving formation - we can occasionally be stuck for a long time
 		// if our current offset is unreachable, but we don't want to end up stuck.
 		// (If the formation controller has stopped moving however, we can safely message).
@@ -969,6 +1035,10 @@ private:
 	 */
 	void MoveObstructed()
 	{
+#if DEBUG_CROWD_TRACE
+		if (IsCrowdTraced())
+			LOGWARNING("Crowd trace: entity %u MOVE OBSTRUCTED at %.2f m/s", GetEntityId(), m_CurrentSpeed.ToDouble());
+#endif
 		// Don't notify if we are a formation member in a moving formation - we can occasionally be stuck for a long time
 		// if our current offset is unreachable, but we don't want to end up stuck.
 		// (If the formation controller has stopped moving however, we can safely message).
@@ -1128,9 +1198,6 @@ private:
 	}
 
 	/**
-	 * Returns an appropriate obstruction filter for use with path requests.
-	 */
-	/**
 	 * Whether other units' obstruction shapes block this unit's movement at all. They do for everyone but
 	 * a solid unit (one that collides as its footprint, see PhysicalBody/Solid) that is being
 	 * pushed: a unit's shape is a circle of its pathfinding clearance, which for a ship is a 10 m shore
@@ -1145,10 +1212,102 @@ private:
 			!cmpPhysicalBody->GetCollisionShape().IsSolid();
 	}
 
+	/**
+	 * Returns an appropriate obstruction filter for use with path requests.
+	 */
 	ControlGroupMovementObstructionFilter GetObstructionFilter() const
 	{
 		return ControlGroupMovementObstructionFilter(ShouldCollideWithMovingUnits(), GetGroup(), ShouldCollideWithUnits());
 	}
+
+public:
+	/**
+	 * Whether DEBUG_CROWD_TRACE follows this unit. Always false with the trace off. The first time it is
+	 * asked for a traced unit, the unit's template, weight and clearance are logged, as the key to its lines.
+	 */
+	bool IsCrowdTraced() const
+	{
+#if DEBUG_CROWD_TRACE
+		if (m_CrowdTraced < 0)
+		{
+			CmpPtr<ICmpTemplateManager> cmpTemplateManager(GetSystemEntity());
+			const std::string templateName{cmpTemplateManager ? cmpTemplateManager->GetCurrentTemplateName(GetEntityId()) : ""};
+			m_CrowdTraced = templateName.find(DEBUG_CROWD_TRACE_TEMPLATE) != std::string::npos ? 1 : 0;
+			if (m_CrowdTraced == 1)
+			{
+				CmpPtr<ICmpPhysicalBody> cmpPhysicalBody(GetEntityHandle());
+				LOGWARNING("Crowd trace: entity %u is %s: weight %.0f, clearance %.2f, walk speed %.2f, template inertia %.2f",
+					GetEntityId(), templateName.c_str(),
+					cmpPhysicalBody ? cmpPhysicalBody->GetWeight().ToDouble() : 0.0,
+					m_Clearance.ToDouble(), m_WalkSpeed.ToDouble(), m_TemplateInertia.ToDouble());
+			}
+		}
+		return m_CrowdTraced == 1;
+#else
+		return false;
+#endif
+	}
+
+private:
+#if DEBUG_BLOCKED_STEPS
+	/**
+	 * Re-run the check that just rejected the step from @p from to @p to, in the same order CheckMovement
+	 * does, and log what stopped it: a static obstruction, a unit shape (with its moving flag, distance and
+	 * the box it enforces), or the terrain. Solid units and crowd-traced units only: that is where steps are
+	 * being rejected with nothing visibly in the way.
+	 */
+	void DebugLogBlockedStep(const CFixedVector2D& from, const CFixedVector2D& to,
+		const ICmpObstructionManager::tag_t& specificIgnore,
+		bool hasPathfinding, const CFixedVector2D& externalVelocity) const
+	{
+		CmpPtr<ICmpPhysicalBody> cmpPhysicalBody(GetEntityHandle());
+		if (!IsCrowdTraced() && (!cmpPhysicalBody || !cmpPhysicalBody->GetCollisionShape().IsSolid()))
+			return;
+
+		CmpPtr<ICmpObstructionManager> cmpObstructionManager(GetSystemEntity());
+		if (!cmpObstructionManager)
+			return;
+
+		const SkipTagAndControlGroupObstructionFilter inner{GetObstructionFilter(specificIgnore)};
+		const double step{(to - from).Length().ToDouble()};
+		const double push{externalVelocity.Length().ToDouble()};
+		const char* mode{hasPathfinding ? "on path" : "no path"};
+
+		// Static shapes first: TestLine tests unit shapes and then falls through to these, so a static hit
+		// has to be ruled out before the last recorded unit shape can be called the blocker.
+		const RecordingObstructionFilter staticFilter{inner};
+		if (cmpObstructionManager->TestStaticLine(staticFilter, from.X, from.Y, to.X, to.Y, m_Clearance))
+		{
+			LOGWARNING("Step blocked: entity %u (%s) by a STATIC obstruction; step %.2f m, push %.2f m/s, our clearance %.1f",
+				GetEntityId(), mode, step, push, m_Clearance.ToDouble());
+			return;
+		}
+
+		const RecordingObstructionFilter unitFilter{inner};
+		if (!cmpObstructionManager->TestLine(unitFilter, from.X, from.Y, to.X, to.Y, m_Clearance, true))
+		{
+			LOGWARNING("Step blocked: entity %u (%s) by the TERRAIN (passability), not an obstruction; step %.2f m, push %.2f m/s",
+				GetEntityId(), mode, step, push);
+			return;
+		}
+
+		if (!unitFilter.m_LastTag.valid())
+		{
+			LOGWARNING("Step blocked: entity %u (%s) by a unit shape the filter never saw - investigate; step %.2f m",
+				GetEntityId(), mode, step);
+			return;
+		}
+
+		const ICmpObstructionManager::ObstructionSquare blocker{cmpObstructionManager->GetObstruction(unitFilter.m_LastTag)};
+		const double distance{(CFixedVector2D(blocker.x, blocker.z) - from).Length().ToDouble()};
+		const bool blockerMoving{(unitFilter.m_LastFlags & ICmpObstructionManager::FLAG_MOVING) != 0};
+		// The half-size of the axis-aligned box a unit shape blocks inside, see CCmpObstructionManager::TestLine.
+		const double box{(blocker.hw + m_Clearance - fixed::FromFraction(1, 2)).ToDouble()};
+		LOGWARNING("Step blocked: entity %u (%s) by %s unit shape %.1f m away (its clearance %.1f + ours %.1f - 0.5 = box of %.1f m); step %.2f m, push %.2f m/s",
+			GetEntityId(), mode, blockerMoving ? "a MOVING" : "an IDLE", distance,
+			blocker.hw.ToDouble(), m_Clearance.ToDouble(), box, step, push);
+	}
+#endif
 	/**
 	 * Filter a specific tag on top of the existing control groups.
 	 */
@@ -1232,6 +1391,20 @@ void CCmpUnitMotion::PathResult(std::uint32_t ticket, const WaypointPath& path)
 
 	// Assume all long paths were towards the goal, and assume short paths were if there are no long waypoints.
 	bool pathedTowardsGoal = ticketType == Ticket::LONG_PATH || m_LongPath.m_Waypoints.empty();
+
+#if DEBUG_CROWD_TRACE
+	if (IsCrowdTraced())
+	{
+		PathGoal traceGoal;
+		const bool hasGoal{ComputeGoal(traceGoal, m_MoveRequest)};
+		LOGWARNING("Crowd trace: entity %u path result: %s path with %zu waypoints (%s), goal %.2f m away, first waypoint %.2f m from it%s",
+			GetEntityId(), ticketType == Ticket::LONG_PATH ? "long" : "short", path.m_Waypoints.size(),
+			pathedTowardsGoal ? "towards the goal" : "a sub-goal", hasGoal ? traceGoal.DistanceToPoint(pos).ToDouble() : -1.0,
+			hasGoal && !path.m_Waypoints.empty() ?
+				traceGoal.DistanceToPoint(CFixedVector2D(path.m_Waypoints.front().x, path.m_Waypoints.front().z)).ToDouble() : -1.0,
+			hasGoal && pathedTowardsGoal && RejectFartherPaths(traceGoal, path, pos) ? ", REJECTED as farther" : "");
+	}
+#endif
 
 	// Check if we need to run the short-path hack (warning: tricky control flow).
 	bool shortPathHack = false;
@@ -1328,7 +1501,18 @@ void CCmpUnitMotion::PathResult(std::uint32_t ticket, const WaypointPath& path)
 void CCmpUnitMotion::OnTurnStart()
 {
 	if (PossiblyAtDestination())
+	{
+#if DEBUG_CROWD_TRACE
+		if (IsCrowdTraced() && m_MoveRequest.m_Type == MoveRequest::POINT)
+		{
+			CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
+			LOGWARNING("Crowd trace: entity %u arrived %.2f m from its point, at %.2f m/s, with %zu waypoints left",
+				GetEntityId(), (m_MoveRequest.m_Position - cmpPosition->GetPosition2D()).Length().ToDouble(),
+				m_CurrentSpeed.ToDouble(), m_ShortPath.m_Waypoints.size() + m_LongPath.m_Waypoints.size());
+		}
+#endif
 		MoveSucceeded();
+	}
 	else if (!TargetHasValidPosition())
 	{
 		// Scrap waypoints - we don't know where to go.
@@ -1461,24 +1645,38 @@ void CCmpUnitMotion::Move(MotionState& state, fixed dt)
 
 void CCmpUnitMotion::PostMove(MotionState& state, fixed dt)
 {
+#if DEBUG_CROWD_TRACE
+	if (IsCrowdTraced())
+		LOGWARNING("Crowd trace: entity %u at %.3f %.3f stepped %.3f %.3f, order %s",
+			GetEntityId(), state.pos.X.ToDouble(), state.pos.Y.ToDouble(), (state.pos - state.initialPos).X.ToDouble(),
+			(state.pos - state.initialPos).Y.ToDouble(), IsMoveRequested() ? "yes" : "no");
+#endif
 	// Update our speed over this turn so that the visual actor shows the correct animation.
 	// The heading was already rate-limited by the heading controller in PerformMove, so it's applied as is.
 	// Moving and turning in a single call advertises the position change once, not once per call: every
 	// MT_PositionChanged subscriber (obstructions, range queries, vision...) handles it right away.
-	if (state.pos == state.initialPos)
+	const bool moved{state.pos != state.initialPos};
 	{
-		if (state.angle != state.initialAngle)
-			state.cmpPosition->TurnTo(state.angle);
-		UpdateMovementState(fixed::Zero(), fixed::Zero(), fixed::Zero());
+		POSTMOVE_PROFILE("PostMove_Position");
+		if (!moved)
+		{
+			if (state.angle != state.initialAngle)
+				state.cmpPosition->TurnTo(state.angle);
+		}
+		else
+			state.cmpPosition->MoveAndTurnTo(state.pos.X, state.pos.Y, state.angle);
 	}
-	else
 	{
-		state.cmpPosition->MoveAndTurnTo(state.pos.X, state.pos.Y, state.angle);
-
-		// Calculate the mean speed over this past turn, and the part of it the unit made by itself.
-		CFixedVector2D offset = state.pos - state.initialPos;
-		UpdateMovementState(state.speed, offset.Length() / dt,
-			IsMoveRequested() ? state.inertiaVelocity.Length() : fixed::Zero());
+		POSTMOVE_PROFILE("PostMove_Animation");
+		if (!moved)
+			UpdateMovementState(fixed::Zero(), fixed::Zero(), fixed::Zero());
+		else
+		{
+			// Calculate the mean speed over this past turn, and the part of it the unit made by itself.
+			const CFixedVector2D offset{state.pos - state.initialPos};
+			UpdateMovementState(state.speed, offset.Length() / dt,
+				IsMoveRequested() ? state.inertiaVelocity.Length() : fixed::Zero());
+		}
 	}
 
 	// Apply roll
@@ -1504,10 +1702,30 @@ void CCmpUnitMotion::PostMove(MotionState& state, fixed dt)
 	if (!madeProgress && IsMoveRequested() && !state.wasObstructed && !awaitingFirstPath && !turning)
 		state.wasObstructed = true;
 
-	if (state.wasObstructed && HandleObstructedMove(madeProgress))
-		return;
-	else if (!state.wasObstructed && madeProgress)
-		m_FailedMovements = 0;
+#if DEBUG_CROWD_TRACE
+	const auto crowdTrace = [&](const char* decision) {
+		if (IsCrowdTraced())
+			LOGWARNING("Crowd trace: entity %u post-move: moved %.2f m (%s), turned %+.2f rad to heading %.2f (impact spin %.2f, push spin %.2f, own turning %.2f rad/s, facing a target %s), obstructed %s, failed movements %u: %s",
+				GetEntityId(), (state.pos - state.initialPos).Length().ToDouble(), madeProgress ? "progress" : "NO PROGRESS",
+				HeadingControl::WrapAngle(state.angle - state.initialAngle).ToDouble(), state.angle.ToDouble(),
+				state.impactAngularVelocity.ToDouble(), state.pushSpin.ToDouble(), state.angularVelocity.ToDouble(),
+				state.hasFaceTarget ? "yes" : "no", state.wasObstructed ? "yes" : "no",
+				static_cast<unsigned>(m_FailedMovements), decision);
+	};
+#else
+	const auto crowdTrace = [](const char*) {};
+#endif
+
+	{
+		POSTMOVE_PROFILE("PostMove_Obstructed");
+		if (state.wasObstructed && HandleObstructedMove(madeProgress))
+		{
+			crowdTrace("obstruction handling took over (see the line above)");
+			return;
+		}
+		else if (!state.wasObstructed && madeProgress)
+			m_FailedMovements = 0;
+	}
 
 	// PathingUpdateNeeded asks whether our path is still good enough. With no path at all it compares our shape
 	// against the goal's, so it can answer "close enough" while PossiblyAtDestination, which decides whether we've
@@ -1515,8 +1733,11 @@ void CCmpUnitMotion::PostMove(MotionState& state, fixed dt)
 	// A unit caught between the two holds an order but has no waypoints and no path request: ask for a path now,
 	// rather than let it coast to a stop and get one only once the check above counts it as stuck.
 	// Only with a move request, since PossiblyAtDestination is always false without one.
-	const bool needPathUpdate{PathingUpdateNeeded(state.pos) ||
-		(IsMoveRequested() && !hasPath && m_ExpectedPathTicket.m_Ticket == 0 && !PossiblyAtDestination())};
+	const bool needPathUpdate{[&]() {
+		POSTMOVE_PROFILE("PostMove_PathingUpdateNeeded");
+		return PathingUpdateNeeded(state.pos) ||
+			(IsMoveRequested() && !hasPath && m_ExpectedPathTicket.m_Ticket == 0 && !PossiblyAtDestination());
+	}()};
 
 	// If we popped a corner waypoint although the straight line to the next target is obstructed
 	// (we couldn't reach it without circling back), path around the obstruction from here
@@ -1551,8 +1772,12 @@ void CCmpUnitMotion::PostMove(MotionState& state, fixed dt)
 				specificIgnore = cmpTargetObstruction->GetObstruction();
 		}
 		CmpPtr<ICmpObstructionManager> cmpObstructionManager(GetSystemEntity());
-		if (cmpObstructionManager && cmpObstructionManager->TestUnitLine(GetObstructionFilter(specificIgnore),
-			state.pos.X, state.pos.Y, m_LongPath.m_Waypoints.back().x, m_LongPath.m_Waypoints.back().z, m_Clearance, true))
+		const bool unitsAhead{[&]() {
+			POSTMOVE_PROFILE("PostMove_LookAhead");
+			return cmpObstructionManager && cmpObstructionManager->TestUnitLine(GetObstructionFilter(specificIgnore),
+				state.pos.X, state.pos.Y, m_LongPath.m_Waypoints.back().x, m_LongPath.m_Waypoints.back().z, m_Clearance, true);
+		}()};
+		if (unitsAhead)
 		{
 			// We will run into something: request a new short path.
 			// If we have several waypoints left, aim for the one after next directly.
@@ -1580,6 +1805,7 @@ void CCmpUnitMotion::PostMove(MotionState& state, fixed dt)
 	// Since we request paths asynchronously anyways, this does not need to be done before moving.
 	if (!state.wentStraight && needPathUpdate)
 	{
+		POSTMOVE_PROFILE("PostMove_Repath");
 		PathGoal goal;
 		if (ComputeGoal(goal, m_MoveRequest))
 			ComputePathToGoal(state.pos, goal);
@@ -1593,6 +1819,8 @@ void CCmpUnitMotion::PostMove(MotionState& state, fixed dt)
 	// (movement actually blocked), the TestUnitLine look-ahead (units in the way) and poppedBlockedCorner.
 	// A pushed unit keeps its path and steers at the same waypoint from its new position; if the push put
 	// an obstacle in between, the next move is obstructed and that handling takes over.
+	crowdTrace(!state.wentStraight && needPathUpdate ? "path no longer good for the target, recomputed" :
+		state.wentStraight ? "went straight, short path cleared" : "kept its path");
 
 	// Another move follows this one: once within stopping distance of the end, where the unit would start braking,
 	// let it take over. Reported at the end of the turn, so the next move's path is ready at the start of the next.
@@ -2018,6 +2246,31 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 		combinedVelocity += state.overlapCorrection.Multiply(fixed::FromInt(1) / dt);
 	speed = combinedVelocity.Length();
 
+#if DEBUG_CROWD_TRACE
+	// Everything this turn's move came to, logged once the outcome of the step is known.
+	const auto crowdTrace = [&](const char* outcome) {
+		if (!IsCrowdTraced())
+			return;
+		const char* request{m_MoveRequest.m_Type == MoveRequest::NONE ? "none" :
+			m_MoveRequest.m_Type == MoveRequest::POINT ? "point" :
+			m_MoveRequest.m_Type == MoveRequest::ENTITY ? "entity" : "offset"};
+		CFixedVector2D goalPos;
+		const double goalDistance{ComputeTargetPosition(goalPos) ? (goalPos - pos).Length().ToDouble() : -1.0};
+		const CFixedVector2D pushTotal{externalCarry + externalVelocity};
+		const double opposition{ownVelocity.IsZero() || pushTotal.IsZero() ? 0.0 :
+			-ownVelocity.Dot(pushTotal).ToDouble() / (ownVelocity.Length().ToDouble() * pushTotal.Length().ToDouble())};
+		LOGWARNING("Crowd trace: entity %u move %s: request %s (charge %s), path short %zu / long %zu, pressure %u -> max speed %.2f of %.2f, stagger %.2f, own %.2f m/s (steering asked %.2f), push %.2f m/s (carried %.2f + this turn %.2f), total %.2f, goal %.2f m, opposition %.2f",
+			GetEntityId(), outcome, request, m_MoveRequest.m_Charge ? "yes" : "no",
+			shortPath.m_Waypoints.size(), longPath.m_Waypoints.size(),
+			static_cast<unsigned>(pushingPressure), maxSpeed.ToDouble(), basicSpeed.ToDouble(), state.stagger.ToDouble(),
+			ownVelocity.Length().ToDouble(), pathfindingVelocity.Length().ToDouble(),
+			pushTotal.Length().ToDouble(), externalCarry.Length().ToDouble(),
+			externalVelocity.Length().ToDouble(), speed.ToDouble(), goalDistance, opposition);
+	};
+#else
+	const auto crowdTrace = [](const char*) {};
+#endif
+
 	// Everything external applied this turn becomes next turn's external inertia, spin included. Pushes
 	// and hits carry on as momentum, decaying by Drifting. Nothing bounds the total here: a soft push is
 	// bounded by the pushing rate, and a hit by the closing speed or the attack's Knockback. A light unit
@@ -2027,7 +2280,10 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 
 	// Stopping to turn in place is deliberate, not an obstruction: the facing was already rotated above.
 	if (combinedVelocity.IsZero())
+	{
+		crowdTrace(stoppedToTurn ? "STOPPED TO TURN" : "NO VELOCITY");
 		return hasPathfinding && !stoppedToTurn;
+	}
 
 	CFixedVector2D movement = combinedVelocity.Multiply(dt);
 	CFixedVector2D target = pos + movement;
@@ -2039,6 +2295,7 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 	// neighbours fails it every turn, however clear its own way is, and never moves again. A push can't shove a
 	// unit into what it can't walk into, and it mustn't cost it its own step either: a blocked step is tried
 	// again without the pushes, and if that goes, the push is lost, momentum and all, as a push into a wall is.
+	bool pushBlocked{false};
 	if (!canMove && !ownVelocity.IsZero() && ownVelocity != combinedVelocity)
 	{
 		const CFixedVector2D ownTarget{pos + ownVelocity.Multiply(dt)};
@@ -2050,6 +2307,7 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 			speed = ownVelocity.Length();
 			state.externalInertiaVelocity = CFixedVector2D();
 			canMove = true;
+			pushBlocked = true;
 		}
 	}
 
@@ -2134,12 +2392,19 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 					break;
 			}
 
+#if DEBUG_CROWD_TRACE
+			if (IsCrowdTraced() && !nextWaypoint)
+				LOGWARNING("Crowd trace: entity %u popped its last waypoint %.2f m short, at %.2f m/s (%s)",
+					GetEntityId(), distanceToWaypoint.ToDouble(), speed.ToDouble(),
+					isCloseEnough ? "close enough" : "cannot reach");
+#endif
 			if (shortPath.m_Waypoints.empty())
 				longPath.m_Waypoints.pop_back();
 			else
 				shortPath.m_Waypoints.pop_back();
 		}
 		// Movement succeeded - no obstruction
+		crowdTrace(pushBlocked ? "moved, push blocked" : "moved");
 		return false;
 	}
 	else
@@ -2147,13 +2412,19 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 		// Movement was obstructed
 		const CFixedVector2D originalPos{pos};
 		const CFixedVector2D originalMovement{target - pos};
+#if DEBUG_BLOCKED_STEPS
+		DebugLogBlockedStep(pos, target, specificIgnore, hasPathfinding, externalVelocity);
+#endif
 
 		if (!hasPathfinding)
 		{
 			// No path to follow (pushed, drifting, or waiting for a path): slide along the obstacle.
 			if (ObstructionResolution::TrySlide(pos, originalMovement, GetEntityId(), *cmpPathfinder,
 					GetObstructionFilter(specificIgnore), m_Clearance, m_PassClass))
+			{
+				crowdTrace("BLOCKED, slid along it");
 				return false;
+			}
 		}
 		else if (m_FailedMovements >= NUDGE_FAILED_MOVEMENTS || pushingPressure < NUDGE_PRESSURE_LIMIT)
 		{
@@ -2166,6 +2437,7 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 				// Update pathfinding inertia based on actual movement
 				state.inertiaVelocity = (pos - originalPos).Multiply(fixed::FromInt(1) / dt);
 
+				crowdTrace("BLOCKED, nudged sideways");
 				// Skip waypoint popping for now - we'll handle it next turn
 				return false;
 			}
@@ -2177,8 +2449,12 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 		if (hasPathfinding && !ownVelocity.IsZero() &&
 			ObstructionResolution::TrySlide(pos, ownVelocity.Multiply(dt), GetEntityId(), *cmpPathfinder,
 				GetObstructionFilter(specificIgnore), m_Clearance, m_PassClass))
+		{
+			crowdTrace("BLOCKED, slid along it");
 			return false;
+		}
 
+		crowdTrace("BLOCKED, did not move");
 		// Units that weren't asked to move (e.g. idle units being pushed into a wall)
 		// shouldn't trigger obstruction handling.
 		return hasMoveRequest;
@@ -2195,6 +2471,12 @@ void CCmpUnitMotion::UpdateMovementState(entity_pos_t speed, entity_pos_t meanSp
 		// own coasting, is sliding, so it has a threshold of its own.
 		const bool walking{ownSpeed > m_Speed.Multiply(OWN_WALK_SHARE) ||
 			meanSpeed > m_Speed.Multiply(CARRIED_WALK_SHARE)};
+#if DEBUG_CROWD_TRACE
+		if (IsCrowdTraced())
+			LOGWARNING("Crowd trace: entity %u animation %s: order %s, moved %.2f m/s, own %.2f m/s",
+				GetEntityId(), walking ? "WALK" : "idle", IsMoveRequested() ? "yes" : "no",
+				meanSpeed.ToDouble(), ownSpeed.ToDouble());
+#endif
 		if (!walking)
 			cmpVisual->SelectMovementAnimation("idle", fixed::FromInt(1));
 		else
@@ -2227,6 +2509,16 @@ bool CCmpUnitMotion::HandleObstructedMove(bool moved)
 	// At this point we have a position in the world since ComputeGoal checked for that.
 	CFixedVector2D pos = cmpPosition->GetPosition2D();
 
+#if DEBUG_CROWD_TRACE
+	const auto crowdTrace = [&](const char* action) {
+		if (IsCrowdTraced())
+			LOGWARNING("Crowd trace: entity %u obstructed (failed movements %u, %s): %s",
+				GetEntityId(), static_cast<unsigned>(m_FailedMovements), moved ? "moved a little" : "did not move", action);
+	};
+#else
+	const auto crowdTrace = [](const char*) {};
+#endif
+
 	// Assume that we are merely obstructed and the long path is salvageable, so try going around the obstruction.
 	// This could be a separate function, but it doesn't really make sense to call it outside of here, and I can't find a name.
 	// I use an IIFE to have nice 'return' semantics still.
@@ -2234,7 +2526,10 @@ bool CCmpUnitMotion::HandleObstructedMove(bool moved)
 		// If the goal is close enough, we should ignore any remaining long waypoint and just
 		// short path there directly, as that improves behaviour in general - see D2095).
 		if (InShortPathRange(goal, pos))
+		{
+			crowdTrace("goal within short-path range, recomputing the whole path");
 			return false;
+		}
 
 		// On rare occasions, when following a short path, we can end up in a position where
 		// the short pathfinder thinks we are inside an obstruction (and can leave)
@@ -2250,6 +2545,7 @@ bool CCmpUnitMotion::HandleObstructedMove(bool moved)
 			next.x = pos.X + backUp.X;
 			next.z = pos.Y + backUp.Y;
 			m_ShortPath.m_Waypoints.push_back(next);
+			crowdTrace("backing up a metre from the short path's next waypoint");
 			return true;
 		}
 		// Delete the next waypoint if it's reasonably close,
@@ -2262,22 +2558,28 @@ bool CCmpUnitMotion::HandleObstructedMove(bool moved)
 		    (pos - CFixedVector2D(m_LongPath.m_Waypoints.back().x, m_LongPath.m_Waypoints.back().z)).CompareLength(skipbeyond) < 0)
 		{
 			m_LongPath.m_Waypoints.pop_back();
+			crowdTrace("dropped the next long waypoint as possibly unreachable");
 		}
 		else if (ShouldAlternatePathfinder())
 		{
 			// Recompute the whole thing occasionally, in case we got stuck in a dead end from removing long waypoints.
 			RequestLongPath(pos, goal);
+			crowdTrace("requested a new long path");
 			return true;
 		}
 
 		if (m_LongPath.m_Waypoints.empty())
+		{
+			crowdTrace("no long path left, recomputing the whole path");
 			return false;
+		}
 
 		// Compute a short path in the general vicinity of the next waypoint, to help pathfinding in crowds.
 		// The goal here is to manage to move in the general direction of our target, not to be super accurate.
 		fixed radius = Clamp(skipbeyond/3, Pathfinding::NAVCELL_SIZE * 4, Pathfinding::NAVCELL_SIZE * 12);
 		PathGoal subgoal = { PathGoal::CIRCLE, m_LongPath.m_Waypoints.back().x, m_LongPath.m_Waypoints.back().z, radius };
 		RequestShortPath(pos, subgoal, false);
+		crowdTrace("requested a short path around it towards the next long waypoint");
 		return true;
 	}()) return true;
 
