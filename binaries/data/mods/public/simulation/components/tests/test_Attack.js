@@ -37,6 +37,34 @@ Engine.LoadComponentScript("interfaces/TurretHolder.js");
 Engine.LoadComponentScript("Attack.js");
 
 let entityID = 903;
+// A projectile lands at the turn end its effects fire on, when that moves its flight by little.
+{
+	const cmpAttack = ConstructComponent(++entityID, "Attack", {
+		"Ranged": {
+			"Damage": { "Hack": 0, "Pierce": 10, "Crush": 0 },
+			"MaxRange": 30,
+			"Projectile": { "Speed": 50, "Spread": 1, "Gravity": 1, "FriendlyFire": "false" }
+		}
+	});
+
+	// A siege stone flying 2.3 s: a few percent either way is nothing, so it lands at the turn end.
+	TS_ASSERT_EQUALS(cmpAttack.AlignFlightToTurn(2300, 200), 2400);
+	TS_ASSERT_EQUALS(cmpAttack.AlignFlightToTurn(2300, 500), 2500);
+	TS_ASSERT_EQUALS(cmpAttack.AlignFlightToTurn(2600, 500), 2500);
+	// An arrow already landing at a turn end is left alone; one a little off is aligned.
+	TS_ASSERT_EQUALS(cmpAttack.AlignFlightToTurn(600, 200), 600);
+	TS_ASSERT_EQUALS(cmpAttack.AlignFlightToTurn(550, 200), 600);
+	// A short flight at a long turn would be visibly slowed or hurried to land at a turn end: it is
+	// lengthened by a quarter towards the next one, whichever turn end was nearest, and lands between the two.
+	TS_ASSERT_EQUALS(cmpAttack.AlignFlightToTurn(300, 500), 375);
+	TS_ASSERT_EQUALS(cmpAttack.AlignFlightToTurn(120, 200), 150);
+	TS_ASSERT_EQUALS(cmpAttack.AlignFlightToTurn(280, 200), 350);
+	// Never shorter than a turn, and nothing to align without a flight or a turn length.
+	TS_ASSERT_EQUALS(cmpAttack.AlignFlightToTurn(180, 200), 200);
+	TS_ASSERT_EQUALS(cmpAttack.AlignFlightToTurn(0, 200), 0);
+	TS_ASSERT_EQUALS(cmpAttack.AlignFlightToTurn(1000, 0), 1000);
+}
+
 
 function attackComponentTest(defenderClass, isEnemy, test_function)
 {
