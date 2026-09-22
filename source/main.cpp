@@ -83,6 +83,7 @@ that of Atlas depending on commandline parameters.
 #include "ps/XML/Xeromyces.h"
 #include "renderer/Renderer.h"
 #include "renderer/RenderingOptions.h"
+#include "renderer/backend/IDevice.h"
 #include "rlinterface/RLInterface.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Context.h"
@@ -98,6 +99,7 @@ that of Atlas depending on commandline parameters.
 #include <SDL_timer.h>
 #include <SDL_video.h>
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdlib>
 #include <ctime>
@@ -170,7 +172,7 @@ enum ShutdownType
 	RestartAsAtlas
 };
 
-static ShutdownType g_Shutdown = ShutdownType::None;
+static std::atomic<ShutdownType> g_Shutdown{ShutdownType::None};
 static int g_ExitStatus{EXIT_SUCCESS};
 
 static std::chrono::high_resolution_clock::time_point lastFrameTime;
@@ -304,6 +306,12 @@ static int ProgressiveLoad()
 
 	std::wstring description;
 	int progressPercent{0};
+	if (!PS::Loader::IsLoading())
+		return 0;
+
+	// Loading creates graphics objects and starts the game.
+	const RenderThread::Pause pause;
+
 	try
 	{
 		const PS::Loader::ProgressiveLoadResult result{PS::Loader::ProgressiveLoad(budget)};
@@ -361,7 +369,12 @@ static void UpdateMainThreadAffinity()
 	if (inGame)
 		return;
 	inGame = true;
-	if (g_ConfigDB.Get("renderthread.pin", true))
+	if (!g_ConfigDB.Get("renderthread.pin", true))
+		return;
+	// The render thread pins itself to the render CPU when it exists.
+	if (RenderThread::IsThreaded())
+		ThreadAffinity::KeepCurrentThreadOffRenderCore();
+	else
 		ThreadAffinity::PinCurrentThreadToRenderCpu();
 }
 
@@ -401,6 +414,7 @@ static void LogicStep(const float realTimeSinceLastFrame, RL::Interface* rlInter
 static void LogicStep(const float realTimeSinceLastFrame, RL::Interface* rlInterface)
 #endif // CONFIG2_DAP_INTERFACE
 {
+	g_Profiler2.RecordFrameStart();
 	PROFILE2("logic");
 
 	if (g_Game)
@@ -497,17 +511,24 @@ static void LogicStep(const float realTimeSinceLastFrame, RL::Interface* rlInter
 		g_SoundManager->IdleTask();
 
 	PublishRenderingOptions();
+
+	if (RenderThread::IsThreaded())
+		g_Profiler.Frame();
 }
 
 /**
  * Render a frame, on the render thread if there is one.
  */
-static void RenderStep(const int /*fixedFrameFrequency*/)
+static void RenderStep(const int fixedFrameFrequency)
 {
-	g_Profiler2.RecordFrameStart();
+	// Align the render timeline with the logic frame.
+	g_Profiler2.RecordSyncMarker();
 	PROFILE2("frame");
 	g_Profiler2.IncrementFrameNumber();
 	PROFILE2_ATTR("%d", g_Profiler2.GetFrameNumber());
+
+	if (RenderThread::IsThreaded())
+		RenderThread::SignalFrame(FrameRealTime(fixedFrameFrequency));
 
 	TakeRenderingOptions();
 
@@ -527,6 +548,17 @@ static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency, DAP
 static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency)
 #endif // CONFIG2_DAP_INTERFACE
 {
+	if (RenderThread::IsThreaded())
+	{
+		const float realTime{static_cast<float>(RenderThread::WaitForFrames())};
+#if CONFIG2_DAP_INTERFACE
+		LogicStep(realTime, rlInterface, dapInterface);
+#else
+		LogicStep(realTime, rlInterface);
+#endif // CONFIG2_DAP_INTERFACE
+		return;
+	}
+
 	const float realTime{static_cast<float>(FrameRealTime(fixedFrameFrequency))};
 #if CONFIG2_DAP_INTERFACE
 	LogicStep(realTime, rlInterface, dapInterface);
@@ -823,6 +855,14 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 							return std::nullopt;
 					}()};
 
+				if (isVisual && RenderThread::IsThreaded())
+				{
+					RenderThread::SetDeviceHandoff(
+						[] { g_VideoMode.GetBackendDevice()->BindToCurrentThread(); },
+						[] { g_VideoMode.GetBackendDevice()->UnbindFromCurrentThread(); });
+					RenderThread::Start([fixedFrameFrequency] { RenderStep(fixedFrameFrequency); });
+				}
+
 				while (g_Shutdown == ShutdownType::None)
 				{
 					if (isVisual)
@@ -840,6 +880,7 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 						NonVisualFrame();
 				}
 
+				RenderThread::Stop();
 			}
 			catch (const RL::SetupError&)
 			{

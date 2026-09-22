@@ -81,7 +81,7 @@ bool IsThreaded()
 		// Non-visual runs have no config.
 		if (!CConfigDB::IsInitialised())
 			return false;
-		threaded = g_ConfigDB.Get("renderthread", false) ? 1 : 0;
+		threaded = g_ConfigDB.Get("renderthread", true) ? 1 : 0;
 		g_Threaded.store(threaded, std::memory_order_relaxed);
 	}
 	return threaded == 1;
