@@ -145,6 +145,13 @@ public:
 	// mark the entire map as dirty
 	void MakeDirty(int dirtyFlags);
 
+	// The two halves of MakeDirty. The patches' render data belongs to the
+	// render thread; the height mipmap behind GetFilteredGroundLevel belongs to
+	// the thread that changes the heights.
+	void MakeRenderDataDirty(ssize_t i0, ssize_t j0, ssize_t i1, ssize_t j1, int dirtyFlags);
+	void MakeRenderDataDirty(int dirtyFlags);
+	void UpdateHeightMipmap(ssize_t i0, ssize_t j0, ssize_t i1, ssize_t j1);
+
 	/**
 	 * Returns a 3D bounding box encompassing the given vertex range (inclusive)
 	 */

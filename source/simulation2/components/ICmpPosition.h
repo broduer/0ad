@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -157,19 +157,6 @@ public:
 	virtual void SetFloating(bool flag) = 0;
 
 	/**
-	 * Set the entity to float on water, in a non-network-synchronised visual-only way.
-	 * (This is to support the 'floating' flag in actor XMLs.)
-	 */
-	virtual void SetActorFloating(bool flag) = 0;
-
-
-	/**
-	 * Set the entity's anchor type, in a non-network-synchronised visual-only way.
-	 * (This is to support the 'anchor' flag in actor XMLs.)
-	 */
-	 virtual void SetActorAnchor(const CStr& anchor) = 0;
-
-	/**
 	 * Set construction progress of the model, this affects the rendered position of the model.
 	 * 0.0 will be fully underground, 1.0 will be fully visible, 0.5 will be half underground.
 	 */
@@ -243,13 +230,16 @@ public:
 	virtual fixed GetDistanceTravelled() const = 0;
 
 	/**
-	 * Get the current interpolated 2D position and orientation, for rendering.
+	 * Get the current interpolated 2D position and orientation as the logic thread sees it, for
+	 * the camera and the editor. The render world draws with its own interpolation, which also
+	 * smooths rotations and sinks foundations by their construction progress.
 	 * Must not be called unless IsInWorld is true.
 	 */
 	virtual void GetInterpolatedPosition2D(float frameOffset, float& x, float& z, float& rotY) const = 0;
 
 	/**
-	 * Get the current interpolated transform matrix, for rendering.
+	 * Get the current interpolated transform matrix, as the logic thread sees
+	 * it; see GetInterpolatedPosition2D.
 	 * Must not be called unless IsInWorld is true.
 	 */
 	virtual CMatrix3D GetInterpolatedTransform(float frameOffset) const = 0;

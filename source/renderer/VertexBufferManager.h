@@ -28,6 +28,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <utility>
 #include <vector>
 
@@ -39,6 +40,7 @@ class CVertexBufferManager
 {
 public:
 	CVertexBufferManager(Renderer::Backend::IDevice* device) : m_Device(device) {}
+	~CVertexBufferManager() { ReturnReleased(); }
 
 	enum class Group : std::uint32_t
 	{
@@ -56,7 +58,7 @@ public:
 		Handle(const Handle&) = delete;
 		Handle& operator=(const Handle&) = delete;
 
-		explicit Handle(CVertexBuffer::VBChunk* chunk);
+		Handle(CVertexBufferManager& manager, CVertexBuffer::VBChunk* chunk);
 		Handle(Handle&& other);
 		Handle& operator=(Handle&& other);
 
@@ -71,6 +73,7 @@ public:
 		{
 			using std::swap;
 
+			swap(lhs.m_Manager, rhs.m_Manager);
 			swap(lhs.m_Chunk, rhs.m_Chunk);
 		}
 
@@ -79,6 +82,7 @@ public:
 		CVertexBuffer::VBChunk* Get() const { return m_Chunk; }
 
 	private:
+		CVertexBufferManager* m_Manager = nullptr;
 		CVertexBuffer::VBChunk* m_Chunk = nullptr;
 	};
 
@@ -99,8 +103,17 @@ public:
 		const Renderer::Backend::IBuffer::Type type,
 		const uint32_t usage, void* backingStore = nullptr, Group group = Group::DEFAULT);
 
-	/// Returns the given @p chunk to its owning buffer
+	/**
+	 * Queue @p chunk to return to its buffer at the start of the next frame.
+	 * Callable from any thread, since render data can be destroyed on the
+	 * logic thread while the render thread is paused.
+	 */
 	void Release(CVertexBuffer::VBChunk* chunk);
+
+	/**
+	 * Return the released chunks to their buffers. Render thread.
+	 */
+	void ReturnReleased();
 
 	size_t GetBytesReserved() const;
 	size_t GetBytesAllocated() const;
@@ -110,6 +123,10 @@ private:
 
 	/// List of all known vertex buffers
 	std::vector<std::unique_ptr<CVertexBuffer>> m_Buffers[static_cast<std::size_t>(Group::COUNT)];
+
+	std::mutex m_ReleasedMutex;
+	std::vector<CVertexBuffer::VBChunk*> m_Released;
+	std::vector<CVertexBuffer::VBChunk*> m_Returning;
 };
 
 #endif // INCLUDED_VERTEXBUFFERMANAGER

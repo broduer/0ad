@@ -50,8 +50,6 @@
 #include <string>
 #include <vector>
 
-class SceneCollector;
-
 #ifdef NDEBUG
 #define PATHFIND_DEBUG 0
 #else
@@ -67,7 +65,7 @@ public:
 	static void ClassInit(CComponentManager& componentManager)
 	{
 		componentManager.SubscribeToMessageType(MT_Deserialized);
-		componentManager.SubscribeToMessageType(MT_RenderSubmit); // for debug overlays
+		componentManager.SubscribeToMessageType(MT_FrameStep); // for debug overlays
 		componentManager.SubscribeToMessageType(MT_TerrainChanged);
 		componentManager.SubscribeToMessageType(MT_WaterChanged);
 		componentManager.SubscribeToMessageType(MT_ObstructionMapShapeChanged);
@@ -146,7 +144,11 @@ public:
 	std::uint32_t m_NextAsyncTicket; // Unique IDs for asynchronous path requests.
 
 	pass_class_t m_OverlayPassClass;
-	TerrainTextureOverlay* m_AtlasOverlay;
+	bool m_AtlasOverlayEnabled;
+	// Which debug overlays the render world has, so disabling one removes it once.
+	bool m_VertexOverlayPublished{false};
+	bool m_LongOverlayPublished{false};
+	bool m_AtlasOverlayPublished{false};
 
 	static std::string GetSchema()
 	{
@@ -266,6 +268,9 @@ public:
 	 */
 	void TerrainUpdateHelper(bool expandPassability = true, int itile0 = -1, int jtile0 = -1, int itile1 = -1, int jtile1 = -1);
 
-	void RenderSubmit(SceneCollector& collector);
+	/**
+	 * Record the enabled debug overlays for the render world.
+	 */
+	void PublishDebugOverlays();
 };
 #endif // INCLUDED_CCMPPATHFINDER_COMMON

@@ -115,6 +115,10 @@ OPTION_CUSTOM_SETTER(NAME, TYPE); OPTION_GETTER(NAME, TYPE); OPTION_DEF(NAME, TY
 
 	OPTION(RenderActors, bool);
 
+	// The actor quality level and CObjectManager::VariantDiversity.
+	OPTION(MaxActorQuality, int);
+	OPTION(VariantDiversity, int);
+
 #undef OPTION_DEFAULT_SETTER
 #undef OPTION_CUSTOM_SETTER
 #undef OPTION_GETTER

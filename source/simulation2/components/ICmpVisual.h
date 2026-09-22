@@ -20,7 +20,6 @@
 
 #include "simulation2/system/Interface.h"
 
-#include "lib/file/vfs/vfs_path.h"
 #include "maths/BoundingBoxAligned.h"
 #include "maths/BoundingBoxOriented.h"
 #include "maths/Fixed.h"
@@ -31,8 +30,6 @@
 
 #include <js/Value.h>
 #include <string>
-
-class CUnit;
 
 /**
  * The visual representation of an entity (typically an actor).
@@ -72,13 +69,6 @@ public:
 	 * Returns (0,0,0) if no point can be found.
 	 */
 	virtual CFixedVector3D GetProjectileLaunchPoint() const = 0;
-
-	/**
-	 * Returns the underlying unit of this visual actor. May return NULL to indicate that no unit exists (e.g. may happen if the
-	 * game is started without graphics rendering).
-	 * Originally intended for introspection purposes in Atlas; for other purposes, consider using a specialized getter first.
-	 */
-	virtual CUnit* GetUnit() = 0;
 
 	/**
 	 * Set the variant selection of the actor for a certain key.
@@ -160,14 +150,6 @@ public:
 	 * Returns true if this entity should have a construction preview
 	 */
 	virtual bool HasConstructionPreview() const = 0;
-
-	/**
-	 * Called when an actor file has been modified and reloaded dynamically.
-	 * If this component uses the named actor file, it should regenerate its actor
-	 * to pick up the new definitions.
-	 * If name is empty, this reloads all the time. This is used when global quality settings change.
-	 */
-	virtual void Hotload(const VfsPath& name = L"") = 0;
 
 	DECLARE_INTERFACE_TYPE(Visual)
 };

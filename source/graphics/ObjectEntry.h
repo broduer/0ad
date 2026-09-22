@@ -33,7 +33,7 @@
 
 class CModelAbstract;
 class CObjectManager;
-class CSimulation2;
+class IGroundView;
 class CSkeletonAnim;
 
 class CObjectEntry
@@ -41,7 +41,7 @@ class CObjectEntry
 	NONCOPYABLE(CObjectEntry);
 
 public:
-	CObjectEntry(const std::shared_ptr<CObjectBase>& base, const CSimulation2& simulation);
+	CObjectEntry(const std::shared_ptr<CObjectBase>& base, const IGroundView& ground);
 	~CObjectEntry();
 
 	// Construct this actor, using the specified variation selections
@@ -82,7 +82,7 @@ public:
 	std::unique_ptr<CModelAbstract> m_Model;
 
 private:
-	const CSimulation2& m_Simulation;
+	const IGroundView& m_Ground;
 
 	using SkeletonAnimMap = std::multimap<CStr, std::unique_ptr<CSkeletonAnim>>;
 	SkeletonAnimMap m_Animations;

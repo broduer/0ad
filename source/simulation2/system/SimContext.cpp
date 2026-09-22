@@ -19,6 +19,7 @@
 
 #include "SimContext.h"
 
+#include "graphics/RenderWorld.h"
 #include "ps/Game.h"
 #include "simulation2/system/Component.h"
 
@@ -48,6 +49,11 @@ CUnitManager& CSimContext::GetUnitManager() const
 {
 	ENSURE(m_UnitManager);
 	return *m_UnitManager;
+}
+
+void CSimContext::SetRenderFeedback(std::shared_ptr<const RenderWorld::SFeedback> feedback)
+{
+	m_RenderFeedback = std::move(feedback);
 }
 
 CTerrain& CSimContext::GetTerrain() const

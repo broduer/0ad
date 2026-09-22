@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -30,7 +30,7 @@
 #include <vector>
 
 class CFrustum;
-class CSimContext;
+class IGroundView;
 class CTexturedLineRData;
 struct SOverlayDescriptor;
 
@@ -84,7 +84,7 @@ struct SOverlayTexturedLine
 
 	SOverlayTexturedLine()
 		: m_Thickness(1.0f), m_Closed(false), m_AlwaysVisible(false),
-		  m_StartCapType(LINECAP_FLAT), m_EndCapType(LINECAP_FLAT), m_SimContext(NULL)
+		  m_StartCapType(LINECAP_FLAT), m_EndCapType(LINECAP_FLAT), m_Ground(nullptr)
 	{ }
 
 	CTexturePtr m_TextureBase;
@@ -105,10 +105,10 @@ struct SOverlayTexturedLine
 	LineCapType m_EndCapType;
 
 	/**
-	 * Simulation context applicable for this overlay line; used to obtain terrain information
-	 * during automatic computation of Y coordinates.
+	 * The ground and water under the line, for the automatic computation of Y
+	 * coordinates; set by whoever draws the line.
 	 */
-	const CSimContext* m_SimContext;
+	const IGroundView* m_Ground;
 
 	/**
 	 * Cached renderer data, because expensive to compute. Allocated by the renderer when necessary

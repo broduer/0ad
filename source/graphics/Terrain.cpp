@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -755,6 +755,12 @@ void CTerrain::SetHeightMap(std::uint16_t* heightmap)
 
 void CTerrain::MakeDirty(ssize_t i0, ssize_t j0, ssize_t i1, ssize_t j1, int dirtyFlags)
 {
+	MakeRenderDataDirty(i0, j0, i1, j1, dirtyFlags);
+	UpdateHeightMipmap(i0, j0, i1, j1);
+}
+
+void CTerrain::MakeRenderDataDirty(ssize_t i0, ssize_t j0, ssize_t i1, ssize_t j1, int dirtyFlags)
+{
 	// Finds the inclusive limits of the patches that include the specified range of tiles
 	ssize_t pi0 = Clamp<ssize_t>( i0   /PATCH_SIZE, 0, m_MapSizePatches-1);
 	ssize_t pi1 = Clamp<ssize_t>((i1-1)/PATCH_SIZE, 0, m_MapSizePatches-1);
@@ -771,7 +777,10 @@ void CTerrain::MakeDirty(ssize_t i0, ssize_t j0, ssize_t i1, ssize_t j1, int dir
 			patch->SetDirty(dirtyFlags);
 		}
 	}
+}
 
+void CTerrain::UpdateHeightMipmap(ssize_t i0, ssize_t j0, ssize_t i1, ssize_t j1)
+{
 	if (m_Heightmap)
 	{
 		m_HeightMipmap.Update(m_Heightmap,
@@ -785,6 +794,13 @@ void CTerrain::MakeDirty(ssize_t i0, ssize_t j0, ssize_t i1, ssize_t j1, int dir
 
 void CTerrain::MakeDirty(int dirtyFlags)
 {
+	MakeRenderDataDirty(dirtyFlags);
+	if (m_Heightmap)
+		m_HeightMipmap.Update(m_Heightmap);
+}
+
+void CTerrain::MakeRenderDataDirty(int dirtyFlags)
+{
 	for (ssize_t j = 0; j < m_MapSizePatches; j++)
 	{
 		for (ssize_t i = 0; i < m_MapSizePatches; i++)
@@ -795,9 +811,6 @@ void CTerrain::MakeDirty(int dirtyFlags)
 			patch->SetDirty(dirtyFlags);
 		}
 	}
-
-	if (m_Heightmap)
-		m_HeightMipmap.Update(m_Heightmap);
 }
 
 CBoundingBoxAligned CTerrain::GetVertexesBound(ssize_t i0, ssize_t j0, ssize_t i1, ssize_t j1)

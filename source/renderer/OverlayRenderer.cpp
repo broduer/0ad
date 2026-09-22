@@ -156,7 +156,7 @@ public:
 
 	/// Holds the quad overlay structures requested to be rendered in this batch. Must be cleared
 	/// after each frame.
-	std::vector<SOverlayQuad*> m_Quads;
+	std::vector<const SOverlayQuad*> m_Quads;
 
 	/// Start index of this batch into the dedicated quad indices VertexArray (see OverlayInternals).
 	size_t m_IndicesBase;
@@ -177,11 +177,13 @@ struct OverlayRendererInternals
 
 	Renderer::Backend::IDevice* device = nullptr;
 
-	std::vector<SOverlayLine*> lines;
-	std::vector<SOverlayTexturedLine*> texlines;
-	std::vector<SOverlaySprite*> sprites;
-	std::vector<SOverlayQuad*> quads;
-	std::vector<SOverlaySphere*> spheres;
+	// Copies of the submitted overlays, since the sources belong to the logic
+	// thread and may change once the scene is collected.
+	std::vector<SOverlayLine> lines;
+	std::vector<SOverlayTexturedLine> texlines;
+	std::vector<SOverlaySprite> sprites;
+	std::vector<SOverlayQuad> quads;
+	std::vector<SOverlaySphere> spheres;
 
 	QuadBatchMap quadBatchMap;
 
@@ -344,7 +346,7 @@ void OverlayRenderer::Initialize()
 
 void OverlayRenderer::Submit(SOverlayLine* line)
 {
-	m->lines.push_back(line);
+	m->lines.push_back(*line);
 }
 
 void OverlayRenderer::Submit(SOverlayTexturedLine* line)
@@ -353,22 +355,32 @@ void OverlayRenderer::Submit(SOverlayTexturedLine* line)
 	if (line->m_Coords.empty())
 		return;
 
-	m->texlines.push_back(line);
+	// The render data is cached on the source and shared by the copy.
+	if (!line->m_RenderData)
+	{
+		line->m_RenderData = std::make_shared<CTexturedLineRData>();
+		line->m_RenderData->Update(*line);
+		// We assume the overlay line will get replaced by the caller
+		// if terrain changes, so we don't need to detect that here and
+		// call Update again. Also we assume the caller won't change
+		// any of the parameters after first submitting the line.
+	}
+	m->texlines.push_back(*line);
 }
 
 void OverlayRenderer::Submit(SOverlaySprite* overlay)
 {
-	m->sprites.push_back(overlay);
+	m->sprites.push_back(*overlay);
 }
 
 void OverlayRenderer::Submit(SOverlayQuad* overlay)
 {
-	m->quads.push_back(overlay);
+	m->quads.push_back(*overlay);
 }
 
 void OverlayRenderer::Submit(SOverlaySphere* overlay)
 {
-	m->spheres.push_back(overlay);
+	m->spheres.push_back(*overlay);
 }
 
 void OverlayRenderer::EndFrame()
@@ -399,25 +411,11 @@ void OverlayRenderer::PrepareForRendering()
 	// This is where we should do something like sort the overlays by
 	// color/sprite/etc for more efficient rendering
 
-	for (size_t i = 0; i < m->texlines.size(); ++i)
-	{
-		SOverlayTexturedLine* line = m->texlines[i];
-		if (!line->m_RenderData)
-		{
-			line->m_RenderData = std::make_shared<CTexturedLineRData>();
-			line->m_RenderData->Update(*line);
-			// We assume the overlay line will get replaced by the caller
-			// if terrain changes, so we don't need to detect that here and
-			// call Update again. Also we assume the caller won't change
-			// any of the parameters after first submitting the line.
-		}
-	}
-
 	// Group quad overlays by their texture/mask combination for efficient rendering
 	// TODO: consider doing this directly in Submit()
 	for (size_t i = 0; i < m->quads.size(); ++i)
 	{
-		SOverlayQuad* const quad = m->quads[i];
+		const SOverlayQuad* const quad = &m->quads[i];
 
 		QuadBatchKey textures(quad->m_Texture, quad->m_TextureMask);
 		QuadBatchData& batchRenderData = m->quadBatchMap[textures]; // will create entry if it doesn't already exist
@@ -503,12 +501,12 @@ void OverlayRenderer::RenderOverlaysBeforeWater(
 	PROFILE3("overlays (before)");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render overlays before water");
 
-	for (SOverlayLine* line : m->lines)
+	for (const SOverlayLine& line : m->lines)
 	{
-		if (line->m_Coords.empty())
+		if (line.m_Coords.empty())
 			continue;
 
-		g_Renderer.GetDebugRenderer().DrawLine(*deviceCommandContext, line->m_Coords, line->m_Color, static_cast<float>(line->m_Thickness));
+		g_Renderer.GetDebugRenderer().DrawLine(*deviceCommandContext, line.m_Coords, line.m_Color, static_cast<float>(line.m_Thickness));
 	}
 }
 
@@ -589,17 +587,15 @@ void OverlayRenderer::RenderTexturedOverlayLines(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	Renderer::Backend::IShaderProgram* shader, bool alwaysVisible)
 {
-	for (size_t i = 0; i < m->texlines.size(); ++i)
+	for (const SOverlayTexturedLine& line : m->texlines)
 	{
-		SOverlayTexturedLine* line = m->texlines[i];
 
 		// render only those lines matching the requested alwaysVisible status
-		if (!line->m_RenderData || line->m_AlwaysVisible != alwaysVisible)
+		if (!line.m_RenderData || line.m_AlwaysVisible != alwaysVisible)
 			continue;
 
-		ENSURE(line->m_RenderData);
-		line->m_RenderData->Render(
-			deviceCommandContext, m->texturedLineVertexInputLayout, *line, shader);
+		line.m_RenderData->Render(
+			deviceCommandContext, m->texturedLineVertexInputLayout, line, shader);
 	}
 }
 
@@ -713,8 +709,8 @@ void OverlayRenderer::RenderForegroundOverlays(
 
 	for (size_t i = 0; i < m->sprites.size(); ++i)
 	{
-		SOverlaySprite* sprite = m->sprites[i];
-		if (!i || sprite->m_Texture != m->sprites[i - 1]->m_Texture)
+		const SOverlaySprite* sprite = &m->sprites[i];
+		if (!i || sprite->m_Texture != m->sprites[i - 1].m_Texture)
 		{
 			sprite->m_Texture->UploadBackendTextureIfNeeded(deviceCommandContext);
 			deviceCommandContext->SetTexture(
@@ -835,17 +831,17 @@ void OverlayRenderer::RenderSphereOverlays(
 	deviceCommandContext->SetIndexBufferData(
 		m->sphereIndexes.data(), m->sphereIndexes.size() * sizeof(m->sphereIndexes[0]));
 
-	for (const SOverlaySphere* sphere : m->spheres)
+	for (const SOverlaySphere& sphere : m->spheres)
 	{
 		const CVector4D instancingTransform{
-			sphere->m_Center.X, sphere->m_Center.Y, sphere->m_Center.Z, sphere->m_Radius};
+			sphere.m_Center.X, sphere.m_Center.Y, sphere.m_Center.Z, sphere.m_Radius};
 
 		deviceCommandContext->SetUniform(
 			shader->GetBindingSlot(str_instancingTransform),
 			instancingTransform.AsFloatArray());
 
 		deviceCommandContext->SetUniform(
-			shader->GetBindingSlot(str_color), sphere->m_Color.AsFloatArray());
+			shader->GetBindingSlot(str_color), sphere.m_Color.AsFloatArray());
 
 		deviceCommandContext->DrawIndexed(0, m->sphereIndexes.size(), 0);
 

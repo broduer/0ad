@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,13 +19,13 @@
 
 #include "CCmpRallyPointRenderer.h"
 
+#include "graphics/FramePacket.h"
 #include "graphics/TextureManager.h"
 #include "lib/debug.h"
 #include "lib/path.h"
 #include "maths/Fixed.h"
 #include "maths/FixedVector3D.h"
 #include "ps/CLogger.h"
-#include "ps/Profile.h"
 #include "ps/algorithm.h"
 #include "renderer/Renderer.h"
 #include "renderer/Scene.h"
@@ -52,8 +52,6 @@
 
 #include <algorithm>
 #include <cmath>
-
-class CFrustum;
 
 std::string CCmpRallyPointRenderer::GetSchema()
 {
@@ -171,6 +169,8 @@ void CCmpRallyPointRenderer::ClassInit(CComponentManager& componentManager)
 
 void CCmpRallyPointRenderer::Deinit()
 {
+	if (RenderWorld::CFramePacket* packet = GetSimContext().GetFramePacket())
+		packet->overlays.emplace_back(RenderWorld::Overlay::RemoveEntity{GetEntityId()});
 }
 
 void CCmpRallyPointRenderer::Serialize(ISerializer&)
@@ -200,14 +200,9 @@ void CCmpRallyPointRenderer::HandleMessage(const CMessage& msg, bool /*global*/)
 		ConstructAllOverlayLines();
 	}
 	break;
-	case MT_RenderSubmit:
+	case MT_FrameStep:
 	{
-		PROFILE("RallyPoint::RenderSubmit");
-		if (m_Displayed && IsSet())
-		{
-			const CMessageRenderSubmit& msgData = static_cast<const CMessageRenderSubmit&> (msg);
-			RenderSubmit(msgData.collector, msgData.frustum, msgData.culling);
-		}
+		PublishRenderState();
 	}
 	break;
 	case MT_OwnershipChanged:
@@ -244,11 +239,6 @@ void CCmpRallyPointRenderer::HandleMessage(const CMessage& msg, bool /*global*/)
 	}
 	break;
 	}
-}
-
-void CCmpRallyPointRenderer::UpdateMessageSubscriptions()
-{
-	GetSimContext().GetComponentManager().DynamicSubscriptionNonsync(MT_RenderSubmit, this, m_Displayed && IsSet());
 }
 
 void CCmpRallyPointRenderer::CreateMarkerEntity(size_t index, player_id_t ownerId)
@@ -342,6 +332,7 @@ void CCmpRallyPointRenderer::UpdateLineColor()
 
 void CCmpRallyPointRenderer::RecomputeAllRallyPointPaths()
 {
+	MarkRenderDirty();
 	m_Path.clear();
 	m_VisibilitySegments.clear();
 	m_TexturedOverlayLines.clear();
@@ -503,6 +494,7 @@ void CCmpRallyPointRenderer::RecomputeRallyPointPath(size_t index, CmpPtr<ICmpPo
 
 void CCmpRallyPointRenderer::ConstructAllOverlayLines()
 {
+	MarkRenderDirty();
 	m_TexturedOverlayLines.clear();
 
 	for (size_t i = 0; i < m_Path.size(); ++i)
@@ -511,6 +503,7 @@ void CCmpRallyPointRenderer::ConstructAllOverlayLines()
 
 void CCmpRallyPointRenderer::ConstructOverlayLines(size_t index)
 {
+	MarkRenderDirty();
 	// We need to create a new SOverlayTexturedLine every time we want to change the coordinates after having passed it to the
 	// renderer, because it does some fancy vertex buffering thing and caches them internally instead of recomputing them on every
 	// pass (which is only sensible).
@@ -538,7 +531,6 @@ void CCmpRallyPointRenderer::ConstructOverlayLines(size_t index)
 			// Construct solid textured overlay line along a subset of the full path points from startPointIdx to endPointIdx
 			SOverlayTexturedLine overlayLine;
 			overlayLine.m_Thickness = m_LineThickness;
-			overlayLine.m_SimContext = &GetSimContext();
 			overlayLine.m_TextureBase = m_Texture;
 			overlayLine.m_TextureMask = m_TextureMask;
 			overlayLine.m_Color = m_LineColor;
@@ -611,7 +603,6 @@ void CCmpRallyPointRenderer::ConstructOverlayLines(size_t index)
 				SOverlayTexturedLine dashOverlay;
 
 				dashOverlay.m_Thickness = m_LineThickness;
-				dashOverlay.m_SimContext = &GetSimContext();
 				dashOverlay.m_TextureBase = m_Texture;
 				dashOverlay.m_TextureMask = m_TextureMask;
 				dashOverlay.m_Color = m_LineDashColor;
@@ -660,6 +651,7 @@ void CCmpRallyPointRenderer::UpdateOverlayLines()
 	// waste of time to calculate all this stuff (this method is called every turn)
 	if (!m_Displayed || !IsSet())
 		return;
+	MarkRenderDirty();
 
 	// See if there have been any changes to the SoD by grabbing the visibility edge points and comparing them to the previous ones
 	std::vector<std::vector<SVisibilitySegment> > newVisibilitySegments;
@@ -957,25 +949,20 @@ void CCmpRallyPointRenderer::MergeVisibilitySegments(std::vector<SVisibilitySegm
 	}
 }
 
-void CCmpRallyPointRenderer::RenderSubmit(SceneCollector& collector, const CFrustum& frustum, bool culling)
+void CCmpRallyPointRenderer::MarkRenderDirty()
 {
-	// We only get here if the rally point is set and should be displayed
-	for(std::vector<SOverlayTexturedLine>& row : m_TexturedOverlayLines)
-		for (SOverlayTexturedLine& col : row) {
-			if (col.m_Coords.empty())
-				continue;
-			if (culling && !col.IsVisibleInFrustum(frustum))
-				continue;
-			collector.Submit(&col);
-		}
+	if (m_RenderDirty)
+		return;
+	m_RenderDirty = true;
+	GetSimContext().GetComponentManager().RequestFrameStep(this);
+}
 
-	if (m_EnableDebugNodeOverlay && !m_DebugNodeOverlays.empty())
-	{
-		for (std::vector<SOverlayLine>& row : m_DebugNodeOverlays)
-			for (SOverlayLine& col : row)
-				if (!col.m_Coords.empty())
-					collector.Submit(&col);
-	}
+void CCmpRallyPointRenderer::PublishRenderState()
+{
+	m_RenderDirty = false;
+	if (RenderWorld::CFramePacket* packet = GetSimContext().GetFramePacket())
+		packet->overlays.emplace_back(RenderWorld::Overlay::SetRallyPoint{GetEntityId(),
+			m_TexturedOverlayLines, m_DebugNodeOverlays, m_Displayed && IsSet(), m_EnableDebugNodeOverlay});
 }
 
 void CCmpRallyPointRenderer::AddPosition_wrapper(const CFixedVector2D& pos)
@@ -989,7 +976,7 @@ void CCmpRallyPointRenderer::SetPosition(const CFixedVector2D& pos)
 	{
 		m_RallyPoints.clear();
 		AddPosition(pos, true);
-		// Don't need to UpdateMessageSubscriptions here since AddPosition already calls it
+		// AddPosition marks the lines dirty.
 	}
 }
 
@@ -1029,7 +1016,7 @@ void CCmpRallyPointRenderer::SetDisplayed(bool displayed)
 		// while this rally point was not being displayed.
 		UpdateOverlayLines();
 
-		UpdateMessageSubscriptions();
+		MarkRenderDirty();
 	}
 }
 
@@ -1048,7 +1035,7 @@ void CCmpRallyPointRenderer::Reset()
 	m_LastOwner = INVALID_PLAYER;
 	m_LastMarkerCount = 0;
 	RecomputeAllRallyPointPaths();
-	UpdateMessageSubscriptions();
+	MarkRenderDirty();
 }
 
 void CCmpRallyPointRenderer::UpdateColor()
@@ -1067,7 +1054,7 @@ void CCmpRallyPointRenderer::AddPosition(CFixedVector2D pos, bool recompute)
 	else
 		RecomputeRallyPointPath_wrapper(m_RallyPoints.size() - 1);
 
-	UpdateMessageSubscriptions();
+	MarkRenderDirty();
 }
 
 bool CCmpRallyPointRenderer::IsSet() const

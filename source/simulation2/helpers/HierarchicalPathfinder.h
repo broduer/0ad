@@ -34,6 +34,7 @@
 #include <utility>
 #include <vector>
 
+namespace RenderWorld { struct CFramePacket; }
 class CSimContext;
 class PathGoal;
 struct SOverlayLine;
@@ -64,8 +65,6 @@ template <typename T> class Grid;
 class TestCmpPathfinder;
 class TestHierarchicalPathfinder;
 #endif
-
-class SceneCollector;
 
 class HierarchicalPathfinder
 {
@@ -171,7 +170,11 @@ public:
 		return 0;
 	}
 
-	void RenderSubmit(SceneCollector& collector);
+	/**
+	 * Record the debug lines and region overlay for the render world while
+	 * enabled, and their removal once disabled.
+	 */
+	void PublishDebugOverlay(RenderWorld::CFramePacket& packet, std::ptrdiff_t tilesPerSide);
 
 private:
 	static const std::uint8_t CHUNK_SIZE = 96; // number of navcells per side
@@ -310,7 +313,8 @@ private:
 	std::map<std::string, pass_class_t> m_PassClassMasks;
 
 	void AddDebugEdges(pass_class_t passClass);
-	TerrainTextureOverlay* m_DebugOverlay;
+	bool m_DebugOverlayEnabled{false};
+	bool m_DebugOverlayPublished{false};
 	const CSimContext* m_SimContext; // Used for drawing the debug lines
 
 public:

@@ -20,6 +20,7 @@
 #include "ICmpTerritoryManager.h"
 
 #include "graphics/Color.h"
+#include "graphics/FramePacket.h"
 #include "graphics/Overlay.h"
 #include "graphics/SColor.h"
 #include "graphics/TerritoryBoundary.h"
@@ -58,13 +59,13 @@
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"
 #include "simulation2/system/Message.h"
+#include "simulation2/system/SimContext.h"
 
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <limits>
 #include <map>
-#include <numbers>
 #include <queue>
 #include <string>
 #include <type_traits>
@@ -72,7 +73,6 @@
 #include <vector>
 
 class CCmpTerritoryManager;
-class CFrustum;
 
 namespace
 {
@@ -102,8 +102,8 @@ public:
 		componentManager.SubscribeToMessageType(MT_TerrainChanged);
 		componentManager.SubscribeToMessageType(MT_WaterChanged);
 		componentManager.SubscribeToMessageType(MT_Update);
-		componentManager.SubscribeToMessageType(MT_Interpolate);
-		componentManager.SubscribeToMessageType(MT_RenderSubmit);
+		componentManager.SubscribeToMessageType(MT_FramePrepare);
+		componentManager.SubscribeToMessageType(MT_FrameStep);
 	}
 
 	DEFAULT_COMPONENT_ALLOCATOR(TerritoryManager)
@@ -133,40 +133,28 @@ public:
 	// during the Update phase
 	bool m_TriggerEvent;
 
-	struct SBoundaryLine
-	{
-		bool blinking;
-		player_id_t owner;
-		CColor color;
-		SOverlayTexturedLine overlay;
-	};
-
-	std::vector<SBoundaryLine> m_BoundaryLines;
+	// Prepared on the logic thread and recorded for the render world at the next frame step.
+	std::vector<RenderWorld::STerritoryLine> m_PreparedBoundaryLines;
+	std::vector<SOverlayLine> m_PreparedDebugBoundaryLineNodes;
+	bool m_LinesPrepared = false;
+	std::map<player_id_t, CColor> m_PreparedColors;
+	bool m_ColorsPrepared = false;
 	bool m_BoundaryLinesDirty;
-
-	double m_AnimTime; // time since start of rendering, in seconds
-
-	TerrainTextureOverlay* m_DebugOverlay;
+	bool m_DebugOverlayEnabled;
 
 	bool m_EnableLineDebugOverlays; ///< Enable node debugging overlays for boundary lines?
-	std::vector<SOverlayLine> m_DebugBoundaryLineNodes;
 
 	void Init(const CParamNode&) override
 	{
 		m_Territories = NULL;
 		m_CostGrid = NULL;
-		m_DebugOverlay = DISABLE_TERRITORY_OVERLAY? nullptr :
-			new TerrainTextureOverlay{static_cast<float>(Pathfinding::NAVCELLS_PER_TERRAIN_TILE) /
-			ICmpTerritoryManager::NAVCELLS_PER_TERRITORY_TILE,
-			std::bind_front(BuildTextureRGBA, std::ref(m_Territories))};
+		m_DebugOverlayEnabled = !DISABLE_TERRITORY_OVERLAY;
 		m_BoundaryLinesDirty = true;
 		m_TriggerEvent = true;
 		m_EnableLineDebugOverlays = false;
 		m_DirtyID = 1;
 		m_DirtyBlinkingID = 1;
 		m_ColorChanged = false;
-
-		m_AnimTime = 0.0;
 
 		m_TerritoryTotalPassableCellCount = 0;
 
@@ -192,7 +180,6 @@ public:
 	{
 		SAFE_DELETE(m_Territories);
 		SAFE_DELETE(m_CostGrid);
-		SAFE_DELETE(m_DebugOverlay);
 	}
 
 	void Serialize(ISerializer& serialize) override
@@ -253,16 +240,18 @@ public:
 			}
 			break;
 		}
-		case MT_Interpolate:
+		case MT_FramePrepare:
 		{
-			const CMessageInterpolate& msgData = static_cast<const CMessageInterpolate&> (msg);
-			Interpolate(msgData.deltaSimTime, msgData.offset);
+			if (m_BoundaryLinesDirty)
+			{
+				UpdateBoundaryLines();
+				m_BoundaryLinesDirty = false;
+			}
 			break;
 		}
-		case MT_RenderSubmit:
+		case MT_FrameStep:
 		{
-			const CMessageRenderSubmit& msgData = static_cast<const CMessageRenderSubmit&> (msg);
-			RenderSubmit(msgData.collector, msgData.frustum, msgData.culling);
+			PublishRenderState();
 			break;
 		}
 		}
@@ -339,10 +328,6 @@ public:
 
 	void UpdateBoundaryLines();
 
-	void Interpolate(float frameTime, float frameOffset);
-
-	void RenderSubmit(SceneCollector& collector, const CFrustum& frustum, bool culling);
-
 	void SetVisibility(bool visible) override
 	{
 		if (!m_Enabled)
@@ -350,6 +335,11 @@ public:
 
 		m_Visible = visible;
 	}
+
+	/**
+	 * Record the prepared boundary lines, colours and visibility for the render world.
+	 */
+	void PublishRenderState();
 
 	bool IsVisible() const override
 	{
@@ -726,8 +716,8 @@ void CCmpTerritoryManager::UpdateBoundaryLines()
 {
 	PROFILE("update boundary lines");
 
-	m_BoundaryLines.clear();
-	m_DebugBoundaryLineNodes.clear();
+	m_PreparedBoundaryLines.clear();
+	m_PreparedDebugBoundaryLineNodes.clear();
 
 	if (!CRenderer::IsInitialised())
 		return;
@@ -762,21 +752,20 @@ void CCmpTerritoryManager::UpdateBoundaryLines()
 		if (cmpPlayer)
 			color = cmpPlayer->GetDisplayedColor();
 
-		m_BoundaryLines.push_back(SBoundaryLine());
-		m_BoundaryLines.back().blinking = boundaries[i].blinking;
-		m_BoundaryLines.back().owner = boundaries[i].owner;
-		m_BoundaryLines.back().color = color;
-		m_BoundaryLines.back().overlay.m_SimContext = &GetSimContext();
-		m_BoundaryLines.back().overlay.m_TextureBase = textureBase;
-		m_BoundaryLines.back().overlay.m_TextureMask = textureMask;
-		m_BoundaryLines.back().overlay.m_Color = color;
-		m_BoundaryLines.back().overlay.m_Thickness = m_BorderThickness;
-		m_BoundaryLines.back().overlay.m_Closed = true;
+		m_PreparedBoundaryLines.push_back(RenderWorld::STerritoryLine());
+		m_PreparedBoundaryLines.back().blinking = boundaries[i].blinking;
+		m_PreparedBoundaryLines.back().owner = boundaries[i].owner;
+		m_PreparedBoundaryLines.back().color = color;
+		m_PreparedBoundaryLines.back().overlay.m_TextureBase = textureBase;
+		m_PreparedBoundaryLines.back().overlay.m_TextureMask = textureMask;
+		m_PreparedBoundaryLines.back().overlay.m_Color = color;
+		m_PreparedBoundaryLines.back().overlay.m_Thickness = m_BorderThickness;
+		m_PreparedBoundaryLines.back().overlay.m_Closed = true;
 
-		SimRender::SmoothPointsAverage(boundaries[i].points, m_BoundaryLines.back().overlay.m_Closed);
-		SimRender::InterpolatePointsRNS(boundaries[i].points, m_BoundaryLines.back().overlay.m_Closed, m_BorderSeparation);
+		SimRender::SmoothPointsAverage(boundaries[i].points, m_PreparedBoundaryLines.back().overlay.m_Closed);
+		SimRender::InterpolatePointsRNS(boundaries[i].points, m_PreparedBoundaryLines.back().overlay.m_Closed, m_BorderSeparation);
 
-		std::vector<CVector2D>& points = m_BoundaryLines.back().overlay.m_Coords;
+		std::vector<CVector2D>& points = m_PreparedBoundaryLines.back().overlay.m_Coords;
 		for (size_t j = 0; j < boundaries[i].points.size(); ++j)
 		{
 			points.push_back(boundaries[i].points[j]);
@@ -794,49 +783,12 @@ void CCmpTerritoryManager::UpdateBoundaryLines()
 
 				overlayNode.m_Thickness = 0.1f;
 				SimRender::ConstructCircleOnGround(GetSimContext(), boundaries[i].points[j].X, boundaries[i].points[j].Y, 0.1f, overlayNode, true);
-				m_DebugBoundaryLineNodes.push_back(overlayNode);
+				m_PreparedDebugBoundaryLineNodes.push_back(overlayNode);
 			}
 		}
 
 	}
-}
-
-void CCmpTerritoryManager::Interpolate(float frameTime, float /*frameOffset*/)
-{
-	m_AnimTime += frameTime;
-
-	if (m_BoundaryLinesDirty)
-	{
-		UpdateBoundaryLines();
-		m_BoundaryLinesDirty = false;
-	}
-
-	for (size_t i = 0; i < m_BoundaryLines.size(); ++i)
-	{
-		if (m_BoundaryLines[i].blinking)
-		{
-			CColor c = m_BoundaryLines[i].color;
-			c.a *= 0.2f + 0.8f * fabsf(static_cast<float>(cos(m_AnimTime * std::numbers::pi))); // TODO: should let artists tweak this
-			m_BoundaryLines[i].overlay.m_Color = c;
-		}
-	}
-}
-
-void CCmpTerritoryManager::RenderSubmit(SceneCollector& collector, const CFrustum& frustum, bool culling)
-{
-	if (!IsVisible())
-		return;
-
-	for (size_t i = 0; i < m_BoundaryLines.size(); ++i)
-	{
-		if (culling && !m_BoundaryLines[i].overlay.IsVisibleInFrustum(frustum))
-			continue;
-		collector.Submit(&m_BoundaryLines[i].overlay);
-	}
-
-	for (size_t i = 0; i < m_DebugBoundaryLineNodes.size(); ++i)
-		collector.Submit(&m_DebugBoundaryLineNodes[i]);
-
+	m_LinesPrepared = true;
 }
 
 player_id_t CCmpTerritoryManager::GetOwner(entity_pos_t x, entity_pos_t z)
@@ -957,13 +909,49 @@ void CCmpTerritoryManager::UpdateColors()
 	if (!cmpPlayerManager)
 		return;
 
-	for (SBoundaryLine& boundaryLine : m_BoundaryLines)
+	// Look the colours up here, as this may run script and the frame step must not.
+	m_PreparedColors.clear();
+	const std::int32_t numPlayers = cmpPlayerManager->GetNumPlayers();
+	for (std::int32_t player = 0; player < numPlayers; ++player)
 	{
-		CmpPtr<ICmpPlayer> cmpPlayer(GetSimContext(), cmpPlayerManager->GetPlayerByID(boundaryLine.owner));
-		if (!cmpPlayer)
-			continue;
-
-		boundaryLine.color = cmpPlayer->GetDisplayedColor();
-		boundaryLine.overlay.m_Color = boundaryLine.color;
+		CmpPtr<ICmpPlayer> cmpPlayer(GetSimContext(), cmpPlayerManager->GetPlayerByID(player));
+		if (cmpPlayer)
+			m_PreparedColors[player] = cmpPlayer->GetDisplayedColor();
 	}
+	m_ColorsPrepared = true;
+}
+
+void CCmpTerritoryManager::PublishRenderState()
+{
+	RenderWorld::CFramePacket* packet = GetSimContext().GetFramePacket();
+	if (!packet)
+		return;
+	RenderWorld::STerritory& territory = packet->territory.emplace();
+	if (m_LinesPrepared)
+	{
+		territory.lines = std::move(m_PreparedBoundaryLines);
+		territory.debugNodes = std::move(m_PreparedDebugBoundaryLineNodes);
+		m_PreparedBoundaryLines.clear();
+		m_PreparedDebugBoundaryLineNodes.clear();
+		m_LinesPrepared = false;
+
+		if (m_DebugOverlayEnabled && m_Territories)
+		{
+			const float texelsPerTile{static_cast<float>(Pathfinding::NAVCELLS_PER_TERRAIN_TILE) /
+				ICmpTerritoryManager::NAVCELLS_PER_TERRITORY_TILE};
+			packet->terrainOverlays.push_back({RenderWorld::DebugSource::TERRITORY,
+				RenderWorld::BuildTerrainOverlay(texelsPerTile, GetSimContext().GetTerrain().GetTilesPerSide(),
+					[this](std::uint8_t* data, const std::size_t w, const std::size_t h)
+					{
+						BuildTextureRGBA(m_Territories, data, static_cast<int>(w), static_cast<int>(h));
+					})});
+		}
+	}
+	if (m_ColorsPrepared)
+	{
+		territory.colors = std::move(m_PreparedColors);
+		m_PreparedColors.clear();
+		m_ColorsPrepared = false;
+	}
+	territory.visible = IsVisible();
 }

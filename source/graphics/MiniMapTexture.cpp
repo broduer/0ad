@@ -48,7 +48,6 @@
 #include "ps/XML/Xeromyces.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
-#include "renderer/TimeManager.h"
 #include "renderer/WaterManager.h"
 #include "renderer/backend/Backend.h"
 #include "renderer/backend/Format.h"
@@ -133,13 +132,6 @@ void DrawTexture(
 
 	deviceCommandContext->Draw(0, 6);
 }
-
-struct MinimapUnitVertex
-{
-	// This struct is copyable for convenience and because to move is to copy for primitives.
-	std::uint8_t r, g, b, a;
-	CVector2D position;
-};
 
 // Adds a vertex to the passed VertexArray
 inline void AddEntity(const MinimapUnitVertex& v,
@@ -358,16 +350,41 @@ CMiniMapTexture::~CMiniMapTexture()
 
 void CMiniMapTexture::RequestRendering()
 {
-	m_RenderingRequested = true;
+	m_RenderRequested = true;
 }
 
-void CMiniMapTexture::Update(const float /*deltaRealTime*/)
+void CMiniMapTexture::Prepare(const float realTimeDelta)
 {
-	if (m_WaterHeight != g_Renderer.GetSceneRenderer().GetWaterManager().m_WaterHeight)
+	m_LogicRealTime += realTimeDelta;
+
+	// Gather twice per second; units move only a few pixels on the minimap.
+	if (!m_RenderRequested)
+		return;
+	const double currentTime = m_LogicRealTime;
+	if (currentTime - m_LastEntityGather <= 0.5 && !m_FinalDirty)
+		return;
+	m_LastEntityGather = currentTime;
+	GatherEntities(currentTime);
+}
+
+CMiniMapTexture::Handover CMiniMapTexture::Publish()
+{
+	Handover handover;
+	handover.render = std::exchange(m_RenderRequested, false);
+	if (m_Prepared.valid)
 	{
-		m_TerrainTextureDirty = true;
-		m_FinalTextureDirty = true;
+		handover.gathered = std::exchange(m_Prepared, Gathered{});
+		m_FinalDirty = false;
+		m_LosCircular = handover.gathered.losCircular;
 	}
+	return handover;
+}
+
+void CMiniMapTexture::TakePublished(Handover&& handover)
+{
+	m_RenderingRequested |= handover.render;
+	if (handover.gathered.valid)
+		m_Taken = std::move(handover.gathered);
 }
 
 void CMiniMapTexture::Render(
@@ -380,6 +397,9 @@ void CMiniMapTexture::Render(
 	const CTerrain& terrain = g_Game->GetWorld()->GetTerrain();
 	if (!m_TerrainTexture)
 		CreateTextures(deviceCommandContext, terrain);
+
+	if (m_WaterHeight != g_Renderer.GetSceneRenderer().GetWaterManager().m_WaterHeight)
+		m_TerrainTextureDirty = true;
 
 	if (m_TerrainTextureDirty)
 		RebuildTerrainTexture(deviceCommandContext, terrain);
@@ -516,30 +536,24 @@ void CMiniMapTexture::RenderFinalTexture(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	CLOSTexture& losTexture, CTerritoryTexture& territoryTexture)
 {
-	// only update 2x / second
-	// (note: since units only move a few pixels per second on the minimap,
-	// we can get away with infrequent updates; this is slow)
-	// TODO: Update all but camera at same speed as simulation
-	const double currentTime = g_Renderer.GetTimeManager().GetRealTime();
-	const bool doUpdate = (currentTime - m_LastFinalTextureUpdate > 0.5) || m_FinalTextureDirty;
-	if (!doUpdate)
+	if (!m_Taken.valid)
 		return;
-	m_LastFinalTextureUpdate = currentTime;
-	m_FinalTextureDirty = false;
-
-	CmpPtr<ICmpRangeManager> cmpRangeManager(m_Simulation, SYSTEM_ENTITY);
-	ENSURE(cmpRangeManager);
+	const Gathered taken = std::move(m_Taken);
+	m_Taken = Gathered{};
+	const std::vector<MinimapUnitVertex>& entities = taken.entities;
+	const std::vector<MinimapUnitVertex>& pings = taken.pings;
+	m_Icons = taken.icons;
 
 	// We might scale entities properly in the vertex shader but it requires
 	// additional space in the vertex buffer. So we assume that we don't need
 	// to change an entity size so often.
 	// Also compensate circular maps for being rendered closer than square maps.
-	const float mapGeometryScale{cmpRangeManager->GetLosCircular() ? std::sqrt(2.0f) : 1.0f};
+	const float mapGeometryScale{m_LosCircular ? std::sqrt(2.0f) : 1.0f};
 	const float entityRadiusScale{g_ConfigDB.Get("gui.session.minimap.entityradiusscale", 1.0f) / mapGeometryScale };
 	// Radius with instancing is lower because an entity has a more round shape.
 	const float entityRadius = static_cast<float>(m_MapSize) / 128.0f * (m_UseInstancing ? 5.0 : 6.0f) * entityRadiusScale;
 
-	UpdateAndUploadEntities(deviceCommandContext, entityRadius, currentTime);
+	UploadEntities(deviceCommandContext, entities, pings, entityRadius);
 
 	PROFILE3("Render minimap texture");
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render minimap texture");
@@ -644,27 +658,27 @@ void CMiniMapTexture::RenderFinalTexture(
 	deviceCommandContext->EndFramebufferPass();
 }
 
-void CMiniMapTexture::UpdateAndUploadEntities(
-	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-	const float entityRadius, const double& currentTime)
+void CMiniMapTexture::GatherEntities(const double currentTime)
 {
-	const float invTileMapSize = 1.0f / static_cast<float>(TERRAIN_TILE_SIZE * m_MapSize);
+	PROFILE("gather minimap entities");
 
-	m_Icons.clear();
+	const ssize_t mapSize = m_Simulation.GetSimContext().GetTerrain().GetVerticesPerSide();
+	const float invTileMapSize = 1.0f / static_cast<float>(TERRAIN_TILE_SIZE * mapSize);
+
+	std::vector<Icon> gatheredIcons;
 	m_IconsCache.clear();
 
 	CSimulation2::InterfaceList ents = m_Simulation.GetEntitiesWithInterface(IID_Minimap);
 
-	VertexArrayIterator<float[2]> attrPos = m_AttributePos.GetIterator<float[2]>();
-	VertexArrayIterator<std::uint8_t[4]> attrColor = m_AttributeColor.GetIterator<std::uint8_t[4]>();
-
-	m_EntitiesDrawn = 0;
 	MinimapUnitVertex v;
+	std::vector<MinimapUnitVertex> entities;
+	entities.reserve(std::min<size_t>(ents.size(), MAX_ENTITIES_DRAWN));
 	std::vector<MinimapUnitVertex> pingingVertices;
 	pingingVertices.reserve(MAX_ENTITIES_DRAWN / 2);
 
 	CmpPtr<ICmpRangeManager> cmpRangeManager(m_Simulation, SYSTEM_ENTITY);
 	ENSURE(cmpRangeManager);
+	const bool losCircular = cmpRangeManager->GetLosCircular();
 
 	if (currentTime > m_NextBlinkTime)
 	{
@@ -699,11 +713,8 @@ void CMiniMapTexture::UpdateAndUploadEntities(
 					v.b = 255;
 					pingingVertices.push_back(v);
 				}
-				else if (m_EntitiesDrawn < MAX_ENTITIES_DRAWN)
-				{
-					AddEntity(v, attrColor, attrPos, entityRadius, m_UseInstancing);
-					++m_EntitiesDrawn;
-				}
+				else if (entities.size() < MAX_ENTITIES_DRAWN)
+					entities.push_back(v);
 
 				if (!iconsEnabled || !cmpMinimap->HasIcon())
 					continue;
@@ -771,9 +782,9 @@ void CMiniMapTexture::UpdateAndUploadEntities(
 				if (cell.count == 0)
 					continue;
 
-				if (m_Icons.size() < MAX_ICON_COUNT)
+				if (gatheredIcons.size() < MAX_ICON_COUNT)
 				{
-					m_Icons.emplace_back(Icon{
+					gatheredIcons.emplace_back(Icon{
 						texture, color, cell.averagePosition, cell.maxHalfSize});
 				}
 				else
@@ -785,13 +796,31 @@ void CMiniMapTexture::UpdateAndUploadEntities(
 	if (iconsCountOverflow)
 		LOGWARNING("Too many minimap icons to draw.");
 
-	// Add the pinged vertices at the end, so they are drawn on top
-	for (const MinimapUnitVertex& vertex : pingingVertices)
+	m_Prepared = {true, std::move(entities), std::move(pingingVertices), std::move(gatheredIcons), losCircular};
+}
+
+void CMiniMapTexture::UploadEntities(
+	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
+	const std::vector<MinimapUnitVertex>& entities,
+	const std::vector<MinimapUnitVertex>& pings, const float entityRadius)
+{
+	VertexArrayIterator<float[2]> attrPos = m_AttributePos.GetIterator<float[2]>();
+	VertexArrayIterator<std::uint8_t[4]> attrColor = m_AttributeColor.GetIterator<std::uint8_t[4]>();
+
+	m_EntitiesDrawn = 0;
+	for (const MinimapUnitVertex& vertex : entities)
 	{
 		AddEntity(vertex, attrColor, attrPos, entityRadius, m_UseInstancing);
 		++m_EntitiesDrawn;
+	}
+
+	// Add the pinged vertices at the end, so they are drawn on top
+	for (const MinimapUnitVertex& vertex : pings)
+	{
 		if (m_EntitiesDrawn == MAX_ENTITIES_DRAWN)
 			break;
+		AddEntity(vertex, attrColor, attrPos, entityRadius, m_UseInstancing);
+		++m_EntitiesDrawn;
 	}
 
 	if (m_EntitiesDrawn == MAX_ENTITIES_DRAWN)

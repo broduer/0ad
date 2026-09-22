@@ -25,16 +25,11 @@
 #include "lib/path.h"
 #include "lib/utf8.h"
 #include "ps/CLogger.h"
-#include "ps/ConfigDB.h"
 #include "ps/Filesystem.h"
 #include "ps/Profiler2.h"
 #include "ps/XML/Xeromyces.h"
+#include "renderer/RenderingOptions.h"
 #include "scriptinterface/Interface.h"
-#include "simulation2/Simulation2.h"
-#include "simulation2/components/ICmpTerrain.h"
-#include "simulation2/components/ICmpVisual.h"
-#include "simulation2/system/Component.h"
-#include "simulation2/system/Entity.h"
 
 #include <cstddef>
 #include <functional>
@@ -55,13 +50,13 @@ static Status ReloadChangedFileCB(void* param, const VfsPath& path)
 	return static_cast<CObjectManager*>(param)->ReloadChangedFile(path);
 }
 
-CObjectManager::CObjectManager(CMeshManager& meshManager, CSkeletonAnimManager& skeletonAnimManager, CSimulation2& simulation)
-: m_MeshManager(meshManager), m_SkeletonAnimManager(skeletonAnimManager), m_Simulation(simulation)
+CObjectManager::CObjectManager(CMeshManager& meshManager, CSkeletonAnimManager& skeletonAnimManager)
+: m_MeshManager(meshManager), m_SkeletonAnimManager(skeletonAnimManager)
 {
 	RegisterFileReloadFunc(ReloadChangedFileCB, this);
 
-	m_QualityHook = std::make_unique<CConfigDBHook>(g_ConfigDB.RegisterHookAndCall("max_actor_quality", [this]() { ActorQualityChanged(); }));
-	m_VariantDiversityHook = std::make_unique<CConfigDBHook>(g_ConfigDB.RegisterHookAndCall("variant_diversity", [this]() { VariantDiversityChanged(); }));
+	// Created on the logic thread, before any unit.
+	UpdateOptions(g_LogicRenderingOptions);
 
 	if (!g_Xeromyces.AddValidator(g_VFS, "actor", "art/actors/actor.rng"))
 		LOGERROR("CObjectManager: failed to load actor grammar file 'art/actors/actor.rng'");
@@ -133,7 +128,8 @@ CObjectEntry* CObjectManager::FindObjectVariation(const std::shared_ptr<CObjectB
 
 	// If it hasn't been loaded, load it now.
 
-	std::unique_ptr<CObjectEntry> obj = std::make_unique<CObjectEntry>(base, m_Simulation);
+	ENSURE(m_Ground);
+	std::unique_ptr<CObjectEntry> obj = std::make_unique<CObjectEntry>(base, *m_Ground);
 
 	// TODO (for some efficiency): use the pre-calculated choices for this object,
 	// which has already worked out what to do for props, instead of passing the
@@ -143,14 +139,6 @@ CObjectEntry* CObjectManager::FindObjectVariation(const std::shared_ptr<CObjectB
 		return nullptr;
 
 	return m_Objects.insert_or_assign(key, std::move(obj)).first->second.obj.get();
-}
-
-CTerrain* CObjectManager::GetTerrain()
-{
-	CmpPtr<ICmpTerrain> cmpTerrain(m_Simulation, SYSTEM_ENTITY);
-	if (!cmpTerrain)
-		return NULL;
-	return cmpTerrain->GetCTerrain();
 }
 
 CObjectManager::VariantDiversity CObjectManager::GetVariantDiversity() const
@@ -166,17 +154,12 @@ void CObjectManager::UnloadObjects()
 
 Status CObjectManager::ReloadChangedFile(const VfsPath& path)
 {
-	bool changed = false;
-
 	// Mark old entries as outdated so we don't reload them from the cache
 	for (std::pair<const ObjectKey, Hotloadable<CObjectEntry>>& object : m_Objects)
 		if (!object.second.outdated && object.second.obj->m_Base->UsesFile(path))
 		{
 			object.second.outdated = true;
-			changed = true;
 		}
-
-	const CSimulation2::InterfaceListUnordered& cmps = m_Simulation.GetEntitiesWithInterfaceUnordered(IID_Visual);
 
 	// Reload actors that use a changed object
 	for (std::pair<const CStrW, Hotloadable<CActorDef>>& actor : m_ActorDefs)
@@ -184,51 +167,27 @@ Status CObjectManager::ReloadChangedFile(const VfsPath& path)
 		if (!actor.second.outdated && actor.second.obj->UsesFile(path))
 		{
 			actor.second.outdated = true;
-			changed = true;
 
-			// Slightly ugly hack: The graphics system doesn't preserve enough information to regenerate the
-			// object with all correct variations, and we don't want to waste space storing it just for the
-			// rare occurrence of hotloading, so we'll tell the component (which does preserve the information)
-			// to do the reloading itself
-			for (CSimulation2::InterfaceListUnordered::const_iterator eit = cmps.begin(); eit != cmps.end(); ++eit)
-				static_cast<ICmpVisual*>(eit->second)->Hotload(actor.first);
+			if (m_ActorsChanged)
+				m_ActorsChanged(actor.first);
 		}
 	}
-
-	if (changed)
-		// Trigger an interpolate call - needed because the game may be paused & if so, models disappear.
-		m_Simulation.Interpolate(0.f, 0.f, 0.f);
 
 	return INFO::OK;
 }
 
-void CObjectManager::ActorQualityChanged()
+void CObjectManager::UpdateOptions(const CRenderingOptions& options)
 {
-	const int quality{g_ConfigDB.Get("max_actor_quality", 0)};
-	if (quality == m_QualityLevel)
-		return;
+	const std::uint8_t quality{static_cast<std::uint8_t>(options.GetMaxActorQuality())};
+	if (quality != m_QualityLevel)
+	{
+		m_QualityLevel = quality;
+		// No need to reload entries or actors, but we do need to reload all units.
+		if (m_ActorsChanged)
+			m_ActorsChanged(L"");
+	}
 
-	m_QualityLevel = quality > 255 ? 255 : quality < 0 ? 0 : quality;
-
-	// No need to reload entries or actors, but we do need to reload all units.
-	const CSimulation2::InterfaceListUnordered& cmps = m_Simulation.GetEntitiesWithInterfaceUnordered(IID_Visual);
-	for (CSimulation2::InterfaceListUnordered::const_iterator eit = cmps.begin(); eit != cmps.end(); ++eit)
-		static_cast<ICmpVisual*>(eit->second)->Hotload();
-
-	// Trigger an interpolate call - needed because the game is generally paused & models disappear otherwise.
-	m_Simulation.Interpolate(0.f, 0.f, 0.f);
-}
-
-void CObjectManager::VariantDiversityChanged()
-{
-	const std::string value{g_ConfigDB.Get("variant_diversity", std::string{})};
-	VariantDiversity variantDiversity = VariantDiversity::FULL;
-	if (value == "none")
-		variantDiversity = VariantDiversity::NONE;
-	else if (value == "limited")
-		variantDiversity = VariantDiversity::LIMITED;
-	// Otherwise assume full.
-
+	const VariantDiversity variantDiversity{static_cast<VariantDiversity>(options.GetVariantDiversity())};
 	if (variantDiversity == m_VariantDiversity)
 		return;
 
@@ -242,11 +201,6 @@ void CObjectManager::VariantDiversityChanged()
 	for (std::pair<const CStrW, Hotloadable<CActorDef>>& actor : m_ActorDefs)
 		actor.second.outdated = true;
 
-	// Reload visual actor components.
-	const CSimulation2::InterfaceListUnordered& cmps = m_Simulation.GetEntitiesWithInterfaceUnordered(IID_Visual);
-	for (CSimulation2::InterfaceListUnordered::const_iterator eit = cmps.begin(); eit != cmps.end(); ++eit)
-		static_cast<ICmpVisual*>(eit->second)->Hotload();
-
-	// Trigger an interpolate call - needed because the game is generally paused & models disappear otherwise.
-	m_Simulation.Interpolate(0.f, 0.f, 0.f);
+	if (m_ActorsChanged)
+		m_ActorsChanged(L"");
 }

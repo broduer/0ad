@@ -201,18 +201,18 @@ bool CTurnManager::UpdateFastForward()
 	return true;
 }
 
-void CTurnManager::Interpolate(float simFrameLength, float realFrameLength)
+CTurnManager::InterpolationState CTurnManager::GetInterpolationState(float simFrameLength, float realFrameLength) const
 {
 	// TODO: using m_TurnLength might be a bit dodgy when length changes - maybe
 	// we need to save the previous turn length?
 
-	float offset = Clamp(m_DeltaSimTime / (m_TurnLength / 1000.f) + 1.0, 0.0, 1.0);
+	InterpolationState state;
+	state.offset = Clamp(m_DeltaSimTime / (m_TurnLength / 1000.f) + 1.0, 0.0, 1.0);
 
 	// Stop animations while still updating the selection highlight
-	if (m_CurrentTurn > m_FinalTurn)
-		simFrameLength = 0;
-
-	m_Simulation2.Interpolate(simFrameLength, offset, realFrameLength);
+	state.simFrameLength = m_CurrentTurn > m_FinalTurn ? 0.0f : simFrameLength;
+	state.realFrameLength = realFrameLength;
+	return state;
 }
 
 void CTurnManager::AddCommand(int client, int player, JS::HandleValue data, turn_id_t turn)

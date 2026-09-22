@@ -42,11 +42,12 @@
 #include "ps/World.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
-#include "renderer/WaterManager.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/Conversions.h"
 #include "scriptinterface/Request.h"
+#include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpRangeManager.h"
+#include "simulation2/components/ICmpWaterManager.h"
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"
 
@@ -289,9 +290,11 @@ void CMiniMap::DrawViewRect(CCanvas2D& canvas) const
 {
 	// Compute the camera frustum intersected with a fixed-height plane.
 	// Use the water height as a fixed base height, which should be the lowest we can go
-	const float sampleHeight = g_Renderer.GetSceneRenderer().GetWaterManager().m_WaterHeight;
+	CmpPtr<ICmpWaterManager> cmpWaterManager(*g_Game->GetSimulation2(), SYSTEM_ENTITY);
+	const float sampleHeight = cmpWaterManager ? cmpWaterManager->GetExactWaterLevel(0.0f, 0.0f) : 0.0f;
 
-	const CCamera& camera{g_Game->GetView()->GetCamera()};
+	// The render thread's copy of the camera.
+	const CCamera& camera{g_Renderer.GetSceneRenderer().GetViewCamera()};
 	const std::array<CVector3D, 4> hitPoints = {
 		camera.GetWorldCoordinates(0, g_Renderer.GetHeight(), sampleHeight),
 		camera.GetWorldCoordinates(g_Renderer.GetWidth(), g_Renderer.GetHeight(), sampleHeight),
@@ -369,14 +372,10 @@ void CMiniMap::Draw(CCanvas2D& canvas)
 	if (!m_Mask)
 		canvas.DrawRect(GetActualSize(), CColor(0.0f, 0.0f, 0.0f, 1.0f));
 
-	CSimulation2* sim = g_Game->GetSimulation2();
-	CmpPtr<ICmpRangeManager> cmpRangeManager(*sim, SYSTEM_ENTITY);
-	ENSURE(cmpRangeManager);
-
 	// Set our globals in case they hadn't been set before
 	const CTerrain& terrain = g_Game->GetWorld()->GetTerrain();
 	m_MapSize = terrain.GetVerticesPerSide();
-	m_MapScale = (cmpRangeManager->GetLosCircular() ? 1.f : 1.414f);
+	m_MapScale = (g_Game->GetView()->GetMiniMapTexture().IsLosCircular() ? 1.f : 1.414f);
 
 	// Draw the main textured quad
 	CMiniMapTexture& miniMapTexture = g_Game->GetView()->GetMiniMapTexture();

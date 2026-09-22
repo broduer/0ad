@@ -60,39 +60,53 @@ void CTerritoryTexture::DeleteTexture()
 	m_Texture.reset();
 }
 
-bool CTerritoryTexture::UpdateDirty()
+void CTerritoryTexture::Prepare()
 {
 	CmpPtr<ICmpTerritoryManager> cmpTerritoryManager(m_Simulation, SYSTEM_ENTITY);
-	return cmpTerritoryManager && cmpTerritoryManager->NeedUpdateTexture(&m_DirtyID);
+	CmpPtr<ICmpTerrain> cmpTerrain(m_Simulation, SYSTEM_ENTITY);
+	if (!cmpTerritoryManager || !cmpTerrain || !cmpTerritoryManager->NeedUpdateTexture(&m_DirtyID))
+		return;
+
+	PROFILE("generate territory bitmap");
+
+	// Convert size from terrain tiles to territory tiles
+	const ssize_t mapSize = cmpTerrain->GetMapSize() * Pathfinding::NAVCELL_SIZE_INT / ICmpTerritoryManager::NAVCELLS_PER_TERRITORY_TILE;
+	std::unique_ptr<std::uint8_t[]> bitmap;
+	if (cmpTerritoryManager->IsVisible())
+	{
+		bitmap = std::make_unique<std::uint8_t[]>(mapSize * mapSize * 4);
+		GenerateBitmap(cmpTerritoryManager->GetTerritoryGrid(), bitmap.get(), mapSize, mapSize);
+	}
+
+	m_Prepared = {true, std::move(bitmap), mapSize};
+}
+
+void CTerritoryTexture::TakePublished(Bitmap&& bitmap)
+{
+	if (bitmap.valid)
+		m_Taken = std::move(bitmap);
 }
 
 Renderer::Backend::ITexture* CTerritoryTexture::GetTexture()
 {
-	ENSURE(!UpdateDirty());
+	ENSURE(m_Texture);
 	return m_Texture.get();
 }
 
 const CMatrix3D& CTerritoryTexture::GetTextureMatrix()
 {
-	ENSURE(!UpdateDirty());
+	ENSURE(m_Texture);
 	return m_TextureMatrix;
 }
 
 const CMatrix3D& CTerritoryTexture::GetMinimapTextureMatrix()
 {
-	ENSURE(!UpdateDirty());
+	ENSURE(m_Texture);
 	return m_MinimapTextureMatrix;
 }
 
 void CTerritoryTexture::ConstructTexture(Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
-	CmpPtr<ICmpTerrain> cmpTerrain(m_Simulation, SYSTEM_ENTITY);
-	if (!cmpTerrain)
-		return;
-
-	// Convert size from terrain tiles to territory tiles
-	m_MapSize = cmpTerrain->GetMapSize() * Pathfinding::NAVCELL_SIZE_INT / ICmpTerritoryManager::NAVCELLS_PER_TERRITORY_TILE;
-
 	const uint32_t textureSize = std::bit_ceil(static_cast<uint32_t>(m_MapSize));
 
 	m_Texture = deviceCommandContext->GetDevice()->CreateTexture2D("TerritoryTexture",
@@ -139,33 +153,6 @@ void CTerritoryTexture::ConstructTexture(Renderer::Backend::IDeviceCommandContex
 		m_MinimapTextureMatrix._22 = s;
 		m_MinimapTextureMatrix._44 = 1;
 	}
-}
-
-void CTerritoryTexture::RecomputeTexture(Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
-{
-	// If the map was resized, delete and regenerate the texture
-	if (m_Texture)
-	{
-		CmpPtr<ICmpTerrain> cmpTerrain(m_Simulation, SYSTEM_ENTITY);
-		if (cmpTerrain && m_MapSize != (ssize_t)cmpTerrain->GetVerticesPerSide())
-			DeleteTexture();
-	}
-
-	if (!m_Texture)
-		ConstructTexture(deviceCommandContext);
-
-	PROFILE("recompute territory texture");
-
-	CmpPtr<ICmpTerritoryManager> cmpTerritoryManager(m_Simulation, SYSTEM_ENTITY);
-	if (!cmpTerritoryManager || !cmpTerritoryManager->IsVisible())
-		return;
-
-	std::unique_ptr<std::uint8_t[]> bitmap = std::make_unique<std::uint8_t[]>(m_MapSize * m_MapSize * 4);
-	GenerateBitmap(cmpTerritoryManager->GetTerritoryGrid(), bitmap.get(), m_MapSize, m_MapSize);
-
-	deviceCommandContext->UploadTextureRegion(
-		m_Texture.get(), Renderer::Backend::Format::R8G8B8A8_UNORM, bitmap.get(), m_MapSize * m_MapSize * 4,
-		0, 0, m_MapSize, m_MapSize);
 }
 
 void CTerritoryTexture::GenerateBitmap(const Grid<std::uint8_t>& territories, std::uint8_t* bitmap,
@@ -261,6 +248,24 @@ void CTerritoryTexture::GenerateBitmap(const Grid<std::uint8_t>& territories, st
 
 void CTerritoryTexture::UpdateIfNeeded(Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
-	if (UpdateDirty())
-		RecomputeTexture(deviceCommandContext);
+	if (!m_Taken.valid)
+		return;
+	Bitmap taken = std::exchange(m_Taken, Bitmap{});
+	std::unique_ptr<std::uint8_t[]> bitmap = std::move(taken.data);
+	const ssize_t mapSize = taken.mapSize;
+
+	if (m_Texture && mapSize != m_MapSize)
+		DeleteTexture();
+	m_MapSize = mapSize;
+	if (!m_Texture)
+		ConstructTexture(deviceCommandContext);
+
+	if (!bitmap)
+		return;
+
+	PROFILE("upload territory texture");
+
+	deviceCommandContext->UploadTextureRegion(
+		m_Texture.get(), Renderer::Backend::Format::R8G8B8A8_UNORM, bitmap.get(), m_MapSize * m_MapSize * 4,
+		0, 0, m_MapSize, m_MapSize);
 }

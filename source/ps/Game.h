@@ -18,6 +18,7 @@
 #ifndef INCLUDED_GAME
 #define INCLUDED_GAME
 
+#include "graphics/FramePacket.h"
 #include "lib/code_annotation.h"
 #include "lib/os_path.h"
 #include "ps/CStr.h"
@@ -37,7 +38,6 @@ class CSimulation2;
 class CTurnManager;
 class CWorld;
 class IReplayLogger;
-struct CColor;
 
 /**
  * The container that holds the rules, resources and attributes of the game.
@@ -87,6 +87,40 @@ class CGame
 
 	CTurnManager* m_TurnManager;
 
+	// Logic thread: frame state sent with each frame step's packet.
+	float m_InterpolationSimFrameLength = 0.0f;
+	float m_InterpolationOffset = 0.0f;
+	float m_InterpolationRealFrameLength = 0.0f;
+	// Simulation time the renderer's time manager has yet to advance by.
+	float m_TimeManagerDelta = 0.0f;
+	// Player colors are script state, so they change only with a turn or the
+	// viewed player.
+	bool m_PlayerColorsDirty = true;
+
+	// Render thread: timing of the frame steps applied since the last
+	// RenderInterpolate.
+	RenderWorld::CFramePacket::STiming m_RenderTiming;
+
+	/**
+	 * Step the simulation's frame and send its packet. Logic thread only.
+	 */
+	void PublishFrame(float deltaSimTime, float offset, float deltaRealTime);
+
+	/**
+	 * Hand the simulation's records since the last call to the render world's
+	 * queue, with the frame's timing and view if given. Logic thread.
+	 */
+	void PushRenderPacket(const RenderWorld::CFramePacket::STiming* timing = nullptr);
+
+	/**
+	 * Apply every queued packet to the render world. Render thread, or the
+	 * logic thread while the render thread is paused.
+	 */
+	void ApplyRenderPackets();
+
+	// Render thread: packets being applied, kept to reuse their storage.
+	std::vector<RenderWorld::CFramePacket> m_RenderPackets;
+
 public:
 	CGame(bool replayLog, const SimulationDebugOptions debugOptions = {});
 	~CGame();
@@ -114,6 +148,36 @@ public:
 
 	void Interpolate(float simFrameLength, float realFrameLength);
 
+	/**
+	 * Hand the simulation's records to the render world and apply them at
+	 * once. Call only while the render thread is paused, as when loading.
+	 */
+	void FlushRenderPackets();
+
+	/**
+	 * Give the simulation what the render world last reported, for the coming
+	 * logic step. Logic thread.
+	 */
+	void RefreshRenderFeedback();
+
+	/**
+	 * Step the simulation's frame and send the render thread its packet:
+	 * component records, frame timing and the view. Logic thread only.
+	 */
+	void FrameStep(float deltaRealTime);
+
+	/**
+	 * Apply the queued packets and interpolate the render world. Render
+	 * thread only.
+	 */
+	void RenderInterpolate();
+
+	/**
+	 * Apply the queued packets and interpolate with explicit frame lengths,
+	 * for a caller that drives the simulation itself (Atlas).
+	 */
+	void RenderInterpolate(float simFrameLength, float realFrameLength);
+
 	int GetPlayerID();
 	void SetPlayerID(player_id_t playerID);
 
@@ -136,12 +200,15 @@ public:
 	bool PlayerFinished(player_id_t playerID) const;
 
 	/**
-	 * Retrieving player colors from scripts is slow, so this updates an
-	 * internal cache of all players' colors.
-	 * Call this just before rendering, so it will always have the latest
-	 * colors.
+	 * Return all players' colors. Reading them from scripts is slow, so the
+	 * frame step sends them to the render thread only after they may have changed.
 	 */
-	void CachePlayerColors();
+	std::vector<CColor> GetPlayerColors();
+
+	/**
+	 * Resend the player colors with the next frame step.
+	 */
+	void RefreshPlayerColors() { m_PlayerColorsDirty = true; }
 
 	const CColor& GetPlayerColor(player_id_t player) const;
 

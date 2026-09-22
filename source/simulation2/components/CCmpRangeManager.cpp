@@ -21,6 +21,7 @@
 
 #include "ICmpTerrain.h"
 #include "graphics/Color.h"
+#include "graphics/FramePacket.h"
 #include "graphics/Overlay.h"
 #include "lib/debug.h"
 #include "lib/posix/posix_types.h"
@@ -59,6 +60,7 @@
 #include "simulation2/system/Entity.h"
 #include "simulation2/system/EntityMap.h"
 #include "simulation2/system/Message.h"
+#include "simulation2/system/SimContext.h"
 
 #include <algorithm>
 #include <array>
@@ -425,7 +427,7 @@ public:
 
 		componentManager.SubscribeToMessageType(MT_Deserialized);
 		componentManager.SubscribeToMessageType(MT_Update);
-		componentManager.SubscribeToMessageType(MT_RenderSubmit); // for debug overlays
+		componentManager.SubscribeToMessageType(MT_FrameStep); // for debug overlays
 	}
 
 	DEFAULT_COMPONENT_ALLOCATOR(RangeManager)
@@ -845,10 +847,9 @@ public:
 			UpdateVisibilityData();
 			break;
 		}
-		case MT_RenderSubmit:
+		case MT_FrameStep:
 		{
-			const CMessageRenderSubmit& msgData = static_cast<const CMessageRenderSubmit&> (msg);
-			RenderSubmit(msgData.collector);
+			UpdateDebugOverlay();
 			break;
 		}
 		}
@@ -1683,10 +1684,22 @@ public:
 		return q;
 	}
 
-	void RenderSubmit(SceneCollector& collector)
+	/**
+	 * Rebuild the debug overlay lines from the queries if they changed, and
+	 * record them for the render world.
+	 */
+	void UpdateDebugOverlay()
 	{
-		if (!m_DebugOverlayEnabled)
+		if (!m_DebugOverlayDirty)
 			return;
+		RenderWorld::CFramePacket* packet = GetSimContext().GetFramePacket();
+		if (!m_DebugOverlayEnabled)
+		{
+			m_DebugOverlayDirty = false;
+			if (packet)
+				packet->debugLines.push_back({RenderWorld::DebugSource::RANGE_MANAGER});
+			return;
+		}
 		static CColor disabledRingColor(1, 0, 0, 1);	// red
 		static CColor enabledRingColor(0, 1, 0, 1);	// green
 		static CColor subdivColor(0, 0, 1, 1);			// blue
@@ -1813,10 +1826,9 @@ public:
 			}
 
 			m_DebugOverlayDirty = false;
+			if (packet)
+				packet->debugLines.push_back({RenderWorld::DebugSource::RANGE_MANAGER, INVALID_ENTITY, m_DebugOverlayLines});
 		}
-
-		for (size_t i = 0; i < m_DebugOverlayLines.size(); ++i)
-			collector.Submit(&m_DebugOverlayLines[i]);
 	}
 
 	std::uint8_t GetEntityFlagMask(const std::string& identifier) const override

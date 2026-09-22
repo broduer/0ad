@@ -19,6 +19,7 @@
 
 #include "RenderingOptions.h"
 
+#include "graphics/ObjectManager.h"
 #include "graphics/TextureManager.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
@@ -33,6 +34,7 @@
 #include "renderer/WaterManager.h"
 #include "renderer/backend/IDevice.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <mutex>
@@ -130,6 +132,8 @@ CRenderingOptions::CRenderingOptions()
 	m_DisplayShadowsFrustum = false;
 	m_RenderActors = true;
 	m_CutsceneMode = false;
+	m_MaxActorQuality = 100;
+	m_VariantDiversity = static_cast<int>(CObjectManager::VariantDiversity::FULL);
 }
 
 CRenderingOptions::~CRenderingOptions() = default;
@@ -208,6 +212,20 @@ void CRenderingOptions::ReadConfigAndSetupHooks()
 	hooks.Setup("textures.maxanisotropy", effectHook(TEXTURE_QUALITY));
 
 	hooks.Setup("pbr.brightness", m_PBRBrightness, *this);
+
+	hooks.Setup("max_actor_quality", [this]() {
+		SetMaxActorQuality(std::clamp(g_ConfigDB.Get("max_actor_quality", 0), 0, 255));
+	});
+	hooks.Setup("variant_diversity", [this]() {
+		const std::string value{g_ConfigDB.Get("variant_diversity", std::string{})};
+		CObjectManager::VariantDiversity variantDiversity{CObjectManager::VariantDiversity::FULL};
+		if (value == "none")
+			variantDiversity = CObjectManager::VariantDiversity::NONE;
+		else if (value == "limited")
+			variantDiversity = CObjectManager::VariantDiversity::LIMITED;
+		// Otherwise assume full.
+		SetVariantDiversity(static_cast<int>(variantDiversity));
+	});
 }
 
 void CRenderingOptions::ClearHooks()

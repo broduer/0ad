@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,26 +19,23 @@
 
 #include "ICmpParticleManager.h"
 
-#include "graphics/ParticleManager.h"
-#include "renderer/Renderer.h"
-#include "renderer/SceneRenderer.h"
-#include "simulation2/MessageTypes.h"
+#include "graphics/FramePacket.h"
 #include "simulation2/system/Component.h"
-#include "simulation2/system/Message.h"
+#include "simulation2/system/SimContext.h"
 
 #include <string>
 
+/**
+ * Chooses the clock the render world's particles run on.
+ */
 class CCmpParticleManager final : public ICmpParticleManager
 {
 public:
-	static void ClassInit(CComponentManager& componentManager)
+	static void ClassInit(CComponentManager&)
 	{
-		componentManager.SubscribeToMessageType(MT_Interpolate);
 	}
 
 	DEFAULT_COMPONENT_ALLOCATOR(ParticleManager)
-
-	bool useSimTime;
 
 	static std::string GetSchema()
 	{
@@ -47,7 +44,6 @@ public:
 
 	void Init(const CParamNode&) override
 	{
-		useSimTime = true;
 	}
 
 	void Deinit() override
@@ -63,26 +59,14 @@ public:
 		Init(paramNode);
 	}
 
-	void HandleMessage(const CMessage& msg, bool /*global*/) override
+	void HandleMessage(const CMessage&, bool /*global*/) override
 	{
-		switch (msg.GetType())
-		{
-		case MT_Interpolate:
-		{
-			const CMessageInterpolate& msgData = static_cast<const CMessageInterpolate&> (msg);
-			if (CRenderer::IsInitialised())
-			{
-				float time = useSimTime ? msgData.deltaSimTime : msgData.deltaRealTime;
-				g_Renderer.GetSceneRenderer().GetParticleManager().Interpolate(time);
-			}
-			break;
-		}
-		}
 	}
 
 	void SetUseSimTime(bool flag) override
 	{
-		useSimTime = flag;
+		if (RenderWorld::CFramePacket* packet = GetSimContext().GetFramePacket())
+			packet->particlesUseSimTime = flag;
 	}
 };
 

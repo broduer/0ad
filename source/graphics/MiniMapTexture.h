@@ -26,6 +26,7 @@
 #include "maths/Vector2D.h"
 #include "renderer/VertexArray.h"
 
+#include <atomic>
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -42,6 +43,12 @@ namespace Renderer::Backend { class IFramebuffer; }
 namespace Renderer::Backend { class ITexture; }
 namespace Renderer::Backend { class IVertexInputLayout; }
 
+struct MinimapUnitVertex
+{
+	std::uint8_t r, g, b, a;
+	CVector2D position;
+};
+
 class CMiniMapTexture
 {
 	NONCOPYABLE(CMiniMapTexture);
@@ -51,10 +58,38 @@ public:
 
 	void RequestRendering();
 
+	struct Icon;
+	struct Gathered
+	{
+		bool valid = false;
+		std::vector<MinimapUnitVertex> entities;
+		std::vector<MinimapUnitVertex> pings;
+		std::vector<Icon> icons;
+		bool losCircular = false;
+	};
+	// What a logic step hands to the render thread.
+	struct Handover
+	{
+		// Whether the GUI asked for a render.
+		bool render = false;
+		Gathered gathered;
+	};
+
 	/**
-	 * Marks the texture as dirty if it's old enough to redraw it on Render.
+	 * Gather entities and icons if due. Logic thread only.
 	 */
-	void Update(const float deltaRealTime);
+	void Prepare(float realTimeDelta);
+
+	/**
+	 * Hand over what Prepare gathered, with the requests made since the last
+	 * step. Logic thread only.
+	 */
+	Handover Publish();
+
+	/**
+	 * Take a published handover for Render. Render thread.
+	 */
+	void TakePublished(Handover&& handover);
 
 	/**
 	 * Redraws the texture if it's dirty.
@@ -66,6 +101,8 @@ public:
 	const CTexturePtr& GetTexture() const { return m_FinalTexture; }
 
 	bool IsFlipped() const { return m_Flipped; }
+
+	bool IsLosCircular() const { return m_LosCircular; }
 
 	/**
 	 * @return The maximum height for unit passage in water.
@@ -93,20 +130,29 @@ private:
 	void RenderFinalTexture(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		CLOSTexture& losTexture, CTerritoryTexture& territoryTexture);
-	void UpdateAndUploadEntities(
+	/**
+	 * Collect the entities and icons to draw from the simulation. Logic
+	 * thread; the render thread uploads the result.
+	 */
+	void GatherEntities(const double currentTime);
+	void UploadEntities(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-		const float entityRadius, const double& currentTime);
+		const std::vector<MinimapUnitVertex>& entities,
+		const std::vector<MinimapUnitVertex>& pings, const float entityRadius);
 	void DrawEntities(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		const float entityRadius);
 
 	CSimulation2& m_Simulation;
 
-	bool m_RenderingRequested = false;
+	// Logic thread; Publish hands this to the render thread.
+	bool m_RenderRequested = false;
+	// Whether to gather entities before the update interval has passed.
+	bool m_FinalDirty = true;
 
+	// Render thread.
+	bool m_RenderingRequested = false;
 	bool m_TerrainTextureDirty = true;
-	bool m_FinalTextureDirty = true;
-	double m_LastFinalTextureUpdate = 0.0;
 	bool m_Flipped = false;
 
 	// minimap texture handles
@@ -150,6 +196,15 @@ private:
 	bool m_BlinkState = false;
 
 	std::vector<Icon> m_Icons;
+	// Logic thread: real time summed over frame steps, which paces gathering,
+	// and when entities were last gathered.
+	double m_LogicRealTime = 0.0;
+	double m_LastEntityGather = 0.0;
+	// Gathered on the logic thread and handed over in the frame packet, then
+	// the render thread's until drawn.
+	Gathered m_Prepared;
+	Gathered m_Taken;
+	std::atomic<bool> m_LosCircular{false};
 	// We store the map as a member to avoid redundant reallocations on each
 	// update. We use a grid approach to combine icons by distance.
 	struct CellIconKey

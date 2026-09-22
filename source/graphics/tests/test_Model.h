@@ -19,6 +19,7 @@
 
 #include "graphics/ColladaManager.h"
 #include "graphics/Decal.h"
+#include "graphics/GroundView.h"
 #include "graphics/Material.h"
 #include "graphics/MeshManager.h"
 #include "graphics/Model.h"
@@ -50,8 +51,6 @@
 #include "ps/VideoMode.h"
 #include "ps/XML/Xeromyces.h"
 #include "renderer/Renderer.h"
-#include "scriptinterface/Interface.h"
-#include "simulation2/Simulation2.h"
 #include "simulation2/system/Entity.h"
 
 #include <cstdint>
@@ -114,6 +113,14 @@ constexpr std::string_view TEST_ACTOR_WITH_SHADOWS_XML{R"(<?xml version="1.0" en
 	</group>
 </actor>)"};
 }
+
+class CFlatGround final : public IGroundView
+{
+public:
+	float GetExactGroundLevel(float, float) const override { return 0.0f; }
+	float GetWaterLevel() const override { return 0.0f; }
+	CTerrain* GetTerrain() const override { return nullptr; }
+};
 
 class TestModel : public CxxTest::TestSuite
 {
@@ -200,7 +207,7 @@ public:
 		TestLogger logger;
 
 		CMaterial material{};
-		CSimulation2 simulation{nullptr, *g_ScriptContext, nullptr, {}};
+		const CFlatGround ground;
 
 		CTerrain terrain;
 		terrain.Initialize(4, nullptr);
@@ -208,10 +215,10 @@ public:
 		// TODO: load a proper mock for modeldef.
 		CModelDefPtr modeldef = std::make_shared<CModelDef>();
 
-		std::unique_ptr<CModel> model = std::make_unique<CModel>(simulation, material, modeldef);
+		std::unique_ptr<CModel> model = std::make_unique<CModel>(ground, material, modeldef);
 
 		SPropPoint propPoint{};
-		model->AddProp(&propPoint, std::make_unique<CModel>(simulation, material, modeldef), nullptr);
+		model->AddProp(&propPoint, std::make_unique<CModel>(ground, material, modeldef), nullptr);
 
 		SDecal decal{CMaterial{}, 4.0f, 4.0f, 0.0f, 4.0f, 4.0f, false};
 		model->AddProp(&propPoint, std::make_unique<CModelDecal>(&terrain, decal), nullptr);
@@ -266,9 +273,9 @@ public:
 		CSkeletonAnimManager skeletonAnimationManager{colladaManager};
 
 		CUnitManager unitManager;
-		CSimulation2 simulation{&unitManager, *g_ScriptContext, nullptr, {}};
-		CObjectManager objectManager{
-			meshManager, skeletonAnimationManager, simulation};
+		CObjectManager objectManager{meshManager, skeletonAnimationManager};
+		const CFlatGround ground;
+		objectManager.SetGround(ground);
 		unitManager.SetObjectManager(objectManager);
 
 		const CStrW actorName = CStr{TEST_ACTOR_WITH_SHADOWS_NAME}.FromUTF8();

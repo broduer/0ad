@@ -22,6 +22,8 @@
 #include "graphics/Color.h"
 #include "graphics/GameView.h"
 #include "graphics/LOSTexture.h"
+#include "graphics/ObjectManager.h"
+#include "graphics/RenderWorld.h"
 #include "graphics/UnitManager.h"
 #include "gui/CGUI.h"
 #include "gui/GUIManager.h"
@@ -38,6 +40,7 @@
 #include "ps/VideoMode.h"
 #include "ps/World.h"
 #include "renderer/Renderer.h"
+#include "renderer/RenderingOptions.h"
 #include "renderer/SceneRenderer.h"
 #include "renderer/TimeManager.h"
 #include "renderer/WaterManager.h"
@@ -50,6 +53,8 @@
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpPlayer.h"
 #include "simulation2/components/ICmpPlayerManager.h"
+#include "simulation2/components/ICmpSelectable.h"
+#include "simulation2/components/ICmpSoundManager.h"
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"
 #include "simulation2/system/LocalTurnManager.h"
@@ -64,6 +69,7 @@
 #include <memory>
 #include <sstream>
 #include <utility>
+#include <vector>
 
 extern GameLoopState* g_AtlasGameLoop;
 
@@ -118,7 +124,10 @@ CGame::CGame(bool replayLog, const SimulationDebugOptions debugOptions):
 	// Need to set the CObjectManager references after various objects have
 	// been initialised, so do it here rather than via the initialisers above.
 	if (m_GameView)
+	{
 		m_World->GetUnitManager().SetObjectManager(m_GameView->GetObjectManager());
+		m_Simulation2->SetDisplayed(true);
+	}
 
 	m_TurnManager = new CLocalTurnManager(*m_Simulation2, GetReplayLogger()); // this will get replaced if we're a net server/client
 }
@@ -367,10 +376,13 @@ int CGame::LoadInitialState(const std::string& savedState)
  **/
 PSRETURN CGame::ReallyStartGame()
 {
-	// We need to do an initial Interpolate call to set up all the models etc,
-	// because Update might never interpolate (e.g. if the game starts paused)
-	// and we could end up rendering before having set up any models (so they'd
-	// all be invisible)
+	// We need to do an initial frame step and Interpolate call to set up all
+	// the models etc, because Update might never interpolate (e.g. if the game
+	// starts paused) and we could end up rendering before having set up any
+	// models (so they'd all be invisible). The frame step also flushes the
+	// entities destroyed during initialisation.
+	PublishFrame(0.0f, 0.0f, 0.0f);
+	ApplyRenderPackets();
 	Interpolate(0, 0);
 
 	// Run a shrinking GC to reset the memory before starting the game proper.
@@ -429,6 +441,7 @@ int CGame::GetViewedPlayerID()
 void CGame::SetViewedPlayerID(player_id_t playerID)
 {
 	m_ViewedPlayerID = playerID;
+	m_PlayerColorsDirty = true;
 }
 
 bool CGame::CheatsEnabled() const
@@ -450,17 +463,8 @@ void CGame::StartGame(JS::MutableHandleValue attribs, const std::string& savedSt
 
 void CGame::Update(const double deltaRealTime, bool doInterpolate)
 {
-	if (!m_TurnManager)
+	if (m_Paused || !m_TurnManager)
 		return;
-
-	// The renderer's real clock advances while paused; its simulation clock
-	// doesn't.
-	if (m_Paused)
-	{
-		if (CRenderer::IsInitialised())
-			g_Renderer.GetTimeManager().Update(0.0, deltaRealTime);
-		return;
-	}
 
 	const double deltaSimTime = deltaRealTime * m_SimRate;
 
@@ -481,14 +485,21 @@ void CGame::Update(const double deltaRealTime, bool doInterpolate)
 			}
 
 			GetView()->GetLOSTexture().MakeDirty();
+			m_PlayerColorsDirty = true;
 		}
+
+		if (CRenderer::IsInitialised())
+			m_TimeManagerDelta += deltaSimTime;
 	}
 
-	if (CRenderer::IsInitialised())
-		g_Renderer.GetTimeManager().Update(deltaSimTime, deltaRealTime);
-
 	if (doInterpolate)
-		m_TurnManager->Interpolate(deltaSimTime, deltaRealTime);
+	{
+		const CTurnManager::InterpolationState state{
+			m_TurnManager->GetInterpolationState(deltaSimTime, deltaRealTime)};
+		m_InterpolationSimFrameLength = state.simFrameLength;
+		m_InterpolationOffset = state.offset;
+		m_InterpolationRealFrameLength = state.realFrameLength;
+	}
 }
 
 void CGame::Interpolate(float simFrameLength, float realFrameLength)
@@ -496,31 +507,157 @@ void CGame::Interpolate(float simFrameLength, float realFrameLength)
 	if (!m_TurnManager)
 		return;
 
-	m_TurnManager->Interpolate(simFrameLength, realFrameLength);
+	const CTurnManager::InterpolationState state{m_TurnManager->GetInterpolationState(simFrameLength, realFrameLength)};
+	if (m_GameView)
+		m_GameView->GetRenderWorld().Interpolate(state.simFrameLength, state.offset, state.realFrameLength, false);
+}
+
+void CGame::PushRenderPacket(const RenderWorld::CFramePacket::STiming* timing)
+{
+	if (!m_GameView)
+		return;
+	RenderWorld::CPacketQueue& queue{m_GameView->GetPacketQueue()};
+	RenderWorld::CFramePacket packet{queue.Recycle()};
+	if (!m_Simulation2->TakeFramePacket(packet))
+		return;
+	packet.los = m_GameView->TakeLosGrid();
+	packet.selectionDebugOverlay = ICmpSelectable::ms_EnableDebugOverlays;
+	if (timing)
+	{
+		packet.timing = *timing;
+		packet.view = m_GameView->PublishFrameStep();
+		if (std::exchange(m_PlayerColorsDirty, false))
+			packet.playerColors = GetPlayerColors();
+	}
+	queue.Push(std::move(packet));
+}
+
+void CGame::ApplyRenderPackets()
+{
+	if (!m_GameView)
+		return;
+	RenderWorld::CPacketQueue& queue{m_GameView->GetPacketQueue()};
+	queue.TakeAll(m_RenderPackets);
+	for (RenderWorld::CFramePacket& packet : m_RenderPackets)
+	{
+		m_GameView->GetRenderWorld().Apply(packet);
+		if (packet.view)
+			m_GameView->TakePublished(*packet.view);
+		if (packet.playerColors)
+			m_PlayerColors = std::move(*packet.playerColors);
+		if (packet.timing)
+		{
+			// The lengths and offset are the latest step's; the clocks
+			// advance by every step's time.
+			const float timeManagerDelta{m_RenderTiming.timeManagerDelta + packet.timing->timeManagerDelta};
+			const float realTimeDelta{m_RenderTiming.realTimeDelta + packet.timing->realTimeDelta};
+			m_RenderTiming = *packet.timing;
+			m_RenderTiming.timeManagerDelta = timeManagerDelta;
+			m_RenderTiming.realTimeDelta = realTimeDelta;
+		}
+	}
+	queue.GiveBack(m_RenderPackets);
+}
+
+void CGame::FlushRenderPackets()
+{
+	PushRenderPacket();
+	ApplyRenderPackets();
+}
+
+void CGame::RefreshRenderFeedback()
+{
+	if (!m_GameView)
+		return;
+	RenderWorld::CRenderWorld& renderWorld{m_GameView->GetRenderWorld()};
+	m_Simulation2->SetRenderFeedback(renderWorld.GetFeedback());
+
+	std::vector<RenderWorld::SSoundEvent> sounds;
+	renderWorld.TakeSoundEvents(sounds);
+	if (sounds.empty())
+		return;
+	CmpPtr<ICmpSoundManager> cmpSoundManager(*m_Simulation2, SYSTEM_ENTITY);
+	if (!cmpSoundManager)
+		return;
+	for (const RenderWorld::SSoundEvent& sound : sounds)
+		cmpSoundManager->PlaySoundGroup(sound.soundGroup, sound.entity);
+}
+
+void CGame::FrameStep(const float deltaRealTime)
+{
+	if (!m_TurnManager)
+		return;
+	const float deltaSimTime = m_Paused ? 0.0f : deltaRealTime * m_SimRate;
+	PublishFrame(deltaSimTime, m_InterpolationOffset, deltaRealTime);
+}
+
+void CGame::PublishFrame(const float deltaSimTime, const float offset, const float deltaRealTime)
+{
+	m_Simulation2->PrepareFrameStep();
+	if (m_GameView)
+		m_GameView->PrepareFrameStep(deltaRealTime);
+
+	m_Simulation2->FrameStep(deltaSimTime, offset, deltaRealTime);
+	const RenderWorld::CFramePacket::STiming timing{m_InterpolationSimFrameLength,
+		m_InterpolationOffset, m_InterpolationRealFrameLength,
+		std::exchange(m_TimeManagerDelta, 0.0f), deltaRealTime, m_Paused};
+	PushRenderPacket(&timing);
+}
+
+void CGame::RenderInterpolate()
+{
+	if (!m_TurnManager || !m_GameView)
+		return;
+	RenderWorld::CRenderWorld& renderWorld{m_GameView->GetRenderWorld()};
+	renderWorld.PublishFeedback();
+	m_GameView->GetObjectManager().UpdateOptions(g_RenderingOptions);
+	ApplyRenderPackets();
+	const RenderWorld::CFramePacket::STiming timing{m_RenderTiming};
+	// Frames rendered before the next logic step advance nothing.
+	m_RenderTiming.simFrameLength = 0.0f;
+	m_RenderTiming.realFrameLength = 0.0f;
+	m_RenderTiming.timeManagerDelta = 0.0f;
+	m_RenderTiming.realTimeDelta = 0.0f;
+	if ((timing.timeManagerDelta != 0.0f || timing.realTimeDelta != 0.0f) && CRenderer::IsInitialised())
+		g_Renderer.GetTimeManager().Update(timing.timeManagerDelta, timing.realTimeDelta);
+	renderWorld.Interpolate(timing.simFrameLength, timing.offset, timing.realFrameLength, timing.paused);
+}
+
+void CGame::RenderInterpolate(const float simFrameLength, const float realFrameLength)
+{
+	if (!m_TurnManager || !m_GameView)
+		return;
+	m_GameView->GetRenderWorld().PublishFeedback();
+	m_GameView->GetObjectManager().UpdateOptions(g_RenderingOptions);
+	FlushRenderPackets();
+	m_RenderTiming = {};
+	Interpolate(simFrameLength, realFrameLength);
 }
 
 
 static CColor BrokenColor(0.3f, 0.3f, 0.3f, 1.0f);
 
-void CGame::CachePlayerColors()
+std::vector<CColor> CGame::GetPlayerColors()
 {
-	m_PlayerColors.clear();
+	std::vector<CColor> colors;
 
 	CmpPtr<ICmpPlayerManager> cmpPlayerManager(*m_Simulation2, SYSTEM_ENTITY);
 	if (!cmpPlayerManager)
-		return;
+		return colors;
 
 	int numPlayers = cmpPlayerManager->GetNumPlayers();
-	m_PlayerColors.resize(numPlayers);
+	colors.resize(numPlayers);
 
 	for (int i = 0; i < numPlayers; ++i)
 	{
 		CmpPtr<ICmpPlayer> cmpPlayer(*m_Simulation2, cmpPlayerManager->GetPlayerByID(i));
 		if (!cmpPlayer)
-			m_PlayerColors[i] = BrokenColor;
+			colors[i] = BrokenColor;
 		else
-			m_PlayerColors[i] = cmpPlayer->GetDisplayedColor();
+			colors[i] = cmpPlayer->GetDisplayedColor();
 	}
+
+	return colors;
 }
 
 const CColor& CGame::GetPlayerColor(player_id_t player) const

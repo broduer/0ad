@@ -32,7 +32,7 @@
 #include <vector>
 
 class CShaderDefines;
-class CSimulation2;
+class IGroundView;
 class CTerrainTextureEntry;
 class CTextRenderer;
 class ShadowMap;
@@ -45,7 +45,7 @@ namespace Renderer::Backend { class IVertexInputLayout; }
 class CPatchRData : public CRenderData
 {
 public:
-	CPatchRData(CPatch* patch, CSimulation2* simulation);
+	CPatchRData(CPatch* patch, const IGroundView* ground);
 	~CPatchRData();
 
 	static Renderer::Backend::IVertexInputLayout* GetBaseVertexInputLayout();
@@ -58,7 +58,7 @@ public:
 		const bool bindWaterData);
 	static Renderer::Backend::IVertexInputLayout* GetWaterShoreVertexInputLayout();
 
-	void Update(CSimulation2* simulation);
+	void Update(const IGroundView* ground);
 	void RenderOutline(Renderer::Backend::IDeviceCommandContext& deviceCommandContext);
 	void RenderPriorities(CTextRenderer& textRenderer);
 
@@ -197,7 +197,7 @@ private:
 	CVertexBufferManager::Handle m_VBWaterIndices;
 	CVertexBufferManager::Handle m_VBWaterIndicesShore;
 
-	CSimulation2* m_Simulation;
+	const IGroundView* m_Ground;
 
 	// Build water vertices and indices (vertex buffer and data vector)
 	void BuildWater();

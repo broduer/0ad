@@ -20,6 +20,7 @@
 #include "Model.h"
 
 #include "graphics/Decal.h"
+#include "graphics/GroundView.h"
 #include "graphics/MeshManager.h"
 #include "graphics/ModelDef.h"
 #include "graphics/RenderableObject.h"
@@ -35,10 +36,6 @@
 #include "ps/CStrInternStatic.h"
 #include "ps/Profiler2.h"
 #include "renderer/RenderingOptions.h"
-#include "simulation2/components/ICmpTerrain.h"
-#include "simulation2/components/ICmpWaterManager.h"
-#include "simulation2/system/Component.h"
-#include "simulation2/system/Entity.h"
 
 #include <algorithm>
 #include <atomic>
@@ -49,8 +46,8 @@
 #include <utility>
 #include <vector>
 
-CModel::CModel(const CSimulation2& simulation, const CMaterial& material, const CModelDefPtr& modeldef)
-	: m_Simulation{simulation}, m_Material{material}, m_pModelDef{modeldef}
+CModel::CModel(const IGroundView& ground, const CMaterial& material, const CModelDefPtr& modeldef)
+	: m_Ground{ground}, m_Material{material}, m_pModelDef{modeldef}
 {
 	const size_t numberOfBones = modeldef->GetNumBones();
 	if (numberOfBones != 0)
@@ -286,27 +283,16 @@ void CModel::ValidatePosition()
 	// Only props that follow the terrain need the object height; compute it on demand.
 	bool haveObjectHeight = false;
 	float objectHeight = 0.0f;
-	std::optional<CmpPtr<ICmpTerrain>> terrain;
 	const auto needObjectHeight = [&]() {
 		if (haveObjectHeight)
 			return;
 		haveObjectHeight = true;
 		const CVector3D objTranslation = m_Transform.GetTranslation();
-		terrain.emplace(m_Simulation, SYSTEM_ENTITY);
-		if (*terrain)
-			objectHeight = (*terrain)->GetExactGroundLevel(objTranslation.X, objTranslation.Z);
+		objectHeight = m_Ground.GetExactGroundLevel(objTranslation.X, objTranslation.Z);
 
 		// Object height is incorrect for floating objects. We use water height instead.
 		if (m_Flags & ModelFlag::FLOAT_ON_WATER)
-		{
-			CmpPtr<ICmpWaterManager> cmpWaterManager(m_Simulation, SYSTEM_ENTITY);
-			if (cmpWaterManager)
-			{
-				const float waterHeight = cmpWaterManager->GetExactWaterLevel(objTranslation.X, objTranslation.Z);
-				if (waterHeight >= objectHeight)
-					objectHeight = waterHeight;
-			}
-		}
+			objectHeight = std::max(objectHeight, m_Ground.GetWaterLevel());
 	};
 
 	// re-position and validate all props
@@ -329,12 +315,10 @@ void CModel::ValidatePosition()
 		// Adjust prop height to terrain level when needed
 		const bool followsTerrain = prop.m_MaxHeight != 0.f || prop.m_MinHeight != 0.f;
 		if (followsTerrain)
-			needObjectHeight();
-		if (followsTerrain && *terrain)
 		{
-			CmpPtr<ICmpTerrain>& cmpTerrain = *terrain;
+			needObjectHeight();
 			const CVector3D& propTranslation = proptransform.GetTranslation();
-			const float propTerrain = cmpTerrain->GetExactGroundLevel(propTranslation.X, propTranslation.Z);
+			const float propTerrain = m_Ground.GetExactGroundLevel(propTranslation.X, propTranslation.Z);
 			const float translateHeight = std::min(prop.m_MaxHeight, std::max(prop.m_MinHeight, propTerrain - objectHeight));
 			translate.SetTranslation(0.f, translateHeight, 0.f);
 			proptransform.Concatenate(translate);
@@ -502,7 +486,7 @@ CModelAbstract* CModel::FindFirstAmmoProp()
 // Clone: return a clone of this model
 std::unique_ptr<CModelAbstract> CModel::Clone() const
 {
-	std::unique_ptr<CModel> clone = std::make_unique<CModel>(m_Simulation, m_Material, m_pModelDef);
+	std::unique_ptr<CModel> clone = std::make_unique<CModel>(m_Ground, m_Material, m_pModelDef);
 	clone->m_ObjectBounds = m_ObjectBounds;
 	clone->SetAnimation(m_Anim);
 	clone->SetFlags(m_Flags);

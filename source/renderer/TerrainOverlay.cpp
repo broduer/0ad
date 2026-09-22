@@ -21,6 +21,7 @@
 
 #include "graphics/Camera.h"
 #include "graphics/Color.h"
+#include "graphics/FramePacket.h"
 #include "graphics/SColor.h"
 #include "graphics/ShaderDefines.h"
 #include "graphics/ShaderManager.h"
@@ -342,10 +343,8 @@ void TerrainOverlay::RenderTileOutline(
 
 //////////////////////////////////////////////////////////////////////////
 
-TerrainTextureOverlay::TerrainTextureOverlay(float texelsPerTile,
-	std::function<void(std::uint8_t*, std::size_t, std::size_t)> buildTextureRGBA) :
+TerrainTextureOverlay::TerrainTextureOverlay(float texelsPerTile) :
 	ITerrainOverlay{100},
-	m_BuildTextureRGBA{std::move(buildTextureRGBA)},
 	m_TexelsPerTile{texelsPerTile}
 {
 }
@@ -355,10 +354,10 @@ TerrainTextureOverlay::~TerrainTextureOverlay() = default;
 void TerrainTextureOverlay::RenderAfterWater(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext, int cullGroup)
 {
-	const CTerrain& terrain = g_Game->GetWorld()->GetTerrain();
-
-	const ssize_t w = static_cast<ssize_t>(terrain.GetTilesPerSide() * m_TexelsPerTile);
-	const ssize_t h = static_cast<ssize_t>(terrain.GetTilesPerSide() * m_TexelsPerTile);
+	if (!m_Data || m_Data->width == 0 || m_Data->height == 0)
+		return;
+	const ssize_t w = static_cast<ssize_t>(m_Data->width);
+	const ssize_t h = static_cast<ssize_t>(m_Data->height);
 
 	const uint32_t requiredWidth = std::bit_ceil(static_cast<uint32_t>(w));
 	const uint32_t requiredHeight = std::bit_ceil(static_cast<uint32_t>(h));
@@ -375,13 +374,8 @@ void TerrainTextureOverlay::RenderAfterWater(
 				Renderer::Backend::Sampler::AddressMode::CLAMP_TO_EDGE));
 	}
 
-	std::uint8_t* data = static_cast<std::uint8_t*>(calloc(w * h, 4));
-	m_BuildTextureRGBA(data, w, h);
-
 	deviceCommandContext->UploadTextureRegion(
-		m_Texture.get(), Renderer::Backend::Format::R8G8B8A8_UNORM, data, w * h * 4, 0, 0, w, h);
-
-	free(data);
+		m_Texture.get(), Renderer::Backend::Format::R8G8B8A8_UNORM, m_Data->rgba.data(), w * h * 4, 0, 0, w, h);
 
 	const CVector2D textureTransform{
 		m_TexelsPerTile / (m_Texture->GetWidth() * TERRAIN_TILE_SIZE),

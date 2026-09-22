@@ -29,6 +29,7 @@
 #include "graphics/MiniMapTexture.h"
 #include "graphics/ObjectManager.h"
 #include "graphics/Patch.h"
+#include "graphics/RenderWorld.h"
 #include "graphics/SkeletonAnimManager.h"
 #include "graphics/Terrain.h"
 #include "graphics/TerrainTextureManager.h"
@@ -60,9 +61,24 @@
 #include <SDL_events.h>
 #include <memory>
 #include <string>
+#include <utility>
 
 namespace Renderer::Backend { class IDevice; }
 namespace Renderer::Backend { class IDeviceCommandContext; }
+
+/**
+ * The view's part of a frame packet: the cameras of the logic step and the
+ * texture data prepared since the previous one.
+ */
+struct SViewFrame
+{
+	CCamera viewCamera;
+	CCamera cullCamera;
+	bool culling;
+	CLOSTexture::Bitmap los;
+	CTerritoryTexture::Bitmap territory;
+	CMiniMapTexture::Handover minimap;
+};
 
 class CGameViewImpl
 {
@@ -71,7 +87,8 @@ public:
 	CGameViewImpl(Renderer::Backend::IDevice* device, CGame* game)
 		: Game(game),
 		ColladaManager(g_VFS), MeshManager(ColladaManager), SkeletonAnimManager(ColladaManager),
-		ObjectManager(MeshManager, SkeletonAnimManager, *game->GetSimulation2()),
+		ObjectManager(MeshManager, SkeletonAnimManager),
+		RenderedWorld(game->GetWorld()->GetUnitManager(), game->GetWorld()->GetTerrain()),
 		LOSTexture(*game->GetSimulation2()),
 		TerritoryTexture(*game->GetSimulation2()),
 		MiniMapTexture(device, *game->GetSimulation2()),
@@ -88,6 +105,8 @@ public:
 	CMeshManager MeshManager;
 	CSkeletonAnimManager SkeletonAnimManager;
 	CObjectManager ObjectManager;
+	RenderWorld::CRenderWorld RenderedWorld;
+	RenderWorld::CPacketQueue PacketQueue;
 	CLOSTexture LOSTexture;
 	CTerritoryTexture TerritoryTexture;
 	CMiniMapTexture MiniMapTexture;
@@ -123,6 +142,8 @@ public:
 	 * Exposed to JS as gameView.culling
 	 */
 	bool Culling;
+	// The render thread's copy, from the last frame packet.
+	bool RenderCulling = true;
 
 	CCinemaManager CinemaManager;
 
@@ -172,6 +193,11 @@ CGameView::CGameView(Renderer::Backend::IDevice* device, CGame *pGame):
 {
 	m->CullCamera = m->ViewCamera;
 	g_Renderer.GetSceneRenderer().SetSceneCamera(m->ViewCamera, m->CullCamera);
+	m->ObjectManager.SetGround(m->RenderedWorld);
+	m->ObjectManager.SetActorsChangedCallback([this](const std::wstring& actorName)
+	{
+		m->RenderedWorld.ReloadActors(actorName);
+	});
 }
 
 CGameView::~CGameView()
@@ -189,6 +215,16 @@ void CGameView::SetViewport(const SViewPort& vp)
 CObjectManager& CGameView::GetObjectManager()
 {
 	return m->ObjectManager;
+}
+
+RenderWorld::CRenderWorld& CGameView::GetRenderWorld()
+{
+	return m->RenderedWorld;
+}
+
+RenderWorld::CPacketQueue& CGameView::GetPacketQueue()
+{
+	return m->PacketQueue;
 }
 
 const CCamera& CGameView::GetCamera() const
@@ -272,13 +308,13 @@ void CGameView::EnumerateObjects(const CFrustum& frustum, SceneCollector* c)
 			if(bounds[1].Y < waterHeight)
 				bounds[1].Y = waterHeight;
 
-			if (!m->Culling || frustum.IsBoxVisible(bounds))
+			if (!m->RenderCulling || frustum.IsBoxVisible(bounds))
 				c->Submit(patch);
 		}
 	}
 	}
 
-	m->Game->GetSimulation2()->RenderSubmit(*c, frustum, m->Culling);
+	m->RenderedWorld.Submit(*c, frustum, m->RenderCulling);
 }
 
 void CGameView::UnloadResources()
@@ -289,8 +325,6 @@ void CGameView::UnloadResources()
 
 void CGameView::Update(const float deltaRealTime)
 {
-	m->MiniMapTexture.Update(deltaRealTime);
-
 	UpdateCamera(deltaRealTime);
 	UpdateCullCamera();
 }
@@ -315,6 +349,33 @@ void CGameView::UpdateCullCamera()
 {
 	if (!m->LockCullCamera)
 		m->CullCamera = m->ViewCamera;
+}
+
+void CGameView::PrepareFrameStep(const float realTimeDelta)
+{
+	m->LOSTexture.Prepare();
+	m->TerritoryTexture.Prepare();
+	m->MiniMapTexture.Prepare(realTimeDelta);
+}
+
+std::shared_ptr<const RenderWorld::SLosGrid> CGameView::TakeLosGrid()
+{
+	return m->LOSTexture.TakeGrid();
+}
+
+std::shared_ptr<SViewFrame> CGameView::PublishFrameStep()
+{
+	return std::make_shared<SViewFrame>(SViewFrame{m->ViewCamera, m->CullCamera, m->Culling,
+		m->LOSTexture.Publish(), m->TerritoryTexture.Publish(), m->MiniMapTexture.Publish()});
+}
+
+void CGameView::TakePublished(SViewFrame& frame)
+{
+	g_Renderer.GetSceneRenderer().SetSceneCamera(frame.viewCamera, frame.cullCamera);
+	m->RenderCulling = frame.culling;
+	m->LOSTexture.TakePublished(std::move(frame.los));
+	m->TerritoryTexture.TakePublished(std::move(frame.territory));
+	m->MiniMapTexture.TakePublished(std::move(frame.minimap));
 }
 
 CVector3D CGameView::GetCameraPivot() const

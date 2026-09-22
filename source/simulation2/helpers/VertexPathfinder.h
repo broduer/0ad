@@ -29,7 +29,6 @@
 
 class ICmpObstructionManager;
 class PathGoal;
-class SceneCollector;
 template <typename T> class Grid;
 
 // A vertex around the corners of an obstruction
@@ -138,7 +137,12 @@ class VertexPathfinderDebugOverlay
 	friend class VertexPathfinder;
 public:
 	void SetDebugOverlay(bool enabled) { m_DebugOverlay = enabled; }
-	void RenderSubmit(SceneCollector& collector);
+
+	/**
+	 * Copy the lines of the paths computed since the last call into @p lines;
+	 * return false if the overlay is disabled.
+	 */
+	bool TakeLines(std::vector<SOverlayLine>& lines);
 protected:
 
 	void DebugRenderGoal(const CSimContext& simContext, const PathGoal& goal);

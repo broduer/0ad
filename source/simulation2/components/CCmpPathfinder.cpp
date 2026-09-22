@@ -24,6 +24,7 @@
 
 #include "CCmpPathfinder_Common.h"
 
+#include "graphics/FramePacket.h"
 #include "graphics/Terrain.h"
 #include "lib/code_generation.h"
 #include "lib/debug.h"
@@ -60,6 +61,7 @@
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"
 #include "simulation2/system/Message.h"
+#include "simulation2/system/SimContext.h"
 
 #include <algorithm>
 #include <atomic>
@@ -70,8 +72,6 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-
-class SceneCollector;
 
 REGISTER_COMPONENT_TYPE(Pathfinder)
 
@@ -102,7 +102,7 @@ void CCmpPathfinder::Init(const CParamNode&)
 
 	m_NextAsyncTicket = 1;
 
-	m_AtlasOverlay = NULL;
+	m_AtlasOverlayEnabled = false;
 
 	size_t workerThreads = g_TaskManager.GetNumberOfWorkers();
 	// Store one vertex pathfinder for each thread (including the main thread).
@@ -152,8 +152,6 @@ void CCmpPathfinder::Deinit()
 	SetDebugOverlay(false); // cleans up memory
 
 	m_Futures.clear();
-
-	SAFE_DELETE(m_AtlasOverlay);
 
 	SAFE_DELETE(m_Grid);
 	SAFE_DELETE(m_TerrainOnlyGrid);
@@ -218,10 +216,9 @@ void CCmpPathfinder::HandleMessage(const CMessage& msg, bool /*global*/)
 {
 	switch (msg.GetType())
 	{
-	case MT_RenderSubmit:
+	case MT_FrameStep:
 	{
-		const CMessageRenderSubmit& msgData = static_cast<const CMessageRenderSubmit&> (msg);
-		RenderSubmit(msgData.collector);
+		PublishDebugOverlays();
 		break;
 	}
 	case MT_TerrainChanged:
@@ -248,10 +245,42 @@ void CCmpPathfinder::HandleMessage(const CMessage& msg, bool /*global*/)
 	}
 }
 
-void CCmpPathfinder::RenderSubmit(SceneCollector& collector)
+void CCmpPathfinder::PublishDebugOverlays()
 {
-	g_VertexPathfinderDebugOverlay.RenderSubmit(collector);
-	m_PathfinderHier->RenderSubmit(collector);
+	RenderWorld::CFramePacket* packet = GetSimContext().GetFramePacket();
+	if (!packet)
+		return;
+	const std::ptrdiff_t tilesPerSide{GetSimContext().GetTerrain().GetTilesPerSide()};
+
+	std::vector<SOverlayLine> vertexLines;
+	if (g_VertexPathfinderDebugOverlay.TakeLines(vertexLines))
+	{
+		m_VertexOverlayPublished = true;
+		packet->debugLines.push_back({RenderWorld::DebugSource::VERTEX_PATHFINDER, INVALID_ENTITY, std::move(vertexLines)});
+	}
+	else if (std::exchange(m_VertexOverlayPublished, false))
+		packet->debugLines.push_back({RenderWorld::DebugSource::VERTEX_PATHFINDER});
+
+	m_PathfinderHier->PublishDebugOverlay(*packet, tilesPerSide);
+
+	if (m_LongPathfinder->IsDebugOverlayEnabled())
+	{
+		m_LongOverlayPublished = true;
+		packet->terrainOverlays.push_back({RenderWorld::DebugSource::LONG_PATHFINDER,
+			m_LongPathfinder->BuildDebugOverlay(tilesPerSide)});
+	}
+	else if (std::exchange(m_LongOverlayPublished, false))
+		packet->terrainOverlays.push_back({RenderWorld::DebugSource::LONG_PATHFINDER, nullptr});
+
+	if (m_AtlasOverlayEnabled && m_TerrainOnlyGrid)
+	{
+		m_AtlasOverlayPublished = true;
+		packet->terrainOverlays.push_back({RenderWorld::DebugSource::ATLAS_PASSABILITY,
+			RenderWorld::BuildTerrainOverlay(Pathfinding::NAVCELLS_PER_TERRAIN_TILE, tilesPerSide,
+				[this](std::uint8_t* data, const std::size_t w, const std::size_t h) { BuildTextureRGBA(*this, data, w, h); })});
+	}
+	else if (std::exchange(m_AtlasOverlayPublished, false))
+		packet->terrainOverlays.push_back({RenderWorld::DebugSource::ATLAS_PASSABILITY, nullptr});
 }
 
 void CCmpPathfinder::SetDebugPath(entity_pos_t x0, entity_pos_t z0, const PathGoal& goal, pass_class_t passClass)
@@ -278,16 +307,8 @@ void CCmpPathfinder::GetDebugData(std::uint32_t& steps, double& time, Grid<std::
 void CCmpPathfinder::SetAtlasOverlay(bool enable, pass_class_t passClass)
 {
 	if (enable)
-	{
 		m_OverlayPassClass = passClass;
-		if (!m_AtlasOverlay)
-		{
-			m_AtlasOverlay = new TerrainTextureOverlay{Pathfinding::NAVCELLS_PER_TERRAIN_TILE,
-				std::bind_front(BuildTextureRGBA, std::ref(*this))};
-		}
-	}
-	else
-		SAFE_DELETE(m_AtlasOverlay);
+	m_AtlasOverlayEnabled = enable;
 }
 
 pass_class_t CCmpPathfinder::GetPassabilityClass(const std::string& name) const

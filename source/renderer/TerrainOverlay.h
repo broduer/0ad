@@ -39,6 +39,7 @@ namespace Renderer::Backend { class ITexture; }
 namespace Renderer::Backend { class IVertexInputLayout; }
 struct CColor;
 struct SColor4ub;
+namespace RenderWorld { struct STerrainOverlay; }
 
 /**
  * Common interface for terrain-tile-based and texture-based debug overlays.
@@ -201,8 +202,12 @@ private:
 class TerrainTextureOverlay final : public ITerrainOverlay
 {
 public:
-	TerrainTextureOverlay(float texelsPerTile,
-		std::function<void(std::uint8_t*, std::size_t, std::size_t)> buildTextureRGBA);
+	explicit TerrainTextureOverlay(float texelsPerTile);
+
+	/**
+	 * Set the pixels to draw until replaced. Logic thread.
+	 */
+	void SetData(std::shared_ptr<const RenderWorld::STerrainOverlay> data) { m_Data = std::move(data); }
 
 	~TerrainTextureOverlay() final;
 
@@ -234,7 +239,7 @@ private:
 	void RenderAfterWater(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext, int cullGroup) final;
 
-	std::function<void(std::uint8_t*, std::size_t, std::size_t)> m_BuildTextureRGBA;
+	std::shared_ptr<const RenderWorld::STerrainOverlay> m_Data;
 
 	float m_TexelsPerTile;
 	std::unique_ptr<Renderer::Backend::ITexture> m_Texture;

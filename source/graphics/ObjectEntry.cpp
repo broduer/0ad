@@ -20,6 +20,7 @@
 #include "ObjectEntry.h"
 
 #include "graphics/Decal.h"
+#include "graphics/GroundView.h"
 #include "graphics/Material.h"
 #include "graphics/MaterialManager.h"
 #include "graphics/MeshManager.h"
@@ -66,8 +67,8 @@ bool ShouldInterpretTextureAsSRGB(const CObjectBase::Samp& sampler, const CMater
 
 }
 
-CObjectEntry::CObjectEntry(const std::shared_ptr<CObjectBase>& base, const CSimulation2& simulation) :
-	m_Base(base), m_Color(1.0f, 1.0f, 1.0f, 1.0f), m_Simulation(simulation)
+CObjectEntry::CObjectEntry(const std::shared_ptr<CObjectBase>& base, const IGroundView& ground) :
+	m_Base(base), m_Color(1.0f, 1.0f, 1.0f, 1.0f), m_Ground(ground)
 {
 }
 
@@ -119,7 +120,7 @@ bool CObjectEntry::BuildVariation(const std::vector<const std::set<CStr>*>& comp
 			variation.decal.m_SizeX, variation.decal.m_SizeZ,
 			variation.decal.m_Angle, variation.decal.m_OffsetX, variation.decal.m_OffsetZ,
 			m_Base->m_Properties.m_FloatOnWater);
-		m_Model = std::make_unique<CModelDecal>(objectManager.GetTerrain(), decal);
+		m_Model = std::make_unique<CModelDecal>(m_Ground.GetTerrain(), decal);
 
 		return true;
 	}
@@ -178,7 +179,7 @@ bool CObjectEntry::BuildVariation(const std::vector<const std::set<CStr>*>& comp
 		material.AddSampler(CMaterial::TextureSampler(samp.m_SamplerName, texture));
 	}
 
-	std::unique_ptr<CModel> newModel = std::make_unique<CModel>(m_Simulation, material, modeldef);
+	std::unique_ptr<CModel> newModel = std::make_unique<CModel>(m_Ground, material, modeldef);
 	CModel* model = newModel.get();
 	m_Model = std::move(newModel);
 

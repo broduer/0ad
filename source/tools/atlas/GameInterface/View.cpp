@@ -210,13 +210,17 @@ void AtlasViewGame::Update(float realFrameLength)
 {
 	const float actualFrameLength = realFrameLength * m_SpeedMultiplier;
 
+	g_Game->RefreshRenderFeedback();
+
 	// Clean up any entities destroyed during UI message processing
 	g_Game->GetSimulation2()->FlushDestroyedEntities();
 
 	if (m_SpeedMultiplier == 0.f)
 	{
+		g_Game->RefreshPlayerColors();
+		g_Game->FrameStep(realFrameLength);
 		// Update unit interpolation
-		g_Game->Interpolate(0.0, realFrameLength);
+		g_Game->RenderInterpolate(0.0, realFrameLength);
 	}
 	else
 	{
@@ -224,10 +228,12 @@ void AtlasViewGame::Update(float realFrameLength)
 		// (Tell the game update not to interpolate graphics - we'll do that
 		// ourselves)
 		g_Game->Update(actualFrameLength, false);
+		g_Game->RefreshPlayerColors();
+		g_Game->FrameStep(realFrameLength);
 
 		// Interpolate the graphics - we only want to do this once per visual frame,
 		// not in every call to g_Game->Update
-		g_Game->Interpolate(actualFrameLength, realFrameLength);
+		g_Game->RenderInterpolate(actualFrameLength, realFrameLength);
 	}
 
 	// Run sound idle tasks every frame.

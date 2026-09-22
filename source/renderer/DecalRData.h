@@ -28,7 +28,7 @@
 
 class CModelDecal;
 class CShaderDefines;
-class CSimulation2;
+class IGroundView;
 class ShadowMap;
 namespace Renderer::Backend { class IDeviceCommandContext; }
 namespace Renderer::Backend { class IVertexInputLayout; }
@@ -36,12 +36,12 @@ namespace Renderer::Backend { class IVertexInputLayout; }
 class CDecalRData : public CRenderData
 {
 public:
-	CDecalRData(CModelDecal* decal, CSimulation2* simulation);
+	CDecalRData(CModelDecal* decal, const IGroundView* ground);
 	~CDecalRData();
 
 	static Renderer::Backend::IVertexInputLayout* GetVertexInputLayout();
 
-	void Update(CSimulation2* simulation);
+	void Update(const IGroundView* ground);
 
 	static void RenderDecals(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
@@ -67,7 +67,7 @@ private:
 
 	CModelDecal* m_Decal;
 
-	CSimulation2* m_Simulation;
+	const IGroundView* m_Ground;
 };
 
 #endif // INCLUDED_DECALRDATA

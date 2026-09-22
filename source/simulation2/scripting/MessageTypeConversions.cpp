@@ -250,6 +250,30 @@ CMessage* CMessagePositionChanged::FromJSVal(const Script::Request& rq, JS::Hand
 
 ////////////////////////////////
 
+JS::Value CMessageFramePrepare::ToJSVal(const Script::Request&) const
+{
+	LOGWARNING("CMessageFramePrepare::ToJSVal not implemented");
+	return JS::UndefinedValue();
+}
+
+CMessage* CMessageFramePrepare::FromJSVal(const Script::Request&, JS::HandleValue)
+{
+	LOGWARNING("CMessageFramePrepare::FromJSVal not implemented");
+	return NULL;
+}
+
+JS::Value CMessageFrameStep::ToJSVal(const Script::Request&) const
+{
+	LOGWARNING("CMessageFrameStep::ToJSVal not implemented");
+	return JS::UndefinedValue();
+}
+
+CMessage* CMessageFrameStep::FromJSVal(const Script::Request&, JS::HandleValue)
+{
+	LOGWARNING("CMessageFrameStep::FromJSVal not implemented");
+	return NULL;
+}
+
 JS::Value CMessageInterpolatedPositionChanged::ToJSVal(const Script::Request&) const
 {
 	LOGWARNING("CMessageInterpolatedPositionChanged::ToJSVal not implemented");

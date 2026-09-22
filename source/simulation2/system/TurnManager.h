@@ -126,11 +126,15 @@ public:
 	bool UpdateFastForward();
 
 	/**
-	 * Advance the graphics by a certain time.
-	 * @param simFrameLength Length of the previous frame, in simulation seconds
-	 * @param realFrameLength Length of the previous frame, in real time seconds
+	 * Interpolation parameters for the render thread.
 	 */
-	void Interpolate(float simFrameLength, float realFrameLength);
+	struct InterpolationState
+	{
+		float simFrameLength = 0.0f;
+		float offset = 0.0f;
+		float realFrameLength = 0.0f;
+	};
+	InterpolationState GetInterpolationState(float simFrameLength, float realFrameLength) const;
 
 	/**
 	 * Called by networking code when a simulation message is received.

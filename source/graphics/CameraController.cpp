@@ -34,12 +34,10 @@
 #include "ps/Hotkey.h"
 #include "ps/VideoMode.h"
 #include "ps/World.h"
-#include "renderer/Renderer.h"
-#include "renderer/SceneRenderer.h"
-#include "renderer/WaterManager.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpPosition.h"
 #include "simulation2/components/ICmpRangeManager.h"
+#include "simulation2/components/ICmpWaterManager.h"
 #include "simulation2/system/Component.h"
 
 #include <SDL_events.h>
@@ -621,9 +619,13 @@ void CCameraController::FocusHeight(bool smooth)
 	const CVector3D nearPoint = position + forwards * m_ViewNear;
 	const CVector3D pivotPoint = position + forwards * m_Zoom.GetSmoothedValue();
 
+	// The camera runs on the logic thread, which owns the simulation's water level.
+	CmpPtr<ICmpWaterManager> cmpWaterManager(*(g_Game->GetSimulation2()), SYSTEM_ENTITY);
+	const float waterLevel = cmpWaterManager ? cmpWaterManager->GetExactWaterLevel(nearPoint.X, nearPoint.Z) : 0.0f;
+
 	const float ground = std::max(
 		g_Game->GetWorld()->GetTerrain().GetExactGroundLevel(nearPoint.X, nearPoint.Z),
-		g_Renderer.GetSceneRenderer().GetWaterManager().m_WaterHeight);
+		waterLevel);
 
 	// filter ground levels for smooth camera movement
 	const float filtered_near_ground = g_Game->GetWorld()->GetTerrain().GetFilteredGroundLevel(nearPoint.X, nearPoint.Z, near_radius);
@@ -632,7 +634,7 @@ void CCameraController::FocusHeight(bool smooth)
 	// filtered maximum visible ground level in view
 	const float filtered_ground = std::max(
 		std::max(filtered_near_ground, filtered_pivot_ground),
-		g_Renderer.GetSceneRenderer().GetWaterManager().m_WaterHeight);
+		waterLevel);
 
 	// target camera height above pivot point
 	const float pivot_height = -forwards.Y * (m_Zoom.GetSmoothedValue() - m_ViewNear);

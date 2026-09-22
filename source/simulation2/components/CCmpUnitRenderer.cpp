@@ -19,60 +19,35 @@
 
 #include "ICmpUnitRenderer.h"
 
-#include "graphics/Color.h"
-#include "graphics/Model.h"
-#include "graphics/ModelAbstract.h"
-#include "graphics/Overlay.h"
-#include "graphics/Unit.h"
-#include "lib/debug.h"
+#include "graphics/FramePacket.h"
+#include "graphics/RenderWorld.h"
 #include "maths/BoundingBoxAligned.h"
 #include "maths/BoundingBoxOriented.h"
-#include "maths/BoundingSphere.h"
-#include "maths/Frustum.h"
-#include "maths/Matrix3D.h"
 #include "maths/Vector3D.h"
-#include "ps/Future.h"
 #include "ps/Profile.h"
-#include "ps/TaskManager.h"
-#include "renderer/RenderingOptions.h"
-#include "renderer/Scene.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/ICmpPosition.h"
 #include "simulation2/components/ICmpRangeManager.h"
 #include "simulation2/components/ICmpSelectable.h"
 #include "simulation2/components/ICmpVisibility.h"
-#include "simulation2/components/ICmpVisual.h"
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"
 #include "simulation2/system/Message.h"
-#include "tools/atlas/GameInterface/GameLoop.h"
+#include "simulation2/system/SimContext.h"
 
-#include <algorithm>
-#include <atomic>
-#include <cstddef>
-#include <optional>
 #include <string>
+#include <optional>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
 /**
- * Efficiently(ish) renders all the units in the world.
+ * Keeps the LOS visibility of the units the render world draws up to date, and
+ * picks units by what the render world last drew.
  *
- * The class maintains a list of all units that currently exist, and the data
- * needed for frustum-culling them. To minimise the amount of work done per
- * frame (despite a unit's interpolated position changing every frame), the
- * culling data is only updated once per turn: we store the position at the
- * start of the turn, and the position at the end of the turn, and assume the
- * unit might be anywhere between those two points (linearly).
- *
- * (Note this is a slightly invalid assumption: units don't always move linearly,
- * since their interpolated position depends on terrain and water. But over a
- * single turn it's probably going to be a good enough approximation, and will
- * only break for units that both start and end the turn off-screen.)
- *
- * We want to ignore rotation entirely, since it's a complex function of
- * interpolated position and terrain. So we store a bounding sphere, which
- * is rotation-independent, instead of a bounding box.
+ * Visibility is computed on the logic thread, as it needs the range manager and
+ * may call script. It is recomputed for every unit once per turn and for units
+ * that moved in between; the render world is told only of changes.
  */
 class CCmpUnitRenderer final : public ICmpUnitRenderer
 {
@@ -80,82 +55,19 @@ public:
 	struct SUnit
 	{
 		CEntityHandle entity;
-
-		CUnit* actor;
-
-		int flags;
-
-		/**
-		 * m_FrameNumber from when the model's transform was last updated.
-		 * This is used to avoid recomputing it multiple times per frame
-		 * if a model is visible in multiple cull groups.
-		 */
-		int lastTransformFrame;
-
-		/**
-		 * World bounds of the model and its props, as of lastTransformFrame.
-		 */
-		CBoundingBoxAligned worldBoundsRec;
-
-		/**
-		 * The model and its visible props, as of lastTransformFrame.
-		 */
-		std::vector<CModelAbstract*> flattened;
-
-		/**
-		 * Worst-case bounding shape, relative to position. Needs to account
-		 * for all possible animations, orientations, etc.
-		 */
-		CBoundingSphere boundsApprox;
-
-		/**
-		 * Cached LOS visibility status.
-		 */
-		LosVisibility visibility;
-		bool visibilityDirty;
+		LosVisibility visibility = LosVisibility::HIDDEN;
+		bool visibilityDirty = true;
 		// The Visibility component's flag, read on the first update.
 		std::optional<bool> alwaysVisible;
-
-		/**
-		 * Whether the unit has a valid position. If false, pos0 and pos1
-		 * are meaningless.
-		 */
-		bool inWorld;
-
-		/**
-		 * World-space positions to interpolate between.
-		 */
-		CVector3D pos0;
-		CVector3D pos1;
-
-		/**
-		 * Bounds encompassing the unit's bounds when it is anywhere between
-		 * pos0 and pos1.
-		 */
-		CBoundingSphere sweptBounds;
-
-		/**
-		 * For debug overlay.
-		 */
-		bool culled;
 	};
 
 	std::vector<SUnit> m_Units;
-	std::vector<tag_t> m_UnitTagsFree;
-
-	int m_FrameNumber;
-	int m_LastParallelUpdateFrame = -1;
-	std::vector<uint32_t> m_UnitsToPosition;
-	float m_FrameOffset;
-
-	bool m_EnableDebugOverlays;
-	std::vector<SOverlaySphere> m_DebugSpheres;
+	std::unordered_map<entity_id_t, size_t> m_Index;
 
 	static void ClassInit(CComponentManager& componentManager)
 	{
 		componentManager.SubscribeToMessageType(MT_TurnStart);
-		componentManager.SubscribeToMessageType(MT_Interpolate);
-		componentManager.SubscribeToMessageType(MT_RenderSubmit);
+		componentManager.SubscribeToMessageType(MT_FramePrepare);
 	}
 
 	DEFAULT_COMPONENT_ALLOCATOR(UnitRenderer)
@@ -167,9 +79,6 @@ public:
 
 	void Init(const CParamNode&) override
 	{
-		m_FrameNumber = 0;
-		m_FrameOffset = 0.0f;
-		m_EnableDebugOverlays = false;
 	}
 
 	void Deinit() override
@@ -191,366 +100,123 @@ public:
 		{
 		case MT_TurnStart:
 		{
-			TurnStart();
+			// Visibility must be recomputed on the first frame during this turn.
+			for (SUnit& unit : m_Units)
+				unit.visibilityDirty = true;
 			break;
 		}
-		case MT_Interpolate:
+		case MT_FramePrepare:
 		{
-			const CMessageInterpolate& msgData = static_cast<const CMessageInterpolate&> (msg);
-			Interpolate(msgData.deltaSimTime, msgData.offset);
-			break;
-		}
-		case MT_RenderSubmit:
-		{
-			const CMessageRenderSubmit& msgData = static_cast<const CMessageRenderSubmit&> (msg);
-			RenderSubmit(msgData.collector, msgData.frustum, msgData.culling);
+			UpdateVisibilities();
 			break;
 		}
 		}
 	}
 
-	SUnit* LookupUnit(tag_t tag)
+	void AddUnit(CEntityHandle entity) override
 	{
-		if (tag.n < 1 || tag.n - 1 >= m_Units.size())
-			return NULL;
-		return &m_Units[tag.n - 1];
-	}
-
-	tag_t AddUnit(CEntityHandle entity, CUnit* actor, const CBoundingSphere& boundsApprox, int flags) override
-	{
-		ENSURE(actor != NULL);
-
-		tag_t tag;
-		if (!m_UnitTagsFree.empty())
+		const auto [it, inserted] = m_Index.emplace(entity.GetId(), m_Units.size());
+		if (!inserted)
 		{
-			tag = m_UnitTagsFree.back();
-			m_UnitTagsFree.pop_back();
+			m_Units[it->second].visibilityDirty = true;
+			return;
 		}
-		else
+		m_Units.push_back(SUnit{entity});
+	}
+
+	void RemoveUnit(const entity_id_t entity) override
+	{
+		const auto it = m_Index.find(entity);
+		if (it == m_Index.end())
+			return;
+		const size_t index = it->second;
+		m_Index.erase(it);
+		if (index + 1 != m_Units.size())
 		{
-			m_Units.push_back(SUnit());
-			tag.n = m_Units.size();
+			m_Units[index] = std::move(m_Units.back());
+			m_Index[m_Units[index].entity.GetId()] = index;
 		}
-
-		SUnit* unit = LookupUnit(tag);
-		unit->entity = entity;
-		unit->actor = actor;
-		unit->lastTransformFrame = -1;
-		unit->worldBoundsRec = CBoundingBoxAligned{};
-		unit->flattened.clear();
-		unit->flags = flags;
-		unit->boundsApprox = boundsApprox;
-		unit->inWorld = false;
-		unit->visibilityDirty = true;
-		unit->alwaysVisible.reset();
-		unit->pos0 = unit->pos1 = CVector3D();
-
-		return tag;
+		m_Units.pop_back();
 	}
 
-	void RemoveUnit(tag_t tag) override
+	void MarkVisibilityDirty(const entity_id_t entity) override
 	{
-		SUnit* unit = LookupUnit(tag);
-		unit->actor = NULL;
-		unit->inWorld = false;
-		m_UnitTagsFree.push_back(tag);
-	}
-
-	void RecomputeSweptBounds(SUnit* unit)
-	{
-		// Compute the bounding sphere of the capsule formed by
-		// sweeping boundsApprox from pos0 to pos1
-		CVector3D mid = (unit->pos0 + unit->pos1) * 0.5f + unit->boundsApprox.GetCenter();
-		float radius = (unit->pos1 - unit->pos0).Length() * 0.5f + unit->boundsApprox.GetRadius();
-		unit->sweptBounds = CBoundingSphere(mid, radius);
-	}
-
-	void UpdateUnit(tag_t tag, CUnit* actor, const CBoundingSphere& boundsApprox) override
-	{
-		SUnit* unit = LookupUnit(tag);
-		unit->actor = actor;
-		unit->boundsApprox = boundsApprox;
-		RecomputeSweptBounds(unit);
-	}
-
-	void UpdateUnitPos(tag_t tag, bool inWorld, const CVector3D& pos0, const CVector3D& pos1) override
-	{
-		SUnit* unit = LookupUnit(tag);
-		unit->inWorld = inWorld;
-		unit->pos0 = pos0;
-		unit->pos1 = pos1;
-		unit->visibilityDirty = true;
-		RecomputeSweptBounds(unit);
-	}
-
-	void TurnStart();
-	void Interpolate(float frameTime, float frameOffset);
-	void RenderSubmit(SceneCollector& collector, const CFrustum& frustum, bool culling);
-
-	void UpdateVisibility(SUnit& unit) const;
-
-	/**
-	 * Safe to call concurrently for different units.
-	 * @return false if the unit has no position.
-	 */
-	bool PositionUnit(SUnit& unit) const;
-
-	void UpdateUnitsInParallel(const CFrustum& frustum, bool culling);
-
-	float GetFrameOffset() const override
-	{
-		return m_FrameOffset;
+		const auto it = m_Index.find(entity);
+		if (it != m_Index.end())
+			m_Units[it->second].visibilityDirty = true;
 	}
 
 	void SetDebugOverlay(bool enabled) override
 	{
-		m_EnableDebugOverlays = enabled;
+		if (RenderWorld::CFramePacket* packet = GetSimContext().GetFramePacket())
+			packet->unitDebugOverlay = enabled;
 	}
 
 	void PickAllEntitiesAtPoint(std::vector<std::pair<CEntityHandle, CVector3D> >& outEntities, const CVector3D& origin, const CVector3D& dir, bool allowEditorSelectables) const override
 	{
-		// First, make a rough test with the worst-case bounding boxes to pick all
-		// entities/models that could possibly be hit by the ray.
-		std::vector<const SUnit*> candidates;
-		for (const SUnit& unit : m_Units)
-		{
-			if (!unit.actor || !unit.inWorld)
-				continue;
-			if (unit.sweptBounds.RayIntersect(origin, dir))
-				candidates.push_back(&unit);
-		}
-
-		// Now make a more precise test to get rid of the remaining false positives
+		const RenderWorld::SFeedback* feedback = GetSimContext().GetRenderFeedback();
+		if (!feedback)
+			return;
 		float tmin, tmax;
 		CVector3D center;
-		for (size_t i = 0; i< candidates.size(); ++i)
+		for (const RenderWorld::SUnitFeedback& unit : feedback->units)
 		{
-			const SUnit& unit = *candidates[i];
-
-			CmpPtr<ICmpVisual> cmpVisual(unit.entity);
-			if (!cmpVisual)
+			if (!unit.inWorld)
 				continue;
-
-			CBoundingBoxOriented selectionBox = cmpVisual->GetSelectionBox();
-			if (selectionBox.IsEmpty())
+			if (!unit.sweptBounds.RayIntersect(origin, dir))
+				continue;
+			if (unit.selectionBox.IsEmpty())
 			{
 				if (!allowEditorSelectables)
 					continue;
-
-				// Fall back to using old AABB selection method for decals
-				//	see: https://gitea.wildfiregames.com/0ad/0ad/issues/1032
-				// Decals are flat objects without a selectionShape defined,
-				// but they should still be selectable in the editor to move them
-				// around or delete them after they are placed.
-				// Check campaigns/labels/ in the Actors tab of atlas for examples.
-				CBoundingBoxAligned aABBox = cmpVisual->GetBounds();
-				if (aABBox.IsEmpty())
+				if (unit.bounds.IsEmpty())
 					continue;
-
-				if (!aABBox.RayIntersect(origin, dir, tmin, tmax))
+				if (!unit.bounds.RayIntersect(origin, dir, tmin, tmax))
 					continue;
-
-				aABBox.GetCenter(center);
+				unit.bounds.GetCenter(center);
 			}
 			else
 			{
-				if (!selectionBox.RayIntersect(origin, dir, tmin, tmax))
+				if (!unit.selectionBox.RayIntersect(origin, dir, tmin, tmax))
 					continue;
-
-				center = selectionBox.m_Center;
+				center = unit.selectionBox.m_Center;
 			}
-			outEntities.emplace_back(unit.entity, center);
+			// The render world may still report an entity destroyed since.
+			const auto it = m_Index.find(unit.entity);
+			if (it != m_Index.end())
+				outEntities.emplace_back(m_Units[it->second].entity, center);
 		}
 	}
+
+private:
+	void UpdateVisibilities();
+	void UpdateVisibility(SUnit& unit, const ICmpRangeManager& rangeManager, player_id_t player) const;
 };
 
-void CCmpUnitRenderer::TurnStart()
+void CCmpUnitRenderer::UpdateVisibilities()
 {
-	PROFILE3("UnitRenderer::TurnStart");
+	PROFILE3("UnitRenderer::UpdateVisibilities");
 
-	// Assume units have stopped moving after the previous turn. If that assumption is not
-	// correct, we will get a UpdateUnitPos to tell us about its movement in the new turn.
-	for (size_t i = 0; i < m_Units.size(); i++)
+	RenderWorld::CFramePacket* packet = GetSimContext().GetFramePacket();
+	CmpPtr<ICmpRangeManager> cmpRangeManager(GetSystemEntity());
+	if (!cmpRangeManager)
+		return;
+	const player_id_t player{GetSimContext().GetCurrentDisplayedPlayer()};
+	for (SUnit& unit : m_Units)
 	{
-		SUnit& unit = m_Units[i];
-		unit.pos0 = unit.pos1;
-		unit.sweptBounds = CBoundingSphere(unit.pos1, unit.boundsApprox.GetRadius());
-
-		// Visibility must be recomputed on the first frame during this turn
-		unit.visibilityDirty = true;
+		if (!unit.visibilityDirty)
+			continue;
+		const LosVisibility previous = unit.visibility;
+		UpdateVisibility(unit, *cmpRangeManager.operator->(), player);
+		if (packet && unit.visibility != previous)
+			packet->visuals.emplace_back(RenderWorld::Visual::SetVisibility{unit.entity.GetId(), unit.visibility});
 	}
 }
 
-void CCmpUnitRenderer::Interpolate(float frameTime, float frameOffset)
-{
-	PROFILE3("UnitRenderer::Interpolate");
-
-	++m_FrameNumber;
-	m_FrameOffset = frameOffset;
-
-	// TODO: we shouldn't update all the animations etc for units that are off-screen
-	// (but need to be careful about e.g. sounds triggered by animations of off-screen
-	// units)
-	for (size_t i = 0; i < m_Units.size(); i++)
-	{
-		SUnit& unit = m_Units[i];
-		if (unit.actor)
-			unit.actor->UpdateModel(frameTime);
-	}
-
-	m_DebugSpheres.clear();
-	if (m_EnableDebugOverlays)
-	{
-		for (const SUnit& unit : m_Units)
-		{
-			if (!(unit.actor && unit.inWorld))
-				continue;
-
-			SOverlaySphere sphere;
-			sphere.m_Center = unit.sweptBounds.GetCenter();
-			sphere.m_Radius = unit.sweptBounds.GetRadius();
-			if (unit.culled)
-				sphere.m_Color = CColor(1.0f, 0.5f, 0.5f, 0.5f);
-			else
-				sphere.m_Color = CColor(0.5f, 0.5f, 1.0f, 0.5f);
-
-			m_DebugSpheres.push_back(sphere);
-		}
-	}
-}
-
-bool CCmpUnitRenderer::PositionUnit(SUnit& unit) const
+void CCmpUnitRenderer::UpdateVisibility(SUnit& unit, const ICmpRangeManager& rangeManager, const player_id_t player) const
 {
 	CmpPtr<ICmpPosition> cmpPosition(unit.entity);
-	if (!cmpPosition)
-		return false;
-
-	CModelAbstract& unitModel = unit.actor->GetModel();
-	unitModel.SetTransform(CMatrix3D(cmpPosition->GetInterpolatedTransform(m_FrameOffset)));
-	if (CModel* model = unitModel.ToCModel())
-		model->ValidatePosition();
-	unit.worldBoundsRec = unitModel.GetWorldBoundsRec();
-	unit.flattened.clear();
-	SceneCollector::Flatten(&unitModel, unit.flattened);
-	return true;
-}
-
-void CCmpUnitRenderer::UpdateUnitsInParallel(const CFrustum& frustum, const bool culling)
-{
-	m_UnitsToPosition.clear();
-	for (size_t i = 0; i < m_Units.size(); ++i)
-	{
-		SUnit& unit = m_Units[i];
-		if (!unit.actor || unit.lastTransformFrame == m_FrameNumber)
-			continue;
-		if (unit.visibilityDirty)
-			UpdateVisibility(unit);
-		if (unit.visibility == LosVisibility::HIDDEN)
-			continue;
-		if (culling && !frustum.IsSphereVisible(unit.sweptBounds.GetCenter(), unit.sweptBounds.GetRadius()))
-			continue;
-		m_UnitsToPosition.push_back(static_cast<uint32_t>(i));
-	}
-
-	constexpr size_t BATCH = 16;
-	const size_t count = m_UnitsToPosition.size();
-	if (count < 4 * BATCH)
-		return;
-
-	std::atomic<size_t> next{0};
-	const auto work = [this, &next, count]() {
-		for (;;)
-		{
-			const size_t begin = next.fetch_add(BATCH, std::memory_order_relaxed);
-			if (begin >= count)
-				return;
-			const size_t end = std::min(begin + BATCH, count);
-			for (size_t k = begin; k < end; ++k)
-			{
-				SUnit& unit = m_Units[m_UnitsToPosition[k]];
-				if (PositionUnit(unit))
-					unit.lastTransformFrame = m_FrameNumber;
-			}
-		}
-	};
-
-	// More workers cost more to wake than they save.
-	constexpr size_t MAX_HELPERS = 12;
-	const size_t helpers = std::min<size_t>(
-		std::min(MAX_HELPERS, g_TaskManager.GetNumberOfWorkers()), (count + BATCH - 1) / BATCH - 1);
-	std::vector<Future<void>> futures;
-	futures.reserve(helpers);
-	for (size_t i = 0; i < helpers; ++i)
-		futures.emplace_back(g_TaskManager, work);
-	work();
-	for (Future<void>& future : futures)
-		future.Get();
-}
-
-void CCmpUnitRenderer::RenderSubmit(SceneCollector& collector, const CFrustum& frustum, bool culling)
-{
-	// TODO: need a coarse culling pass based on some kind of spatial data
-	// structure - that's the main point of this design. Once we've got a
-	// rough list of possibly-visible units, then we can do the more precise
-	// culling. (And once it's cheap enough, we can do multiple culling passes
-	// per frame - one for shadow generation, one for water reflections, etc.)
-
-	PROFILE3("UnitRenderer::RenderSubmit");
-
-	// Units only visible to later cull groups are positioned in the loop below.
-	if (m_LastParallelUpdateFrame != m_FrameNumber)
-	{
-		m_LastParallelUpdateFrame = m_FrameNumber;
-		UpdateUnitsInParallel(frustum, culling);
-	}
-
-	for (size_t i = 0; i < m_Units.size(); ++i)
-	{
-		SUnit& unit = m_Units[i];
-
-		unit.culled = true;
-
-		if (!unit.actor)
-			continue;
-
-		if (unit.visibilityDirty)
-			UpdateVisibility(unit);
-
-		if (unit.visibility == LosVisibility::HIDDEN)
-			continue;
-
-		if (!g_AtlasGameLoop->running && !g_RenderingOptions.GetRenderActors() && (unit.flags & ACTOR_ONLY))
-			continue;
-
-		if (!g_AtlasGameLoop->running && (unit.flags & VISIBLE_IN_ATLAS_ONLY))
-			continue;
-
-		if (culling && !frustum.IsSphereVisible(unit.sweptBounds.GetCenter(), unit.sweptBounds.GetRadius()))
-			continue;
-
-		unit.culled = false;
-
-		if (unit.lastTransformFrame != m_FrameNumber)
-		{
-			if (!PositionUnit(unit))
-				continue;
-			unit.lastTransformFrame = m_FrameNumber;
-		}
-
-		if (culling && !frustum.IsBoxVisible(unit.worldBoundsRec))
-			continue;
-
-		for (CModelAbstract* node : unit.flattened)
-			collector.SubmitNode(node);
-	}
-
-	for (size_t i = 0; i < m_DebugSpheres.size(); ++i)
-		collector.Submit(&m_DebugSpheres[i]);
-}
-
-void CCmpUnitRenderer::UpdateVisibility(SUnit& unit) const
-{
-	if (unit.inWorld)
+	if (cmpPosition && cmpPosition->IsInWorld())
 	{
 		// The 'always visible' flag means we should always render the unit
 		// (regardless of whether the LOS system thinks it's visible)
@@ -562,11 +228,7 @@ void CCmpUnitRenderer::UpdateVisibility(SUnit& unit) const
 		if (*unit.alwaysVisible)
 			unit.visibility = LosVisibility::VISIBLE;
 		else
-		{
-			CmpPtr<ICmpRangeManager> cmpRangeManager(GetSystemEntity());
-			unit.visibility = cmpRangeManager->GetLosVisibility(unit.entity,
-					GetSimContext().GetCurrentDisplayedPlayer());
-		}
+			unit.visibility = rangeManager.GetLosVisibility(unit.entity, player);
 	}
 	else
 		unit.visibility = LosVisibility::HIDDEN;

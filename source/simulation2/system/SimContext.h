@@ -21,9 +21,12 @@
 #include "lib/debug.h"
 #include "simulation2/system/Entity.h"
 
+#include <memory>
+
 class CComponentManager;
 class CUnitManager;
 class CTerrain;
+namespace RenderWorld { struct CFramePacket; struct SFeedback; }
 namespace Script { class Interface; }
 
 /**
@@ -44,6 +47,20 @@ public:
 
 	CTerrain& GetTerrain() const;
 
+	/**
+	 * Return the packet the components write the render world's records into
+	 * while the simulation is displayed, or null.
+	 */
+	RenderWorld::CFramePacket* GetFramePacket() const { return m_FramePacket; }
+	void SetFramePacket(RenderWorld::CFramePacket* packet) { m_FramePacket = packet; }
+
+	/**
+	 * Return what the render world last reported about the units it drew,
+	 * fixed for a logic step, or null while nothing is displayed.
+	 */
+	const RenderWorld::SFeedback* GetRenderFeedback() const { return m_RenderFeedback.get(); }
+	void SetRenderFeedback(std::shared_ptr<const RenderWorld::SFeedback> feedback);
+
 	Script::Interface& GetScriptInterface() const;
 
 	void SetSystemEntity(CEntityHandle ent) { m_SystemEntity = ent; }
@@ -59,6 +76,8 @@ private:
 	CComponentManager* m_ComponentManager{nullptr};
 	CUnitManager* m_UnitManager;
 	CTerrain* m_Terrain;
+	RenderWorld::CFramePacket* m_FramePacket{nullptr};
+	std::shared_ptr<const RenderWorld::SFeedback> m_RenderFeedback;
 
 	CEntityHandle m_SystemEntity;
 };

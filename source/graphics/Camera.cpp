@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -30,12 +30,28 @@
 #include "maths/Vector4D.h"
 #include "ps/Game.h"
 #include "ps/World.h"
-#include "renderer/Renderer.h"
-#include "renderer/SceneRenderer.h"
-#include "renderer/WaterManager.h"
+#include "simulation2/Simulation2.h"
+#include "simulation2/components/ICmpWaterManager.h"
+#include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
 
 #include <cmath>
 #include <cstddef>
+
+namespace
+{
+
+/**
+ * Return the simulation's water level, which the logic thread owns; the
+ * renderer's copy lags until the change reaches the render thread.
+ */
+float GetWaterLevel()
+{
+	CmpPtr<ICmpWaterManager> cmpWaterManager(*g_Game->GetSimulation2(), SYSTEM_ENTITY);
+	return cmpWaterManager ? cmpWaterManager->GetExactWaterLevel(0.0f, 0.0f) : 0.0f;
+}
+
+} // anonymous namespace
 
 CCamera::CCamera()
 {
@@ -275,7 +291,7 @@ CVector3D CCamera::GetWorldCoordinates(int px, int py, bool aboveWater) const
 
 	CPlane plane;
 	plane.Set(CVector3D(0.f, 1.f, 0.f),										// upwards normal
-		CVector3D(0.f, g_Renderer.GetSceneRenderer().GetWaterManager().m_WaterHeight, 0.f));	// passes through water plane
+		CVector3D(0.f, GetWaterLevel(), 0.f));	// passes through water plane
 
 	bool gotWater = plane.FindRayIntersection( origin, dir, &waterPoint );
 
@@ -353,7 +369,7 @@ CVector3D CCamera::GetFocus() const
 
 	CPlane plane;
 	plane.Set(CVector3D(0.f, 1.f, 0.f),										// upwards normal
-		CVector3D(0.f, g_Renderer.GetSceneRenderer().GetWaterManager().m_WaterHeight, 0.f));	// passes through water plane
+		CVector3D(0.f, GetWaterLevel(), 0.f));	// passes through water plane
 
 	bool gotWater = plane.FindRayIntersection( origin, dir, &waterPoint );
 

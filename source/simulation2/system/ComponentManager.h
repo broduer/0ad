@@ -147,6 +147,12 @@ public:
 	void DynamicSubscriptionNonsync(MessageTypeId mtid, IComponent* component, bool enabled);
 
 	/**
+	 * Request one MT_FrameStep for @p component. Components subscribed to
+	 * MT_FrameStep receive every one.
+	 */
+	void RequestFrameStep(IComponent* component);
+
+	/**
 	 * @param cname Requested component type name (not including any "CID" or "CCmp" prefix)
 	 * @return The component type id, or CID__Invalid if not found
 	 */
@@ -357,6 +363,10 @@ private:
 	// while keeping QueryInterface and PostMessage sufficiently efficient?
 
 	std::vector<entity_id_t> m_DestructionQueue;
+
+	std::vector<IComponent*> m_FrameStepRequests;
+	// Members only to reuse their storage across frame steps.
+	std::vector<IComponent*> m_FrameStepDelivering;
 
 	ComponentTypeId m_NextScriptComponentTypeId;
 	entity_id_t m_NextEntityId;

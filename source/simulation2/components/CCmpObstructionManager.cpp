@@ -20,6 +20,7 @@
 #include "ICmpObstructionManager.h"
 
 #include "graphics/Color.h"
+#include "graphics/FramePacket.h"
 #include "graphics/Overlay.h"
 #include "lib/debug.h"
 #include "maths/Fixed.h"
@@ -44,6 +45,7 @@
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"
 #include "simulation2/system/Message.h"
+#include "simulation2/system/SimContext.h"
 
 #include <algorithm>
 #include <cmath>
@@ -145,7 +147,7 @@ class CCmpObstructionManager final : public ICmpObstructionManager
 public:
 	static void ClassInit(CComponentManager& componentManager)
 	{
-		componentManager.SubscribeToMessageType(MT_RenderSubmit); // for debug overlays
+		componentManager.SubscribeToMessageType(MT_FrameStep); // for debug overlays
 	}
 
 	DEFAULT_COMPONENT_ALLOCATOR(ObstructionManager)
@@ -244,10 +246,9 @@ public:
 	{
 		switch (msg.GetType())
 		{
-		case MT_RenderSubmit:
+		case MT_FrameStep:
 		{
-			const CMessageRenderSubmit& msgData = static_cast<const CMessageRenderSubmit&> (msg);
-			RenderSubmit(msgData.collector);
+			UpdateDebugOverlay();
 			break;
 		}
 		}
@@ -531,7 +532,10 @@ public:
 			m_DebugOverlayLines.clear();
 	}
 
-	void RenderSubmit(SceneCollector& collector);
+	/**
+	 * Rebuild the debug overlay lines if they are stale and record them for the render world.
+	 */
+	void UpdateDebugOverlay();
 
 	void UpdateInformations(GridUpdateInformation& informations) override
 	{
@@ -1366,10 +1370,16 @@ void CCmpObstructionManager::GetStaticObstructionsOnObstruction(const Obstructio
 	}
 }
 
-void CCmpObstructionManager::RenderSubmit(SceneCollector& collector)
+void CCmpObstructionManager::UpdateDebugOverlay()
 {
+	RenderWorld::CFramePacket* packet = GetSimContext().GetFramePacket();
 	if (!m_DebugOverlayEnabled)
+	{
+		if (m_DebugOverlayDirty && packet)
+			packet->debugLines.push_back({RenderWorld::DebugSource::OBSTRUCTION_MANAGER});
+		m_DebugOverlayDirty = false;
 		return;
+	}
 
 	CColor defaultColor(0, 0, 1, 1);
 	CColor movingColor(1, 0, 1, 1);
@@ -1403,8 +1413,7 @@ void CCmpObstructionManager::RenderSubmit(SceneCollector& collector)
 		}
 
 		m_DebugOverlayDirty = false;
+		if (packet)
+			packet->debugLines.push_back({RenderWorld::DebugSource::OBSTRUCTION_MANAGER, INVALID_ENTITY, m_DebugOverlayLines});
 	}
-
-	for (size_t i = 0; i < m_DebugOverlayLines.size(); ++i)
-		collector.Submit(&m_DebugOverlayLines[i]);
 }

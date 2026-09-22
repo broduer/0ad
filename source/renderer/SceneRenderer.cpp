@@ -398,10 +398,9 @@ void CSceneRenderer::BeginFrame()
 	m->Model.ModShader.SetLightEnv(m_LightEnv);
 }
 
-void CSceneRenderer::SetSimulation(CSimulation2* simulation)
+void CSceneRenderer::SetGround(const IGroundView* ground)
 {
-	// set current simulation context for terrain renderer
-	m->terrainRenderer.SetSimulation(simulation);
+	m->terrainRenderer.SetGround(ground);
 }
 
 void CSceneRenderer::RenderShadowMap(

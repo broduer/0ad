@@ -20,23 +20,17 @@
 #include "ICmpVisual.h"
 
 #include "graphics/Color.h"
-#include "graphics/Decal.h"
+#include "graphics/FramePacket.h"
 #include "graphics/Model.h"
 #include "graphics/ModelAbstract.h"
-#include "graphics/ObjectBase.h"
-#include "graphics/ObjectEntry.h"
-#include "graphics/Unit.h"
-#include "graphics/UnitAnimation.h"
-#include "graphics/UnitManager.h"
+#include "graphics/RenderWorld.h"
 #include "lib/debug.h"
 #include "lib/path.h"
 #include "lib/utf8.h"
 #include "maths/BoundingBoxAligned.h"
 #include "maths/BoundingBoxOriented.h"
-#include "maths/BoundingSphere.h"
 #include "maths/Fixed.h"
 #include "maths/FixedVector3D.h"
-#include "maths/Matrix3D.h"
 #include "maths/Vector3D.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
@@ -46,7 +40,6 @@
 #include "simulation2/components/ICmpIdentity.h"
 #include "simulation2/components/ICmpMirage.h"
 #include "simulation2/components/ICmpOwnership.h"
-#include "simulation2/components/ICmpPosition.h"
 #include "simulation2/components/ICmpSound.h"
 #include "simulation2/components/ICmpTemplateManager.h"
 #include "simulation2/components/ICmpUnitRenderer.h"
@@ -60,11 +53,12 @@
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Interface.h"
 #include "simulation2/system/Message.h"
+#include "simulation2/system/SimContext.h"
 
 #include <cstddef>
 #include <js/Value.h>
 #include <map>
-#include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -86,9 +80,10 @@ private:
 	std::wstring m_BaseActorName, m_ActorName;
 	bool m_IsFoundationActor;
 
-	// Not initialized in non-visual mode
-	CUnit* m_Unit;
-	CModelAbstract::CustomSelectionShape* m_ShapeDescriptor = nullptr;
+	// Whether the render world was told to build the unit, which happens only while displayed.
+	bool m_HasUnit;
+	player_id_t m_PlayerID = INVALID_PLAYER;
+	std::optional<CModelAbstract::CustomSelectionShape> m_SelectionShape;
 
 	fixed m_R, m_G, m_B; // shading color
 
@@ -115,7 +110,41 @@ private:
 	bool m_ShadowsCast;
 	bool m_ShadowsReceive;
 
-	ICmpUnitRenderer::tag_t m_ModelTag;
+	bool m_RegisteredWithUnitRenderer;
+
+	/**
+	 * Add a record for the render world, once it has the entity's unit.
+	 */
+	template<typename R>
+	void Record(R&& record)
+	{
+		if (!m_HasUnit)
+			return;
+		if (RenderWorld::CFramePacket* packet = GetSimContext().GetFramePacket())
+			packet->visuals.emplace_back(std::forward<R>(record));
+	}
+
+	void SetPlayerID(player_id_t playerID)
+	{
+		m_PlayerID = playerID;
+		Record(RenderWorld::Visual::SetPlayer{GetEntityId(), playerID});
+	}
+
+	RenderWorld::SAnimation DescribeAnimation() const
+	{
+		return {m_AnimName, m_AnimOnce, m_AnimSpeed.ToFloat(), m_AnimDesync.ToFloat(), m_SoundGroup};
+	}
+
+	/**
+	 * Describe everything the render world needs to build and keep the unit.
+	 */
+	RenderWorld::SVisual DescribeVisual() const;
+
+	const RenderWorld::SUnitFeedback* GetFeedback() const
+	{
+		const RenderWorld::SFeedback* feedback = GetSimContext().GetRenderFeedback();
+		return feedback ? feedback->Find(GetEntityId()) : nullptr;
+	}
 
 public:
 	static std::string GetSchema()
@@ -222,7 +251,8 @@ public:
 
 	void Init(const CParamNode& paramNode) override
 	{
-		m_Unit = NULL;
+		m_HasUnit = false;
+		m_RegisteredWithUnitRenderer = false;
 		m_R = m_G = m_B = fixed::FromInt(1);
 
 		m_ConstructionPreview = paramNode.GetChild("ConstructionPreview").IsOk();
@@ -253,10 +283,10 @@ public:
 
 	void Deinit() override
 	{
-		if (m_Unit)
+		if (m_HasUnit)
 		{
-			GetSimContext().GetUnitManager().DeleteUnit(m_Unit);
-			m_Unit = NULL;
+			Record(RenderWorld::Visual::Destroy{GetEntityId()});
+			m_HasUnit = false;
 		}
 	}
 
@@ -311,11 +341,11 @@ public:
 		else
 			ReloadUnitAnimation();
 
-		if (m_Unit)
+		if (m_HasUnit)
 		{
 			CmpPtr<ICmpOwnership> cmpOwnership(GetEntityHandle());
 			if (cmpOwnership)
-				m_Unit->GetModel().SetPlayerID(cmpOwnership->GetOwner());
+				SetPlayerID(cmpOwnership->GetOwner());
 		}
 	}
 
@@ -327,11 +357,11 @@ public:
 		{
 			RecomputeActorName();
 
-			if (!m_Unit)
+			if (!m_HasUnit)
 				break;
 
 			const CMessageOwnershipChanged& msgData = static_cast<const CMessageOwnershipChanged&> (msg);
-			m_Unit->GetModel().SetPlayerID(msgData.to);
+			SetPlayerID(msgData.to);
 
 			break;
 		}
@@ -352,11 +382,10 @@ public:
 		}
 		case MT_InterpolatedPositionChanged:
 		{
-			const CMessageInterpolatedPositionChanged& msgData = static_cast<const CMessageInterpolatedPositionChanged&> (msg);
-			if (m_ModelTag.valid())
+			if (m_RegisteredWithUnitRenderer)
 			{
-				CmpPtr<ICmpUnitRenderer> cmpModelRenderer(GetSystemEntity());
-				cmpModelRenderer->UpdateUnitPos(m_ModelTag, msgData.inWorld, msgData.pos0, msgData.pos1);
+				CmpPtr<ICmpUnitRenderer> cmpUnitRenderer(GetSystemEntity());
+				cmpUnitRenderer->MarkVisibilityDirty(GetEntityId());
 			}
 			break;
 		}
@@ -369,11 +398,11 @@ public:
 		}
 		case MT_Destroy:
 		{
-			if (m_ModelTag.valid())
+			if (m_RegisteredWithUnitRenderer)
 			{
-				CmpPtr<ICmpUnitRenderer> cmpModelRenderer(GetSystemEntity());
-				cmpModelRenderer->RemoveUnit(m_ModelTag);
-				m_ModelTag = ICmpUnitRenderer::tag_t();
+				CmpPtr<ICmpUnitRenderer> cmpUnitRenderer(GetSystemEntity());
+				cmpUnitRenderer->RemoveUnit(GetEntityId());
+				m_RegisteredWithUnitRenderer = false;
 			}
 			break;
 		}
@@ -382,64 +411,35 @@ public:
 
 	CBoundingBoxAligned GetBounds() const override
 	{
-		if (!m_Unit)
-			return CBoundingBoxAligned::EMPTY;
-		return m_Unit->GetModel().GetWorldBounds();
-	}
-
-	CUnit* GetUnit() override
-	{
-		return m_Unit;
+		const RenderWorld::SUnitFeedback* feedback = GetFeedback();
+		return feedback ? feedback->bounds : CBoundingBoxAligned::EMPTY;
 	}
 
 	CBoundingBoxOriented GetSelectionBox() const override
 	{
-		if (!m_Unit)
-			return CBoundingBoxOriented::EMPTY;
-		return m_Unit->GetModel().GetSelectionBox();
+		const RenderWorld::SUnitFeedback* feedback = GetFeedback();
+		return feedback ? feedback->selectionBox : CBoundingBoxOriented::EMPTY;
 	}
 
 	CVector3D GetPosition() const override
 	{
-		if (!m_Unit)
-			return CVector3D(0, 0, 0);
-		return m_Unit->GetModel().GetTransform().GetTranslation();
+		const RenderWorld::SUnitFeedback* feedback = GetFeedback();
+		return feedback ? feedback->position : CVector3D(0, 0, 0);
 	}
 
 	std::wstring GetProjectileActor() const override
 	{
-		if (!m_Unit)
-			return L"";
-		return m_Unit->GetObject().m_ProjectileModelName;
+		const RenderWorld::SUnitFeedback* feedback = GetFeedback();
+		return feedback ? GetSimContext().GetRenderFeedback()->GetProjectileActor(*feedback) : L"";
 	}
 
 	CFixedVector3D GetProjectileLaunchPoint() const override
 	{
-		if (!m_Unit)
+		const RenderWorld::SUnitFeedback* feedback = GetFeedback();
+		if (!feedback || !feedback->hasLaunchPoint)
 			return CFixedVector3D();
-
-		if (m_Unit->GetModel().ToCModel())
-		{
-			// Ensure the prop transforms are correct
-			CmpPtr<ICmpUnitRenderer> cmpUnitRenderer(GetSystemEntity());
-			CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
-			if (cmpUnitRenderer && cmpPosition)
-			{
-				float frameOffset = cmpUnitRenderer->GetFrameOffset();
-				CMatrix3D transform(cmpPosition->GetInterpolatedTransform(frameOffset));
-				m_Unit->GetModel().SetTransform(transform);
-				m_Unit->GetModel().ValidatePosition();
-			}
-
-			CModelAbstract* ammo = m_Unit->GetModel().ToCModel()->FindFirstAmmoProp();
-			if (ammo)
-			{
-				CVector3D vector = ammo->GetTransform().GetTranslation();
-				return CFixedVector3D(fixed::FromFloat(vector.X), fixed::FromFloat(vector.Y), fixed::FromFloat(vector.Z));
-			}
-		}
-
-		return CFixedVector3D();
+		const CVector3D& vector = feedback->launchPoint;
+		return CFixedVector3D(fixed::FromFloat(vector.X), fixed::FromFloat(vector.Y), fixed::FromFloat(vector.Z));
 	}
 
 	void SetVariant(const CStr& key, const CStr& selection) override
@@ -449,12 +449,7 @@ public:
 
 		m_VariantSelections[key] = selection;
 
-		if (m_Unit)
-		{
-			m_Unit->SetEntitySelection(key, selection);
-			if (m_Unit->GetAnimation())
-				m_Unit->GetAnimation()->ReloadAnimation();
-		}
+		Record(RenderWorld::Visual::SetSelection{GetEntityId(), key, selection});
 	}
 
 	std::string GetAnimationName() const override
@@ -478,10 +473,7 @@ public:
 		if (cmpSound)
 			m_SoundGroup = cmpSound->GetSoundGroup(wstring_from_utf8(m_AnimName));
 
-		if (!m_Unit || !m_Unit->GetAnimation() || !m_Unit->GetID())
-			return;
-
-		m_Unit->GetAnimation()->SetAnimationState(m_AnimName, m_AnimOnce, m_AnimSpeed.ToFloat(), m_AnimDesync.ToFloat(), m_SoundGroup.c_str());
+		Record(RenderWorld::Visual::SetAnimation{GetEntityId(), DescribeAnimation()});
 	}
 
 	void SelectMovementAnimation(const std::string& name, fixed speed) override
@@ -498,16 +490,14 @@ public:
 	{
 		m_AnimSyncRepeatTime = repeattime;
 
-		if (m_Unit && m_Unit->GetAnimation())
-			m_Unit->GetAnimation()->SetAnimationSyncRepeat(m_AnimSyncRepeatTime.ToFloat());
+		Record(RenderWorld::Visual::SetSyncRepeat{GetEntityId(), m_AnimSyncRepeatTime.ToFloat()});
 	}
 
 	void SetAnimationSyncOffset(fixed actiontime) override
 	{
 		m_AnimSyncOffsetTime = actiontime;
 
-		if (m_Unit && m_Unit->GetAnimation())
-			m_Unit->GetAnimation()->SetAnimationSyncOffset(m_AnimSyncOffsetTime.ToFloat());
+		Record(RenderWorld::Visual::SetSyncOffset{GetEntityId(), m_AnimSyncOffsetTime.ToFloat()});
 	}
 
 	// TODO: Why is `a` even an argument?
@@ -517,17 +507,12 @@ public:
 		m_G = g;
 		m_B = b;
 
-		if (m_Unit)
-		{
-			CModelAbstract& model = m_Unit->GetModel();
-			model.SetShadingColor(CColor(m_R.ToFloat(), m_G.ToFloat(), m_B.ToFloat(), 1.0f));
-		}
+		Record(RenderWorld::Visual::SetShading{GetEntityId(), CColor(m_R.ToFloat(), m_G.ToFloat(), m_B.ToFloat(), 1.0f)});
 	}
 
 	void SetVariable(const std::string& name, float value) override
 	{
-		if (m_Unit)
-			m_Unit->GetModel().SetEntityVariable(name, value);
+		Record(RenderWorld::Visual::SetVariable{GetEntityId(), name, value});
 	}
 
 	std::uint32_t GetActorSeed() const override
@@ -565,17 +550,6 @@ public:
 		return m_ConstructionPreview;
 	}
 
-	void Hotload(const VfsPath& name) override
-	{
-		if (!m_Unit)
-			return;
-
-		if (!name.empty() && name != m_ActorName)
-			return;
-
-		ReloadActor();
-	}
-
 private:
 	// Replace {phenotype} and {civ} with the correct value in m_ActorName
 	void ParseActorName(std::wstring base);
@@ -609,86 +583,57 @@ void CCmpVisualActor::ParseActorName(std::wstring base)
 	m_ActorName = std::move(base);
 }
 
+RenderWorld::SVisual CCmpVisualActor::DescribeVisual() const
+{
+	RenderWorld::SVisual visual;
+	visual.actorName = m_ActorName;
+	visual.seed = GetActorSeed();
+	visual.selections = m_VariantSelections;
+	visual.selectionShape = m_SelectionShape;
+
+	if (m_SilhouetteDisplay)
+		visual.modelFlags |= ModelFlag::SILHOUETTE_DISPLAY;
+	if (m_SilhouetteOccluder)
+		visual.modelFlags |= ModelFlag::SILHOUETTE_OCCLUDER;
+	CmpPtr<ICmpVisibility> cmpVisibility(GetEntityHandle());
+	if (cmpVisibility && cmpVisibility->GetAlwaysVisible())
+		visual.modelFlags |= ModelFlag::IGNORE_LOS;
+
+	visual.shadowsCast = m_ShadowsCast;
+	visual.shadowsReceive = m_ShadowsReceive;
+	visual.actorOnly = m_IsActorOnly;
+	visual.visibleInAtlasOnly = m_VisibleInAtlasOnly;
+	visual.player = m_PlayerID;
+	visual.shading = CColor(m_R.ToFloat(), m_G.ToFloat(), m_B.ToFloat(), 1.0f);
+	visual.animation = DescribeAnimation();
+	visual.syncRepeat = m_AnimSyncRepeatTime.ToFloat();
+	visual.syncOffset = m_AnimSyncOffsetTime.ToFloat();
+	return visual;
+}
+
 void CCmpVisualActor::InitModel()
 {
-	if (!GetSimContext().HasUnitManager())
+	if (!GetSimContext().GetFramePacket())
 		return;
 
-	std::wstring actorName = m_ActorName;
-	if (actorName.find(L".xml") == std::wstring::npos)
-		actorName += L".xml";
-	m_Unit = GetSimContext().GetUnitManager().CreateUnit(actorName, GetEntityId(), GetActorSeed());
-	if (!m_Unit)
-		return;
+	m_HasUnit = true;
+	Record(RenderWorld::Visual::Create{GetEntityId(), DescribeVisual()});
 
-	CModelAbstract& model = m_Unit->GetModel();
-	if (model.ToCModel())
+	if (!m_RegisteredWithUnitRenderer)
 	{
-		std::uint32_t modelFlags = 0;
-
-		if (m_SilhouetteDisplay)
-			modelFlags |= ModelFlag::SILHOUETTE_DISPLAY;
-
-		if (m_SilhouetteOccluder)
-			modelFlags |= ModelFlag::SILHOUETTE_OCCLUDER;
-
-		CmpPtr<ICmpVisibility> cmpVisibility(GetEntityHandle());
-		if (cmpVisibility && cmpVisibility->GetAlwaysVisible())
-			modelFlags |= ModelFlag::IGNORE_LOS;
-
-		model.ToCModel()->AddFlagsRec(modelFlags);
-	}
-
-	if (!m_ShadowsCast && model.ToCModel())
-		model.ToCModel()->RemoveShadowsCast();
-
-	if (!m_ShadowsReceive)
-	{
-		if (model.ToCModel())
-			model.ToCModel()->RemoveShadowsReceive();
-		else if (model.ToCModelDecal())
-			model.ToCModelDecal()->RemoveShadowsReceive();
-	}
-
-	CStr anchor =  m_Unit->GetObject().m_Base->m_Properties.m_AnchorType;
-	bool floating = m_Unit->GetObject().m_Base->m_Properties.m_FloatOnWater;
-	CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
-	if (cmpPosition)
-	{
-		if (!anchor.empty())
-			cmpPosition->SetActorAnchor(anchor);
-		cmpPosition->SetActorFloating(floating);
-	}
-
-	if (!m_ModelTag.valid())
-	{
-		CmpPtr<ICmpUnitRenderer> cmpModelRenderer(GetSystemEntity());
-		if (cmpModelRenderer)
+		CmpPtr<ICmpUnitRenderer> cmpUnitRenderer(GetSystemEntity());
+		if (cmpUnitRenderer)
 		{
-			// TODO: this should account for all possible props, animations, etc,
-			// else we might accidentally cull the unit when it should be visible
-			CBoundingBoxAligned bounds = m_Unit->GetModel().GetWorldBoundsRec();
-			CBoundingSphere boundSphere = CBoundingSphere::FromSweptBox(bounds);
-
-			int flags = 0;
-			if (m_IsActorOnly)
-				flags |= ICmpUnitRenderer::ACTOR_ONLY;
-			if (m_VisibleInAtlasOnly)
-				flags |= ICmpUnitRenderer::VISIBLE_IN_ATLAS_ONLY;
-
-			m_ModelTag = cmpModelRenderer->AddUnit(GetEntityHandle(), m_Unit, boundSphere, flags);
+			cmpUnitRenderer->AddUnit(GetEntityHandle());
+			m_RegisteredWithUnitRenderer = true;
 		}
 	}
-
-	// the model is now responsible for cleaning up the descriptor
-	if (m_ShapeDescriptor != nullptr)
-		m_Unit->GetModel().SetCustomSelectionShape(m_ShapeDescriptor);
 }
 
 void CCmpVisualActor::InitSelectionShapeDescriptor(const CParamNode& paramNode)
 {
 	// by default, we don't need a custom selection shape and we can just keep the default behaviour
-	m_ShapeDescriptor = nullptr;
+	m_SelectionShape.reset();
 
 	const CParamNode& shapeNode = paramNode.GetChild("SelectionShape");
 	if (shapeNode.IsOk())
@@ -720,11 +665,11 @@ void CCmpVisualActor::InitSelectionShapeDescriptor(const CParamNode& paramNode)
 					size1 *= 2;
 				}
 
-				m_ShapeDescriptor = new CModelAbstract::CustomSelectionShape;
-				m_ShapeDescriptor->m_Type = CModelAbstract::CustomSelectionShape::BOX;
-				m_ShapeDescriptor->m_Size0 = size0;
-				m_ShapeDescriptor->m_Size1 = size1;
-				m_ShapeDescriptor->m_Height = fpHeight.ToFloat();
+				CModelAbstract::CustomSelectionShape& shape = m_SelectionShape.emplace();
+				shape.m_Type = CModelAbstract::CustomSelectionShape::BOX;
+				shape.m_Size0 = size0;
+				shape.m_Size1 = size1;
+				shape.m_Height = fpHeight.ToFloat();
 			}
 			else
 			{
@@ -734,11 +679,11 @@ void CCmpVisualActor::InitSelectionShapeDescriptor(const CParamNode& paramNode)
 		else if (shapeNode.GetChild("Box").IsOk())
 		{
 			// TODO: we might need to support the ability to specify a different box center in the future
-			m_ShapeDescriptor = new CModelAbstract::CustomSelectionShape;
-			m_ShapeDescriptor->m_Type = CModelAbstract::CustomSelectionShape::BOX;
-			m_ShapeDescriptor->m_Size0 = shapeNode.GetChild("Box").GetChild("@width").ToFixed().ToFloat();
-			m_ShapeDescriptor->m_Size1 = shapeNode.GetChild("Box").GetChild("@depth").ToFixed().ToFloat();
-			m_ShapeDescriptor->m_Height = shapeNode.GetChild("Box").GetChild("@height").ToFixed().ToFloat();
+			CModelAbstract::CustomSelectionShape& shape = m_SelectionShape.emplace();
+			shape.m_Type = CModelAbstract::CustomSelectionShape::BOX;
+			shape.m_Size0 = shapeNode.GetChild("Box").GetChild("@width").ToFixed().ToFloat();
+			shape.m_Size1 = shapeNode.GetChild("Box").GetChild("@depth").ToFixed().ToFloat();
+			shape.m_Height = shapeNode.GetChild("Box").GetChild("@height").ToFixed().ToFloat();
 		}
 		else if (shapeNode.GetChild("Cylinder").IsOk())
 		{
@@ -754,15 +699,8 @@ void CCmpVisualActor::InitSelectionShapeDescriptor(const CParamNode& paramNode)
 
 void CCmpVisualActor::ReloadActor()
 {
-	if (!m_Unit)
+	if (!m_HasUnit)
 		return;
-
-	// Save some data from the old unit
-	CColor shading = m_Unit->GetModel().GetShadingColor();
-	player_id_t playerID = m_Unit->GetModel().GetPlayerID();
-
-	// Replace with the new unit
-	GetSimContext().GetUnitManager().DeleteUnit(m_Unit);
 
 	// HACK: selection shape needs template data, but rather than storing all that data
 	//	in the component, we load the template here and pass it into a helper function
@@ -772,50 +710,10 @@ void CCmpVisualActor::ReloadActor()
 
 	InitSelectionShapeDescriptor(node->GetChild("VisualActor"));
 
-	InitModel();
-
-	if (!m_Unit)
-	{
-		if (m_ModelTag.valid())
-		{
-			CmpPtr<ICmpUnitRenderer> cmpModelRenderer(GetSystemEntity());
-			if (cmpModelRenderer)
-				cmpModelRenderer->RemoveUnit(m_ModelTag);
-			m_ModelTag = ICmpUnitRenderer::tag_t{};
-		}
-		return;
-	}
-
-	ReloadUnitAnimation();
-
-	m_Unit->GetModel().SetShadingColor(shading);
-
-	m_Unit->GetModel().SetPlayerID(playerID);
-
-	if (m_ModelTag.valid())
-	{
-		CmpPtr<ICmpUnitRenderer> cmpModelRenderer(GetSystemEntity());
-		CBoundingBoxAligned bounds = m_Unit->GetModel().GetWorldBoundsRec();
-		CBoundingSphere boundSphere = CBoundingSphere::FromSweptBox(bounds);
-		cmpModelRenderer->UpdateUnit(m_ModelTag, m_Unit, boundSphere);
-	}
+	Record(RenderWorld::Visual::Rebuild{GetEntityId(), DescribeVisual()});
 }
 
 void CCmpVisualActor::ReloadUnitAnimation()
 {
-	if (!m_Unit)
-		return;
-
-	m_Unit->SetEntitySelection(m_VariantSelections);
-
-	if (!m_Unit->GetAnimation())
-		return;
-
-	m_Unit->GetAnimation()->SetAnimationState(m_AnimName, m_AnimOnce, m_AnimSpeed.ToFloat(), m_AnimDesync.ToFloat(), m_SoundGroup.c_str());
-
-	// We'll lose the exact synchronisation but we should at least make sure it's going at the correct rate
-	if (!m_AnimSyncRepeatTime.IsZero())
-		m_Unit->GetAnimation()->SetAnimationSyncRepeat(m_AnimSyncRepeatTime.ToFloat());
-	if (!m_AnimSyncOffsetTime.IsZero())
-		m_Unit->GetAnimation()->SetAnimationSyncOffset(m_AnimSyncOffsetTime.ToFloat());
+	Record(RenderWorld::Visual::ReloadAnimation{GetEntityId(), DescribeVisual()});
 }

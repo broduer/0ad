@@ -26,6 +26,7 @@
 #include "graphics/FontManager.h"
 #include "graphics/GameView.h"
 #include "graphics/ModelDef.h"
+#include "graphics/RenderWorld.h"
 #include "graphics/ShaderManager.h"
 #include "graphics/TerrainTextureManager.h"
 #include "graphics/TextureManager.h"
@@ -57,6 +58,7 @@
 #include "ps/Profile.h"
 #include "ps/ProfileViewer.h"
 #include "ps/Profiler2.h"
+#include "ps/RenderThread.h"
 #include "ps/Util.h"
 #include "ps/VideoMode.h"
 #include "ps/World.h"
@@ -569,16 +571,8 @@ void CRenderer::RenderFrameImpl(
 	m->textureManager.MakeUploadProgress(m->deviceCommandContext.get());
 
 	// prepare before starting the renderer frame
-	if (g_Game && g_Game->IsGameStarted())
-	{
-		const CGameView& gameView{*g_Game->GetView()};
-		m->sceneRenderer.SetSceneCamera(gameView.GetCamera(), gameView.GetCullCamera());
-
-		g_Game->CachePlayerColors();
-	}
-
 	if (g_Game)
-		m->sceneRenderer.SetSimulation(g_Game->GetSimulation2());
+		m->sceneRenderer.SetGround(&g_Game->GetView()->GetRenderWorld());
 
 	// start new frame
 	BeginFrame();
@@ -898,7 +892,7 @@ void CRenderer::RenderBigScreenShot(const bool needsPresent)
 		return;
 	}
 
-	const CCamera oldCamera{g_Game->GetView()->GetCamera()};
+	const CCamera oldCamera{m->sceneRenderer.GetViewCamera()};
 
 	// Resize various things so that the sizes and aspect ratios are correct
 	{
@@ -925,9 +919,9 @@ void CRenderer::RenderBigScreenShot(const bool needsPresent)
 					oldCamera.GetFOV(), aspectRatio, oldCamera.GetNearPlane(), oldCamera.GetFarPlane(),
 					tiles, tileX, tileY);
 			}
-			CCamera camera{g_Game->GetView()->GetCamera()};
+			CCamera camera{oldCamera};
 			camera.SetProjection(projection);
-			g_Game->GetView()->SetCamera(camera);
+			m->sceneRenderer.SetSceneCamera(camera, camera);
 
 			Renderer::Backend::ISwapChain* swapChain{g_VideoMode.GetOrCreateSwapChain()};
 			if (!swapChain || !swapChain->IsValid())
@@ -963,7 +957,7 @@ void CRenderer::RenderBigScreenShot(const bool needsPresent)
 		CreateViewSizeDependentObjects(vp.m_Width, vp.m_Height);
 
 		g_Game->GetView()->SetViewport(vp);
-		g_Game->GetView()->SetCamera(oldCamera);
+		m->sceneRenderer.SetSceneCamera(oldCamera, oldCamera);
 	}
 
 	if (tex_write(&t, filename) == INFO::OK)
@@ -989,6 +983,8 @@ void CRenderer::BeginFrame()
 
 	// Zero out all the per-frame stats.
 	m_Stats.Reset();
+
+	m->vertexBufferManager.ReturnReleased();
 
 	if (m->ShadersDirty)
 		ReloadShaders();

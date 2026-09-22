@@ -26,9 +26,6 @@
 #include "graphics/SkeletonAnimDef.h"
 #include "lib/debug.h"
 #include "ps/CStr.h"
-#include "ps/Game.h"
-#include "simulation2/components/ICmpSoundManager.h"
-#include "simulation2/system/CmpPtr.h"
 
 #include <cmath>
 #include <cstdlib>
@@ -271,12 +268,8 @@ void CUnitAnimation::Update(float time)
 		}
 	}
 
-	if (!shouldPlaySound)
-		return;
-
-	CmpPtr<ICmpSoundManager> cmpSoundManager(*g_Game->GetSimulation2(), SYSTEM_ENTITY);
-	if (cmpSoundManager)
-		cmpSoundManager->PlaySoundGroup(m_ActionSound, m_Entity);
+	if (shouldPlaySound)
+		m_ActionSoundReached = true;
 }
 
 void CUnitAnimation::PickAnimationID()

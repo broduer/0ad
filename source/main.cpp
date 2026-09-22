@@ -315,6 +315,8 @@ static int ProgressiveLoad()
 			// current task didn't complete. we only care about this insofar as the
 			// load process is therefore not yet finished.
 		case ERR::TIMED_OUT:
+			if (g_Game)
+				g_Game->FlushRenderPackets();
 			break;
 			// just finished loading
 		case INFO::ALL_COMPLETE:
@@ -400,6 +402,9 @@ static void LogicStep(const float realTimeSinceLastFrame, RL::Interface* rlInter
 {
 	PROFILE2("logic");
 
+	if (g_Game)
+		g_Game->RefreshRenderFeedback();
+
 	// Decide if update is necessary
 	const bool needUpdate{g_app_has_focus || g_NetClient || !g_PauseOnFocusLoss};
 
@@ -454,6 +459,9 @@ static void LogicStep(const float realTimeSinceLastFrame, RL::Interface* rlInter
 		g_Game->GetView()->Update(float(realTimeSinceLastFrame));
 	}
 
+	if (g_Game && g_Game->IsGameStarted())
+		g_Game->FrameStep(realTimeSinceLastFrame);
+
 	// Keep us connected to any XMPP servers
 	if (g_XmppClient)
 		g_XmppClient->recv();
@@ -481,6 +489,9 @@ static void RenderStep(const int /*fixedFrameFrequency*/)
 	RendererIncrementalLoad();
 
 	TakeRenderingOptions();
+
+	if (g_Game && g_Game->IsGameStarted())
+		g_Game->RenderInterpolate();
 
 	g_Renderer.RenderFrame(true);
 

@@ -19,6 +19,7 @@
 #define INCLUDED_CCMPUNITMOTION
 
 #include "graphics/Color.h"
+#include "graphics/FramePacket.h"
 #include "graphics/Overlay.h"
 #include "lib/debug.h"
 #include "maths/Fixed.h"
@@ -392,11 +393,9 @@ public:
 	{
 		switch (msg.GetType())
 		{
-		case MT_RenderSubmit:
+		case MT_FrameStep:
 		{
-			PROFILE("UnitMotion::RenderSubmit");
-			const CMessageRenderSubmit& msgData = static_cast<const CMessageRenderSubmit&> (msg);
-			RenderSubmit(msgData.collector);
+			PublishDebugOverlay();
 			break;
 		}
 		case MT_PathResult:
@@ -446,8 +445,7 @@ public:
 
 	void UpdateMessageSubscriptions()
 	{
-		bool needRender = m_DebugOverlayEnabled;
-		GetSimContext().GetComponentManager().DynamicSubscriptionNonsync(MT_RenderSubmit, this, needRender);
+		GetSimContext().GetComponentManager().DynamicSubscriptionNonsync(MT_FrameStep, this, m_DebugOverlayEnabled);
 	}
 
 	bool IsMoveRequested() const override
@@ -567,6 +565,9 @@ public:
 
 	void SetDebugOverlay(bool enabled) override
 	{
+		if (!enabled && m_DebugOverlayEnabled)
+			if (RenderWorld::CFramePacket* packet = GetSimContext().GetFramePacket())
+				packet->debugLines.push_back({RenderWorld::DebugSource::UNIT_MOTION, GetEntityId()});
 		m_DebugOverlayEnabled = enabled;
 		UpdateMessageSubscriptions();
 	}
@@ -920,7 +921,7 @@ private:
 	 */
 	void RenderPath(const WaypointPath& path, std::vector<SOverlayLine>& lines, CColor color);
 
-	void RenderSubmit(SceneCollector& collector);
+	void PublishDebugOverlay();
 };
 
 REGISTER_COMPONENT_TYPE(UnitMotion)
@@ -1963,22 +1964,23 @@ void CCmpUnitMotion::RenderPath(const WaypointPath& path, std::vector<SOverlayLi
 
 }
 
-void CCmpUnitMotion::RenderSubmit(SceneCollector& collector)
+void CCmpUnitMotion::PublishDebugOverlay()
 {
-    if (!m_DebugOverlayEnabled)
-        return;
+	RenderWorld::CFramePacket* packet = GetSimContext().GetFramePacket();
+	if (!m_DebugOverlayEnabled || !packet)
+		return;
 
-    const auto& palette{m_IsFormationController ?
-        FORMATION_CONTROLLER_PALETTE : REGULAR_UNIT_PALETTE};
+	const auto& palette{m_IsFormationController ?
+		FORMATION_CONTROLLER_PALETTE : REGULAR_UNIT_PALETTE};
 
-    RenderPath(m_LongPath, m_DebugOverlayLongPathLines, palette.longPath);
-    RenderPath(m_ShortPath, m_DebugOverlayShortPathLines, palette.shortPath);
+	RenderPath(m_LongPath, m_DebugOverlayLongPathLines, palette.longPath);
+	RenderPath(m_ShortPath, m_DebugOverlayShortPathLines, palette.shortPath);
 
-	for (SOverlayLine& line : m_DebugOverlayLongPathLines)
-		collector.Submit(&line);
-
-	for (SOverlayLine& line : m_DebugOverlayShortPathLines)
-		collector.Submit(&line);
+	RenderWorld::SDebugLines& lines = packet->debugLines.emplace_back();
+	lines.source = RenderWorld::DebugSource::UNIT_MOTION;
+	lines.entity = GetEntityId();
+	lines.lines = m_DebugOverlayLongPathLines;
+	lines.lines.insert(lines.lines.end(), m_DebugOverlayShortPathLines.begin(), m_DebugOverlayShortPathLines.end());
 }
 
 #endif // INCLUDED_CCMPUNITMOTION

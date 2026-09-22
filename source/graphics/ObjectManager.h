@@ -24,6 +24,7 @@
 #include "ps/CStr.h"
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <set>
@@ -32,12 +33,12 @@
 #include <vector>
 
 class CActorDef;
-class CConfigDBHook;
+class CRenderingOptions;
 class CMeshManager;
 class CObjectBase;
 class CObjectEntry;
 class CSkeletonAnimManager;
-class CSimulation2;
+class IGroundView;
 class CTerrain;
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -72,7 +73,7 @@ public:
 public:
 
 	// constructor, destructor
-	CObjectManager(CMeshManager& meshManager, CSkeletonAnimManager& skeletonAnimManager, CSimulation2& simulation);
+	CObjectManager(CMeshManager& meshManager, CSkeletonAnimManager& skeletonAnimManager);
 	~CObjectManager();
 
 	// Provide access to the manager classes for meshes and animations - they're
@@ -106,10 +107,10 @@ public:
 	CObjectEntry* FindObjectVariation(const CStrW& objname, const std::vector<const std::set<CStr>*>& completeSelections);
 
 	/**
-	 * Get the terrain object that actors managed by this manager should be linked
-	 * with (primarily for the purpose of decals)
+	 * Set where the models of new objects find the ground and water, before
+	 * the first object is created.
 	 */
-	CTerrain* GetTerrain();
+	void SetGround(const IGroundView& ground) { m_Ground = &ground; }
 
 	VariantDiversity GetVariantDiversity() const;
 
@@ -120,24 +121,27 @@ public:
 	Status ReloadChangedFile(const VfsPath& path);
 
 	/**
-	 * Reload actors that have a quality setting. Used when changing the actor quality.
+	 * Set the callback that rebuilds the units of an actor (after a hotload),
+	 * or all units for an empty name (after a quality or diversity change).
 	 */
-	void ActorQualityChanged();
+	void SetActorsChangedCallback(std::function<void(const std::wstring&)> callback)
+	{
+		m_ActorsChanged = std::move(callback);
+	}
 
 	/**
-	 * Reload actors. Used when changing the variant diversity.
+	 * Follow the actor quality and variant diversity options, rebuilding the
+	 * units through the actors-changed callback when they change.
 	 */
-	void VariantDiversityChanged();
+	void UpdateOptions(const CRenderingOptions& options);
 
 	CMeshManager& m_MeshManager;
 	CSkeletonAnimManager& m_SkeletonAnimManager;
-	CSimulation2& m_Simulation;
+	const IGroundView* m_Ground{nullptr};
+	std::function<void(const std::wstring&)> m_ActorsChanged;
 
 	std::uint8_t m_QualityLevel = 100;
-	std::unique_ptr<CConfigDBHook> m_QualityHook;
-
 	VariantDiversity m_VariantDiversity = VariantDiversity::FULL;
-	std::unique_ptr<CConfigDBHook> m_VariantDiversityHook;
 
 	template<typename T>
 	struct Hotloadable

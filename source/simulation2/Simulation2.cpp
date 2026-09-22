@@ -19,7 +19,9 @@
 
 #include "Simulation2.h"
 
+#include "graphics/FramePacket.h"
 #include "graphics/MapReader.h"
+#include "graphics/RenderWorld.h"
 #include "graphics/Terrain.h"
 #include "lib/debug.h"
 #include "lib/file/file_system.h"
@@ -148,10 +150,10 @@ public:
 	PS::Loader::Task ProgressiveLoad();
 	void Update(int turnLength, const std::vector<SimulationCommand>& commands);
 	static void UpdateComponents(CSimContext& simContext, fixed turnLengthFixed, const std::vector<SimulationCommand>& commands);
-	void Interpolate(float simFrameLength, float frameOffset, float realFrameLength);
 
 	void DumpState();
 
+	RenderWorld::CFramePacket m_FramePacket;
 	CSimContext m_SimContext;
 	CComponentManager m_ComponentManager;
 	float m_LastFrameOffset;
@@ -550,6 +552,8 @@ void CSimulation2Impl::UpdateComponents(CSimContext& simContext, fixed turnLengt
 
 	{
 		PROFILE2("Sim - Update Start");
+		if (RenderWorld::CFramePacket* packet = simContext.GetFramePacket())
+			packet->turnStarted = true;
 		CMessageTurnStart msgTurnStart;
 		componentManager.BroadcastMessage(msgTurnStart);
 	}
@@ -614,19 +618,6 @@ void CSimulation2Impl::UpdateComponents(CSimContext& simContext, fixed turnLengt
 	}
 
 	componentManager.GetScriptInterface().GetContext().RunJobs();
-}
-
-void CSimulation2Impl::Interpolate(float simFrameLength, float frameOffset, float realFrameLength)
-{
-	PROFILE3("sim interpolate");
-
-	m_LastFrameOffset = frameOffset;
-
-	CMessageInterpolate msg(simFrameLength, frameOffset, realFrameLength);
-	m_ComponentManager.BroadcastMessage(msg);
-
-	// Clean up any entities destroyed during interpolate (e.g. local corpses)
-	m_ComponentManager.FlushDestroyedComponents();
 }
 
 void CSimulation2Impl::DumpState()
@@ -761,17 +752,42 @@ void CSimulation2::Update(int turnLength, const std::vector<SimulationCommand>& 
 	m->Update(turnLength, commands);
 }
 
-void CSimulation2::Interpolate(float simFrameLength, float frameOffset, float realFrameLength)
+void CSimulation2::PrepareFrameStep()
 {
-	m->Interpolate(simFrameLength, frameOffset, realFrameLength);
+	PROFILE3("sim frame prepare");
+
+	CMessageFramePrepare msg;
+	m->m_ComponentManager.BroadcastMessage(msg);
 }
 
-void CSimulation2::RenderSubmit(SceneCollector& collector, const CFrustum& frustum, bool culling)
+void CSimulation2::FrameStep(float simFrameLength, float frameOffset, float realFrameLength)
 {
-	PROFILE3("sim submit");
+	PROFILE3("sim frame step");
 
-	CMessageRenderSubmit msg(collector, frustum, culling);
+	m->m_LastFrameOffset = frameOffset;
+	CMessageFrameStep msg(simFrameLength, frameOffset, realFrameLength);
 	m->m_ComponentManager.BroadcastMessage(msg);
+
+	// Clean up any entities destroyed during the step (e.g. local corpses)
+	m->m_ComponentManager.FlushDestroyedComponents();
+}
+
+void CSimulation2::SetDisplayed(const bool displayed)
+{
+	m->m_SimContext.SetFramePacket(displayed ? &m->m_FramePacket : nullptr);
+}
+
+bool CSimulation2::TakeFramePacket(RenderWorld::CFramePacket& packet)
+{
+	if (!m->m_SimContext.GetFramePacket())
+		return false;
+	std::swap(packet, m->m_FramePacket);
+	return true;
+}
+
+void CSimulation2::SetRenderFeedback(std::shared_ptr<const RenderWorld::SFeedback> feedback)
+{
+	m->m_SimContext.SetRenderFeedback(std::move(feedback));
 }
 
 float CSimulation2::GetLastFrameOffset() const

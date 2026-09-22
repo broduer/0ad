@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -37,6 +37,8 @@ MESSAGE(Update_MotionUnit)
 MESSAGE(Update_Final)
 MESSAGE(Interpolate) // non-deterministic (use with caution)
 MESSAGE(RenderSubmit) // non-deterministic (use with caution)
+MESSAGE(FramePrepare) // non-deterministic (use with caution)
+MESSAGE(FrameStep) // non-deterministic (use with caution)
 MESSAGE(ProgressiveLoad) // non-deterministic (use with caution)
 MESSAGE(Deserialized) // non-deterministic (use with caution)
 MESSAGE(Create)

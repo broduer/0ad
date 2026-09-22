@@ -1057,13 +1057,13 @@ void VertexPathfinderDebugOverlay::DebugRenderEdges(const CSimContext&, bool /*v
 	*/
 }
 
-void VertexPathfinderDebugOverlay::RenderSubmit(SceneCollector& collector)
+bool VertexPathfinderDebugOverlay::TakeLines(std::vector<SOverlayLine>& lines)
 {
 	if (!m_DebugOverlay)
-		return;
+		return false;
 
 	std::lock_guard<std::mutex> lock(g_DebugMutex);
 	m_DebugOverlayShortPathLines.swap(m_DebugOverlayShortPathLinesSubmitted);
-	for (size_t i = 0; i < m_DebugOverlayShortPathLinesSubmitted.size(); ++i)
-		collector.Submit(&m_DebugOverlayShortPathLinesSubmitted[i]);
+	lines = m_DebugOverlayShortPathLinesSubmitted;
+	return true;
 }

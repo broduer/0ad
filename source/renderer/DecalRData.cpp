@@ -21,6 +21,7 @@
 
 #include "graphics/Color.h"
 #include "graphics/Decal.h"
+#include "graphics/GroundView.h"
 #include "graphics/Material.h"
 #include "graphics/ShaderDefines.h"
 #include "graphics/ShaderManager.h"
@@ -46,9 +47,6 @@
 #include "renderer/backend/IBuffer.h"
 #include "renderer/backend/IDeviceCommandContext.h"
 #include "renderer/backend/IShaderProgram.h"
-#include "simulation2/components/ICmpWaterManager.h"
-#include "simulation2/system/Component.h"
-#include "simulation2/system/Entity.h"
 
 #include <algorithm>
 #include <array>
@@ -137,17 +135,17 @@ Renderer::Backend::IVertexInputLayout* CDecalRData::GetVertexInputLayout()
 	return g_Renderer.GetVertexInputLayout(attributes);
 }
 
-CDecalRData::CDecalRData(CModelDecal* decal, CSimulation2* simulation)
-	: m_Decal(decal), m_Simulation(simulation)
+CDecalRData::CDecalRData(CModelDecal* decal, const IGroundView* ground)
+	: m_Decal(decal), m_Ground(ground)
 {
 	BuildVertexData();
 }
 
 CDecalRData::~CDecalRData() = default;
 
-void CDecalRData::Update(CSimulation2* simulation)
+void CDecalRData::Update(const IGroundView* ground)
 {
-	m_Simulation = simulation;
+	m_Ground = ground;
 	if (m_UpdateFlags != 0)
 	{
 		BuildVertexData();
@@ -342,8 +340,6 @@ void CDecalRData::BuildVertexData()
 		return;
 	}
 
-	CmpPtr<ICmpWaterManager> cmpWaterManager(*m_Simulation, SYSTEM_ENTITY);
-
 	std::vector<SDecalVertex> vertices((i1 - i0 + 1) * (j1 - j0 + 1));
 	const CMatrix3D invTransform{m_Decal->GetInvTransform()};
 
@@ -354,12 +350,8 @@ void CDecalRData::BuildVertexData()
 			SDecalVertex& vertex = vertices[idx];
 			m_Decal->m_Terrain->CalcPosition(i, j, vertex.m_Position);
 
-			if (decal.m_Floating && cmpWaterManager)
-			{
-				vertex.m_Position.Y = std::max(
-					vertex.m_Position.Y,
-					cmpWaterManager->GetExactWaterLevel(vertex.m_Position.X, vertex.m_Position.Z));
-			}
+			if (decal.m_Floating && m_Ground)
+				vertex.m_Position.Y = std::max(vertex.m_Position.Y, m_Ground->GetWaterLevel());
 
 			m_Decal->m_Terrain->CalcNormal(i, j, vertex.m_Normal);
 

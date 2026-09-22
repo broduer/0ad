@@ -75,7 +75,7 @@ struct ParticleClosestInFrontCompare
 } // anonymous namespace
 
 CParticleEmitter::CParticleEmitter(const CParticleEmitterType& type) :
-	m_Type(type), m_LastUpdateTime(type.m_Manager.GetCurrentTime()),
+	m_Type(type), m_LastUpdateTime(0.0f),
 	m_IndexArray(Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
 	m_VertexArray(Renderer::Backend::IBuffer::Type::VERTEX,
 		Renderer::Backend::IBuffer::Usage::DYNAMIC | Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
@@ -83,16 +83,6 @@ CParticleEmitter::CParticleEmitter(const CParticleEmitterType& type) :
 		Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
 	m_LastFrameNumber(-1), m_UseInstancing{type.m_Manager.ShouldUseInstancing()}
 {
-	// If we should start with particles fully emitted, pretend that we
-	// were created in the past so the first update will produce lots of
-	// particles.
-	// TODO: instead of this, maybe it would make more sense to do a full
-	// lifetime-length update of all emitters when the game first starts
-	// (so that e.g. buildings constructed later on won't have fully-started
-	// emitters, but those at the start will)?
-	if (m_Type.m_StartFull)
-		m_LastUpdateTime -= m_Type.m_MaxLifetime;
-
 	m_Particles.reserve(m_Type.m_MaxParticles);
 
 	m_AttributePos.format = Renderer::Backend::Format::R32G32B32_SFLOAT;
@@ -133,9 +123,6 @@ CParticleEmitter::CParticleEmitter(const CParticleEmitterType& type) :
 		++attrUV;
 	}
 
-	m_VertexUVArray.Upload();
-	m_VertexUVArray.FreeBackingStore();
-
 	m_IndexArray.SetNumberOfVertices(m_UseInstancing ? 6 : m_Type.m_MaxParticles * 6);
 	m_IndexArray.Layout();
 	VertexArrayIterator<std::uint16_t> index = m_IndexArray.GetIterator();
@@ -148,8 +135,6 @@ CParticleEmitter::CParticleEmitter(const CParticleEmitterType& type) :
 		*index++ = i*4 + 3;
 		*index++ = i*4 + 0;
 	}
-	m_IndexArray.Upload();
-	m_IndexArray.FreeBackingStore();
 
 	const uint32_t stride{m_VertexArray.GetStride()};
 	const Renderer::Backend::VertexAttributeRate dynamicDataRate{
@@ -180,6 +165,29 @@ void CParticleEmitter::UpdateArrayData(int frameNumber)
 {
 	if (m_LastFrameNumber == frameNumber)
 		return;
+
+	// The emitter may be built on the logic thread, which must not touch the
+	// device or the render thread's particle clock, so upload the fixed data
+	// and start the clock on first use.
+	if (!m_Started)
+	{
+		m_VertexUVArray.Upload();
+		m_VertexUVArray.FreeBackingStore();
+		m_IndexArray.Upload();
+		m_IndexArray.FreeBackingStore();
+
+		m_LastUpdateTime = m_Type.m_Manager.GetCurrentTime();
+		// If we should start with particles fully emitted, pretend that we
+		// were created in the past so the first update will produce lots of
+		// particles.
+		// TODO: instead of this, maybe it would make more sense to do a full
+		// lifetime-length update of all emitters when the game first starts
+		// (so that e.g. buildings constructed later on won't have fully-started
+		// emitters, but those at the start will)?
+		if (m_Type.m_StartFull)
+			m_LastUpdateTime -= m_Type.m_MaxLifetime;
+		m_Started = true;
+	}
 
 	PS::Memory::ScopedLinearAllocator scopedLinearAllocator{g_Renderer.GetLinearAllocator()};
 

@@ -18,47 +18,36 @@
 #ifndef INCLUDED_ICMPMODELRENDERER
 #define INCLUDED_ICMPMODELRENDERER
 
+#include "maths/Vector3D.h"
 #include "simulation2/system/Component.h"
+#include "simulation2/system/Entity.h"
 #include "simulation2/system/Interface.h"
 
 #include <js/Value.h>
 #include <utility>
 #include <vector>
 
-class CBoundingSphere;
 class CEntityHandle;
-class CUnit;
-class CVector3D;
 
+/**
+ * The simulation's side of unit rendering: the render world draws the units,
+ * this keeps their LOS visibility current and answers picking queries from
+ * what the render world last reported.
+ */
 class ICmpUnitRenderer : public IComponent
 {
 public:
 	/**
-	 * External identifiers for models.
-	 * (This is a struct rather than a raw std::uint32_t for type-safety.)
+	 * Register an entity whose unit the render world draws.
 	 */
-	struct tag_t
-	{
-		tag_t() : n(0) {}
-		explicit tag_t(std::uint32_t n) : n(n) {}
-		bool valid() const { return n != 0; }
+	virtual void AddUnit(CEntityHandle entity) = 0;
 
-		std::uint32_t n;
-	};
+	virtual void RemoveUnit(entity_id_t entity) = 0;
 
-	enum
-	{
-		ACTOR_ONLY = 1 << 0,
-		VISIBLE_IN_ATLAS_ONLY = 1 << 1,
-	};
-
-	virtual tag_t AddUnit(CEntityHandle entity, CUnit* unit, const CBoundingSphere& boundsApprox, int flags) = 0;
-
-	virtual void RemoveUnit(tag_t tag) = 0;
-
-	virtual void UpdateUnit(tag_t tag, CUnit* unit, const CBoundingSphere& boundsApprox) = 0;
-
-	virtual void UpdateUnitPos(tag_t tag, bool inWorld, const CVector3D& pos0, const CVector3D& pos1) = 0;
+	/**
+	 * Recompute the entity's visibility before the next frame, as it moved or left the world.
+	 */
+	virtual void MarkVisibilityDirty(entity_id_t entity) = 0;
 
 	/**
 	 * Return a list of visual entities along with their center point.
@@ -72,11 +61,6 @@ public:
 	virtual void PickAllEntitiesAtPoint(std::vector<std::pair<CEntityHandle, CVector3D> >& outEntities,
 		const CVector3D& origin, const CVector3D& dir,
 		bool allowEditorSelectables) const = 0;
-
-	/**
-	 * Returns the frame offset from the last Interpolate message.
-	 */
-	virtual float GetFrameOffset() const = 0;
 
 	/**
 	 * Toggle the rendering of debug info.

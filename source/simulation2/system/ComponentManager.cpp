@@ -20,6 +20,7 @@
 #include "ComponentManager.h"
 
 #include "graphics/HeightMipmap.h"
+#include "lib/code_generation.h"
 #include "lib/utf8.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
@@ -502,6 +503,7 @@ void CComponentManager::ResetState()
 	// Delete all dynamic message subscriptions
 	m_DynamicMessageSubscriptionsNonsync.clear();
 	m_DynamicMessageSubscriptionsNonsyncByComponent.clear();
+	m_FrameStepRequests.clear();
 
 	// Remove all items we were tracing.
 	m_TraceCache.clear();
@@ -611,6 +613,11 @@ void CComponentManager::FlattenDynamicSubscriptions()
 	{
 		it->second.Flatten();
 	}
+}
+
+void CComponentManager::RequestFrameStep(IComponent* component)
+{
+	m_FrameStepRequests.push_back(component);
 }
 
 void CComponentManager::DynamicSubscriptionNonsync(MessageTypeId mtid, IComponent* component, bool enable)
@@ -971,6 +978,7 @@ void CComponentManager::FlushDestroyedComponents()
 				{
 					eit->second->Deinit();
 					RemoveComponentDynamicSubscriptions(eit->second);
+					std::erase(m_FrameStepRequests, eit->second);
 					m_ComponentTypesById[iit->first].dealloc(eit->second);
 					iit->second.erase(ent);
 					handle.GetComponentCache()->interfaces[m_ComponentTypesById[iit->first].iid] = NULL;
@@ -1072,6 +1080,14 @@ void CComponentManager::PostMessage(entity_id_t ent, const CMessage& msg)
 
 void CComponentManager::BroadcastMessage(const CMessage& msg)
 {
+	if (msg.GetType() == MT_FrameStep)
+	{
+		m_FrameStepDelivering.swap(m_FrameStepRequests);
+		for (IComponent* component : m_FrameStepDelivering)
+			component->HandleMessage(msg, false);
+		m_FrameStepDelivering.clear();
+	}
+
 	// Send the message to components of all entities that subscribed locally to this message
 	std::map<MessageTypeId, std::vector<ComponentTypeId> >::const_iterator it;
 	it = m_LocalMessageSubscriptions.find(msg.GetType());
@@ -1080,6 +1096,16 @@ void CComponentManager::BroadcastMessage(const CMessage& msg)
 		std::vector<ComponentTypeId>::const_iterator ctit = it->second.begin();
 		for (; ctit != it->second.end(); ++ctit)
 		{
+			// The frame step records what the render world draws; no script.
+			if (msg.GetType() == MT_FrameStep)
+			{
+				const auto type = m_ComponentTypesById.find(*ctit);
+				if (type != m_ComponentTypesById.end() && type->second.type == CT_Script)
+				{
+					ONCE(LOGERROR("Script component %s subscribes to FrameStep; it is not delivered", type->second.name.c_str()));
+					continue;
+				}
+			}
 			// Find the component instances of this type (if any)
 			std::map<ComponentTypeId, std::map<entity_id_t, IComponent*> >::const_iterator emap = m_ComponentsByTypeId.find(*ctit);
 			if (emap == m_ComponentsByTypeId.end())

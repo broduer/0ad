@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -137,7 +137,7 @@ public:
 		}
 
 		if (m_Active)
-			GetSimContext().GetComponentManager().DynamicSubscriptionNonsync(MT_Interpolate, this, true);
+			GetSimContext().GetComponentManager().DynamicSubscriptionNonsync(MT_FrameStep, this, true);
 	}
 
 	void Deinit() override
@@ -158,14 +158,14 @@ public:
 	{
 		switch (msg.GetType())
 		{
-		case MT_Interpolate:
+		case MT_FrameStep:
 		{
-			PROFILE("Decay::Interpolate");
+			PROFILE("Decay::FrameStep");
 
 			if (!m_Active)
 				break;
 
-			const CMessageInterpolate& msgData = static_cast<const CMessageInterpolate&> (msg);
+			const CMessageFrameStep& msgData = static_cast<const CMessageFrameStep&> (msg);
 
 			CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
 			if (!cmpPosition || !cmpPosition->IsInWorld())

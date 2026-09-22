@@ -150,8 +150,6 @@ public:
 	void SetHeightRelative(bool) override {}
 	bool CanFloat() const override { return false; }
 	void SetFloating(bool) override {}
-	void SetActorFloating(bool) override {}
-	void SetActorAnchor(const CStr&) override {}
 	void SetConstructionProgress(fixed) override {}
 	CFixedVector3D GetPosition() const override { return m_Pos; }
 	CFixedVector2D GetPosition2D() const override { return CFixedVector2D(m_Pos.X, m_Pos.Z); }

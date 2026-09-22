@@ -33,6 +33,7 @@
 #include "graphics/Overlay.h"
 #include "graphics/ParticleManager.h"
 #include "graphics/Patch.h"
+#include "graphics/RenderWorld.h"
 #include "graphics/SkeletonAnimManager.h"
 #include "graphics/Terrain.h"
 #include "graphics/TerrainTextureManager.h"
@@ -93,12 +94,30 @@ public:
 		SkeletonAnimManager(ColladaManager),
 		UnitManager(),
 		Simulation2{&UnitManager, *g_ScriptContext, &Terrain, CSimulation2::DEFAULT_SCRIPTS},
-		ObjectManager(MeshManager, SkeletonAnimManager, Simulation2),
+		ObjectManager(MeshManager, SkeletonAnimManager),
+		RenderedWorld(UnitManager, Terrain),
 		LOSTexture(Simulation2),
 		TerritoryTexture(Simulation2),
 		MiniMapTexture(g_VideoMode.GetBackendDevice(), Simulation2)
 	{
 		UnitManager.SetObjectManager(ObjectManager);
+		ObjectManager.SetGround(RenderedWorld);
+		ObjectManager.SetActorsChangedCallback([this](const std::wstring& actorName)
+		{
+			RenderedWorld.ReloadActors(actorName);
+		});
+		Simulation2.SetDisplayed(true);
+	}
+
+	/**
+	 * Apply the simulation's records to the render world immediately, as the
+	 * viewer runs both on one thread.
+	 */
+	void Flush()
+	{
+		RenderWorld::CFramePacket packet;
+		if (Simulation2.TakeFramePacket(packet))
+			RenderedWorld.Apply(packet);
 	}
 
 	entity_id_t Entity;
@@ -126,7 +145,9 @@ public:
 	CSkeletonAnimManager SkeletonAnimManager;
 	CUnitManager UnitManager;
 	CSimulation2 Simulation2;
-	CObjectManager ObjectManager; // Keep this after Simulation2 - it needs it for initialisation.
+	CObjectManager ObjectManager;
+	// Declared after the object manager so its units are destroyed first.
+	RenderWorld::CRenderWorld RenderedWorld;
 	CLOSTexture LOSTexture;
 	CTerritoryTexture TerritoryTexture;
 	CMiniMapTexture MiniMapTexture;
@@ -218,8 +239,7 @@ public:
 			}
 		}
 
-		// send a RenderSubmit message so the components can submit their visuals to the renderer
-		Simulation2.RenderSubmit(*c, frustum, false);
+		RenderedWorld.Submit(*c, frustum, false);
 	}
 
 	virtual CLOSTexture& GetLOSTexture()
@@ -249,16 +269,8 @@ void ActorViewerImpl::UpdatePropList()
 {
 	PropModels.clear();
 
-	CmpPtr<ICmpVisual> cmpVisual(Simulation2, Entity);
-	if (cmpVisual)
-	{
-		CUnit* unit = cmpVisual->GetUnit();
-		if (unit)
-		{
-			CModelAbstract& modelAbstract = unit->GetModel();
-			UpdatePropListRecursive(&modelAbstract);
-		}
-	}
+	if (CUnit* unit = RenderedWorld.GetUnit(Entity))
+		UpdatePropListRecursive(&unit->GetModel());
 }
 
 void ActorViewerImpl::UpdatePropListRecursive(CModelAbstract* modelAbstract)
@@ -451,6 +463,8 @@ void ActorViewer::SetActor(const CStrW& name, const CStr& animation, player_id_t
 				cmpVisual->SetAnimationSyncRepeat(fixed::FromFloat(repeatTime));
 		}
 
+		m.Flush();
+
 		// update prop list for new entity/animation (relies on needsAnimReload also getting called for entire entity changes)
 		m.UpdatePropList();
 	}
@@ -533,8 +547,7 @@ void ActorViewer::Render()
 
 	CSceneRenderer& sceneRenderer = g_Renderer.GetSceneRenderer();
 
-	// Set simulation context for rendering purposes
-	sceneRenderer.SetSimulation(&m.Simulation2);
+	sceneRenderer.SetGround(&m.RenderedWorld);
 
 	// Find the centre of the interesting region, in the middle of the patch
 	// and half way up the model (assuming there is one)
@@ -590,7 +603,15 @@ void ActorViewer::Render()
 void ActorViewer::Update(float simFrameLength, float realFrameLength)
 {
 	m.Simulation2.Update((int)(simFrameLength*1000));
-	m.Simulation2.Interpolate(simFrameLength, 0, realFrameLength);
+	m.Simulation2.PrepareFrameStep();
+	m.Simulation2.FrameStep(simFrameLength, 0, realFrameLength);
+	m.ObjectManager.UpdateOptions(g_RenderingOptions);
+	m.Flush();
+	m.RenderedWorld.PublishFeedback();
+	m.RenderedWorld.Interpolate(simFrameLength, 0, realFrameLength, false);
+	// The viewer plays no sounds.
+	std::vector<RenderWorld::SSoundEvent> sounds;
+	m.RenderedWorld.TakeSoundEvents(sounds);
 
 	if (m.WalkEnabled && m.CurrentSpeed)
 	{

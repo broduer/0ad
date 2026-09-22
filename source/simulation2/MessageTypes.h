@@ -307,6 +307,39 @@ public:
 };
 
 /**
+ * Prepares visual state on the logic thread before MT_FrameStep.
+ * May call script.
+ */
+class CMessageFramePrepare final : public CMessage
+{
+public:
+	DEFAULT_MESSAGE_IMPL(FramePrepare)
+
+	CMessageFramePrepare()
+	{
+	}
+};
+
+/**
+ * Writes non-deterministic render state into the frame packet.
+ * Handlers must not run script or modify synchronized simulation state.
+ */
+class CMessageFrameStep final : public CMessage
+{
+public:
+	DEFAULT_MESSAGE_IMPL(FrameStep)
+
+	CMessageFrameStep(float deltaSimTime, float offset, float deltaRealTime) :
+		deltaSimTime(deltaSimTime), offset(offset), deltaRealTime(deltaRealTime)
+	{
+	}
+
+	float deltaSimTime;
+	float offset;
+	float deltaRealTime;
+};
+
+/**
  * Sent by CCmpUnitMotion during Update if an event happened that might interest other components.
  */
 class CMessageMotionUpdate final : public CMessage

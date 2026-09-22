@@ -77,8 +77,6 @@ public:
 	void SetHeightRelative(bool /*relative*/) override { }
 	bool CanFloat() const override { return false; }
 	void SetFloating(bool /*flag*/) override { }
-	void SetActorFloating(bool /*flag*/) override { }
-	void SetActorAnchor(const CStr& /*anchor*/) override { }
 	void SetConstructionProgress(fixed /*progress*/) override { }
 	CFixedVector3D GetPosition() const override { return m_Pos; }
 	CFixedVector2D GetPosition2D() const override { return CFixedVector2D(m_Pos.X, m_Pos.Z); }

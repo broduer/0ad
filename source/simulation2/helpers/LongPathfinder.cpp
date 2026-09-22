@@ -19,6 +19,7 @@
 
 #include "LongPathfinder.h"
 
+#include "graphics/FramePacket.h"
 #include "graphics/SColor.h"
 #include "maths/Fixed.h"
 #include "maths/FixedVector2D.h"
@@ -459,20 +460,19 @@ LongPathfinder::LongPathfinder() :
 
 LongPathfinder::~LongPathfinder()
 {
-	SAFE_DELETE(m_Debug.Overlay);
 	SAFE_DELETE(m_Debug.Grid);
 	SAFE_DELETE(m_Debug.Path);
 }
 
 void LongPathfinder::SetDebugOverlay(bool enabled)
 {
-	if (enabled && !m_Debug.Overlay)
-	{
-		m_Debug.Overlay = new TerrainTextureOverlay{Pathfinding::NAVCELLS_PER_TERRAIN_TILE,
-			std::bind_front(BuildTextureRGBA, std::ref(*this))};
-	}
-	else if (!enabled && m_Debug.Overlay)
-		SAFE_DELETE(m_Debug.Overlay);
+	m_Debug.Enabled = enabled;
+}
+
+std::shared_ptr<const RenderWorld::STerrainOverlay> LongPathfinder::BuildDebugOverlay(const std::ptrdiff_t tilesPerSide)
+{
+	return RenderWorld::BuildTerrainOverlay(Pathfinding::NAVCELLS_PER_TERRAIN_TILE, tilesPerSide,
+		[this](std::uint8_t* data, const std::size_t w, const std::size_t h) { BuildTextureRGBA(*this, data, w, h); });
 }
 
 #define PASSABLE(i, j) IS_PASSABLE(state.terrain->get(i, j), state.passClass)
@@ -996,7 +996,7 @@ void LongPathfinder::ComputeJPSPath(const HierarchicalPathfinder& hierPath, enti
 	ImprovePathWaypoints(path, passClass, origGoal.maxdist, x0, z0);
 
 	// Save this grid for debug display
-	if (m_Debug.Overlay)
+	if (m_Debug.Enabled)
 	{
 		std::lock_guard<std::mutex> lock(g_DebugMutex);
 		delete m_Debug.Grid;

@@ -22,14 +22,18 @@
 #include "renderer/Scene.h"
 #include "simulation2/system/Entity.h"
 
+#include <memory>
+
 class CCamera;
 class CCinemaManager;
 class CGame;
 class CGameViewImpl;
 class CObjectManager;
 class CVector3D;
+namespace RenderWorld { class CPacketQueue; class CRenderWorld; struct SLosGrid; }
 namespace Renderer::Backend { class IDevice; }
 namespace Renderer::Backend { class IDeviceCommandContext; }
+struct SViewFrame;
 struct SViewPort;
 union SDL_Event;
 
@@ -51,6 +55,25 @@ public:
 	 * @param deltaRealTime Elapsed real time since the last frame.
 	 */
 	void Update(const float deltaRealTime);
+
+	/**
+	 * Prepare the bitmaps and minimap entities and hand them over with the
+	 * cameras for the frame packet. Logic thread only.
+	 */
+	void PrepareFrameStep(float realTimeDelta);
+	std::shared_ptr<SViewFrame> PublishFrameStep();
+
+	/**
+	 * Return the displayed player's LOS grid if it changed since the last
+	 * call. Logic thread only.
+	 */
+	std::shared_ptr<const RenderWorld::SLosGrid> TakeLosGrid();
+
+	/**
+	 * Take a frame packet's cameras and texture data. Render thread, or the
+	 * logic thread while the render thread is paused.
+	 */
+	void TakePublished(SViewFrame& frame);
 
 	void EnumerateSceneObjects();
 
@@ -83,6 +106,12 @@ public:
 
 	CCinemaManager* GetCinema();
 	CObjectManager& GetObjectManager();
+
+	/**
+	 * Render thread only, or the logic thread while the render thread is paused.
+	 */
+	RenderWorld::CRenderWorld& GetRenderWorld();
+	RenderWorld::CPacketQueue& GetPacketQueue();
 
 	// Implementations of Scene
 	void EnumerateObjects(const CFrustum& frustum, SceneCollector* c) override;

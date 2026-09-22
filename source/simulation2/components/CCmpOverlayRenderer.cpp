@@ -20,23 +20,18 @@
 #include "ICmpOverlayRenderer.h"
 
 #include "graphics/Color.h"
-#include "graphics/HeightMipmap.h"
-#include "graphics/Overlay.h"
-#include "graphics/TextureManager.h"
+#include "graphics/FramePacket.h"
 #include "maths/FixedVector2D.h"
-#include "maths/Matrix3D.h"
 #include "maths/Vector3D.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
 #include "ps/Profile.h"
-#include "renderer/Renderer.h"
-#include "renderer/Scene.h"
 #include "simulation2/MessageTypes.h"
-#include "simulation2/components/ICmpPosition.h"
 #include "simulation2/components/ICmpRangeManager.h"
 #include "simulation2/helpers/Player.h"
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Message.h"
+#include "simulation2/system/SimContext.h"
 
 #include <cstddef>
 #include <string>
@@ -52,21 +47,17 @@ public:
 
 	DEFAULT_COMPONENT_ALLOCATOR(OverlayRenderer)
 
-	// Currently-enabled set of sprites
-	std::vector<SOverlaySprite> m_Sprites;
-
-	// For each entry in m_Sprites, store the offset of the sprite from the unit's position
-	// (so we can recompute the sprite position after the unit moves)
-	std::vector<CVector3D> m_SpriteOffsets;
-
-	// Whether the sprites should be drawn (only valid between Interpolate and RenderSubmit)
-	bool m_Enabled;
+	// Recorded for the render world at the frame step.
+	std::vector<RenderWorld::SSprite> m_Sprites;
 
 	// NOT SAFE TO SERIALIZE - used to hide status bars/auras of entities invisible to the player.
 	// We also can't just deserialize it because annoyingly the range manager computes LOS data on deserialize...
 	LosVisibility m_VisibilityToCurrentPlayer = LosVisibility::VISIBLE;
 	// So to work around that, just store which player we saved this for last.
 	player_id_t m_LastStoredPlayerVisibility = INVALID_PLAYER;
+	bool m_RenderDirty = false;
+	// Whether subscribed to turn starts, to follow changes of the displayed player.
+	bool m_FollowingTurns = false;
 
 	static std::string GetSchema()
 	{
@@ -79,6 +70,8 @@ public:
 
 	void Deinit() override
 	{
+		if (RenderWorld::CFramePacket* packet = GetSimContext().GetFramePacket())
+			packet->overlays.emplace_back(RenderWorld::Overlay::RemoveEntity{GetEntityId()});
 	}
 
 	void Serialize(ISerializer&) override
@@ -97,48 +90,42 @@ public:
 	{
 		switch (msg.GetType())
 		{
-		case MT_Interpolate:
+		case MT_FrameStep:
 		{
-			PROFILE("OverlayRenderer::Interpolate");
-			const CMessageInterpolate &msgData = static_cast<const CMessageInterpolate &>(msg);
-			Interpolate(msgData.deltaSimTime, msgData.offset);
+			PublishRenderState();
 			break;
 		}
-		case MT_RenderSubmit:
+		case MT_TurnStart:
 		{
-			PROFILE("OverlayRenderer::RenderSubmit");
-			const CMessageRenderSubmit &msgData = static_cast<const CMessageRenderSubmit &>(msg);
-			RenderSubmit(msgData.collector);
+			if (m_LastStoredPlayerVisibility != GetSimContext().GetCurrentDisplayedPlayer())
+				MarkRenderDirty();
 			break;
 		}
 		case MT_VisibilityChanged:
 		{
 			const CMessageVisibilityChanged &msgData = static_cast<const CMessageVisibilityChanged &>(msg);
 			if (msgData.player == GetSimContext().GetCurrentDisplayedPlayer())
+			{
 				m_VisibilityToCurrentPlayer = static_cast<LosVisibility>(msgData.newVisibility);
+				MarkRenderDirty();
+			}
 			break;
 		}
 		}
 	}
 
-	/*
-	 * Must be called whenever the size of m_Sprites changes,
-	 * to determine whether we need to respond to rendering messages.
-	 */
-	void UpdateMessageSubscriptions()
+	void MarkRenderDirty()
 	{
-		bool needRender = !m_Sprites.empty();
-
-		GetSimContext().GetComponentManager().DynamicSubscriptionNonsync(MT_Interpolate, this, needRender);
-		GetSimContext().GetComponentManager().DynamicSubscriptionNonsync(MT_RenderSubmit, this, needRender);
+		if (m_RenderDirty)
+			return;
+		m_RenderDirty = true;
+		GetSimContext().GetComponentManager().RequestFrameStep(this);
 	}
 
 	void Reset() override
 	{
 		m_Sprites.clear();
-		m_SpriteOffsets.clear();
-
-		UpdateMessageSubscriptions();
+		MarkRenderDirty();
 	}
 
 	void AddSprite(const VfsPath &textureName, const CFixedVector2D &corner0, const CFixedVector2D &corner1, const CFixedVector3D &position, const std::string &color) override
@@ -147,24 +134,27 @@ public:
 		if (!colorObj.ParseString(color, 1))
 			LOGERROR("OverlayRenderer: Error parsing '%s'", color);
 
-		CTextureProperties textureProps(textureName);
+		m_Sprites.push_back({textureName, corner0.X.ToFloat(), corner0.Y.ToFloat(),
+			corner1.X.ToFloat(), corner1.Y.ToFloat(), colorObj, CVector3D(position)});
 
-		SOverlaySprite sprite;
-		sprite.m_Texture = g_Renderer.GetTextureManager().CreateTexture(textureProps);
-		sprite.m_X0 = corner0.X.ToFloat();
-		sprite.m_Y0 = corner0.Y.ToFloat();
-		sprite.m_X1 = corner1.X.ToFloat();
-		sprite.m_Y1 = corner1.Y.ToFloat();
-		sprite.m_Color = colorObj;
-
-		m_Sprites.push_back(sprite);
-		m_SpriteOffsets.push_back(CVector3D(position));
-
-		UpdateMessageSubscriptions();
+		MarkRenderDirty();
 	}
 
-	void Interpolate(float /*frameTime*/, float frameOffset)
+	/**
+	 * Record the sprites and their visibility for the render world.
+	 */
+	void PublishRenderState()
 	{
+		m_RenderDirty = false;
+		// Only visible sprites need their visibility kept current.
+		if (m_FollowingTurns == m_Sprites.empty())
+		{
+			m_FollowingTurns = !m_Sprites.empty();
+			GetSimContext().GetComponentManager().DynamicSubscriptionNonsync(MT_TurnStart, this, m_FollowingTurns);
+		}
+		RenderWorld::CFramePacket* packet = GetSimContext().GetFramePacket();
+		if (!packet)
+			return;
 		// Recompute our visibility if needed.
 		if (m_LastStoredPlayerVisibility != GetSimContext().GetCurrentDisplayedPlayer())
 		{
@@ -172,40 +162,7 @@ public:
 			m_VisibilityToCurrentPlayer = static_cast<LosVisibility>(cmpRangeManager->GetLosVisibility(GetEntityHandle(), GetSimContext().GetCurrentDisplayedPlayer()));
 			m_LastStoredPlayerVisibility = GetSimContext().GetCurrentDisplayedPlayer();
 		}
-
-		// Skip all the following computations if we have no sprites
-		if (m_Sprites.empty() || m_VisibilityToCurrentPlayer == LosVisibility::HIDDEN)
-		{
-			m_Enabled = false;
-			return;
-		}
-
-		// Disable rendering of the unit if it has no position
-		CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
-		if (!cmpPosition || !cmpPosition->IsInWorld())
-		{
-			m_Enabled = false;
-			return;
-		}
-
-		// Find the precise position of the unit
-		CMatrix3D transform(cmpPosition->GetInterpolatedTransform(frameOffset));
-		CVector3D position(transform.GetTranslation());
-
-		// Move all the sprites to the desired offset relative to the unit
-		for (size_t i = 0; i < m_Sprites.size(); ++i)
-			m_Sprites[i].m_Position = position + m_SpriteOffsets[i];
-
-		m_Enabled = true;
-	}
-
-	void RenderSubmit(SceneCollector &collector)
-	{
-		if (!m_Enabled)
-			return;
-
-		for (size_t i = 0; i < m_Sprites.size(); ++i)
-			collector.Submit(&m_Sprites[i]);
+		packet->overlays.emplace_back(RenderWorld::Overlay::SetSprites{GetEntityId(), m_Sprites, m_VisibilityToCurrentPlayer});
 	}
 };
 

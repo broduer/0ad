@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,7 +21,6 @@
 
 #include "lib/debug.h"
 #include "ps/CLogger.h"
-#include "renderer/Renderer.h"
 
 #include <cstdio>
 #include <iterator>
@@ -75,7 +74,7 @@ const char* GetGroupName(
 } // anonymous namespace
 
 CVertexBufferManager::Handle::Handle(Handle&& other)
-	: m_Chunk(other.m_Chunk)
+	: m_Manager(other.m_Manager), m_Chunk(other.m_Chunk)
 {
 	other.m_Chunk = nullptr;
 }
@@ -94,8 +93,8 @@ CVertexBufferManager::Handle& CVertexBufferManager::Handle::operator=(Handle&& o
 	return *this;
 }
 
-CVertexBufferManager::Handle::Handle(CVertexBuffer::VBChunk* chunk)
-	: m_Chunk(chunk)
+CVertexBufferManager::Handle::Handle(CVertexBufferManager& manager, CVertexBuffer::VBChunk* chunk)
+	: m_Manager(&manager), m_Chunk(chunk)
 {
 }
 
@@ -104,7 +103,7 @@ void CVertexBufferManager::Handle::Reset()
 	if (!IsValid())
 		return;
 
-	g_Renderer.GetVertexBufferManager().Release(m_Chunk);
+	m_Manager->Release(m_Chunk);
 	m_Chunk = nullptr;
 }
 
@@ -148,7 +147,7 @@ CVertexBufferManager::Handle CVertexBufferManager::AllocateChunk(
 	{
 		result = buffer->Allocate(vertexSize, numberOfVertices, type, usage, backingStore);
 		if (result)
-			return Handle(result);
+			return Handle(*this, result);
 	}
 
 	char bufferName[64] = {0};
@@ -172,16 +171,30 @@ CVertexBufferManager::Handle CVertexBufferManager::AllocateChunk(
 		return Handle();
 	}
 
-	return Handle(result);
+	return Handle(*this, result);
 }
 
 void CVertexBufferManager::Release(CVertexBuffer::VBChunk* chunk)
 {
 	ENSURE(chunk);
+	std::lock_guard<std::mutex> lock(m_ReleasedMutex);
+	m_Released.push_back(chunk);
+}
+
+void CVertexBufferManager::ReturnReleased()
+{
+	{
+		std::lock_guard<std::mutex> lock(m_ReleasedMutex);
+		m_Returning.swap(m_Released);
+	}
+	for (CVertexBuffer::VBChunk* chunk : m_Returning)
+	{
 #if DUMP_VB_STATS
-	debug_printf("\n============================\n# release %p nverts=%zu\n\n", chunk, chunk->m_Count);
+		debug_printf("\n============================\n# release %p nverts=%zu\n\n", chunk, chunk->m_Count);
 #endif
-	chunk->m_Owner->Release(chunk);
+		chunk->m_Owner->Release(chunk);
+	}
+	m_Returning.clear();
 }
 
 size_t CVertexBufferManager::GetBytesReserved() const

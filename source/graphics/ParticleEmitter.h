@@ -188,6 +188,7 @@ private:
 
 	int m_LastFrameNumber;
 	bool m_UseInstancing{false};
+	bool m_Started{false};
 };
 
 /**

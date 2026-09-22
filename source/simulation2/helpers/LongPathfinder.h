@@ -162,7 +162,7 @@ struct PathfinderState
 	const JumpPointCache* jpc;
 };
 
-class TerrainTextureOverlay;
+namespace RenderWorld { struct STerrainOverlay; }
 
 class HierarchicalPathfinder;
 
@@ -173,10 +173,16 @@ public:
 	~LongPathfinder();
 
 	void SetDebugOverlay(bool enabled);
+	bool IsDebugOverlayEnabled() const { return m_Debug.Enabled; }
+
+	/**
+	 * Build the debug overlay's pixels for a map @p tilesPerSide tiles across.
+	 */
+	std::shared_ptr<const RenderWorld::STerrainOverlay> BuildDebugOverlay(std::ptrdiff_t tilesPerSide);
 
 	void SetDebugPath(const HierarchicalPathfinder& hierPath, entity_pos_t x0, entity_pos_t z0, const PathGoal& goal, pass_class_t passClass)
 	{
-		if (!m_Debug.Overlay)
+		if (!m_Debug.Enabled)
 			return;
 
 		SAFE_DELETE(m_Debug.Grid);
@@ -233,12 +239,10 @@ public:
 	struct Debug
 	{
 		/**
-		 *  Atomic - used to toggle debugging.
-		 *
- 		 * Terrain overlay for pathfinder debugging.
- 		 * Renders a representation of the most recent pathfinding operation.
- 		 */
-		std::atomic<TerrainTextureOverlay*> Overlay = nullptr;
+		 * Whether the most recent pathfinding operation is recorded for the
+		 * debug overlay; atomic, since paths are computed on workers.
+		 */
+		std::atomic<bool> Enabled = false;
 		// Mutable - set by ComputeJPSPath (thus possibly from different threads).
 		// Synchronized via mutex if necessary.
 		mutable PathfindTileGrid* Grid = nullptr;

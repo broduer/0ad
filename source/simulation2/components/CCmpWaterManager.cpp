@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -19,15 +19,13 @@
 
 #include "ICmpWaterManager.h"
 
-#include "graphics/RenderableObject.h"
+#include "graphics/FramePacket.h"
 #include "graphics/Terrain.h"
-#include "renderer/Renderer.h"
-#include "renderer/SceneRenderer.h"
-#include "renderer/WaterManager.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/helpers/Position.h"
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Message.h"
+#include "simulation2/system/SimContext.h"
 
 #include <string>
 
@@ -37,7 +35,6 @@ public:
 	static void ClassInit(CComponentManager& componentManager)
 	{
 		// No need to subscribe to WaterChanged since we're actually the one sending those.
-		componentManager.SubscribeToMessageType(MT_Interpolate);
 		componentManager.SubscribeToMessageType(MT_TerrainChanged);
 	}
 
@@ -59,8 +56,8 @@ public:
 	void Deinit() override
 	{
 		// Clear the map size & data.
-		if (CRenderer::IsInitialised())
-			g_Renderer.GetSceneRenderer().GetWaterManager().SetMapSize(0);
+		if (RenderWorld::CFramePacket* packet = GetSimContext().GetFramePacket())
+			packet->waterMapSize = 0;
 	}
 
 	void Serialize(ISerializer& serialize) override
@@ -74,8 +71,8 @@ public:
 
 		deserialize.NumberFixed_Unbounded("height", m_WaterHeight);
 
-		if (CRenderer::IsInitialised())
-			g_Renderer.GetSceneRenderer().GetWaterManager().SetMapSize(GetSimContext().GetTerrain().GetVerticesPerSide());
+		if (RenderWorld::CFramePacket* packet = GetSimContext().GetFramePacket())
+			packet->waterMapSize = GetSimContext().GetTerrain().GetVerticesPerSide();
 
 		RecomputeWaterData();
 	}
@@ -84,20 +81,14 @@ public:
 	{
 		switch (msg.GetType())
 		{
-			case MT_Interpolate:
-			{
-				const CMessageInterpolate& msgData = static_cast<const CMessageInterpolate&> (msg);
-				if (CRenderer::IsInitialised())
-					g_Renderer.GetSceneRenderer().GetWaterManager().m_WaterTexTimer += msgData.deltaSimTime;
-				break;
-			}
 			case MT_TerrainChanged:
 			{
 				// Tell the renderer to redraw part of the map.
-				if (CRenderer::IsInitialised())
+				if (RenderWorld::CFramePacket* packet = GetSimContext().GetFramePacket())
 				{
 					const CMessageTerrainChanged& msgData = static_cast<const CMessageTerrainChanged&> (msg);
-					GetSimContext().GetTerrain().MakeDirty(msgData.i0,msgData.j0,msgData.i1,msgData.j1,RENDERDATA_UPDATE_VERTICES);
+					GetSimContext().GetTerrain().UpdateHeightMipmap(msgData.i0, msgData.j0, msgData.i1, msgData.j1);
+					packet->dirtyTerrain.push_back({msgData.i0, msgData.j0, msgData.i1, msgData.j1});
 				}
 				break;
 			}
@@ -106,14 +97,11 @@ public:
 
 	void RecomputeWaterData() override
 	{
-		if (CRenderer::IsInitialised())
+		if (RenderWorld::CFramePacket* packet = GetSimContext().GetFramePacket())
 		{
-			g_Renderer.GetSceneRenderer().GetWaterManager().RecomputeWaterData();
-			g_Renderer.GetSceneRenderer().GetWaterManager().m_WaterHeight = m_WaterHeight.ToFloat();
+			packet->waterLevel = m_WaterHeight.ToFloat();
+			packet->waterChanged = true;
 		}
-
-		// Tell the terrain it'll need to recompute its cached render data
-		GetSimContext().GetTerrain().MakeDirty(RENDERDATA_UPDATE_VERTICES);
 	}
 
 	void SetWaterLevel(entity_pos_t h) override

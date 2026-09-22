@@ -20,6 +20,7 @@
 #include "LOSTexture.h"
 
 #include "graphics/Color.h"
+#include "graphics/FramePacket.h"
 #include "graphics/ShaderManager.h"
 #include "graphics/ShaderTechnique.h"
 #include "lib/bits.h"
@@ -131,6 +132,51 @@ void CLOSTexture::MakeDirty()
 	m_Dirty = true;
 }
 
+void CLOSTexture::Prepare()
+{
+	if (!m_Dirty)
+		return;
+
+	CmpPtr<ICmpRangeManager> cmpRangeManager(m_Simulation, SYSTEM_ENTITY);
+	if (!cmpRangeManager)
+		return;
+
+	PROFILE("generate LOS bitmap");
+
+	const size_t mapSize = cmpRangeManager->GetVerticesPerSide();
+	size_t pitch;
+	const size_t dataSize = GetBitmapSize(mapSize, mapSize, &pitch);
+	std::unique_ptr<std::uint8_t[]> losData = std::make_unique<std::uint8_t[]>(dataSize);
+	const player_id_t player{m_Simulation.GetSimContext().GetCurrentDisplayedPlayer()};
+	CLosQuerier los(cmpRangeManager->GetLosQuerier(player));
+	GenerateBitmap(los, losData.get(), mapSize, mapSize, pitch);
+
+	std::shared_ptr<RenderWorld::SLosGrid> grid{std::make_shared<RenderWorld::SLosGrid>()};
+	grid->verticesPerSide = mapSize;
+	grid->revealAll = cmpRangeManager->GetLosRevealWholeMap(player);
+	grid->visible.resize(mapSize * mapSize);
+	for (size_t j = 0; j < mapSize; ++j)
+		for (size_t i = 0; i < mapSize; ++i)
+			grid->visible[j * mapSize + i] = los.IsVisible_UncheckedRange(i, j);
+	m_PreparedGrid = std::move(grid);
+
+	m_Prepared = {std::move(losData), mapSize, pitch, dataSize};
+	m_Dirty = false;
+}
+
+void CLOSTexture::TakePublished(Bitmap&& bitmap)
+{
+	if (!bitmap.data)
+		return;
+	if (bitmap.mapSize != m_MapSize)
+		DeleteTexture();
+	m_MapSize = bitmap.mapSize;
+	m_Data = std::move(bitmap.data);
+	m_DataPitch = bitmap.pitch;
+	m_DataSize = bitmap.dataSize;
+	m_TextureDirty = true;
+}
+
 Renderer::Backend::ITexture* CLOSTexture::GetTextureSmooth()
 {
 	if (CRenderer::IsInitialised() && !g_RenderingOptions.GetSmoothLOS())
@@ -141,6 +187,9 @@ Renderer::Backend::ITexture* CLOSTexture::GetTextureSmooth()
 
 void CLOSTexture::InterpolateLOS(Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
+	if (!m_Data)
+		return;
+
 	const bool skipSmoothLOS = CRenderer::IsInitialised() && !g_RenderingOptions.GetSmoothLOS();
 	if (!skipSmoothLOS && !m_ShaderInitialized)
 	{
@@ -151,17 +200,17 @@ void CLOSTexture::InterpolateLOS(Renderer::Backend::IDeviceCommandContext* devic
 		// Force the textures to be created.
 		DeleteTexture();
 		ConstructTexture(deviceCommandContext);
-		m_Dirty = true;
+		m_TextureDirty = true;
 	}
 
-	if (m_Dirty)
+	if (m_TextureDirty)
 	{
 		RecomputeTexture(deviceCommandContext);
 		// We need to subtract the frame time because without it we have the
 		// same output images for the current and previous frames.
 		m_LastTextureRecomputeTime = g_Renderer.GetTimeManager().GetRealTime() - g_Renderer.GetTimeManager().GetFrameDelta();
 		m_WhichTexture = 1u - m_WhichTexture;
-		m_Dirty = false;
+		m_TextureDirty = false;
 	}
 
 	if (skipSmoothLOS)
@@ -232,30 +281,24 @@ void CLOSTexture::InterpolateLOS(Renderer::Backend::IDeviceCommandContext* devic
 
 Renderer::Backend::ITexture* CLOSTexture::GetTexture()
 {
-	ENSURE(!m_Dirty);
+	ENSURE(!m_TextureDirty);
 	return m_Texture.get();
 }
 
 const CMatrix3D& CLOSTexture::GetTextureMatrix()
 {
-	ENSURE(!m_Dirty);
+	ENSURE(!m_TextureDirty);
 	return m_TextureMatrix;
 }
 
 const CMatrix3D& CLOSTexture::GetMinimapTextureMatrix()
 {
-	ENSURE(!m_Dirty);
+	ENSURE(!m_TextureDirty);
 	return m_MinimapTextureMatrix;
 }
 
 void CLOSTexture::ConstructTexture(Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
-	CmpPtr<ICmpRangeManager> cmpRangeManager(m_Simulation, SYSTEM_ENTITY);
-	if (!cmpRangeManager)
-		return;
-
-	m_MapSize = cmpRangeManager->GetVerticesPerSide();
-
 	const size_t textureSize = std::bit_ceil(round_up((size_t)m_MapSize + g_BlurSize - 1, g_SubTextureAlignment));
 
 	Renderer::Backend::IDevice* backendDevice = deviceCommandContext->GetDevice();
@@ -355,14 +398,6 @@ void CLOSTexture::ConstructTexture(Renderer::Backend::IDeviceCommandContext* dev
 
 void CLOSTexture::RecomputeTexture(Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
-	// If the map was resized, delete and regenerate the texture
-	if (m_Texture)
-	{
-		CmpPtr<ICmpRangeManager> cmpRangeManager(m_Simulation, SYSTEM_ENTITY);
-		if (!cmpRangeManager || m_MapSize != cmpRangeManager->GetVerticesPerSide())
-			DeleteTexture();
-	}
-
 	bool recreated = false;
 	if (!m_Texture)
 	{
@@ -372,48 +407,34 @@ void CLOSTexture::RecomputeTexture(Renderer::Backend::IDeviceCommandContext* dev
 
 	PROFILE("recompute LOS texture");
 
-	CmpPtr<ICmpRangeManager> cmpRangeManager(m_Simulation, SYSTEM_ENTITY);
-	if (!cmpRangeManager)
-		return;
-
-	size_t pitch;
-	const size_t dataSize = GetBitmapSize(m_MapSize, m_MapSize, &pitch);
+	const size_t pitch = m_DataPitch;
+	const size_t dataSize = m_DataSize;
 	ENSURE(pitch * m_MapSize <= dataSize);
-	std::unique_ptr<std::uint8_t[]> losData = std::make_unique<std::uint8_t[]>(
-		dataSize * m_TextureFormatStride);
 
-	CLosQuerier los(cmpRangeManager->GetLosQuerier(m_Simulation.GetSimContext().GetCurrentDisplayedPlayer()));
-
-	GenerateBitmap(los, &losData[0], m_MapSize, m_MapSize, pitch);
-
-	// GenerateBitmap writes data tightly packed and we need to offset it to fit
-	// into the texture format properly.
+	// The bitmap is tightly packed; spread it to the texture's stride.
+	const std::uint8_t* losData = m_Data.get();
+	std::unique_ptr<std::uint8_t[]> spreadData;
 	const size_t textureDataPitch = pitch * m_TextureFormatStride;
 	if (m_TextureFormatStride > 1)
 	{
-		// We skip the last byte because it will be first in our order and we
-		// don't need to move it.
-		for (size_t index = 0; index + 1 < dataSize; ++index)
-		{
-			const size_t oldAddress = dataSize - 1 - index;
-			const size_t newAddress = oldAddress * m_TextureFormatStride;
-			losData[newAddress] = losData[oldAddress];
-			losData[oldAddress] = 0;
-		}
+		spreadData = std::make_unique<std::uint8_t[]>(dataSize * m_TextureFormatStride);
+		for (size_t index = 0; index < dataSize; ++index)
+			spreadData[index * m_TextureFormatStride] = m_Data[index];
+		losData = spreadData.get();
 	}
 
 	if (CRenderer::IsInitialised() && g_RenderingOptions.GetSmoothLOS() && recreated)
 	{
 		deviceCommandContext->UploadTextureRegion(
-			m_SmoothTextures[0].get(), m_TextureFormat, losData.get(),
+			m_SmoothTextures[0].get(), m_TextureFormat, losData,
 			textureDataPitch * m_MapSize, 0, 0, pitch, m_MapSize);
 		deviceCommandContext->UploadTextureRegion(
-			m_SmoothTextures[1].get(), m_TextureFormat, losData.get(),
+			m_SmoothTextures[1].get(), m_TextureFormat, losData,
 			textureDataPitch * m_MapSize, 0, 0, pitch, m_MapSize);
 	}
 
 	deviceCommandContext->UploadTextureRegion(
-		m_Texture.get(), m_TextureFormat, losData.get(),
+		m_Texture.get(), m_TextureFormat, losData,
 		textureDataPitch * m_MapSize, 0, 0, pitch, m_MapSize);
 }
 

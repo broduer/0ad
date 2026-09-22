@@ -39,7 +39,7 @@
 
 class CMatrix3D;
 class CObjectEntry;
-class CSimulation2;
+class IGroundView;
 class CSkeletonAnim;
 class CSkeletonAnimDef;
 struct SPropPoint;
@@ -75,7 +75,7 @@ public:
 	};
 
 public:
-	CModel(const CSimulation2& simulation, const CMaterial& material, const CModelDefPtr& modeldef);
+	CModel(const IGroundView& ground, const CMaterial& material, const CModelDefPtr& modeldef);
 	~CModel() override;
 
 	/**
@@ -239,7 +239,7 @@ private:
 	static std::uint64_t NextSerial();
 
 	// Needed for terrain aligned props
-	const CSimulation2& m_Simulation;
+	const IGroundView& m_Ground;
 
 	// object flags
 	int m_Flags{0};

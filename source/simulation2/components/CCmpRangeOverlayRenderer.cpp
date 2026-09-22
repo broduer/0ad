@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@
 
 #include "graphics/Color.h"
 #include "graphics/Overlay.h"
-#include "maths/Vector2D.h"
+#include "graphics/RenderWorld.h"
 #include "ps/CStrIntern.h"
 #include "renderer/Renderer.h"
 #include "renderer/Scene.h"
@@ -39,8 +39,6 @@
 #include <string>
 #include <vector>
 
-class CFrustum;
-
 class CCmpRangeOverlayRenderer final : public ICmpRangeOverlayRenderer
 {
 public:
@@ -53,7 +51,7 @@ public:
 
 	DEFAULT_COMPONENT_ALLOCATOR(RangeOverlayRenderer)
 
-	CCmpRangeOverlayRenderer() : m_RangeOverlayData()
+	CCmpRangeOverlayRenderer()
 	{
 		m_Color = CColor(0.f, 0.f, 0.f, 1.f);
 	}
@@ -67,11 +65,13 @@ public:
 
 	void Init(const CParamNode&) override
 	{
-		m_Enabled = m_LastEnabledState = false;
-		UpdateMessageSubscriptions();
 	}
 
-	void Deinit() override { }
+	void Deinit() override
+	{
+		if (RenderWorld::CFramePacket* packet = GetSimContext().GetFramePacket())
+			packet->overlays.emplace_back(RenderWorld::Overlay::RemoveEntity{GetEntityId()});
+	}
 
 	void Serialize(ISerializer&) override
 	{
@@ -84,9 +84,8 @@ public:
 
 	void ResetRangeOverlays() override
 	{
-		m_RangeOverlayData.clear();
-		UpdateMessageSubscriptions();
-		m_Enabled = false;
+		m_Descriptors.clear();
+		MarkRenderDirty();
 	}
 
 	void AddRangeOverlay(float radius, const std::string& texture, const std::string& textureMask, float thickness) override
@@ -100,26 +99,17 @@ public:
 		rangeOverlayDescriptor.m_LineTextureMask = CStrIntern(TEXTURE_BASE_PATH + textureMask);
 		rangeOverlayDescriptor.m_LineThickness = thickness;
 
-		m_RangeOverlayData.push_back({
-			rangeOverlayDescriptor, std::unique_ptr<SOverlayTexturedLine>()
-		});
-		m_Enabled = true;
-		UpdateMessageSubscriptions();
+		m_Descriptors.push_back(rangeOverlayDescriptor);
+		MarkRenderDirty();
 	}
 
 	void HandleMessage(const CMessage& msg, bool /*global*/) override
 	{
 		switch (msg.GetType())
 		{
-		case MT_Interpolate:
+		case MT_FrameStep:
 		{
-			const CMessageInterpolate& msgData = static_cast<const CMessageInterpolate&> (msg);
-
-			for (RangeOverlayData& rangeOverlay : m_RangeOverlayData)
-				UpdateRangeOverlay(rangeOverlay, msgData.offset);
-
-			UpdateMessageSubscriptions();
-
+			PublishRenderState();
 			break;
 		}
 		case MT_Deserialized:
@@ -129,21 +119,10 @@ public:
 			UpdateColor();
 			break;
 		}
-		case MT_RenderSubmit:
-		{
-			const CMessageRenderSubmit& msgData = static_cast<const CMessageRenderSubmit&> (msg);
-			RenderSubmit(msgData.collector, msgData.frustum, msgData.culling);
-			break;
-		}
 		}
 	}
 
 private:
-	struct RangeOverlayData {
-		SOverlayDescriptor descriptor;
-		std::unique_ptr<SOverlayTexturedLine> line;
-	};
-
 	void UpdateColor() override
 	{
 		CmpPtr<ICmpOwnership> cmpOwnership(GetEntityHandle());
@@ -164,61 +143,32 @@ private:
 
 		CColor color = cmpPlayer->GetDisplayedColor();
 		m_Color = color;
+		MarkRenderDirty();
 	}
 
-	void UpdateMessageSubscriptions()
+	void MarkRenderDirty()
 	{
-		if (m_Enabled == m_LastEnabledState)
+		if (m_RenderDirty)
 			return;
-
-		CComponentManager& cmpManager = GetSimContext().GetComponentManager();
-		cmpManager.DynamicSubscriptionNonsync(MT_Interpolate, this, m_Enabled);
-		cmpManager.DynamicSubscriptionNonsync(MT_RenderSubmit, this, m_Enabled);
-		m_LastEnabledState = m_Enabled;
+		m_RenderDirty = true;
+		GetSimContext().GetComponentManager().RequestFrameStep(this);
 	}
 
-	void RenderSubmit(SceneCollector& collector, const CFrustum& frustum, bool culling)
+	/**
+	 * Record the descriptors and the colour for the render world.
+	 */
+	void PublishRenderState()
 	{
-		if (!m_RangeOverlayData.size())
-			return;
-
-		for (const RangeOverlayData& rangeOverlay : m_RangeOverlayData)
-		{
-			if (!rangeOverlay.line)
-				continue;
-			if (culling && !rangeOverlay.line->IsVisibleInFrustum(frustum))
-				continue;
-			collector.Submit(rangeOverlay.line.get());
-		}
+		m_RenderDirty = false;
+		if (RenderWorld::CFramePacket* packet = GetSimContext().GetFramePacket())
+			packet->overlays.emplace_back(RenderWorld::Overlay::SetRanges{GetEntityId(), m_Descriptors, m_Color});
 	}
-
-	void UpdateRangeOverlay(RangeOverlayData& rangeOverlay, const float frameOffset)
-	{
-		if (!CRenderer::IsInitialised())
-			return;
-
-		CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
-		if (!cmpPosition || !cmpPosition->IsInWorld())
-			return;
-
-		float rotY;
-		CVector2D origin;
-		cmpPosition->GetInterpolatedPosition2D(frameOffset, origin.X, origin.Y, rotY);
-
-		rangeOverlay.line = std::make_unique<SOverlayTexturedLine>();
-		rangeOverlay.line->m_SimContext = &GetSimContext();
-		rangeOverlay.line->m_Color = m_Color;
-		rangeOverlay.line->CreateOverlayTexture(&rangeOverlay.descriptor);
-
-		SimRender::ConstructTexturedLineCircle(*rangeOverlay.line.get(), origin, rangeOverlay.descriptor.m_Radius);
-	}
-
-	bool m_LastEnabledState;
-	bool m_Enabled;
 
 	const char* TEXTURE_BASE_PATH = "art/textures/selection/";
-	std::vector<RangeOverlayData> m_RangeOverlayData;
+	// Recorded for the render world at the frame step.
+	std::vector<SOverlayDescriptor> m_Descriptors;
 	CColor m_Color;
+	bool m_RenderDirty = false;
 };
 
 REGISTER_COMPONENT_TYPE(RangeOverlayRenderer)

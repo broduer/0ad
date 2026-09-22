@@ -32,11 +32,9 @@
 #include <string>
 #include <vector>
 
-class CFrustum;
 class ICmpFootprint;
 class ICmpPathfinder;
 class ICmpPosition;
-class SceneCollector;
 
 struct SVisibilitySegment
 {
@@ -77,12 +75,6 @@ public:
 	void Deserialize(const CParamNode& paramNode, IDeserializer&) override;
 
 	void HandleMessage(const CMessage& msg, bool /*global*/) override;
-
-	/*
-	 * Must be called whenever m_Displayed or the size of m_RallyPoints change,
-	 * to determine whether we need to respond to render messages.
-	 */
-	void UpdateMessageSubscriptions();
 
 	void AddPosition_wrapper(const CFixedVector2D& pos) override;
 
@@ -165,6 +157,11 @@ protected:
 	 * dashes for segments that are inside the SoD.
 	 */
 	std::vector<std::vector<SOverlayTexturedLine> > m_TexturedOverlayLines;
+
+	// Whether the lines changed since they were last recorded for the render world.
+	bool m_RenderDirty = false;
+	void MarkRenderDirty();
+	void PublishRenderState();
 
 	/**
 	 * Draw little overlay circles to indicate where the exact path points are.
@@ -272,8 +269,6 @@ private:
 	 * segments. You should not have to call this method directly.
 	 */
 	static void MergeVisibilitySegments(std::vector<SVisibilitySegment>& segments);
-
-	void RenderSubmit(SceneCollector& collector, const CFrustum& frustum, bool culling);
 };
 
 REGISTER_COMPONENT_TYPE(RallyPointRenderer)

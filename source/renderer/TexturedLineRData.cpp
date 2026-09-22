@@ -20,6 +20,7 @@
 #include "TexturedLineRData.h"
 
 #include "graphics/Color.h"
+#include "graphics/GroundView.h"
 #include "graphics/Terrain.h"
 #include "graphics/TextureManager.h"
 #include "lib/debug.h"
@@ -35,9 +36,6 @@
 #include "renderer/backend/IBuffer.h"
 #include "renderer/backend/IDeviceCommandContext.h"
 #include "renderer/backend/IShaderProgram.h"
-#include "simulation2/components/ICmpWaterManager.h"
-#include "simulation2/system/Component.h"
-#include "simulation2/system/Entity.h"
 
 #include <array>
 #include <cmath>
@@ -109,9 +107,9 @@ void CTexturedLineRData::Update(const SOverlayTexturedLine& line)
 	m_VBIndices.Reset();
 	m_VB.Reset();
 
-	if (!line.m_SimContext)
+	if (!line.m_Ground)
 	{
-		debug_warn(L"[TexturedLineRData] No SimContext set for textured overlay line, cannot render (no terrain data)");
+		debug_warn(L"[TexturedLineRData] No ground set for textured overlay line, cannot render (no terrain data)");
 		return;
 	}
 
@@ -147,10 +145,9 @@ void CTexturedLineRData::Update(const SOverlayTexturedLine& line)
 	// each point was floating on water, for normal computation later)
 
 	// TODO: if we ever support more than one water level per map, recompute this per point
-	CmpPtr<ICmpWaterManager> cmpWaterManager(*line.m_SimContext, SYSTEM_ENTITY);
-	float w = cmpWaterManager ? cmpWaterManager->GetExactWaterLevel(p0.X, p0.Z) : 0.f;
+	const float w = line.m_Ground->GetWaterLevel();
 
-	const CTerrain& terrain = line.m_SimContext->GetTerrain();
+	const CTerrain& terrain = *line.m_Ground->GetTerrain();
 
 	p0.Y = terrain.GetExactGroundLevel(p0.X, p0.Z);
 	if (p0.Y < w)

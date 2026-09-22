@@ -31,7 +31,7 @@ class CCanvas2D;
 class CModelDecal;
 class CPatch;
 class CShaderDefines;
-class CSimulation2;
+class IGroundView;
 class CVector2D;
 class ShadowMap;
 namespace Renderer::Backend { class IDeviceCommandContext; }
@@ -55,10 +55,10 @@ public:
 	void Initialize();
 
 	/**
-	 * Set the simulation context for this frame.
+	 * Set the ground and water for this frame.
 	 * Call at start of frame, before any other Submits.
 	 */
-	void SetSimulation(CSimulation2* simulation);
+	void SetGround(const IGroundView* ground);
 
 	/**
 	 * Submit: Add a patch for rendering in this frame.

@@ -29,7 +29,7 @@ class CLightEnv;
 class CMaterialManager;
 class CParticleManager;
 class CShaderDefines;
-class CSimulation2;
+class IGroundView;
 class CVector4D;
 class ShadowMap;
 class SkyManager;
@@ -73,11 +73,10 @@ public:
 	void EndFrame();
 
 	/**
-	 * Set simulation context for rendering purposes.
-	 * Must be called at least once when the game has started and before
-	 * frames are rendered.
+	 * Set the ground and water the terrain is built against, once the game has
+	 * started and before frames are rendered.
 	 */
-	void SetSimulation(CSimulation2* simulation);
+	void SetGround(const IGroundView* ground);
 
 	// trigger a reload of shaders (when parameters they depend on have changed)
 	void MakeShadersDirty();

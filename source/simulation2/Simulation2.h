@@ -36,14 +36,13 @@
 #include <utility>
 #include <vector>
 
-class CFrustum;
+namespace RenderWorld { struct CFramePacket; struct SFeedback; }
 class CMessage;
 class CSimContext;
 class CSimulation2Impl;
 class CTerrain;
 class CUnitManager;
 class IComponent;
-class SceneCollector;
 namespace Script { class Context; }
 namespace JS { class Value; }
 namespace Script { class Interface; }
@@ -176,12 +175,38 @@ public:
 
 	void Update(int turnLength);
 	void Update(int turnLength, const std::vector<SimulationCommand>& commands);
-	void Interpolate(float simFrameLength, float frameOffset, float realFrameLength);
-	void RenderSubmit(SceneCollector& collector, const CFrustum& frustum, bool culling);
 
 	/**
-	 * Returns the last frame offset passed to Interpolate(), i.e. the offset corresponding
-	 * to the currently-rendered scene.
+	 * Run the first half of the logic thread's frame step: send MT_FramePrepare.
+	 */
+	void PrepareFrameStep();
+
+	/**
+	 * Run the second half of the logic thread's frame step: send MT_FrameStep,
+	 * flush the entities destroyed since the last one and fill the frame packet.
+	 */
+	void FrameStep(float simFrameLength, float frameOffset, float realFrameLength);
+
+	/**
+	 * Set whether a render world displays the simulation; only then do the
+	 * components write records for it.
+	 */
+	void SetDisplayed(bool displayed);
+
+	/**
+	 * Swap the records written since the last call for the empty @p packet.
+	 * Return false, touching nothing, if the simulation isn't displayed.
+	 */
+	bool TakeFramePacket(RenderWorld::CFramePacket& packet);
+
+	/**
+	 * Set what the render world last reported, for the components during the
+	 * coming logic step.
+	 */
+	void SetRenderFeedback(std::shared_ptr<const RenderWorld::SFeedback> feedback);
+
+	/**
+	 * Return the frame offset of the frame step the logic thread last published.
 	 */
 	float GetLastFrameOffset() const;
 

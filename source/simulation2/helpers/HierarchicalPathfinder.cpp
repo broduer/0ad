@@ -20,6 +20,7 @@
 #include "HierarchicalPathfinder.h"
 
 #include "graphics/Color.h"
+#include "graphics/FramePacket.h"
 #include "graphics/Overlay.h"
 #include "lib/code_generation.h"
 #include "maths/Fixed.h"
@@ -362,40 +363,47 @@ bool HierarchicalPathfinder::Chunk::RegionNearestNavcellInGoal(std::uint16_t r, 
 	return false;
 }
 
-HierarchicalPathfinder::HierarchicalPathfinder() : m_DebugOverlay(NULL)
+HierarchicalPathfinder::HierarchicalPathfinder()
 {
 }
 
 HierarchicalPathfinder::~HierarchicalPathfinder()
 {
-	SAFE_DELETE(m_DebugOverlay);
 }
 
 void HierarchicalPathfinder::SetDebugOverlay(bool enabled, const CSimContext* simContext)
 {
-	if (enabled && !m_DebugOverlay)
+	if (enabled && !m_DebugOverlayEnabled)
 	{
-		m_DebugOverlay = new TerrainTextureOverlay{Pathfinding::NAVCELLS_PER_TERRAIN_TILE,
-			std::bind_front(BuildTextureRGBA, std::ref(*this))};
+		m_DebugOverlayEnabled = true;
 		m_DebugOverlayLines.clear();
 		m_SimContext = simContext;
 		AddDebugEdges(GetPassabilityClass("default"));
 	}
-	else if (!enabled && m_DebugOverlay)
+	else if (!enabled && m_DebugOverlayEnabled)
 	{
-		SAFE_DELETE(m_DebugOverlay);
+		m_DebugOverlayEnabled = false;
 		m_DebugOverlayLines.clear();
 		m_SimContext = NULL;
 	}
 }
 
-void HierarchicalPathfinder::RenderSubmit(SceneCollector& collector)
+void HierarchicalPathfinder::PublishDebugOverlay(RenderWorld::CFramePacket& packet, const std::ptrdiff_t tilesPerSide)
 {
-	if (!m_DebugOverlay)
+	if (!m_DebugOverlayEnabled)
+	{
+		if (!m_DebugOverlayPublished)
+			return;
+		m_DebugOverlayPublished = false;
+		packet.debugLines.push_back({RenderWorld::DebugSource::HIERARCHICAL_PATHFINDER});
+		packet.terrainOverlays.push_back({RenderWorld::DebugSource::HIERARCHICAL_PATHFINDER, nullptr});
 		return;
-
-	for (size_t i = 0; i < m_DebugOverlayLines.size(); ++i)
-		collector.Submit(&m_DebugOverlayLines[i]);
+	}
+	m_DebugOverlayPublished = true;
+	packet.debugLines.push_back({RenderWorld::DebugSource::HIERARCHICAL_PATHFINDER, INVALID_ENTITY, m_DebugOverlayLines});
+	packet.terrainOverlays.push_back({RenderWorld::DebugSource::HIERARCHICAL_PATHFINDER,
+		RenderWorld::BuildTerrainOverlay(Pathfinding::NAVCELLS_PER_TERRAIN_TILE, tilesPerSide,
+			[this](std::uint8_t* data, const std::size_t w, const std::size_t h) { BuildTextureRGBA(*this, data, w, h); })});
 }
 
 void HierarchicalPathfinder::Recompute(Grid<NavcellData>* grid,
@@ -469,7 +477,7 @@ void HierarchicalPathfinder::Recompute(Grid<NavcellData>* grid,
 				}
 	}
 
-	if (m_DebugOverlay)
+	if (m_DebugOverlayEnabled)
 	{
 		m_DebugOverlayLines.clear();
 		AddDebugEdges(GetPassabilityClass("default"));
@@ -541,7 +549,7 @@ void HierarchicalPathfinder::Update(Grid<NavcellData>* grid, const Grid<std::uin
 
 	UpdateGlobalRegions(needNewGlobalRegionMap);
 
-	if (m_DebugOverlay)
+	if (m_DebugOverlayEnabled)
 	{
 		m_DebugOverlayLines.clear();
 		AddDebugEdges(GetPassabilityClass("default"));

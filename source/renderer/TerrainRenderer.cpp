@@ -124,7 +124,7 @@ struct TerrainRendererInternals
 	Renderer::Backend::IVertexInputLayout* waterSurfaceWithDataVertexInputLayout = nullptr;
 	Renderer::Backend::IVertexInputLayout* waterShoreVertexInputLayout = nullptr;
 
-	CSimulation2* simulation;
+	const IGroundView* ground = nullptr;
 };
 
 
@@ -173,9 +173,9 @@ void TerrainRenderer::Initialize()
 	m->wireframeTech = shaderManager.LoadEffect(str_terrain_wireframe);
 }
 
-void TerrainRenderer::SetSimulation(CSimulation2* simulation)
+void TerrainRenderer::SetGround(const IGroundView* ground)
 {
-	m->simulation = simulation;
+	m->ground = ground;
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -188,10 +188,10 @@ void TerrainRenderer::Submit(int cullGroup, CPatch* patch)
 	if (data == 0)
 	{
 		// no renderdata for patch, create it now
-		data = new CPatchRData(patch, m->simulation);
+		data = new CPatchRData(patch, m->ground);
 		patch->SetRenderData(data);
 	}
-	data->Update(m->simulation);
+	data->Update(m->ground);
 
 	m->visiblePatches[cullGroup].push_back(data);
 }
@@ -206,10 +206,10 @@ void TerrainRenderer::Submit(int cullGroup, CModelDecal* decal)
 	if (data == 0)
 	{
 		// no renderdata for decal, create it now
-		data = new CDecalRData(decal, m->simulation);
+		data = new CDecalRData(decal, m->ground);
 		decal->SetRenderData(data);
 	}
-	data->Update(m->simulation);
+	data->Update(m->ground);
 
 	m->visibleDecals[cullGroup].push_back(data);
 }

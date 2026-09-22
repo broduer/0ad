@@ -122,14 +122,16 @@ constexpr int PRESSURE_DISTANCE_FACTOR = 5;
 }
 
 #if DEBUG_RENDER
-#include "maths/Frustum.h"
+#include "graphics/FramePacket.h"
 
-void RenderDebugOverlay(SceneCollector& collector, const CFrustum& frustum, bool culling);
+#include <cmath>
+#include <numbers>
+
+void PublishDebugOverlay(const CSimContext& context);
 
 struct SDebugData {
 	std::vector<SOverlaySphere> m_Spheres;
 	std::vector<SOverlayLine> m_Lines;
-	std::vector<SOverlayQuad> m_Quads;
 } debugDataMotionMgr;
 #endif
 
@@ -147,9 +149,6 @@ void CCmpUnitMotionManager::ClassInit(CComponentManager& componentManager)
 	componentManager.SubscribeToMessageType(MT_Update_Final);
 	componentManager.SubscribeToMessageType(MT_Update_MotionUnit);
 	componentManager.SubscribeToMessageType(MT_Update_MotionFormation);
-#if DEBUG_RENDER
-	componentManager.SubscribeToMessageType(MT_RenderSubmit);
-#endif
 }
 
 void CCmpUnitMotionManager::HandleMessage(const CMessage& msg, bool /*global*/)
@@ -189,14 +188,6 @@ void CCmpUnitMotionManager::HandleMessage(const CMessage& msg, bool /*global*/)
 			OnDeserialized();
 			break;
 		}
-#if DEBUG_RENDER
-		case MT_RenderSubmit:
-		{
-			const CMessageRenderSubmit& msgData = static_cast<const CMessageRenderSubmit&> (msg);
-			RenderDebugOverlay(msgData.collector, msgData.frustum, msgData.culling);
-			break;
-		}
-#endif
 	}
 }
 void CCmpUnitMotionManager::Init(const CParamNode&)
@@ -433,7 +424,6 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 #if DEBUG_RENDER
 	debugDataMotionMgr.m_Spheres.clear();
 	debugDataMotionMgr.m_Lines.clear();
-	debugDataMotionMgr.m_Quads.clear();
 #endif
 #if DEBUG_STATS
 	int comparisons = 0;
@@ -654,6 +644,9 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			data.second.cmpUnitMotion->PostMove(data.second, dt);
 		}
 	}
+#if DEBUG_RENDER
+	PublishDebugOverlay(GetSimContext());
+#endif
 #if DEBUG_STATS
 	int size = 0;
 	for (std::vector<EntityMap<MotionState>::iterator>* vec : assigned)
@@ -803,16 +796,25 @@ void CCmpUnitMotionManager::Push(EntityMap<MotionState>::value_type& a, EntityMa
 }
 
 #if DEBUG_RENDER
-void RenderDebugOverlay(SceneCollector& collector, const CFrustum& frustum, bool /*culling*/)
+void PublishDebugOverlay(const CSimContext& context)
 {
-	for (SOverlaySphere& sph: debugDataMotionMgr.m_Spheres)
-		if (frustum.IsSphereVisible(sph.m_Center, sph.m_Radius))
-			collector.Submit(&sph);
-	for (SOverlayLine& l: debugDataMotionMgr.m_Lines)
-		if (frustum.IsPointVisible(l.m_Coords[0]) || frustum.IsPointVisible(l.m_Coords[1]))
-			collector.Submit(&l);
-	for (SOverlayQuad& quad: debugDataMotionMgr.m_Quads)
-		collector.Submit(&quad);
+	RenderWorld::CFramePacket* packet = context.GetFramePacket();
+	if (!packet)
+		return;
+	// The render world draws debug lines only, so each sphere becomes a ring.
+	std::vector<SOverlayLine> lines{debugDataMotionMgr.m_Lines};
+	for (const SOverlaySphere& sphere : debugDataMotionMgr.m_Spheres)
+	{
+		SOverlayLine& ring = lines.emplace_back();
+		ring.m_Color = sphere.m_Color;
+		constexpr int SEGMENTS = 16;
+		for (int i = 0; i <= SEGMENTS; ++i)
+		{
+			const float angle = i * 2.0f * std::numbers::pi_v<float> / SEGMENTS;
+			ring.PushCoords(sphere.m_Center + CVector3D(std::cos(angle), 0.0f, std::sin(angle)) * sphere.m_Radius);
+		}
+	}
+	packet->debugLines.push_back({RenderWorld::DebugSource::UNIT_MOTION, INVALID_ENTITY, std::move(lines)});
 }
 #endif
 

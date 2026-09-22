@@ -24,6 +24,7 @@
 
 #include <cstdint>
 #include <random>
+#include <utility>
 #include <vector>
 
 class CModel;
@@ -84,6 +85,14 @@ public:
 	void Update(float time);
 
 	/**
+	 * Return whether an update passed the action point of an animation with an
+	 * action sound since the last call.
+	 */
+	bool TakeActionSoundReached() { return std::exchange(m_ActionSoundReached, false); }
+	entity_id_t GetEntity() const { return m_Entity; }
+	const CStrW& GetActionSound() const { return m_ActionSound; }
+
+	/**
 	 * Regenerate internal animation state from the models in the current unit.
 	 * This should be called whenever the unit is changed externally, to keep this in sync.
 	 */
@@ -134,6 +143,7 @@ private:
 	float m_SyncRepeatTime;
 	float m_Desync;
 	CStrW m_ActionSound;
+	bool m_ActionSoundReached = false;
 };
 
 #endif // INCLUDED_UNITANIMATION
