@@ -96,6 +96,9 @@ constexpr uint32_t MODEL_INSTANCE_STRIDE = 64;
 class ModelRenderer
 {
 public:
+	ModelRenderer();
+	~ModelRenderer();
+
 	/**
 	 * Render: Render submitted models, using the given RenderModifier to setup
 	 * the fragment stage.
@@ -191,6 +194,10 @@ public:
 	 */
 	static void BindModelTransform(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext, const CModel& model);
+
+private:
+	struct SSortCache;
+	std::unique_ptr<SSortCache> m_SortCache;
 };
 
 #endif // INCLUDED_MODELRENDERER

@@ -32,6 +32,7 @@
 #include "simulation2/helpers/Player.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -76,6 +77,11 @@ public:
 public:
 	CModel(const CSimulation2& simulation, const CMaterial& material, const CModelDefPtr& modeldef);
 	~CModel() override;
+
+	/**
+	 * Return a number unique to this model among all models ever created.
+	 */
+	std::uint64_t GetSerial() const { return m_Serial; }
 
 	/// Dynamic cast
 	CModel* ToCModel() override
@@ -230,6 +236,8 @@ public:
 	void InvalidatePosition() override;
 
 private:
+	static std::uint64_t NextSerial();
+
 	// Needed for terrain aligned props
 	const CSimulation2& m_Simulation;
 
@@ -237,6 +245,7 @@ private:
 	int m_Flags{0};
 	// model's material
 	CMaterial m_Material;
+	const std::uint64_t m_Serial{NextSerial()};
 	// pointer to the model's raw 3d data
 	const CModelDefPtr m_pModelDef;
 	// object space bounds of model - accounts for bounds of all possible animations

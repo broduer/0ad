@@ -41,6 +41,7 @@
 #include "simulation2/system/Entity.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <mutex>
 #include <optional>
@@ -66,6 +67,12 @@ CModel::CModel(const CSimulation2& simulation, const CMaterial& material, const 
 	}
 
 	m_PositionValid = true;
+}
+
+std::uint64_t CModel::NextSerial()
+{
+	static std::atomic<std::uint64_t> next{0};
+	return next.fetch_add(1, std::memory_order_relaxed) + 1;
 }
 
 CModel::~CModel()

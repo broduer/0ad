@@ -373,6 +373,26 @@ struct SMRMaterialBucketKeyHash
 	}
 };
 
+/**
+ * The batching order of each cull group's material buckets, reused while a
+ * bucket holds the same models in the same order.
+ */
+struct ModelRenderer::SSortCache
+{
+	struct SEntry
+	{
+		// Serials rather than pointers, as a new model can reuse an address.
+		std::vector<std::uint64_t> serials;
+		std::vector<CModel*> sorted;
+	};
+	using Buckets = std::unordered_map<SMRMaterialBucketKey, SEntry, SMRMaterialBucketKeyHash>;
+	std::unordered_map<int, Buckets> cullGroups;
+};
+
+ModelRenderer::ModelRenderer() : m_SortCache{std::make_unique<SSortCache>()} {}
+
+ModelRenderer::~ModelRenderer() = default;
+
 struct SMRTechBucket
 {
 	CShaderTechniquePtr tech;
@@ -532,6 +552,7 @@ void ModelRenderer::Render(
 	using BatchItemsAllocator = ProxyAllocator<SMRBatchItem, PS::Memory::ScopedLinearAllocator>;
 	std::vector<SMRBatchItem, BatchItemsAllocator> batchItems((BatchItemsAllocator(scopedLinearAllocator)));
 	std::vector<CModel*, ModelListAllocator> batchOrdered((ModelListAllocator(scopedLinearAllocator)));
+	SSortCache::Buckets& sortCache{m_SortCache->cullGroups[cullGroup]};
 	const bool supportsInstancing = deviceCommandContext->GetDevice()->GetCapabilities().instancing;
 
 	{
@@ -576,7 +597,18 @@ void ModelRenderer::Render(
 				// TODO: This only sorts by base texture. While this is an OK approximation
 				// for most cases (as related samplers are usually used together), it would be better
 				// to take all the samplers into account when sorting here.
-				SortModelsForBatching(it->second, batchItems, batchOrdered, scopedLinearAllocator);
+				SSortCache::SEntry& cache = sortCache[it->first];
+				if (std::ranges::equal(cache.serials, it->second, {}, {}, &CModel::GetSerial))
+				{
+					std::ranges::copy(cache.sorted, it->second.begin());
+				}
+				else
+				{
+					cache.serials.clear();
+					std::ranges::transform(it->second, std::back_inserter(cache.serials), &CModel::GetSerial);
+					SortModelsForBatching(it->second, batchItems, batchOrdered, scopedLinearAllocator);
+					cache.sorted.assign(it->second.begin(), it->second.end());
+				}
 
 				// Add a tech bucket pointing at this model list
 				SMRTechBucket techBucket{tech, it->second};
