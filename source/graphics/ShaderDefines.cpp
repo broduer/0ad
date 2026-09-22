@@ -29,6 +29,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <version>
@@ -75,7 +76,8 @@ bool CShaderParams<value_t>::SItems::NameLess(const Item& a, const Item& b)
 template<typename value_t>
 typename CShaderParams<value_t>::SItems* CShaderParams<value_t>::GetInterned(const SItems& items)
 {
-	ENSURE(Threading::IsMainThread()); // s_InternedItems is not thread-safe
+	static std::mutex mutex;
+	std::lock_guard<std::mutex> lock(mutex);
 
 	typename InternedItems_t::iterator it = s_InternedItems.find(items);
 	if (it != s_InternedItems.end())

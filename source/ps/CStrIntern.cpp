@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -21,9 +21,9 @@
 
 #include "lib/debug.h"
 #include "lib/fnv_hash.h"
-#include "ps/ThreadUtil.h"
 
 #include <cstring>
+#include <mutex>
 #include <unordered_map>
 #include <utility>
 
@@ -92,13 +92,11 @@ struct StringsKeyProxyEq
 namespace
 {
 std::unordered_map<StringsKey, CStrInternInternals, StringsKeyHash> g_Strings;
+std::mutex g_StringsMutex;
 
 CStrInternInternals* GetString(const char* str, size_t len)
 {
-	// g_Strings is not thread-safe, so complain if anyone is using this
-	// type in non-main threads. (If that's desired, g_Strings should be changed
-	// to be thread-safe, preferably without sacrificing performance.)
-	ENSURE(Threading::IsMainThread());
+	std::lock_guard<std::mutex> lock(g_StringsMutex);
 
 	const auto it = g_Strings.find(str);
 

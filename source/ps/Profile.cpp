@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -27,6 +27,7 @@
 #include "lib/timer.h"
 #include "ps/CStr.h"
 #include "ps/ProfileViewer.h"
+#include "ps/RenderThread.h"
 #include "ps/ThreadUtil.h"
 
 #include <cstddef>
@@ -306,6 +307,7 @@ CProfileNode* CProfileNode::GetChild( const char* childName )
 		if( (*it)->name == childName )
 			return( *it );
 
+	std::lock_guard<std::recursive_mutex> lock(CProfileManager::StructureMutex());
 	CProfileNode* newNode = new CProfileNode( childName, this );
 	children.push_back( newNode );
 	return( newNode );
@@ -318,6 +320,7 @@ CProfileNode* CProfileNode::GetScriptChild( const char* childName )
 		if( (*it)->name == childName )
 			return( *it );
 
+	std::lock_guard<std::recursive_mutex> lock(CProfileManager::StructureMutex());
 	CProfileNode* newNode = new CProfileNode( childName, this );
 	script_children.push_back( newNode );
 	return( newNode );
@@ -398,60 +401,91 @@ bool CProfileNode::Return()
 	return true;
 }
 
-CProfileManager::CProfileManager() :
-	root(NULL), current(NULL), needs_structural_reset(false)
+namespace
+{
+
+struct ThreadTree
+{
+	CProfileNode* root = nullptr;
+	CProfileNode* current = nullptr;
+	bool needsStructuralReset = false;
+};
+
+thread_local ThreadTree t_Tree;
+
+std::recursive_mutex g_StructureMutex;
+
+} // anonymous namespace
+
+std::recursive_mutex& CProfileManager::StructureMutex()
+{
+	return g_StructureMutex;
+}
+
+CProfileManager::CProfileManager()
 {
 	PerformStructuralReset();
 }
 
 CProfileManager::~CProfileManager()
 {
-	delete root;
+	std::lock_guard<std::recursive_mutex> lock(g_StructureMutex);
+	delete t_Tree.root;
+	t_Tree.root = t_Tree.current = nullptr;
 }
 
 void CProfileManager::Start( const char* name )
 {
-	if( name != current->GetName() )
-		current = current->GetChild( name );
-	current->Call();
+	if (!t_Tree.root)
+		PerformStructuralReset();
+	if( name != t_Tree.current->GetName() )
+		t_Tree.current = t_Tree.current->GetChild( name );
+	t_Tree.current->Call();
 }
 
 void CProfileManager::StartScript( const char* name )
 {
-	if( name != current->GetName() )
-		current = current->GetScriptChild( name );
-	current->Call();
+	if (!t_Tree.root)
+		PerformStructuralReset();
+	if( name != t_Tree.current->GetName() )
+		t_Tree.current = t_Tree.current->GetScriptChild( name );
+	t_Tree.current->Call();
 }
 
 void CProfileManager::Stop()
 {
-	if (current->Return())
-		current = current->GetParent();
+	if (t_Tree.current && t_Tree.current->Return())
+		t_Tree.current = t_Tree.current->GetParent();
 }
 
 void CProfileManager::Reset()
 {
-	root->Reset();
+	if (t_Tree.root)
+		t_Tree.root->Reset();
 }
 
 void CProfileManager::Frame()
 {
+	if (!t_Tree.root)
+		return;
+	CProfileNode* root = t_Tree.root;
 	root->time_frame_current += (timer_Time() - root->start);
 
 	root->Frame();
 
-	if (needs_structural_reset)
+	if (t_Tree.needsStructuralReset)
 	{
 		PerformStructuralReset();
-		needs_structural_reset = false;
+		t_Tree.needsStructuralReset = false;
 	}
 
-	root->start = timer_Time();
+	t_Tree.root->start = timer_Time();
 }
 
 void CProfileManager::Turn()
 {
-	root->Turn();
+	if (t_Tree.root)
+		t_Tree.root->Turn();
 }
 
 void CProfileManager::StructuralReset()
@@ -461,24 +495,34 @@ void CProfileManager::StructuralReset()
 	// the tree when we're not currently at the root.
 	// So just set a flag to perform the reset at the end of the frame.
 
-	needs_structural_reset = true;
+	t_Tree.needsStructuralReset = true;
 }
 
 void CProfileManager::PerformStructuralReset()
 {
-	delete root;
-	root = new CProfileNode("root", NULL);
-	root->Call();
-	current = root;
-	g_ProfileViewer.AddRootTable(root->display_table, true);
+	std::lock_guard<std::recursive_mutex> lock(g_StructureMutex);
+	delete t_Tree.root;
+	t_Tree.root = new CProfileNode(RenderThread::IsDedicatedRenderThread() ? "render" : "root", NULL);
+	t_Tree.root->Call();
+	t_Tree.current = t_Tree.root;
+	g_ProfileViewer.AddRootTable(t_Tree.root->display_table, true);
+}
+
+const CProfileNode* CProfileManager::GetCurrent()
+{
+	return t_Tree.current;
+}
+
+const CProfileNode* CProfileManager::GetRoot()
+{
+	return t_Tree.root;
 }
 
 CProfileSample::CProfileSample(const char* name)
 {
 	if (CProfileManager::IsInitialised())
 	{
-		// The profiler is only safe to use on the main thread
-		if(Threading::IsMainThread())
+		if(Threading::IsMainThread() || RenderThread::IsDedicatedRenderThread())
 			g_Profiler.Start(name);
 	}
 }
@@ -486,6 +530,6 @@ CProfileSample::CProfileSample(const char* name)
 CProfileSample::~CProfileSample()
 {
 	if (CProfileManager::IsInitialised())
-		if(Threading::IsMainThread())
+		if(Threading::IsMainThread() || RenderThread::IsDedicatedRenderThread())
 			g_Profiler.Stop();
 }

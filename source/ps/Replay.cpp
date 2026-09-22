@@ -264,7 +264,7 @@ void CReplayPlayer::Replay(const int serializationtestturn, const int rejointest
 			if (ooslog)
 				debugOption.oosLog = true;
 
-			g_Game = new CGame(false, debugOption);
+			CreateGame(false, debugOption);
 
 			Script::Request rq(g_Game->GetSimulation2()->GetScriptInterface());
 			JS::RootedValue attribs(rq.cx);
@@ -332,7 +332,7 @@ void CReplayPlayer::Replay(const int serializationtestturn, const int rejointest
 	ENSURE(ok);
 	debug_printf("# Final state: %s\n", Hexify(hash).c_str());
 
-	SAFE_DELETE(g_Game);
+	DeleteGame();
 
 	// Must be explicitly destructed here to avoid callbacks from the JSAPI trying to use g_Profiler2 when
 	// it's already destructed.

@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -27,6 +27,7 @@
 #include "ps/Profiler2.h"
 #include "ps/Singleton.h"
 
+#include <mutex>
 #include <vector>
 
 class CProfileNodeTable;
@@ -131,15 +132,17 @@ public:
 	// Resets absolutely everything, at the end of this frame
 	void StructuralReset();
 
-	inline const CProfileNode* GetCurrent() { return( current ); }
-	inline const CProfileNode* GetRoot() { return( root ); }
+	const CProfileNode* GetCurrent();
+	const CProfileNode* GetRoot();
+
+	/**
+	 * Return the mutex guarding the shape of the trees (node creation and
+	 * resets) against the profile viewer. The logic and render threads each
+	 * have their own tree.
+	 */
+	static std::recursive_mutex& StructureMutex();
 
 private:
-	CProfileNode* root;
-	CProfileNode* current;
-
-	bool needs_structural_reset;
-
 	void PerformStructuralReset();
 };
 

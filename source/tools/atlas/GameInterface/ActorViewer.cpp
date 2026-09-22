@@ -284,7 +284,7 @@ ActorViewer::ActorViewer()
 	m.WalkEnabled = false;
 	m.GroundEnabled = true;
 	m.WaterEnabled = false;
-	m.ShadowsEnabled = g_RenderingOptions.GetShadows();
+	m.ShadowsEnabled = g_LogicRenderingOptions.GetShadows();
 	m.SelectionBoxEnabled = false;
 	m.AxesMarkerEnabled = false;
 	m.PropPointsMode = 0;
@@ -464,7 +464,7 @@ void ActorViewer::SetEnabled(bool enabled)
 	if (enabled)
 	{
 		// Set shadows, sky and water.
-		m.OldShadows = g_RenderingOptions.GetShadows();
+		m.OldShadows = g_LogicRenderingOptions.GetShadows();
 		SetShadowsEnabled(m.ShadowsEnabled);
 
 		m.OldSky = g_Renderer.GetSceneRenderer().GetSkyManager().IsSkyVisible();
@@ -494,7 +494,7 @@ void ActorViewer::SetWaterEnabled(bool enabled)
 		cmpWaterManager->SetWaterLevel(waterLevel);
 }
 void ActorViewer::SetShadowsEnabled(bool enabled) {
-	g_RenderingOptions.SetShadows(enabled);
+	g_LogicRenderingOptions.SetShadows(enabled);
 	m.ShadowsEnabled = enabled;
 }
 void ActorViewer::ToggleShadows()

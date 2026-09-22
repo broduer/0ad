@@ -18,6 +18,7 @@
 #ifndef INCLUDED_RENDERTHREAD
 #define INCLUDED_RENDERTHREAD
 
+#include <atomic>
 #include <functional>
 
 /**
@@ -38,10 +39,21 @@ bool IsThreaded();
 bool IsRenderThread();
 
 /**
+ * Return whether the calling thread is the one started by Start.
+ */
+bool IsDedicatedRenderThread();
+
+/**
  * Start the render thread, running @p frame until Stop.
  */
 void Start(std::function<void()> frame);
 void Stop();
+
+/**
+ * Set how the device moves between threads, before Start: the running render
+ * thread owns it and a paused one yields it to the logic thread.
+ */
+void SetDeviceHandoff(std::function<void()> bind, std::function<void()> unbind);
 
 /**
  * Signal a new frame, adding its duration in seconds.
@@ -56,7 +68,7 @@ double WaitForFrames();
 
 /**
  * Park the render thread between frames while in scope, so the logic thread
- * can use the device.
+ * can use the device. Do nothing on the render thread itself.
  */
 class Pause
 {
@@ -65,6 +77,9 @@ public:
 	~Pause();
 	Pause(const Pause&) = delete;
 	Pause& operator=(const Pause&) = delete;
+
+private:
+	bool m_Active;
 };
 
 } // namespace RenderThread

@@ -80,6 +80,7 @@ that of Atlas depending on commandline parameters.
 #include "ps/VideoMode.h"
 #include "ps/XML/Xeromyces.h"
 #include "renderer/Renderer.h"
+#include "renderer/RenderingOptions.h"
 #include "rlinterface/RLInterface.h"
 #include "scriptinterface/JSON.h"
 #include "scriptinterface/Context.h"
@@ -463,6 +464,8 @@ static void LogicStep(const float realTimeSinceLastFrame, RL::Interface* rlInter
 
 	if (g_SoundManager)
 		g_SoundManager->IdleTask();
+
+	PublishRenderingOptions();
 }
 
 /**
@@ -476,6 +479,8 @@ static void RenderStep(const int /*fixedFrameFrequency*/)
 	PROFILE2_ATTR("%d", g_Profiler2.GetFrameNumber());
 
 	RendererIncrementalLoad();
+
+	TakeRenderingOptions();
 
 	g_Renderer.RenderFrame(true);
 

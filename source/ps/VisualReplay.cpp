@@ -86,7 +86,7 @@ bool VisualReplay::StartVisualReplay(const OsPath& directory)
 	if (!std::filesystem::is_regular_file(replayFile.string()))
 		return false;
 
-	g_Game = new CGame(false);
+	CreateGame(false);
 	return g_Game->StartVisualReplay(replayFile);
 }
 

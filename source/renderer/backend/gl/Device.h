@@ -86,6 +86,9 @@ public:
 
 	void WaitUntilIdle() override;
 
+	void BindToCurrentThread() override;
+	void UnbindFromCurrentThread() override;
+
 	std::unique_ptr<IGraphicsPipelineState> CreateGraphicsPipelineState(
 		const SGraphicsPipelineStateDesc& pipelineStateDesc) override;
 

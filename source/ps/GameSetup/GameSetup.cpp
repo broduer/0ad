@@ -316,13 +316,10 @@ void EndGame()
 {
 	SAFE_DELETE(g_NetClient);
 	SAFE_DELETE(g_NetServer);
-	SAFE_DELETE(g_Game);
+	DeleteGame();
 
 	if (CRenderer::IsInitialised())
-	{
 		ISoundManager::CloseGame();
-		g_Renderer.GetSceneRenderer().ResetState();
-	}
 }
 
 void ShutdownNetworkAndUI()
@@ -340,7 +337,7 @@ void ShutdownNetworkAndUI()
 	if (hasRenderer)
 		delete &g_Renderer;
 
-	g_RenderingOptions.ClearHooks();
+	g_LogicRenderingOptions.ClearHooks();
 
 	g_Profiler2.ShutDownHTTP();
 	g_Profiler2.ShutdownGPU();
@@ -614,7 +611,9 @@ bool Init(const CmdLineArgs& args, int flags)
 
 	g_GUI = new CGUIManager{scriptContext, scriptInterface};
 
-	g_RenderingOptions.ReadConfigAndSetupHooks();
+	g_LogicRenderingOptions.ReadConfigAndSetupHooks();
+	PublishRenderingOptions();
+	TakeRenderingOptions();
 
 	// create renderer
 	new CRenderer(g_VideoMode.GetBackendDevice());
@@ -834,7 +833,7 @@ bool AutostartVisualReplay(const std::string& replayFile)
 	if (!std::filesystem::is_regular_file(replayFile))
 		return false;
 
-	g_Game = new CGame(false);
+	CreateGame(false);
 	g_Game->SetPlayerID(-1);
 	g_Game->StartVisualReplay(replayFile);
 

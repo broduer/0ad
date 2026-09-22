@@ -47,9 +47,9 @@ void CCinemaManager::Update(const float deltaRealTime, CCamera& camera)
 
 	if (IsPlaying())
 	{
-		if (g_RenderingOptions.GetSmoothLOS())
+		if (g_LogicRenderingOptions.GetSmoothLOS())
 		{
-			g_RenderingOptions.SetSmoothLOS(false);
+			g_LogicRenderingOptions.SetSmoothLOS(false);
 			m_SmoothLosOverridden = true;
 		}
 		cmpCinemaManager->UpdateActivePath(deltaRealTime, camera);
@@ -57,7 +57,7 @@ void CCinemaManager::Update(const float deltaRealTime, CCamera& camera)
 	}
 
 	if (std::exchange(m_SmoothLosOverridden, false))
-		g_RenderingOptions.SetSmoothLOS(true);
+		g_LogicRenderingOptions.SetSmoothLOS(true);
 }
 
 void CCinemaManager::Render(Renderer::Backend::IDeviceCommandContext& deviceCommandContext) const

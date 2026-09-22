@@ -119,6 +119,13 @@ public:
 	virtual void WaitUntilIdle() = 0;
 
 	/**
+	 * Transfer the graphics context to or from the calling thread.
+	 * Backends without thread-affine contexts need no handoff.
+	 */
+	virtual void BindToCurrentThread() {}
+	virtual void UnbindFromCurrentThread() {}
+
+	/**
 	 * Creates a graphics pipeline state. It's a caller responsibility to
 	 * guarantee a lifespan of IShaderProgram stored in the description.
 	 */

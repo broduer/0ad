@@ -33,22 +33,35 @@
 #include "renderer/WaterManager.h"
 #include "renderer/backend/IDevice.h"
 
+#include <cstdint>
 #include <functional>
+#include <mutex>
 #include <string>
+#include <utility>
 #include <vector>
 
 CRenderingOptions g_RenderingOptions;
+CRenderingOptions g_LogicRenderingOptions;
+
+namespace
+{
+
+std::mutex g_PublishedMutex;
+CRenderingOptions g_PublishedOptions;
+bool g_OptionsPublished = false;
+std::uint32_t g_PublishedGeneration = 0;
+
+} // anonymous namespace
 
 class CRenderingOptions::ConfigHooks
 {
 public:
-	std::vector<CConfigDBHook>::iterator begin() { return hooks.begin(); }
-	std::vector<CConfigDBHook>::iterator end() { return hooks.end(); }
 	template<typename T>
-	void Setup(CStr8 name, T& variable)
+	void Setup(CStr8 name, T& variable, CRenderingOptions& options)
 	{
-		hooks.emplace_back(g_ConfigDB.RegisterHookAndCall(name, [name, &variable]() {
+		hooks.emplace_back(g_ConfigDB.RegisterHookAndCall(name, [name, &variable, &options]() {
 			variable = g_ConfigDB.Get(name, variable);
+			++options.m_Generation;
 		}));
 	}
 	void Setup(CStr8 name, std::function<void()> hook)
@@ -59,6 +72,12 @@ public:
 private:
 	std::vector<CConfigDBHook> hooks;
 };
+
+CRenderingOptions::ConfigHooks& CRenderingOptions::GetConfigHooks()
+{
+	static ConfigHooks hooks;
+	return hooks;
+}
 
 RenderDebugMode RenderDebugModeEnum::FromString(const CStr8& name)
 {
@@ -91,7 +110,7 @@ CStrIntern RenderDebugModeEnum::ToString(RenderDebugMode mode)
 	return str_RENDER_DEBUG_MODE_NONE;
 }
 
-CRenderingOptions::CRenderingOptions() : m_ConfigHooks(new ConfigHooks())
+CRenderingOptions::CRenderingOptions()
 {
 	m_Shadows = false;
 	m_WaterEffects = false;
@@ -113,165 +132,174 @@ CRenderingOptions::CRenderingOptions() : m_ConfigHooks(new ConfigHooks())
 	m_CutsceneMode = false;
 }
 
-CRenderingOptions::~CRenderingOptions()
-{
-	ClearHooks();
-}
+CRenderingOptions::~CRenderingOptions() = default;
 
 void CRenderingOptions::ReadConfigAndSetupHooks()
 {
-	m_ConfigHooks->Setup("shadowquality", []() {
-		if (CRenderer::IsInitialised())
-			g_Renderer.GetSceneRenderer().GetShadowMap().RecreateTexture();
-	});
-	m_ConfigHooks->Setup("shadowscascadecount", []() {
-		if (CRenderer::IsInitialised())
-		{
-			g_Renderer.GetSceneRenderer().GetShadowMap().RecreateTexture();
-			g_Renderer.MakeShadersDirty();
-		}
-	});
-	m_ConfigHooks->Setup("shadowscovermap", []() {
-		if (CRenderer::IsInitialised())
-		{
-			g_Renderer.GetSceneRenderer().GetShadowMap().RecreateTexture();
-			g_Renderer.MakeShadersDirty();
-		}
-	});
-	m_ConfigHooks->Setup("shadowscutoffdistance", []() {
-		if (CRenderer::IsInitialised())
-			g_Renderer.GetSceneRenderer().GetShadowMap().RecreateTexture();
-	});
+	ConfigHooks& hooks{GetConfigHooks()};
+	const auto effectHook = [this](const std::uint32_t effects) {
+		return [this, effects]() { AddEffects(effects); };
+	};
 
-	m_ConfigHooks->Setup("shadows", [this]() {
+	hooks.Setup("shadowquality", effectHook(SHADOW_TEXTURE));
+	hooks.Setup("shadowscascadecount", effectHook(SHADOW_TEXTURE | SHADERS));
+	hooks.Setup("shadowscovermap", effectHook(SHADOW_TEXTURE | SHADERS));
+	hooks.Setup("shadowscutoffdistance", effectHook(SHADOW_TEXTURE));
+
+	hooks.Setup("shadows", [this]() {
 		SetShadows(g_ConfigDB.Get("shadows", false));
 	});
-	m_ConfigHooks->Setup("shadowpcf", [this]() {
+	hooks.Setup("shadowpcf", [this]() {
 		SetShadowPCF(g_ConfigDB.Get("shadowpcf", false));
 	});
 
-	m_ConfigHooks->Setup("postproc", m_PostProc);
+	hooks.Setup("postproc", m_PostProc, *this);
 
-	m_ConfigHooks->Setup("antialiasing", []() {
-		if (CRenderer::IsInitialised())
-			g_Renderer.GetPostprocManager().UpdateAntiAliasingTechnique();
-	});
+	hooks.Setup("antialiasing", effectHook(ANTIALIASING));
+	hooks.Setup("sharpness", effectHook(SHARPNESS));
+	hooks.Setup("sharpening", effectHook(SHARPENING));
+	hooks.Setup("renderer.scale", effectHook(POSTPROC_SCALE));
+	hooks.Setup("renderer.upscale.technique", effectHook(UPSCALE));
 
-	m_ConfigHooks->Setup("sharpness", []() {
-		if (CRenderer::IsInitialised())
-			g_Renderer.GetPostprocManager().UpdateSharpnessFactor();
-	});
+	hooks.Setup("smoothlos", m_SmoothLOS, *this);
 
-	m_ConfigHooks->Setup("sharpening", []() {
-		if (CRenderer::IsInitialised())
-			g_Renderer.GetPostprocManager().UpdateSharpeningTechnique();
-	});
-
-	m_ConfigHooks->Setup("renderer.scale", []()
-		{
-			if (CRenderer::IsInitialised())
-				g_Renderer.GetPostprocManager().Recreate();
-		});
-
-	m_ConfigHooks->Setup("renderer.upscale.technique", []()
-		{
-			if (!CRenderer::IsInitialised())
-				return;
-			g_Renderer.GetPostprocManager().SetUpscaleTechnique(
-				g_ConfigDB.Get("renderer.upscale.technique", std::string{}));
-		});
-
-	m_ConfigHooks->Setup("smoothlos", m_SmoothLOS);
-
-	m_ConfigHooks->Setup("watereffects", [this]() {
+	hooks.Setup("watereffects", [this]() {
 		SetWaterEffects(g_ConfigDB.Get("watereffects", false));
-		if (CRenderer::IsInitialised())
-			g_Renderer.GetSceneRenderer().GetWaterManager().RecreateOrLoadTexturesIfNeeded();
+		AddEffects(WATER_TEXTURES);
 	});
-	m_ConfigHooks->Setup("waterfancyeffects", [this]() {
+	hooks.Setup("waterfancyeffects", [this]() {
 		SetWaterFancyEffects(g_ConfigDB.Get("waterfancyeffects", false));
-		if (CRenderer::IsInitialised())
-			g_Renderer.GetSceneRenderer().GetWaterManager().RecreateOrLoadTexturesIfNeeded();
+		AddEffects(WATER_TEXTURES);
 	});
-	m_ConfigHooks->Setup("waterrealdepth", m_WaterRealDepth);
-	m_ConfigHooks->Setup("waterrefraction", [this]() {
+	hooks.Setup("waterrealdepth", m_WaterRealDepth, *this);
+	hooks.Setup("waterrefraction", [this]() {
 		SetWaterRefraction(g_ConfigDB.Get("waterrefraction", false));
-		if (CRenderer::IsInitialised())
-			g_Renderer.GetSceneRenderer().GetWaterManager().RecreateOrLoadTexturesIfNeeded();
+		AddEffects(WATER_TEXTURES);
 	});
-	m_ConfigHooks->Setup("waterreflection", [this]() {
+	hooks.Setup("waterreflection", [this]() {
 		SetWaterReflection(g_ConfigDB.Get("waterreflection", false));
-		if (CRenderer::IsInitialised())
-			g_Renderer.GetSceneRenderer().GetWaterManager().RecreateOrLoadTexturesIfNeeded();
+		AddEffects(WATER_TEXTURES);
 	});
 
-	m_ConfigHooks->Setup("particles", m_Particles);
-	m_ConfigHooks->Setup("fog", [this]() {
+	hooks.Setup("particles", m_Particles, *this);
+	hooks.Setup("fog", [this]() {
 		SetFog(g_ConfigDB.Get("fog", false));
 	});
-	m_ConfigHooks->Setup("silhouettes", m_Silhouettes);
+	hooks.Setup("silhouettes", m_Silhouettes, *this);
 
-	m_ConfigHooks->Setup("gpuskinning", [this]() {
+	hooks.Setup("gpuskinning", [this]() {
+		bool enabled{false};
 		if (g_ConfigDB.Get("gpuskinning", false))
 		{
 			const Renderer::Backend::IDevice::Capabilities& capabilities{
 				g_VideoMode.GetBackendDevice()->GetCapabilities()};
 			if (capabilities.computeShaders && capabilities.storage)
-				m_GPUSkinning = true;
+				enabled = true;
 			else
-			{
-				m_GPUSkinning = false;
 				LOGMESSAGE("GPU skinning isn't supported on the current hardware.");
-			}
 		}
-
-		if (CRenderer::IsInitialised())
-			g_Renderer.MakeShadersDirty();
+		SetGPUSkinning(enabled);
+		AddEffects(SHADERS);
 	});
 
-	m_ConfigHooks->Setup("renderactors", m_RenderActors);
+	hooks.Setup("renderactors", m_RenderActors, *this);
 
-	m_ConfigHooks->Setup("textures.quality", []() {
-		if (CRenderer::IsInitialised())
-			g_Renderer.GetTextureManager().OnQualityChanged();
-	});
-	m_ConfigHooks->Setup("textures.maxanisotropy", []() {
-		if (CRenderer::IsInitialised())
-			g_Renderer.GetTextureManager().OnQualityChanged();
-	});
+	hooks.Setup("textures.quality", effectHook(TEXTURE_QUALITY));
+	hooks.Setup("textures.maxanisotropy", effectHook(TEXTURE_QUALITY));
 
-	m_ConfigHooks->Setup("pbr.brightness", m_PBRBrightness);
+	hooks.Setup("pbr.brightness", m_PBRBrightness, *this);
 }
 
 void CRenderingOptions::ClearHooks()
 {
-	m_ConfigHooks->clear();
+	GetConfigHooks().clear();
+}
+
+void CRenderingOptions::AddEffects(const std::uint32_t effects)
+{
+	// A renderer created later starts from the current options.
+	if (CRenderer::IsInitialised())
+		m_Effects |= effects;
+	++m_Generation;
 }
 
 void CRenderingOptions::SetShadows(bool value)
 {
 	m_Shadows = value;
-	if (CRenderer::IsInitialised())
-		g_Renderer.MakeShadersDirty();
+	AddEffects(SHADERS);
 }
 
 void CRenderingOptions::SetShadowPCF(bool value)
 {
 	m_ShadowPCF = value;
-	if (CRenderer::IsInitialised())
-		g_Renderer.MakeShadersDirty();
+	AddEffects(SHADERS);
 }
 
 void CRenderingOptions::SetFog(bool value)
 {
 	m_Fog = value;
-	if (CRenderer::IsInitialised())
-		g_Renderer.MakeShadersDirty();
+	AddEffects(SHADERS);
 }
 
 void CRenderingOptions::SetRenderDebugMode(RenderDebugMode value)
 {
 	m_RenderDebugMode = value;
-	if (CRenderer::IsInitialised())
+	AddEffects(SHADERS);
+}
+
+
+void PublishRenderingOptions()
+{
+	CRenderingOptions& options{g_LogicRenderingOptions};
+	if (options.m_Generation == g_PublishedGeneration)
+		return;
+	g_PublishedGeneration = options.m_Generation;
+	std::lock_guard<std::mutex> lock(g_PublishedMutex);
+	const std::uint32_t effects{g_PublishedOptions.m_Effects | options.m_Effects};
+	g_PublishedOptions = options;
+	g_PublishedOptions.m_Effects = effects;
+	g_OptionsPublished = true;
+	options.m_Effects = 0;
+}
+
+void TakeRenderingOptions()
+{
+	CRenderingOptions& options{g_RenderingOptions};
+	{
+		std::lock_guard<std::mutex> lock(g_PublishedMutex);
+		if (g_OptionsPublished)
+		{
+			// This also replaces fallbacks the render thread applied; the
+			// effects apply them again.
+			const std::uint32_t effects{options.m_Effects | g_PublishedOptions.m_Effects};
+			options = g_PublishedOptions;
+			options.m_Effects = effects;
+			g_PublishedOptions.m_Effects = 0;
+			g_OptionsPublished = false;
+		}
+	}
+	if (options.m_Effects == 0 || !CRenderer::IsInitialised())
+		return;
+	const std::uint32_t effects{std::exchange(options.m_Effects, 0)};
+
+	CSceneRenderer& sceneRenderer{g_Renderer.GetSceneRenderer()};
+	if (effects & CRenderingOptions::SHADOW_TEXTURE)
+		sceneRenderer.GetShadowMap().RecreateTexture();
+	if (effects & CRenderingOptions::SHADERS)
 		g_Renderer.MakeShadersDirty();
+	CPostprocManager& postprocManager{g_Renderer.GetPostprocManager()};
+	if (effects & CRenderingOptions::ANTIALIASING)
+		postprocManager.UpdateAntiAliasingTechnique();
+	if (effects & CRenderingOptions::SHARPNESS)
+		postprocManager.UpdateSharpnessFactor();
+	if (effects & CRenderingOptions::SHARPENING)
+		postprocManager.UpdateSharpeningTechnique();
+	if (effects & CRenderingOptions::POSTPROC_SCALE)
+		postprocManager.Recreate();
+	if (effects & CRenderingOptions::UPSCALE)
+		postprocManager.SetUpscaleTechnique(g_ConfigDB.Get("renderer.upscale.technique", std::string{}));
+	if (effects & CRenderingOptions::WATER_TEXTURES)
+		sceneRenderer.GetWaterManager().RecreateOrLoadTexturesIfNeeded();
+	if (effects & CRenderingOptions::TEXTURE_QUALITY)
+		g_Renderer.GetTextureManager().OnQualityChanged();
 }

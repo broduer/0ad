@@ -57,7 +57,7 @@ void StartGame(const Script::Interface& guiInterface, JS::HandleValue attribs, i
 	ENSURE(!g_NetClient);
 	ENSURE(!g_Game);
 
-	g_Game = new CGame(storeReplay);
+	CreateGame(storeReplay);
 
 	// Convert from GUI script context to sim script context/
 	CSimulation2* sim = g_Game->GetSimulation2();

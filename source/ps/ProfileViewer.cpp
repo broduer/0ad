@@ -112,6 +112,7 @@ AbstractProfileTable::~AbstractProfileTable()
 // AbstractProfileTable got deleted, make sure we have no dangling pointers
 void CProfileViewerInternals::TableIsDeleted(AbstractProfileTable* table)
 {
+	std::lock_guard<std::recursive_mutex> lock(CProfileManager::StructureMutex());
 	for(int idx = (int)rootTables.size()-1; idx >= 0; --idx)
 	{
 		if (rootTables[idx] == table)
@@ -133,6 +134,7 @@ void CProfileViewerInternals::TableIsDeleted(AbstractProfileTable* table)
 // Move into child tables or return to parent tables based on the given number
 void CProfileViewerInternals::NavigateTree(int id)
 {
+	std::lock_guard<std::recursive_mutex> lock(CProfileManager::StructureMutex());
 	if (id == 0)
 	{
 		if (path.size() > 1)
@@ -188,9 +190,34 @@ void CProfileViewer::RenderProfile(CCanvas2D& canvas)
 
 	PROFILE3("profile viewer");
 
-	AbstractProfileTable* table = m->path[m->path.size() - 1];
-	const std::vector<ProfileColumn>& columns = table->GetColumns();
-	size_t numrows = table->GetNumberRows();
+	// The rows are copied so the text layout runs outside the lock.
+	struct Row
+	{
+		bool highlight;
+		bool expandable;
+		std::vector<CStrW> cells;
+	};
+	std::vector<ProfileColumn> columns;
+	std::vector<Row> rows;
+	CStr title;
+	size_t pathSize;
+	{
+		std::lock_guard<std::recursive_mutex> lock(CProfileManager::StructureMutex());
+		AbstractProfileTable* table = m->path[m->path.size() - 1];
+		columns = table->GetColumns();
+		title = table->GetTitle();
+		pathSize = m->path.size();
+		const size_t numrows = table->GetNumberRows();
+		rows.resize(numrows);
+		for (size_t row = 0; row < numrows; ++row)
+		{
+			rows[row].highlight = table->IsHighlightRow(row);
+			rows[row].expandable = table->GetChild(row) != nullptr;
+			for (size_t col = 0; col < columns.size(); ++col)
+				rows[row].cells.push_back(table->GetCellText(row, col).FromUTF8());
+		}
+	}
+	const size_t numrows = rows.size();
 
 	CStrIntern font_name("mono-stroke-10");
 	CFontMetrics font(font_name);
@@ -202,7 +229,7 @@ void CProfileViewer::RenderProfile(CCanvas2D& canvas)
 		estimateWidth += static_cast<float>(column.width);
 
 	float estimateHeight = 3 + static_cast<float>(numrows);
-	if (m->path.size() > 1)
+	if (pathSize > 1)
 		estimateHeight += 2;
 	estimateHeight *= height;
 
@@ -220,7 +247,7 @@ void CProfileViewer::RenderProfile(CCanvas2D& canvas)
 	CTextRenderer textRenderer;
 	textRenderer.SetCurrentFont(font_name, CStrIntern{});
 	textRenderer.SetCurrentColor(CColor(1.0f, 1.0f, 1.0f, 1.0f));
-	textRenderer.PrintfAt(2.0f, height, L"%hs", table->GetTitle().c_str());
+	textRenderer.PrintfAt(2.0f, height, L"%hs", title.c_str());
 	textRenderer.Translate(22.0f, height*2.0f);
 
 	float colX = 0.0f;
@@ -245,12 +272,12 @@ void CProfileViewer::RenderProfile(CCanvas2D& canvas)
 
 	for (size_t row = 0; row < numrows; ++row)
 	{
-		if (table->IsHighlightRow(row))
+		if (rows[row].highlight)
 			textRenderer.SetCurrentColor(CColor(1.0f, 0.5f, 0.5f, 1.0f));
 		else
 			textRenderer.SetCurrentColor(CColor(1.0f, 1.0f, 1.0f, 1.0f));
 
-		if (table->GetChild(row))
+		if (rows[row].expandable)
 		{
 			textRenderer.PrintfAt(-15.0f, 0.0f, L"%d", currentExpandId);
 			currentExpandId++;
@@ -259,7 +286,7 @@ void CProfileViewer::RenderProfile(CCanvas2D& canvas)
 		float rowColX = 0.0f;
 		for (size_t col = 0; col < columns.size(); ++col)
 		{
-			const CStrW text{table->GetCellText(row, col).FromUTF8()};
+			const CStrW& text = rows[row].cells[col];
 			if (!text.empty())
 			{
 				float w, h;
@@ -278,7 +305,7 @@ void CProfileViewer::RenderProfile(CCanvas2D& canvas)
 
 	textRenderer.SetCurrentColor(CColor(1.0f, 1.0f, 1.0f, 1.0f));
 
-	if (m->path.size() > 1)
+	if (pathSize > 1)
 	{
 		textRenderer.Translate(0.0f, height);
 		textRenderer.Put(-15.0f, 0.0f, L"0");
@@ -292,6 +319,7 @@ void CProfileViewer::RenderProfile(CCanvas2D& canvas)
 // Handle input
 Input::Reaction CProfileViewerInternals::InputHandler::operator()(const SDL_Event& ev)
 {
+	std::lock_guard<std::recursive_mutex> lock(CProfileManager::StructureMutex());
 	switch(ev.type)
 	{
 	case SDL_KEYDOWN:
@@ -356,6 +384,7 @@ Input::Reaction CProfileViewerInternals::InputHandler::operator()(const SDL_Even
 // Add a table to the list of roots
 void CProfileViewer::AddRootTable(AbstractProfileTable* table, bool front)
 {
+	std::lock_guard<std::recursive_mutex> lock(CProfileManager::StructureMutex());
 	if (front)
 		m->rootTables.insert(m->rootTables.begin(), table);
 	else
@@ -543,6 +572,7 @@ void CProfileViewer::SaveToFile()
 
 void CProfileViewerInternals::SaveToFile()
 {
+	std::lock_guard<std::recursive_mutex> lock(CProfileManager::StructureMutex());
 	// Open the file, if necessary. If this method is called several times,
 	// the profile results will be appended to the previous ones from the same
 	// run.
@@ -579,6 +609,7 @@ void CProfileViewerInternals::SaveToFile()
 
 void CProfileViewer::ShowTable(const CStr& table)
 {
+	std::lock_guard<std::recursive_mutex> lock(CProfileManager::StructureMutex());
 	m->path.clear();
 
 	if (table.length() > 0)

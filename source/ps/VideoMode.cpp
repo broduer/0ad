@@ -40,6 +40,7 @@
 #include "ps/GameSetup/Config.h"
 #include "ps/Hotkey.h"
 #include "ps/Pyrogenesis.h"
+#include "ps/RenderThread.h"
 #include "renderer/Renderer.h"
 #include "renderer/backend/IDevice.h"
 #include "renderer/backend/ISwapChain.h"
@@ -866,6 +867,8 @@ bool CVideoMode::IsInFullscreen() const
 
 void CVideoMode::UpdateRenderer(int w, int h)
 {
+	const RenderThread::Pause pause;
+
 	if (w < 2) w = 2; // avoid GL errors caused by invalid sizes
 	if (h < 2) h = 2;
 

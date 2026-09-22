@@ -35,6 +35,7 @@
 #include "ps/VideoMode.h"
 #include "renderer/DebugRenderer.h"
 #include "renderer/Renderer.h"
+#include "renderer/RenderingOptions.h"
 #include "renderer/SceneRenderer.h"
 #include "renderer/backend/ISwapChain.h"
 #include "simulation2/Simulation2.h"
@@ -98,6 +99,8 @@ void AtlasViewActor::Render()
 	camera.UpdateFrustum();
 	SetCamera(camera);
 
+	PublishRenderingOptions();
+	TakeRenderingOptions();
 	m_ActorViewer->Render();
 	Atlas_GLSwapBuffers((void*)g_AtlasGameLoop->glCanvas);
 }
@@ -251,6 +254,8 @@ void AtlasViewGame::Render()
 	camera.UpdateFrustum();
 	SetCamera(camera);
 
+	PublishRenderingOptions();
+	TakeRenderingOptions();
 	g_Renderer.RenderFrame(false);
 	Atlas_GLSwapBuffers((void*)g_AtlasGameLoop->glCanvas);
 	// In case of atlas the swapchain's present will do only internal stuff

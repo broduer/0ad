@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -271,6 +271,11 @@ struct ProgressiveLoadResult
  * if a task is lengthy, the budget may be exceeded. call from the main loop.
  */
 ProgressiveLoadResult ProgressiveLoad(double time_budget);
+
+/**
+ * Return whether load requests are queued or in progress.
+ */
+bool IsLoading();
 
 // immediately process all queued load requests.
 // returns 0 on success or a negative error code.

@@ -21,6 +21,8 @@
 
 #include "lib/debug.h"
 #include "ps/ConfigDB.h"
+#include "ps/Profiler2.h"
+#include "ps/ThreadAffinity.h"
 #include "ps/Threading.h"
 
 #include <atomic>
@@ -48,7 +50,7 @@ struct State
 	double pendingRealTime = 0.0;
 	bool framePending = false;
 
-	int pauseRequests = 0;
+	std::atomic<int> pauseRequests{0};
 	bool parked = false;
 };
 
@@ -60,13 +62,25 @@ State& GetState()
 
 std::atomic<int> g_Threaded{-1};
 
+std::function<void()> g_BindDevice = [] {};
+std::function<void()> g_UnbindDevice = [] {};
+
 } // anonymous namespace
+
+void SetDeviceHandoff(std::function<void()> bind, std::function<void()> unbind)
+{
+	g_BindDevice = std::move(bind);
+	g_UnbindDevice = std::move(unbind);
+}
 
 bool IsThreaded()
 {
 	int threaded = g_Threaded.load(std::memory_order_relaxed);
 	if (threaded < 0)
 	{
+		// Non-visual runs have no config.
+		if (!CConfigDB::IsInitialised())
+			return false;
 		threaded = g_ConfigDB.Get("renderthread", false) ? 1 : 0;
 		g_Threaded.store(threaded, std::memory_order_relaxed);
 	}
@@ -78,25 +92,53 @@ bool IsRenderThread()
 	return g_IsRenderThread || !GetState().running;
 }
 
+bool IsDedicatedRenderThread()
+{
+	return g_IsRenderThread;
+}
+
 void Start(std::function<void()> frame)
 {
 	State& state = GetState();
 	ENSURE(!state.running);
 	state.running = true;
 	state.stop = false;
+	g_UnbindDevice();
 	state.thread = Threading::CreateThread([frame = std::move(frame), &state]()
 	{
 		g_IsRenderThread = true;
+		debug_SetThreadName("render");
+		g_Profiler2.RegisterCurrentThread("render");
+		if (g_ConfigDB.Get("renderthread.pin", true))
+			ThreadAffinity::PinCurrentThreadToRenderCpu();
+		bool bound = false;
 		for (;;)
 		{
 			{
 				std::unique_lock<std::mutex> lock(state.mutex);
-				state.parked = true;
-				state.condition.notify_all();
-				state.condition.wait(lock, [&state] { return state.stop || state.pauseRequests == 0; });
-				state.parked = false;
+				while (!state.stop && state.pauseRequests > 0)
+				{
+					if (bound)
+					{
+						g_UnbindDevice();
+						bound = false;
+					}
+					state.parked = true;
+					state.condition.notify_all();
+					state.condition.wait(lock, [&state] { return state.stop || state.pauseRequests == 0; });
+					state.parked = false;
+				}
 				if (state.stop)
+				{
+					if (bound)
+						g_UnbindDevice();
 					return;
+				}
+				if (!bound)
+				{
+					g_BindDevice();
+					bound = true;
+				}
 			}
 			frame();
 		}
@@ -115,6 +157,7 @@ void Stop()
 	}
 	state.thread.join();
 	state.running = false;
+	g_BindDevice();
 }
 
 void SignalFrame(const double realTime)
@@ -146,22 +189,26 @@ double WaitForFrames()
 	return std::exchange(state.pendingRealTime, 0.0);
 }
 
-Pause::Pause()
+Pause::Pause() : m_Active(GetState().running && !g_IsRenderThread)
 {
-	State& state = GetState();
-	if (!state.running)
+	if (!m_Active)
 		return;
+	State& state = GetState();
 	std::unique_lock<std::mutex> lock(state.mutex);
-	++state.pauseRequests;
+	const bool outermost = ++state.pauseRequests == 1;
 	state.condition.wait(lock, [&state] { return state.parked || state.stop; });
+	if (outermost && !state.stop)
+		g_BindDevice();
 }
 
 Pause::~Pause()
 {
-	State& state = GetState();
-	if (!state.running)
+	if (!m_Active)
 		return;
+	State& state = GetState();
 	std::lock_guard<std::mutex> lock(state.mutex);
+	if (state.pauseRequests == 1 && !state.stop)
+		g_UnbindDevice();
 	--state.pauseRequests;
 	state.condition.notify_all();
 }

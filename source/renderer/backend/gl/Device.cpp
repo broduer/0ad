@@ -898,6 +898,18 @@ std::unique_ptr<IDevice> CreateDevice(SDL_Window* window)
 	return GL::CDevice::Create(window);
 }
 
+void CDevice::BindToCurrentThread()
+{
+	if (m_Window && m_Context && SDL_GL_MakeCurrent(m_Window, m_Context) != 0)
+		LOGERROR("SDL_GL_MakeCurrent failed: '%s'", SDL_GetError());
+}
+
+void CDevice::UnbindFromCurrentThread()
+{
+	if (m_Window && m_Context)
+		SDL_GL_MakeCurrent(m_Window, nullptr);
+}
+
 } // namespace GL
 
 } // namespace Backend

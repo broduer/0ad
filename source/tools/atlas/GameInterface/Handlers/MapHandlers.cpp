@@ -92,13 +92,8 @@ namespace
 {
 	void InitGame()
 	{
-		if (g_Game)
-		{
-			delete g_Game;
-			g_Game = NULL;
-		}
-
-		g_Game = new CGame(false);
+		DeleteGame();
+		CreateGame(false);
 
 		// Default to player 1 for playtesting
 		g_Game->SetPlayerID(1);

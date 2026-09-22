@@ -135,7 +135,7 @@ JS::Value StartSavedGame(const Script::Interface& scriptInterface, const std::ws
 
 	JS::RootedValue guiContextMetadata{rqGui.cx, data->metadata};
 
-	g_Game = new CGame(true);
+	CreateGame(true);
 
 	{
 		CSimulation2* sim = g_Game->GetSimulation2();

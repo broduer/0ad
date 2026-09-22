@@ -286,7 +286,7 @@ void Interface::ApplyMessage(const GameMessage& msg)
 			if (isGameStarted)
 				EndGame();
 
-			g_Game = new CGame(m_ScenarioConfig.saveReplay);
+			CreateGame(m_ScenarioConfig.saveReplay);
 			Script::Interface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
 			Script::Request rq(scriptInterface);
 			JS::RootedValue attrs(rq.cx);

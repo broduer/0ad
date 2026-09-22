@@ -33,6 +33,7 @@
 #include "ps/GameSetup/GameSetup.h"
 #include "ps/Loader.h"
 #include "ps/Profile.h"
+#include "ps/RenderThread.h"
 #include "ps/Replay.h"
 #include "ps/VideoMode.h"
 #include "ps/World.h"
@@ -70,6 +71,21 @@ extern GameLoopState* g_AtlasGameLoop;
  * Globally accessible pointer to the CGame object.
  **/
 CGame *g_Game=NULL;
+
+void CreateGame(const bool replayLog, const SimulationDebugOptions debugOptions)
+{
+	ENSURE(!g_Game);
+	const RenderThread::Pause pause;
+	g_Game = new CGame(replayLog, debugOptions);
+}
+
+void DeleteGame()
+{
+	const RenderThread::Pause pause;
+	SAFE_DELETE(g_Game);
+	if (CRenderer::IsInitialised())
+		g_Renderer.GetSceneRenderer().ResetState();
+}
 
 const CStr CGame::EventNameSimulationUpdate = "SimulationUpdate";
 

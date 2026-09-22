@@ -237,4 +237,11 @@ private:
 
 extern CGame *g_Game;
 
+/**
+ * Create or delete g_Game with the render thread paused, as the game's view
+ * owns render resources. Logic thread.
+ */
+void CreateGame(bool replayLog, const SimulationDebugOptions debugOptions = {});
+void DeleteGame();
+
 #endif

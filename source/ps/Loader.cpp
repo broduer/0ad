@@ -299,6 +299,11 @@ done:
 }
 
 
+bool IsLoading()
+{
+	return !load_requests.empty() || currentTask.has_value();
+}
+
 // immediately process all queued load requests.
 // returns 0 on success or a negative error code.
 Status NonprogressiveLoad()

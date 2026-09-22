@@ -20,7 +20,12 @@
  * Ideally this header file should remain very quick to parse,
  * so avoid including other headers here unless absolutely necessary.
  *
- * Lifetime concerns: g_RenderingOptions always exists, but hooks are tied to the configDB's lifetime
+ * g_LogicRenderingOptions belongs to the logic thread, where the config
+ * hooks, scripts and cinematics write it, and g_RenderingOptions to the render
+ * thread. The render thread takes changed options at the start of a frame and
+ * applies their side effects.
+ *
+ * Lifetime concerns: both instances always exist, but hooks are tied to the configDB's lifetime
  * an the renderer may or may not actually exist.
  */
 
@@ -29,7 +34,7 @@
 
 #include "ps/CStr.h"
 
-#include <memory>
+#include <cstdint>
 
 class CStrIntern;
 
@@ -57,11 +62,12 @@ public:
 	CRenderingOptions();
 	~CRenderingOptions();
 
+	// Logic instance only.
 	void ReadConfigAndSetupHooks();
 	void ClearHooks();
 
 #define OPTION_DEFAULT_SETTER(NAME, TYPE) \
-public: void Set##NAME(TYPE value) { m_##NAME = value; }\
+public: void Set##NAME(TYPE value) { m_##NAME = value; ++m_Generation; }\
 
 #define OPTION_CUSTOM_SETTER(NAME, TYPE) \
 public: void Set##NAME(TYPE value);\
@@ -117,10 +123,43 @@ OPTION_CUSTOM_SETTER(NAME, TYPE); OPTION_GETTER(NAME, TYPE); OPTION_DEF(NAME, TY
 #undef OPTION_WITH_SIDE_EFFECT
 
 private:
+	friend void PublishRenderingOptions();
+	friend void TakeRenderingOptions();
 	class ConfigHooks;
-	std::unique_ptr<ConfigHooks> m_ConfigHooks; // Hide this via PImpl to avoid including ConfigDB.h here.
+	static ConfigHooks& GetConfigHooks();
+
+	// What the render thread must redo when it takes the options.
+	enum Effect : std::uint32_t
+	{
+		SHADOW_TEXTURE = 1 << 0,
+		SHADERS = 1 << 1,
+		ANTIALIASING = 1 << 2,
+		SHARPNESS = 1 << 3,
+		SHARPENING = 1 << 4,
+		POSTPROC_SCALE = 1 << 5,
+		UPSCALE = 1 << 6,
+		WATER_TEXTURES = 1 << 7,
+		TEXTURE_QUALITY = 1 << 8
+	};
+	void AddEffects(std::uint32_t effects);
+
+	std::uint32_t m_Effects = 0;
+	// Counts changes, so unchanged options are not published.
+	std::uint32_t m_Generation = 0;
 };
 
 extern CRenderingOptions g_RenderingOptions;
+extern CRenderingOptions g_LogicRenderingOptions;
+
+/**
+ * Hand changed options to the render thread. Logic thread.
+ */
+void PublishRenderingOptions();
+
+/**
+ * Take the latest published options into g_RenderingOptions and apply the
+ * side effects of every change since the last call. Render thread.
+ */
+void TakeRenderingOptions();
 
 #endif // INCLUDED_RENDERINGOPTIONS

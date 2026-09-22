@@ -33,12 +33,12 @@ namespace JSI_Renderer
 #define IMPLEMENT_BOOLEAN_SCRIPT_SETTING(NAME) \
 bool Get##NAME##Enabled() \
 { \
-	return g_RenderingOptions.Get##NAME(); \
+	return g_LogicRenderingOptions.Get##NAME(); \
 } \
 \
 void Set##NAME##Enabled(bool enabled) \
 { \
-	g_RenderingOptions.Set##NAME(enabled); \
+	g_LogicRenderingOptions.Set##NAME(enabled); \
 }
 
 IMPLEMENT_BOOLEAN_SCRIPT_SETTING(CutsceneMode);
@@ -49,12 +49,12 @@ IMPLEMENT_BOOLEAN_SCRIPT_SETTING(DisplayShadowsFrustum);
 
 std::string GetRenderDebugMode()
 {
-	return RenderDebugModeEnum::ToString(g_RenderingOptions.GetRenderDebugMode()).c_str();
+	return RenderDebugModeEnum::ToString(g_LogicRenderingOptions.GetRenderDebugMode()).c_str();
 }
 
 void SetRenderDebugMode(const std::string& mode)
 {
-	g_RenderingOptions.SetRenderDebugMode(RenderDebugModeEnum::FromString(mode));
+	g_LogicRenderingOptions.SetRenderDebugMode(RenderDebugModeEnum::FromString(mode));
 }
 
 bool TextureExists(const std::wstring& filename)
@@ -64,12 +64,12 @@ bool TextureExists(const std::wstring& filename)
 
 float GetPBRBrightness()
 {
-	return g_RenderingOptions.GetPBRBrightness();
+	return g_LogicRenderingOptions.GetPBRBrightness();
 }
 
 void SetPBRBrightness(const float value)
 {
-	g_RenderingOptions.SetPBRBrightness(value);
+	g_LogicRenderingOptions.SetPBRBrightness(value);
 }
 
 #define REGISTER_BOOLEAN_SCRIPT_SETTING(NAME) \
