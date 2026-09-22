@@ -138,12 +138,3 @@ bool CColor::ParseString(const CStr8& value, int defaultAlpha)
 
 	return true;
 }
-
-bool CColor::operator==(const CColor& color) const
-{
-	return
-		r == color.r &&
-		g == color.g &&
-		b == color.b &&
-		a == color.a;
-}

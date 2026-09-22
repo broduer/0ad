@@ -63,7 +63,10 @@ struct CColor
 	 */
 	bool ParseString(const CStr8& value, int defaultAlpha = 255);
 
-	bool operator==(const CColor& color) const;
+	bool operator==(const CColor& color) const
+	{
+		return r == color.r && g == color.g && b == color.b && a == color.a;
+	}
 	bool operator!=(const CColor& color) const
 	{
 		return !(*this == color);
