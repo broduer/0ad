@@ -41,7 +41,6 @@
 #include "ps/Profile.h"
 #include "ps/World.h"
 #include "renderer/Renderer.h"
-#include "renderer/SceneRenderer.h"
 #include "scriptinterface/Object.h"
 #include "scriptinterface/Conversions.h"
 #include "scriptinterface/Request.h"
@@ -293,8 +292,7 @@ void CMiniMap::DrawViewRect(CCanvas2D& canvas) const
 	CmpPtr<ICmpWaterManager> cmpWaterManager(*g_Game->GetSimulation2(), SYSTEM_ENTITY);
 	const float sampleHeight = cmpWaterManager ? cmpWaterManager->GetExactWaterLevel(0.0f, 0.0f) : 0.0f;
 
-	// The render thread's copy of the camera.
-	const CCamera& camera{g_Renderer.GetSceneRenderer().GetViewCamera()};
+	const CCamera& camera{g_Game->GetView()->GetCamera()};
 	const std::array<CVector3D, 4> hitPoints = {
 		camera.GetWorldCoordinates(0, g_Renderer.GetHeight(), sampleHeight),
 		camera.GetWorldCoordinates(g_Renderer.GetWidth(), g_Renderer.GetHeight(), sampleHeight),

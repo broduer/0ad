@@ -18,6 +18,7 @@
 #ifndef INCLUDED_RENDERER
 #define INCLUDED_RENDERER
 
+#include "graphics/Canvas2D.h"
 #include "ps/Singleton.h"
 #include "renderer/RenderingOptions.h"
 
@@ -112,6 +113,20 @@ public:
 	CShaderManager& GetShaderManager();
 
 	CFontManager& GetFontManager();
+
+	/**
+	 * Set the GUI, console and profiler (and separately the logger) as the
+	 * logic thread recorded them for this frame, for the render thread to draw.
+	 */
+	void SetOverlayLists(
+		std::shared_ptr<const CCanvas2D::DisplayList> overlay,
+		std::shared_ptr<const CCanvas2D::DisplayList> logger);
+
+	/**
+	 * Destroy the lists SetOverlayLists replaced, releasing their textures on
+	 * the render thread. Render thread.
+	 */
+	void ClearRetiredLists();
 
 	CTimeManager& GetTimeManager();
 

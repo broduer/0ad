@@ -375,8 +375,8 @@ CMiniMapTexture::Handover CMiniMapTexture::Publish()
 	{
 		handover.gathered = std::exchange(m_Prepared, Gathered{});
 		m_FinalDirty = false;
-		m_LosCircular = handover.gathered.losCircular;
 	}
+	m_LogicTexture = m_RenderedTexture.load();
 	return handover;
 }
 
@@ -455,11 +455,13 @@ void CMiniMapTexture::CreateTextures(
 	m_FinalTextureFramebuffer = backendDevice->CreateFramebuffer(
 		"MiniMapFinalFramebuffer", &colorAttachment, nullptr);
 	ENSURE(m_FinalTextureFramebuffer);
+	m_RenderedTexture.store(m_FinalTexture);
 }
 
 void CMiniMapTexture::DestroyTextures()
 {
 	m_TerrainTexture.reset();
+	m_RenderedTexture.store(nullptr);
 	m_FinalTexture.reset();
 	m_TerrainData.reset();
 }
@@ -542,13 +544,12 @@ void CMiniMapTexture::RenderFinalTexture(
 	m_Taken = Gathered{};
 	const std::vector<MinimapUnitVertex>& entities = taken.entities;
 	const std::vector<MinimapUnitVertex>& pings = taken.pings;
-	m_Icons = taken.icons;
 
 	// We might scale entities properly in the vertex shader but it requires
 	// additional space in the vertex buffer. So we assume that we don't need
 	// to change an entity size so often.
 	// Also compensate circular maps for being rendered closer than square maps.
-	const float mapGeometryScale{m_LosCircular ? std::sqrt(2.0f) : 1.0f};
+	const float mapGeometryScale{taken.losCircular ? std::sqrt(2.0f) : 1.0f};
 	const float entityRadiusScale{g_ConfigDB.Get("gui.session.minimap.entityradiusscale", 1.0f) / mapGeometryScale };
 	// Radius with instancing is lower because an entity has a more round shape.
 	const float entityRadius = static_cast<float>(m_MapSize) / 128.0f * (m_UseInstancing ? 5.0 : 6.0f) * entityRadiusScale;
@@ -796,7 +797,9 @@ void CMiniMapTexture::GatherEntities(const double currentTime)
 	if (iconsCountOverflow)
 		LOGWARNING("Too many minimap icons to draw.");
 
-	m_Prepared = {true, std::move(entities), std::move(pingingVertices), std::move(gatheredIcons), losCircular};
+	m_Icons = std::move(gatheredIcons);
+	m_LosCircular = losCircular;
+	m_Prepared = {true, std::move(entities), std::move(pingingVertices), losCircular};
 }
 
 void CMiniMapTexture::UploadEntities(

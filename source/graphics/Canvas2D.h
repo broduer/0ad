@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,7 +18,11 @@
 #ifndef INCLUDED_CANVAS2D
 #define INCLUDED_CANVAS2D
 
+#include "graphics/Color.h"
+#include "graphics/TextRenderer.h"
 #include "graphics/Texture.h"
+#include "maths/Rect.h"
+#include "maths/Vector2D.h"
 
 #include <cstdint>
 #include <memory>
@@ -28,17 +32,63 @@ class CRect;
 class CTextRenderer;
 class CVector2D;
 namespace Renderer::Backend { class IDeviceCommandContext; }
-struct CColor;
 
 // Encapsulates 2D drawing functionality to hide and optimize
 // low level API calls.
 class CCanvas2D
 {
 public:
+	/**
+	 * Drawing commands recorded on the logic thread and replayed on the render thread.
+	 */
+	struct DisplayList
+	{
+		struct Command
+		{
+			enum class Type
+			{
+				LINE,
+				RECT,
+				TEXTURE,
+				TEXTURE_RELATIVE,
+				ROTATED_TEXTURE,
+				TEXT,
+				PUSH_SCISSOR,
+				POP_SCISSOR
+			};
+			Type type;
+			std::vector<CVector2D> points;
+			float width = 0.0f;
+			CColor color;
+			CTexturePtr texture;
+			CRect destination;
+			CRect source;
+			CColor multiply;
+			CColor add;
+			float grayscaleFactor = 0.0f;
+			CVector2D origin;
+			float angle = 0.0f;
+			CTextRenderer::Batches text;
+		};
+		std::vector<Command> commands;
+	};
+
 	CCanvas2D(
 		const uint32_t widthInPixels, const uint32_t heightInPixels, const float scale,
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
+
+	/**
+	 * Record into @p displayList instead of drawing.
+	 */
+	CCanvas2D(
+		const uint32_t widthInPixels, const uint32_t heightInPixels, const float scale,
+		DisplayList& displayList);
 	~CCanvas2D();
+
+	/**
+	 * Draw the commands recorded in @p displayList.
+	 */
+	void Replay(const DisplayList& displayList);
 
 	CCanvas2D(const CCanvas2D&) = delete;
 	CCanvas2D& operator=(const CCanvas2D&) = delete;
@@ -73,6 +123,14 @@ public:
 	 * destination rect without color modifications.
 	 */
 	void DrawTexture(const CTexturePtr& texture, const CRect& destination);
+
+	/**
+	 * Draw a texture with @p source in fractions of its size, which is only
+	 * known once it is uploaded.
+	 */
+	void DrawTextureRelative(
+		const CTexturePtr& texture, const CRect& destination, const CRect& source,
+		const CColor& multiply, const CColor& add, const float grayscaleFactor);
 
 	/**
 	 * A similar to the original one, draws the texture into the

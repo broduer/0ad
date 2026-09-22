@@ -45,6 +45,7 @@
 #include "lib/status.h"
 #include "lib/tex/tex.h"
 #include "maths/Matrix3D.h"
+#include "ps/AtomicSharedPtr.h"
 #include "ps/CConsole.h"
 #include "ps/CLogger.h"
 #include "ps/CStr.h"
@@ -78,7 +79,9 @@
 #include "tools/atlas/GameInterface/View.h"
 
 #include <SDL_events.h>
+#include <atomic>
 #include <cstdlib>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -323,6 +326,14 @@ class CRenderer::Internals
 {
 	NONCOPYABLE(Internals);
 public:
+	// Set by the logic thread, read by the render thread.
+	PS::AtomicSharedPtr<const CCanvas2D::DisplayList> overlayList;
+	PS::AtomicSharedPtr<const CCanvas2D::DisplayList> loggerList;
+	// Lists replaced by SetOverlayLists, which the render thread destroys so
+	// the textures they hold are released there.
+	std::mutex displayListMutex;
+	std::vector<std::shared_ptr<const CCanvas2D::DisplayList>> retiredLists;
+
 	Renderer::Backend::IDevice* device;
 
 	std::unique_ptr<Renderer::Backend::IDeviceCommandContext> deviceCommandContext;
@@ -363,6 +374,8 @@ public:
 	// If we need to have more than 16MiB of continious memory then we're doing
 	// a lot of unnecessary work.
 	PS::Memory::LinearAllocator linearAllocator{1 * MiB, 16 * MiB};
+	// Used by the logic thread, which records the GUI into display lists.
+	PS::Memory::LinearAllocator logicLinearAllocator{1 * MiB, 16 * MiB};
 
 	struct VertexAttributesHash
 	{
@@ -520,6 +533,8 @@ bool CRenderer::ShouldRender() const
 
 void CRenderer::RenderFrame(const bool needsPresent)
 {
+	ClearRetiredLists();
+
 	// Do not render if not focused while in fullscreen or minimised,
 	// as that triggers a difficult-to-reproduce crash on some graphic cards.
 	if (!ShouldRender())
@@ -756,7 +771,8 @@ void CRenderer::Render2D(const bool renderGUI, const bool renderLogger)
 		GPU_SCOPED_LABEL(m->deviceCommandContext.get(), "Render GUI");
 		// All GUI elements are drawn in Z order to render semi-transparent
 		// objects correctly.
-		g_GUI->Draw(canvas);
+		if (const std::shared_ptr<const CCanvas2D::DisplayList> overlay = m->overlayList.load())
+			canvas.Replay(*overlay);
 	}
 
 	// If we're in Atlas game view, render special overlays (e.g. editor bandbox).
@@ -765,21 +781,11 @@ void CRenderer::Render2D(const bool renderGUI, const bool renderLogger)
 		g_AtlasGameLoop->view->DrawOverlays(canvas);
 	}
 
-	{
-		GPU_SCOPED_LABEL(m->deviceCommandContext.get(), "Render console");
-		g_Console->Render(canvas);
-	}
-
 	if (renderLogger)
 	{
 		GPU_SCOPED_LABEL(m->deviceCommandContext.get(), "Render logger");
-		g_Logger->Render(canvas);
-	}
-
-	{
-		GPU_SCOPED_LABEL(m->deviceCommandContext.get(), "Render profiler");
-		// Profile information
-		g_ProfileViewer.RenderProfile(canvas);
+		if (const std::shared_ptr<const CCanvas2D::DisplayList> logger = m->loggerList.load())
+			canvas.Replay(*logger);
 	}
 
 	GetFontManager().UploadAtlasTexturesToGPU(m->deviceCommandContext.get());
@@ -1044,6 +1050,28 @@ CDebugRenderer& CRenderer::GetDebugRenderer()
 	return m->debugRenderer;
 }
 
+void CRenderer::SetOverlayLists(
+	std::shared_ptr<const CCanvas2D::DisplayList> overlay,
+	std::shared_ptr<const CCanvas2D::DisplayList> logger)
+{
+	std::shared_ptr<const CCanvas2D::DisplayList> oldOverlay{m->overlayList.exchange(std::move(overlay))};
+	std::shared_ptr<const CCanvas2D::DisplayList> oldLogger{m->loggerList.exchange(std::move(logger))};
+	std::lock_guard<std::mutex> lock(m->displayListMutex);
+	if (oldOverlay)
+		m->retiredLists.push_back(std::move(oldOverlay));
+	if (oldLogger)
+		m->retiredLists.push_back(std::move(oldLogger));
+}
+
+void CRenderer::ClearRetiredLists()
+{
+	std::vector<std::shared_ptr<const CCanvas2D::DisplayList>> retired;
+	{
+		std::lock_guard<std::mutex> lock(m->displayListMutex);
+		retired.swap(m->retiredLists);
+	}
+}
+
 CFontManager& CRenderer::GetFontManager()
 {
 	return m->fontManager;
@@ -1076,5 +1104,8 @@ Renderer::Backend::IVertexInputLayout* CRenderer::GetVertexInputLayout(
 
 PS::Memory::LinearAllocator& CRenderer::GetLinearAllocator()
 {
-	return m->linearAllocator;
+	// Scopes on one allocator can't interleave, so each thread has its own.
+	if (RenderThread::IsRenderThread())
+		return m->linearAllocator;
+	return m->logicLinearAllocator;
 }

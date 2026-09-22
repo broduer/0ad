@@ -210,9 +210,11 @@ void CTextRenderer::Render(
 	const CVector2D& transformScale, const CVector2D& translation,
 	const bool debugFontBox, const CColor& debugBoxColor)
 {
-	std::vector<std::uint16_t, ProxyAllocator<std::uint16_t, PS::Memory::ScopedLinearAllocator>> indices{m_ScopedLinearAllocator};
-	std::vector<CVector2D, ProxyAllocator<CVector2D, PS::Memory::ScopedLinearAllocator>> positions{m_ScopedLinearAllocator};
-	std::vector<CVector2D, ProxyAllocator<CVector2D, PS::Memory::ScopedLinearAllocator>> uvs{m_ScopedLinearAllocator};
+	RenderBatches(Snapshot(), deviceCommandContext, shader, transformScale, translation, debugFontBox, debugBoxColor);
+}
+
+CTextRenderer::Batches CTextRenderer::Snapshot()
+{
 
 	// Try to merge non-consecutive batches that share the same font/color/translate:
 	// sort the batch list by font, then merge the runs of adjacent compatible batches
@@ -230,6 +232,34 @@ void CTextRenderer::Render(
 			++it;
 	}
 
+	Batches result;
+	result.batches.reserve(m_Batches.size());
+	for (SBatch& batch : m_Batches)
+	{
+		Batches::Batch& copy = result.batches.emplace_back();
+		copy.font = batch.font;
+		copy.color = batch.color;
+		copy.translate = batch.translate;
+		copy.chars = batch.chars;
+		copy.runs.reserve(batch.runs.size());
+		for (const SBatchRun& run : batch.runs)
+			copy.runs.push_back({run.x, run.y, *run.text});
+	}
+	m_Batches.clear();
+	return result;
+}
+
+void CTextRenderer::RenderBatches(
+	const Batches& batches,
+	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
+	Renderer::Backend::IShaderProgram* shader,
+	const CVector2D& transformScale, const CVector2D& translation,
+	const bool debugFontBox, const CColor& debugBoxColor)
+{
+	std::vector<std::uint16_t> indices;
+	std::vector<CVector2D> positions;
+	std::vector<CVector2D> uvs;
+
 	const int32_t texBindingSlot = shader->GetBindingSlot(str_tex);
 	const int32_t translationBindingSlot = shader->GetBindingSlot(str_translation);
 	const int32_t colorAddBindingSlot = shader->GetBindingSlot(str_colorAdd);
@@ -238,7 +268,7 @@ void CTextRenderer::Render(
 	bool translationChanged = false;
 
 	CTexture* lastTexture = nullptr;
-	for (SBatch& batch : m_Batches)
+	for (const Batches::Batch& batch : batches.batches)
 	{
 		if (lastTexture != batch.font->GetTexture().get())
 		{
@@ -292,13 +322,13 @@ void CTextRenderer::Render(
 			idx = 0;
 		};
 
-		for (SBatchRun& run : batch.runs)
+		for (const Batches::Run& run : batch.runs)
 		{
 			float x{std::ceil(run.x)};
 			float y{std::ceil(run.y)};
-			for (size_t i = 0; i < run.text->size(); ++i)
+			for (size_t i = 0; i < run.text.size(); ++i)
 			{
-				const CFont::GlyphData* g = batch.font->GetGlyph((*run.text)[i]);
+				const CFont::GlyphData* g = batch.font->GetGlyph(run.text[i]);
 
 				// Use the missing glyph symbol.
 				if (!g)
@@ -345,8 +375,6 @@ void CTextRenderer::Render(
 
 		flush();
 	}
-
-	m_Batches.clear();
 
 	if (translationChanged)
 		deviceCommandContext->SetUniform(translationBindingSlot, translation.AsFloatArray());

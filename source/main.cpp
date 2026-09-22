@@ -32,6 +32,7 @@ that of Atlas depending on commandline parameters.
 #include "lib/precompiled.h"
 
 #include "dapinterface/DapInterface.h"
+#include "graphics/Canvas2D.h"
 #include "graphics/GameView.h"
 #include "graphics/TextureManager.h"
 #include "gui/GUIManager.h"
@@ -69,6 +70,7 @@ that of Atlas depending on commandline parameters.
 #include "ps/Mod.h"
 #include "ps/ModInstaller.h"
 #include "ps/Profile.h"
+#include "ps/ProfileViewer.h"
 #include "ps/Profiler2.h"
 #include "ps/Pyrogenesis.h"
 #include "ps/RenderThread.h"
@@ -469,6 +471,24 @@ static void LogicStep(const float realTimeSinceLastFrame, RL::Interface* rlInter
 	g_UserReporter.Update();
 
 	g_Console->Update(realTimeSinceLastFrame);
+
+	if (CRenderer::IsInitialised())
+	{
+		auto overlay = std::make_shared<CCanvas2D::DisplayList>();
+		auto logger = std::make_shared<CCanvas2D::DisplayList>();
+		{
+			PROFILE3("draw overlays");
+			CCanvas2D canvas(g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight(), g_VideoMode.GetScale(), *overlay);
+			g_GUI->Draw(canvas);
+			g_Console->Render(canvas);
+			g_ProfileViewer.RenderProfile(canvas);
+		}
+		{
+			CCanvas2D canvas(g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight(), g_VideoMode.GetScale(), *logger);
+			g_Logger->Render(canvas);
+		}
+		g_Renderer.SetOverlayLists(std::move(overlay), std::move(logger));
+	}
 
 	if (g_SoundManager)
 		g_SoundManager->IdleTask();

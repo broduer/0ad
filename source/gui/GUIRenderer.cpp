@@ -325,11 +325,7 @@ void GUIRenderer::Draw(DrawCalls& Calls, CCanvas2D& canvas)
 	// Iterate through each DrawCall, and execute whatever drawing code is being called
 	for (DrawCalls::const_iterator cit = Calls.begin(); cit != Calls.end(); ++cit)
 	{
-		// A hack to get a correct backend texture size.
-		cit->m_Texture->UploadBackendTextureIfNeeded(g_Renderer.GetDeviceCommandContext());
-
-		CRect texCoords = cit->ComputeTexCoords().Scale(
-			cit->m_Texture->GetWidth(), cit->m_Texture->GetHeight());
+		CRect texCoords = cit->ComputeTexCoords();
 
 		// Ensure the quad has the correct winding order
 		CRect rect = cit->m_Vertices;
@@ -344,7 +340,7 @@ void GUIRenderer::Draw(DrawCalls& Calls, CCanvas2D& canvas)
 			std::swap(texCoords.bottom, texCoords.top);
 		}
 
-		canvas.DrawTexture(cit->m_Texture,
+		canvas.DrawTextureRelative(cit->m_Texture,
 			rect, texCoords, cit->m_ColorMultiply, cit->m_ColorAdd, cit->m_GrayscaleFactor);
 	}
 }

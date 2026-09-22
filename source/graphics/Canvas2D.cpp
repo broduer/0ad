@@ -96,11 +96,14 @@ class CCanvas2D::Impl
 public:
 	Impl(
 		const uint32_t widthInPixels, const uint32_t heightInPixels, const float scale,
-		Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
+		CCanvas2D::DisplayList* recording)
 		: WidthInPixels(widthInPixels), HeightInPixels(heightInPixels),
-		Scale(scale), DeviceCommandContext(deviceCommandContext),
+		Scale(scale), DeviceCommandContext(deviceCommandContext), Recording(recording),
 		DebugFontBox(g_ConfigDB.Get("fonts.debugbox", false))
 	{
+		if (Recording)
+			return;
 		constexpr std::array<Renderer::Backend::SVertexAttributeFormat, 2> attributes{{
 			{Renderer::Backend::VertexAttributeStream::POSITION,
 				Renderer::Backend::Format::R32G32_SFLOAT, 0, sizeof(float) * 2,
@@ -202,6 +205,7 @@ public:
 	Renderer::Backend::IVertexInputLayout* m_VertexInputLayout = nullptr;
 
 	Renderer::Backend::IDeviceCommandContext* DeviceCommandContext = nullptr;
+	CCanvas2D::DisplayList* Recording = nullptr;
 	CShaderTechniquePtr Tech;
 
 	// We assume that the shader can't be destroyed while it's bound. So these
@@ -217,9 +221,57 @@ public:
 CCanvas2D::CCanvas2D(
 	const uint32_t widthInPixels, const uint32_t heightInPixels, const float scale,
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
-	: m(std::make_unique<Impl>(widthInPixels, heightInPixels, scale, deviceCommandContext))
+	: m(std::make_unique<Impl>(widthInPixels, heightInPixels, scale, deviceCommandContext, nullptr))
 {
+}
 
+CCanvas2D::CCanvas2D(
+	const uint32_t widthInPixels, const uint32_t heightInPixels, const float scale,
+	DisplayList& displayList)
+	: m(std::make_unique<Impl>(widthInPixels, heightInPixels, scale, nullptr, &displayList))
+{
+}
+
+void CCanvas2D::Replay(const DisplayList& displayList)
+{
+	using Type = DisplayList::Command::Type;
+	for (const DisplayList::Command& command : displayList.commands)
+	{
+		switch (command.type)
+		{
+		case Type::LINE:
+			DrawLine(command.points, command.width, command.color);
+			break;
+		case Type::RECT:
+			DrawRect(command.destination, command.color);
+			break;
+		case Type::TEXTURE:
+			DrawTexture(command.texture, command.destination, command.source,
+				command.multiply, command.add, command.grayscaleFactor);
+			break;
+		case Type::TEXTURE_RELATIVE:
+			DrawTextureRelative(command.texture, command.destination, command.source,
+				command.multiply, command.add, command.grayscaleFactor);
+			break;
+		case Type::ROTATED_TEXTURE:
+			DrawRotatedTexture(command.texture, command.destination, command.source,
+				command.multiply, command.add, command.grayscaleFactor, command.origin, command.angle);
+			break;
+		case Type::TEXT:
+			m->BindTechIfNeeded();
+			m->DeviceCommandContext->SetUniform(m->BindingSlots.grayscaleFactor, 0.0f);
+			CTextRenderer::RenderBatches(command.text,
+				m->DeviceCommandContext, m->Tech->GetShader(), m->TransformScale, m->Translation,
+				m->DebugFontBox, m->DebugBoxColor);
+			break;
+		case Type::PUSH_SCISSOR:
+			PushScissor(command.destination);
+			break;
+		case Type::POP_SCISSOR:
+			PopScissor();
+			break;
+		}
+	}
 }
 
 CCanvas2D::~CCanvas2D()
@@ -232,6 +284,15 @@ void CCanvas2D::DrawLine(const std::vector<CVector2D>& points, const float width
 {
 	if (points.empty())
 		return;
+	if (m->Recording)
+	{
+		DisplayList::Command& command = m->Recording->commands.emplace_back();
+		command.type = DisplayList::Command::Type::LINE;
+		command.points = points;
+		command.width = width;
+		command.color = color;
+		return;
+	}
 
 	// We could reuse the terrain line building, but it uses 3D space instead of
 	// 2D. So it can be less optimal for a canvas.
@@ -379,6 +440,14 @@ void CCanvas2D::DrawLine(const std::vector<CVector2D>& points, const float width
 
 void CCanvas2D::DrawRect(const CRect& rect, const CColor& color)
 {
+	if (m->Recording)
+	{
+		DisplayList::Command& command = m->Recording->commands.emplace_back();
+		command.type = DisplayList::Command::Type::RECT;
+		command.destination = rect;
+		command.color = color;
+		return;
+	}
 	const PlaneArray2D uvs
 	{
 		0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
@@ -409,10 +478,43 @@ void CCanvas2D::DrawTexture(const CTexturePtr& texture, const CRect& destination
 		CColor(1.0f, 1.0f, 1.0f, 1.0f), CColor(0.0f, 0.0f, 0.0f, 0.0f), 0.0f);
 }
 
+void CCanvas2D::DrawTextureRelative(
+	const CTexturePtr& texture, const CRect& destination, const CRect& source,
+	const CColor& multiply, const CColor& add, const float grayscaleFactor)
+{
+	if (m->Recording)
+	{
+		DisplayList::Command& command = m->Recording->commands.emplace_back();
+		command.type = DisplayList::Command::Type::TEXTURE_RELATIVE;
+		command.texture = texture;
+		command.destination = destination;
+		command.source = source;
+		command.multiply = multiply;
+		command.add = add;
+		command.grayscaleFactor = grayscaleFactor;
+		return;
+	}
+	texture->UploadBackendTextureIfNeeded(m->DeviceCommandContext);
+	DrawTexture(texture, destination,
+		source.Scale(texture->GetWidth(), texture->GetHeight()), multiply, add, grayscaleFactor);
+}
+
 void CCanvas2D::DrawTexture(
 	const CTexturePtr& texture, const CRect& destination, const CRect& source,
 	const CColor& multiply, const CColor& add, const float grayscaleFactor)
 {
+	if (m->Recording)
+	{
+		DisplayList::Command& command = m->Recording->commands.emplace_back();
+		command.type = DisplayList::Command::Type::TEXTURE;
+		command.texture = texture;
+		command.destination = destination;
+		command.source = source;
+		command.multiply = multiply;
+		command.add = add;
+		command.grayscaleFactor = grayscaleFactor;
+		return;
+	}
 	const PlaneArray2D uvs =
 	{
 		source.left, source.bottom,
@@ -443,6 +545,20 @@ void CCanvas2D::DrawRotatedTexture(
 	const CColor& multiply, const CColor& add, const float grayscaleFactor,
 	const CVector2D& origin, const float angle)
 {
+	if (m->Recording)
+	{
+		DisplayList::Command& command = m->Recording->commands.emplace_back();
+		command.type = DisplayList::Command::Type::ROTATED_TEXTURE;
+		command.texture = texture;
+		command.destination = destination;
+		command.source = source;
+		command.multiply = multiply;
+		command.add = add;
+		command.grayscaleFactor = grayscaleFactor;
+		command.origin = origin;
+		command.angle = angle;
+		return;
+	}
 	const PlaneArray2D uvs =
 	{
 		source.left, source.bottom,
@@ -479,6 +595,13 @@ void CCanvas2D::DrawRotatedTexture(
 
 void CCanvas2D::DrawText(CTextRenderer& textRenderer)
 {
+	if (m->Recording)
+	{
+		DisplayList::Command& command = m->Recording->commands.emplace_back();
+		command.type = DisplayList::Command::Type::TEXT;
+		command.text = textRenderer.Snapshot();
+		return;
+	}
 	m->BindTechIfNeeded();
 
 	m->DeviceCommandContext->SetUniform(
@@ -491,6 +614,13 @@ void CCanvas2D::DrawText(CTextRenderer& textRenderer)
 
 void CCanvas2D::PushScissor(const CRect& scissor)
 {
+	if (m->Recording)
+	{
+		DisplayList::Command& command = m->Recording->commands.emplace_back();
+		command.type = DisplayList::Command::Type::PUSH_SCISSOR;
+		command.destination = scissor;
+		return;
+	}
 	ENSURE(!m->Scissors.full());
 	m->Scissors.emplace_back(scissor);
 	m->ApplyScissors();
@@ -498,6 +628,12 @@ void CCanvas2D::PushScissor(const CRect& scissor)
 
 void CCanvas2D::PopScissor()
 {
+	if (m->Recording)
+	{
+		DisplayList::Command& command = m->Recording->commands.emplace_back();
+		command.type = DisplayList::Command::Type::POP_SCISSOR;
+		return;
+	}
 	ENSURE(!m->Scissors.empty());
 	m->Scissors.pop_back();
 	m->ApplyScissors();
@@ -505,5 +641,7 @@ void CCanvas2D::PopScissor()
 
 void CCanvas2D::Flush()
 {
+	if (m->Recording)
+		return;
 	m->UnbindTech();
 }

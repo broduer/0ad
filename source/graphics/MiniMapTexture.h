@@ -24,9 +24,9 @@
 #include "lib/code_annotation.h"
 #include "lib/posix/posix_types.h"
 #include "maths/Vector2D.h"
+#include "ps/AtomicSharedPtr.h"
 #include "renderer/VertexArray.h"
 
-#include <atomic>
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -58,13 +58,11 @@ public:
 
 	void RequestRendering();
 
-	struct Icon;
 	struct Gathered
 	{
 		bool valid = false;
 		std::vector<MinimapUnitVertex> entities;
 		std::vector<MinimapUnitVertex> pings;
-		std::vector<Icon> icons;
 		bool losCircular = false;
 	};
 	// What a logic step hands to the render thread.
@@ -98,7 +96,8 @@ public:
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		CLOSTexture& losTexture, CTerritoryTexture& territoryTexture);
 
-	const CTexturePtr& GetTexture() const { return m_FinalTexture; }
+	// For the GUI on the logic thread: the texture as of the last frame step.
+	const CTexturePtr& GetTexture() const { return m_LogicTexture; }
 
 	bool IsFlipped() const { return m_Flipped; }
 
@@ -153,6 +152,7 @@ private:
 	// Render thread.
 	bool m_RenderingRequested = false;
 	bool m_TerrainTextureDirty = true;
+	// Set at construction.
 	bool m_Flipped = false;
 
 	// minimap texture handles
@@ -195,7 +195,13 @@ private:
 	double m_NextBlinkTime = 0.0;
 	bool m_BlinkState = false;
 
+	// The logic thread's, for the GUI.
 	std::vector<Icon> m_Icons;
+	CTexturePtr m_LogicTexture;
+	bool m_LosCircular = false;
+	// The final texture, written by the render thread when it is created or
+	// destroyed and read by the logic thread at its frame step.
+	PS::AtomicSharedPtr<CTexture> m_RenderedTexture;
 	// Logic thread: real time summed over frame steps, which paces gathering,
 	// and when entities were last gathered.
 	double m_LogicRealTime = 0.0;
@@ -204,7 +210,6 @@ private:
 	// the render thread's until drawn.
 	Gathered m_Prepared;
 	Gathered m_Taken;
-	std::atomic<bool> m_LosCircular{false};
 	// We store the map as a member to avoid redundant reallocations on each
 	// update. We use a grid approach to combine icons by distance.
 	struct CellIconKey

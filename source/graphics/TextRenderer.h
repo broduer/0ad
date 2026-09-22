@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -29,6 +29,7 @@
 #include <list>
 #include <memory>
 #include <string>
+#include <vector>
 
 class CFont;
 namespace Renderer::Backend { class IDeviceCommandContext; }
@@ -108,6 +109,38 @@ public:
 	 * Render all of the previously printed text calls.
 	 */
 	void Render(
+		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
+		Renderer::Backend::IShaderProgram* shader,
+		const CVector2D& transformScale, const CVector2D& translation,
+		const bool debugFontBox, const CColor& debugBoxColor);
+
+	/**
+	 * Text batches for deferred rendering. Fonts must outlive the batches.
+	 */
+	struct Batches
+	{
+		struct Run
+		{
+			float x, y;
+			std::wstring text;
+		};
+		struct Batch
+		{
+			CFont* font;
+			CColor color;
+			CVector2D translate;
+			size_t chars;
+			std::vector<Run> runs;
+		};
+		std::vector<Batch> batches;
+	};
+	Batches Snapshot();
+
+	/**
+	 * Draw @p batches. Render thread.
+	 */
+	static void RenderBatches(
+		const Batches& batches,
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		Renderer::Backend::IShaderProgram* shader,
 		const CVector2D& transformScale, const CVector2D& translation,
