@@ -373,7 +373,6 @@ PSRETURN CGame::ReallyStartGame()
 			Script::Function::CallVoid(rq, global, "reallyStartGame");
 	}
 
-	debug_printf("GAME STARTED, ALL INIT COMPLETE\n");
 
 	// The call tree we've built for pregame probably isn't useful in-game.
 	if (CProfileManager::IsInitialised())
