@@ -31,7 +31,6 @@ class CConfigDBHook;
 class CFont;
 struct FT_LibraryRec_;
 
-namespace Renderer::Backend { class IDevice; }
 namespace Renderer::Backend { class IDeviceCommandContext; }
 
 /**
@@ -40,13 +39,17 @@ namespace Renderer::Backend { class IDeviceCommandContext; }
 class CFontManager
 {
 public:
-	CFontManager(Renderer::Backend::IDevice* device);
+	CFontManager();
 	~CFontManager();
 	NONCOPYABLE(CFontManager);
 
 	CFont* LoadFont(CStrIntern fontName, CStrIntern locale);
-	void UploadAtlasTexturesToGPU(
-		Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
+
+	/**
+	 * Hand every atlas that gained glyphs to the render thread. Logic thread,
+	 * after laying out the frame's text.
+	 */
+	void PublishAtlases();
 
 private:
 	static void ftLibraryDeleter(FT_Library library)
@@ -63,8 +66,6 @@ private:
 
 	float m_GUIScale{1.0f};
 	std::unique_ptr<CConfigDBHook> m_GUIScaleHook;
-
-	Renderer::Backend::IDevice* m_Device;
 
 	/*
 	* Most monitors today use 2.2 as the standard gamma.

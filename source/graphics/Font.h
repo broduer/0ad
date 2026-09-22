@@ -23,7 +23,9 @@
 #include "lib/code_annotation.h"
 #include "lib/os_path.h"
 #include "maths/Rect.h"
+#include "ps/AtomicSharedPtr.h"
 #include "renderer/backend/Format.h"
+#include "renderer/backend/Sampler.h"
 
 #include <array>
 #include <ft2build.h>
@@ -114,12 +116,36 @@ public:
 		y1 = m_Bounds.bottom;
 	}
 
+	/**
+	 * Return the atlas texture, created on the render thread by the first
+	 * UploadAtlasTextureToGPU call.
+	 */
 	CTexturePtr GetTexture() const { return m_Texture; }
-	void InitalizeAtlasTextureIfNeeded(
-		Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
+
+	/**
+	 * Copy the atlas for the render thread if glyphs were added since the
+	 * last call. Logic thread.
+	 */
+	void PublishAtlas();
+
+	/**
+	 * Create the atlas texture on first use and upload the last published
+	 * atlas. Render thread.
+	 */
 	void UploadAtlasTextureToGPU(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
+
+	/**
+	 * Return the glyph for @p i, generating it into the atlas if it is new.
+	 * Logic thread.
+	 */
 	const GlyphData* GetGlyph(std::uint16_t i);
+
+	/**
+	 * Return the glyph for @p i if it was generated, else null. The render
+	 * thread uses only glyphs generated before its text was handed over.
+	 */
+	const GlyphData* FindGlyph(std::uint16_t i) const { return m_Glyphs.get(i); }
 
 private:
 	static void ftFaceDeleter(FT_Face face)
@@ -139,8 +165,7 @@ private:
 
 	bool AddFontFromPath(const OsPath& fontPath);
 	bool SetFontParams(
-		Renderer::Backend::IDevice* device, const std::string& fontName,
-		float size, float strokeWidth, float scale);
+		const std::string& fontName, float size, float strokeWidth, float scale);
 
 	void BlendGlyphBitmapToTexture(const FT_Bitmap& bitmap, int targetX, int targetY, std::uint8_t r,
 		std::uint8_t g, std::uint8_t b);
@@ -154,10 +179,16 @@ private:
 		FT_Render_Mode renderMode, CVector2D offset, const float baselineInAtlas);
 
 	const GlyphData* ExtractAndGenerateGlyph(std::uint16_t codepoint);
-	bool ConstructAtlasTexture(Renderer::Backend::IDevice* device);
+	bool ConstructAtlasTexture();
 	Renderer::Backend::Sampler::Desc ChooseTextureFormatAndSampler();
 
 	CTexturePtr m_Texture;
+	Renderer::Backend::Sampler::Desc m_SamplerDesc{};
+	// The atlas as last published to the render thread. Behind a pointer so
+	// the font stays movable.
+	using AtlasCopy = std::shared_ptr<const std::vector<std::uint8_t>>;
+	std::unique_ptr<PS::AtomicSharedPtr<AtlasCopy::element_type>> m_PublishedAtlas{
+		std::make_unique<PS::AtomicSharedPtr<AtlasCopy::element_type>>()};
 
 	// True if RGBA, false if ALPHA.
 	bool m_HasRGB{true};
@@ -180,7 +211,6 @@ private:
 
 	int m_AtlasPadding;
 	bool m_IsDirty{false};
-	bool m_IsTextureInitialized{false};
 	float m_StrokeWidth{0.0f};
 	float m_Scale{1.0f};
 

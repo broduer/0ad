@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -199,6 +199,12 @@ public:
 	 * then returns true.
 	 */
 	bool Poll(CTexturePtr& texture, VfsPath& dest, bool& ok);
+
+	/**
+	 * Return whether conversions are pending, including completed ones whose
+	 * results have not been polled yet.
+	 */
+	bool HasPendingConversions() const;
 
 	/**
 	 * The TextureConverter shouldn't utilize the CPU/Memory fully, so no

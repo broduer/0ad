@@ -538,6 +538,15 @@ bool CTextureConverter::Poll(CTexturePtr& texture, VfsPath& dest, bool& ok)
 #endif // !CONFIG2_NVTT
 }
 
+bool CTextureConverter::HasPendingConversions() const
+{
+#if CONFIG2_NVTT
+	return !m_ResultQueue.empty();
+#else // CONFIG2_NVTT
+	return false;
+#endif // !CONFIG2_NVTT
+}
+
 bool CTextureConverter::IsBusy() const
 {
 #if CONFIG2_NVTT

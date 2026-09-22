@@ -134,6 +134,11 @@ public:
 		};
 		std::vector<Batch> batches;
 	};
+
+	/**
+	 * Take the text added so far, generating its glyphs for the render thread.
+	 * Logic thread.
+	 */
 	Batches Snapshot();
 
 	/**
@@ -147,6 +152,9 @@ public:
 		const bool debugFontBox, const CColor& debugBoxColor);
 
 private:
+	Batches TakeBatches();
+	static void GenerateGlyphs(const Batches& batches);
+
 	friend struct SBatchCompare;
 
 	/**

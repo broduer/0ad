@@ -102,13 +102,12 @@ FontSpec ParseFontSpec(const std::string& spec)
 }
 } // namespace
 
-CFontManager::CFontManager(Renderer::Backend::IDevice* device)
+CFontManager::CFontManager()
 	: m_GUIScaleHook{std::make_unique<CConfigDBHook>(g_ConfigDB.RegisterHookAndCall(
 		"gui.scale", [this]()
 		{
 			m_GUIScale = g_ConfigDB.Get("gui.scale", 1.0f);
-		}))},
-	m_Device(device)
+		}))}
 {
 	FT_Library lib;
 	FT_Error error{FT_Init_FreeType(&lib)};
@@ -225,7 +224,7 @@ CFont* CFontManager::LoadFont(CStrIntern fontName, CStrIntern locale)
 
 	CFont font{this->m_FreeType.get(), *m_GammaCorrectionLUT};
 
-	if (!font.SetFontParams(m_Device, localeFontName.string(), fontSpec.size, fontSpec.stroke ? 1.0f : 0.0f, m_GUIScale))
+	if (!font.SetFontParams(localeFontName.string(), fontSpec.size, fontSpec.stroke ? 1.0f : 0.0f, m_GUIScale))
 	{
 		LOGERROR("Failed to set font params for %s", localeFontName.string().c_str());
 		return nullptr;
@@ -260,11 +259,8 @@ CFont* CFontManager::LoadFont(CStrIntern fontName, CStrIntern locale)
 	return &m_Fonts.insert_or_assign(localeFontName, std::move(font)).first->second;
 }
 
-void CFontManager::UploadAtlasTexturesToGPU(Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
+void CFontManager::PublishAtlases()
 {
-	PROFILE2("Loading font textures");
-	GPU_SCOPED_LABEL(deviceCommandContext, "Loading font textures");
-
 	for (auto& [fontName, font] : m_Fonts)
-		font.UploadAtlasTextureToGPU(deviceCommandContext);
+		font.PublishAtlas();
 }

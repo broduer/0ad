@@ -101,6 +101,7 @@ void AtlasViewActor::Render()
 
 	PublishRenderingOptions();
 	TakeRenderingOptions();
+	g_Renderer.PublishFontAtlases();
 	m_ActorViewer->Render();
 	Atlas_GLSwapBuffers((void*)g_AtlasGameLoop->glCanvas);
 }
@@ -262,6 +263,7 @@ void AtlasViewGame::Render()
 
 	PublishRenderingOptions();
 	TakeRenderingOptions();
+	g_Renderer.PublishFontAtlases();
 	g_Renderer.RenderFrame(false);
 	Atlas_GLSwapBuffers((void*)g_AtlasGameLoop->glCanvas);
 	// In case of atlas the swapchain's present will do only internal stuff

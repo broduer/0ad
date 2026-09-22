@@ -35,6 +35,7 @@
 #include "ps/ConfigDB.h"
 #include "ps/Filesystem.h"
 #include "ps/Profiler2.h"
+#include "ps/RenderThread.h"
 #include "ps/Util.h"
 #include "renderer/backend/IDevice.h"
 #include "renderer/backend/IDeviceCommandContext.h"
@@ -47,6 +48,7 @@
 #include <chrono>
 #include <filesystem>
 #include <iterator>
+#include <mutex>
 #include <set>
 #include <sstream>
 #include <string>
@@ -376,6 +378,10 @@ class CTextureManagerImpl
 {
 	friend class CTexture;
 public:
+	// Guards the caches and texture loading. Public entry points lock; helpers
+	// do not. Never wait on another thread or upload to the device under this lock.
+	mutable std::mutex m_Mutex;
+
 	CTextureManagerImpl(PIVFS vfs, bool highQuality, Renderer::Backend::IDevice* device) :
 		m_VFS(vfs), m_CacheLoader(vfs, L".dds"), m_Device(device),
 		m_TextureConverter(vfs, highQuality),
@@ -432,6 +438,12 @@ public:
 	 */
 	CTexturePtr CreateTexture(const CTextureProperties& props)
 	{
+		std::lock_guard<std::mutex> lock(m_Mutex);
+		return CreateTextureLocked(props);
+	}
+
+	CTexturePtr CreateTextureLocked(const CTextureProperties& props)
+	{
 		// Construct a new default texture with the given properties to use as the search key
 		CTexturePtr texture(new CTexture(
 			nullptr, m_DefaultTexture.GetTexture()->GetBackendTexture(), props, this));
@@ -464,8 +476,18 @@ public:
 	}
 
 	/**
-	 * Load the given file into the texture object and upload it to OpenGL.
-	 * Assumes the file already exists.
+	 * Mark the load as failed; the render thread's upload substitutes the
+	 * error texture.
+	 */
+	void FailLoad(const CTexturePtr& texture)
+	{
+		texture->m_LoadFailed = true;
+		texture->m_TextureData.reset();
+	}
+
+	/**
+	 * Decode an existing file and select its format and sampler, deferring
+	 * the backend texture to the render thread.
 	 */
 	void LoadTexture(const CTexturePtr& texture, const VfsPath& path)
 	{
@@ -479,9 +501,7 @@ public:
 		{
 			LOGERROR("Texture failed to load; \"%s\" %s",
 				texture->m_Properties.m_Path.string8(), GetStatusAsString(loadStatus).c_str());
-			texture->ResetBackendTexture(
-				nullptr, m_ErrorTexture.GetTexture()->GetBackendTexture());
-			texture->m_TextureData.reset();
+			FailLoad(texture);
 			return;
 		}
 
@@ -492,9 +512,7 @@ public:
 		{
 			LOGERROR("Texture failed to decode; \"%s\" %s",
 				texture->m_Properties.m_Path.string8(), GetStatusAsString(decodeStatus).c_str());
-			texture->ResetBackendTexture(
-				nullptr, m_ErrorTexture.GetTexture()->GetBackendTexture());
-			texture->m_TextureData.reset();
+			FailLoad(texture);
 			return;
 		}
 
@@ -502,9 +520,7 @@ public:
 		{
 			LOGERROR("Texture should have width and height be power of two; \"%s\" %zux%zu",
 				texture->m_Properties.m_Path.string8(), textureData.m_Width, textureData.m_Height);
-			texture->ResetBackendTexture(
-				nullptr, m_ErrorTexture.GetTexture()->GetBackendTexture());
-			texture->m_TextureData.reset();
+			FailLoad(texture);
 			return;
 		}
 
@@ -538,9 +554,7 @@ public:
 		if (format == Renderer::Backend::Format::UNDEFINED)
 		{
 			LOGERROR("Texture failed to choose format; \"%s\"", texture->m_Properties.m_Path.string8());
-			texture->ResetBackendTexture(
-				nullptr, m_ErrorTexture.GetTexture()->GetBackendTexture());
-			texture->m_TextureData.reset();
+			FailLoad(texture);
 			return;
 		}
 
@@ -590,12 +604,9 @@ public:
 			}
 		}
 
-		texture->m_BackendTexture = m_Device->CreateTexture2D(
-			texture->m_Properties.m_Path.string8().c_str(),
-			Renderer::Backend::ITexture::Usage::TRANSFER_DST |
-				Renderer::Backend::ITexture::Usage::SAMPLED,
-			format, (width >> texture->m_BaseLevelOffset), (height >> texture->m_BaseLevelOffset),
-			defaultSamplerDesc, MIPLevelCount - texture->m_BaseLevelOffset);
+		texture->m_PendingFormat = format;
+		texture->m_PendingSampler = defaultSamplerDesc;
+		texture->m_LoadFailed = false;
 	}
 
 	/**
@@ -645,8 +656,7 @@ public:
 			// No source file or archive cache was found, so we can't load the
 			// real texture at all - return the error texture instead
 			LOGERROR("CCacheLoader failed to find archived or source file for: \"%s\"", texture->m_Properties.m_Path.string8());
-			texture->ResetBackendTexture(
-				nullptr, m_ErrorTexture.GetTexture()->GetBackendTexture());
+			FailLoad(texture);
 			return true;
 		}
 	}
@@ -681,13 +691,15 @@ public:
 	bool GenerateCachedTexture(const VfsPath& sourcePath, VfsPath& archiveCachePath)
 	{
 		archiveCachePath = m_CacheLoader.ArchiveCachePath(sourcePath);
+		{
+			std::lock_guard<std::mutex> lock(m_Mutex);
+			CTextureProperties textureProps(sourcePath);
+			CTexturePtr texture = CreateTextureLocked(textureProps);
+			CTextureConverter::Settings settings = GetConverterSettings(texture);
 
-		CTextureProperties textureProps(sourcePath);
-		CTexturePtr texture = CreateTexture(textureProps);
-		CTextureConverter::Settings settings = GetConverterSettings(texture);
-
-		if (!m_TextureConverter.ConvertTexture(texture, sourcePath, VfsPath("cache") / archiveCachePath, settings))
-			return false;
+			if (!m_TextureConverter.ConvertTexture(texture, sourcePath, VfsPath("cache") / archiveCachePath, settings))
+				return false;
+		}
 
 		while (true)
 		{
@@ -708,6 +720,9 @@ public:
 
 	bool MakeProgress()
 	{
+		if (!m_MayNeedProgress.load(std::memory_order_relaxed))
+			return false;
+		std::lock_guard<std::mutex> lock(m_Mutex);
 		// Process any completed conversion tasks
 		{
 			CTexturePtr texture;
@@ -722,15 +737,14 @@ public:
 				else
 				{
 					LOGERROR("Texture failed to convert: \"%s\"", texture->m_Properties.m_Path.string8());
-					texture->ResetBackendTexture(
-						nullptr, m_ErrorTexture.GetTexture()->GetBackendTexture());
+					FailLoad(texture);
 				}
 				texture->m_State = CTexture::LOADED;
 				return true;
 			}
 		}
 
-		if (m_TextureCache.empty() || !m_MayNeedProgress)
+		if (m_TextureCache.empty())
 			return false;
 
 		const auto getPriority = [busy = m_TextureConverter.IsBusy()](const CTexturePtr& tex)
@@ -749,10 +763,10 @@ public:
 
 		CTexturePtr highPrioritytexture = std::ranges::max(m_TextureCache, {}, getPriority);
 
-		if (!m_TextureConverter.IsBusy() && getPriority(highPrioritytexture) == 0)
+		if (!m_TextureConverter.HasPendingConversions() && getPriority(highPrioritytexture) == 0)
 			m_MayNeedProgress = false;
 
-		switch (highPrioritytexture->m_State)
+		switch (highPrioritytexture->m_State.load())
 		{
 		case CTexture::HIGH_NEEDS_CONVERTING:
 			// Start converting this texture
@@ -847,6 +861,7 @@ public:
 
 	Status ReloadChangedFile(const VfsPath& path)
 	{
+		std::lock_guard<std::mutex> lock(m_Mutex);
 		m_MayNeedProgress = true;
 		// Uncache settings file, if this is one
 		m_SettingsFiles.erase(path);
@@ -873,6 +888,7 @@ public:
 
 	void ReloadAllTextures()
 	{
+		std::lock_guard<std::mutex> lock(m_Mutex);
 		m_MayNeedProgress = true;
 		for (const CTexturePtr& texture : m_TextureCache)
 		{
@@ -885,6 +901,7 @@ public:
 
 	size_t GetBytesUploaded() const
 	{
+		std::lock_guard<std::mutex> lock(m_Mutex);
 		size_t size = 0;
 		for (TextureCache::const_iterator it = m_TextureCache.begin(); it != m_TextureCache.end(); ++it)
 			size += (*it)->GetUploadedSize();
@@ -909,7 +926,7 @@ private:
 	CGradientTexture m_AlphaGradientTexture;
 	CSingleColorTextureCube m_BlackTextureCube;
 	bool m_PredefinedTexturesUploaded = false;
-	bool m_MayNeedProgress = true;
+	std::atomic<bool> m_MayNeedProgress{true};
 
 	// Cache of all loaded textures
 	using TextureCache =
@@ -948,27 +965,49 @@ void CTexture::UploadBackendTextureIfNeeded(
 {
 	if (IsUploaded())
 		return;
+	ENSURE(RenderThread::IsRenderThread());
 
 	if (!IsLoaded())
 		TryLoad();
 
 	if (!IsLoaded())
 		return;
-	else if (!m_TextureData || !m_BackendTexture)
+
+	// A LOADED texture belongs to the render thread; loads skip it, and
+	// hotloading runs while the render thread is parked.
+	if (m_LoadFailed || !m_TextureData)
 	{
 		ResetBackendTexture(nullptr, m_TextureManager->GetErrorTexture()->GetBackendTexture());
+		m_TextureData.reset();
 		m_State = UPLOADED;
 		return;
 	}
 
-	m_UploadedSize = 0;
-	for (uint32_t textureDataLevel = m_BaseLevelOffset, level = 0; textureDataLevel < m_TextureData->GetMIPLevels().size(); ++textureDataLevel)
+	const uint32_t MIPLevelCount = m_TextureData->GetMIPLevels().size();
+	m_BackendTexture = deviceCommandContext->GetDevice()->CreateTexture2D(
+		m_Properties.m_Path.string8().c_str(),
+		Renderer::Backend::ITexture::Usage::TRANSFER_DST |
+			Renderer::Backend::ITexture::Usage::SAMPLED,
+		m_PendingFormat, m_TextureData->m_Width >> m_BaseLevelOffset,
+		m_TextureData->m_Height >> m_BaseLevelOffset,
+		m_PendingSampler, MIPLevelCount - m_BaseLevelOffset);
+	if (!m_BackendTexture)
+	{
+		ResetBackendTexture(nullptr, m_TextureManager->GetErrorTexture()->GetBackendTexture());
+		m_TextureData.reset();
+		m_State = UPLOADED;
+		return;
+	}
+
+	size_t uploadedSize = 0;
+	for (uint32_t textureDataLevel = m_BaseLevelOffset, level = 0; textureDataLevel < MIPLevelCount; ++textureDataLevel)
 	{
 		const Tex::MIPLevel& levelData = m_TextureData->GetMIPLevels()[textureDataLevel];
 		deviceCommandContext->UploadTexture(m_BackendTexture.get(), m_BackendTexture->GetFormat(),
 			levelData.data, levelData.dataSize, level++);
-		m_UploadedSize += levelData.dataSize;
+		uploadedSize += levelData.dataSize;
 	}
+	m_UploadedSize.store(uploadedSize, std::memory_order_relaxed);
 	m_TextureData.reset();
 
 	m_State = UPLOADED;
@@ -976,16 +1015,23 @@ void CTexture::UploadBackendTextureIfNeeded(
 
 Renderer::Backend::ITexture* CTexture::GetBackendTexture()
 {
-	return m_BackendTexture && IsUploaded() ? m_BackendTexture.get() : m_FallbackBackendTexture;
+	if (IsUploaded() && m_BackendTexture)
+		return m_BackendTexture.get();
+	return m_FallbackBackendTexture.load(std::memory_order_relaxed);
 }
 
 const Renderer::Backend::ITexture* CTexture::GetBackendTexture() const
 {
-	return m_BackendTexture && IsUploaded() ? m_BackendTexture.get() : m_FallbackBackendTexture;
+	if (IsUploaded() && m_BackendTexture)
+		return m_BackendTexture.get();
+	return m_FallbackBackendTexture.load(std::memory_order_relaxed);
 }
 
 bool CTexture::TryLoad()
 {
+	if (IsLoaded() || IsUploaded())
+		return true;
+	std::lock_guard<std::mutex> lock(m_TextureManager->m_Mutex);
 	// If we haven't started loading, then try loading, and if that fails then request conversion.
 	// If we have already tried prefetch loading, and it failed, bump the conversion request to HIGH priority.
 	if (m_State == UNLOADED || m_State == PREFETCH_NEEDS_LOADING || m_State == PREFETCH_NEEDS_CONVERTING)
@@ -1007,6 +1053,9 @@ bool CTexture::TryLoad()
 
 void CTexture::Prefetch()
 {
+	if (m_State != UNLOADED)
+		return;
+	std::lock_guard<std::mutex> lock(m_TextureManager->m_Mutex);
 	if (m_State == UNLOADED)
 	{
 		if (std::shared_ptr<CTexture> self = m_Self.lock())
@@ -1022,7 +1071,7 @@ void CTexture::ResetBackendTexture(
 	Renderer::Backend::ITexture* fallbackBackendTexture)
 {
 	m_BackendTexture = std::move(backendTexture);
-	m_FallbackBackendTexture = fallbackBackendTexture;
+	m_FallbackBackendTexture.store(fallbackBackendTexture, std::memory_order_relaxed);
 }
 
 size_t CTexture::GetWidth() const
@@ -1048,12 +1097,12 @@ bool CTexture::HasAlpha() const
 
 std::uint32_t CTexture::GetBaseColor() const
 {
-	return m_BaseColor;
+	return m_BaseColor.load(std::memory_order_relaxed);
 }
 
 size_t CTexture::GetUploadedSize() const
 {
-	return m_UploadedSize;
+	return m_UploadedSize.load(std::memory_order_relaxed);
 }
 
 // CTextureManager: forward all calls to impl:

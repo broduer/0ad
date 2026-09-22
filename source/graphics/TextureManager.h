@@ -25,6 +25,7 @@
 #include "renderer/backend/Format.h"
 #include "renderer/backend/Sampler.h"
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -180,6 +181,7 @@ private:
  */
 class CTextureProperties
 {
+	friend class CTexture;
 	friend class CTextureManagerImpl;
 	friend struct TextureCacheCmp;
 	friend struct TPequal_to;
@@ -360,15 +362,20 @@ private:
 
 	const CTextureProperties m_Properties;
 
+	// Created by the upload on the render thread; read only once UPLOADED.
 	std::unique_ptr<Renderer::Backend::ITexture> m_BackendTexture;
 	// It's possible to m_FallbackBackendTexture references m_BackendTexture.
-	Renderer::Backend::ITexture* m_FallbackBackendTexture = nullptr;
-	std::uint32_t m_BaseColor;
+	std::atomic<Renderer::Backend::ITexture*> m_FallbackBackendTexture{nullptr};
+	std::atomic<std::uint32_t> m_BaseColor;
+	// Filled by the load on either thread, consumed by the upload.
 	std::unique_ptr<Tex> m_TextureData;
-	size_t m_UploadedSize = 0;
+	Renderer::Backend::Format m_PendingFormat = Renderer::Backend::Format::UNDEFINED;
+	Renderer::Backend::Sampler::Desc m_PendingSampler{};
+	bool m_LoadFailed = false;
+	std::atomic<size_t> m_UploadedSize{0};
 	uint32_t m_BaseLevelOffset = 0;
 
-	enum
+	enum State
 	{
 		UNLOADED, // loading has not started
 		PREFETCH_NEEDS_LOADING, // was prefetched; currently waiting to try loading from cache
@@ -378,7 +385,10 @@ private:
 		HIGH_IS_CONVERTING, // high-priority; currently being processed by the texture converter
 		LOADED, // loading texture data has completed (successfully or not)
 		UPLOADED // uploading to backend has completed (successfully or not)
-	} m_State;
+	};
+	// Changed under the manager's lock, and from LOADED to UPLOADED by the
+	// render thread's upload; read without it.
+	std::atomic<State> m_State;
 
 	CTextureManagerImpl* m_TextureManager;
 

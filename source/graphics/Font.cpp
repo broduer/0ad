@@ -160,8 +160,7 @@ void CFont::CalculateStringSize(const wchar_t* string, float& width, float& heig
 }
 
 bool CFont::SetFontParams(
-	Renderer::Backend::IDevice* device, const std::string& fontName,
-	float size, float strokeWidth, float scale)
+	const std::string& fontName, float size, float strokeWidth, float scale)
 {
 	ENSURE(m_FontSize == 0 && size > 0);
 
@@ -183,7 +182,7 @@ bool CFont::SetFontParams(
 		FT_Stroker_Set(m_Stroker.get(), FloatToF26Dot6(m_StrokeWidth), FT_STROKER_LINECAP_ROUND, FT_STROKER_LINEJOIN_ROUND, 0);
 	}
 
-	if (!ConstructAtlasTexture(device))
+	if (!ConstructAtlasTexture())
 	{
 		LOGERROR("Failed to create font texture atlas %s", fontName);
 		return false;
@@ -265,9 +264,8 @@ Renderer::Backend::Sampler::Desc CFont::ChooseTextureFormatAndSampler()
 	return defaultSamplerDesc;
 }
 
-bool CFont::ConstructAtlasTexture(Renderer::Backend::IDevice* device)
+bool CFont::ConstructAtlasTexture()
 {
-	// Make backend texture ahead of time.
 	// TODO: calculate based on device support.
 	const int textureSize{1024};
 	m_AtlasWidth = textureSize;
@@ -281,49 +279,26 @@ bool CFont::ConstructAtlasTexture(Renderer::Backend::IDevice* device)
 
 	// TODO: preload from cache?.
 
-	const Renderer::Backend::Sampler::Desc defaultSamplerDesc{ChooseTextureFormatAndSampler()};
+	m_SamplerDesc = ChooseTextureFormatAndSampler();
 
 	m_AtlasSize = m_AtlasWidth * m_AtlasHeight * m_TextureFormatStride;
-
-	char buffer[128];
-	PS::StringBuilder fontTextureNameBuilder{{std::begin(buffer), std::end(buffer)}};
-	fontTextureNameBuilder.Append("Font Texture ");
-	fontTextureNameBuilder.Append(m_FontName);
-	m_Texture = g_Renderer.GetTextureManager().WrapBackendTexture(device->CreateTexture2D(
-		fontTextureNameBuilder.Str().data(),
-		Renderer::Backend::ITexture::Usage::TRANSFER_DST |
-			Renderer::Backend::ITexture::Usage::SAMPLED,
-		m_TextureFormat,
-		textureSize, textureSize, defaultSamplerDesc
-	));
-
-	if (!m_Texture)
-	{
-		LOGERROR("Failed to create font texture %s", m_FontName);
-		return false;
-	}
 
 	// Initialise texture with transparency, for the areas we don't
 	// overwrite with uploading later.
 	m_TexData = std::make_unique<std::uint8_t[]>(m_AtlasSize);
 	std::fill_n(m_TexData.get(), m_AtlasSize, 0x00);
-
-	m_IsTextureInitialized = false;
+	m_IsDirty = true;
 
 	return true;
 }
 
-void CFont::InitalizeAtlasTextureIfNeeded(
-	Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
+void CFont::PublishAtlas()
 {
-	if (m_IsTextureInitialized)
+	if (!m_IsDirty)
 		return;
-
-	deviceCommandContext->UploadTexture(
-		m_Texture->GetBackendTexture(), m_TextureFormat,
-		m_TexData.get(), m_AtlasSize);
-
-	m_IsTextureInitialized = true;
+	m_PublishedAtlas->store(std::make_shared<const std::vector<std::uint8_t>>(
+		m_TexData.get(), m_TexData.get() + m_AtlasSize));
+	m_IsDirty = false;
 }
 
 const CFont::GlyphData* CFont::GetGlyph(std::uint16_t codepoint)
@@ -510,17 +485,30 @@ std::optional<CVector2D> CFont::GenerateGlyphBitmap(FT_Glyph& glyph, std::uint16
 
 void CFont::UploadAtlasTextureToGPU(Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
-	if (!m_IsDirty)
-		return;
+	if (!m_Texture)
+	{
+		char buffer[128];
+		PS::StringBuilder fontTextureNameBuilder{{std::begin(buffer), std::end(buffer)}};
+		fontTextureNameBuilder.Append("Font Texture ");
+		fontTextureNameBuilder.Append(m_FontName);
+		std::unique_ptr<Renderer::Backend::ITexture> texture{
+			deviceCommandContext->GetDevice()->CreateTexture2D(
+				fontTextureNameBuilder.Str().data(),
+				Renderer::Backend::ITexture::Usage::TRANSFER_DST |
+					Renderer::Backend::ITexture::Usage::SAMPLED,
+				m_TextureFormat, m_AtlasWidth, m_AtlasHeight, m_SamplerDesc)};
+		if (!texture)
+		{
+			LOGERROR("Failed to create font texture %s", m_FontName);
+			m_Texture = g_Renderer.GetTextureManager().GetErrorTexture();
+			return;
+		}
+		m_Texture = g_Renderer.GetTextureManager().WrapBackendTexture(std::move(texture));
+	}
 
-	deviceCommandContext->UploadTexture(
-		m_Texture->GetBackendTexture(),
-		m_TextureFormat,
-		m_TexData.get(),
-		m_AtlasSize
-	);
-
-	m_IsDirty = false;
+	if (const AtlasCopy atlas = m_PublishedAtlas->exchange(nullptr))
+		deviceCommandContext->UploadTexture(
+			m_Texture->GetBackendTexture(), m_TextureFormat, atlas->data(), atlas->size());
 }
 
 void CFont::BlendGlyphBitmapToTexture(const FT_Bitmap& bitmap, int targetX, int targetY, std::uint8_t r,

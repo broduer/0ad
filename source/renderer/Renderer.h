@@ -115,6 +115,12 @@ public:
 	CFontManager& GetFontManager();
 
 	/**
+	 * Hand the glyphs generated since the last call to the render thread.
+	 * Logic thread.
+	 */
+	void PublishFontAtlases();
+
+	/**
 	 * Set the GUI, console and profiler (and separately the logger) as the
 	 * logic thread recorded them for this frame, for the render thread to draw.
 	 */

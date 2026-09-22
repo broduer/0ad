@@ -421,7 +421,7 @@ public:
 		IsOpen(false), ShadersDirty(true), profileTable(g_Renderer.m_Stats, linearAllocator),
 		backendProfileTable(*device),
 		shaderManager(device), textureManager(g_VFS, false, device), vertexBufferManager(device),
-		postprocManager(device), sceneRenderer(device), fontManager(device)
+		postprocManager(device), sceneRenderer(device)
 	{
 	}
 };
@@ -787,8 +787,6 @@ void CRenderer::Render2D(const bool renderGUI, const bool renderLogger)
 		if (const std::shared_ptr<const CCanvas2D::DisplayList> logger = m->loggerList.load())
 			canvas.Replay(*logger);
 	}
-
-	GetFontManager().UploadAtlasTexturesToGPU(m->deviceCommandContext.get());
 }
 
 void CRenderer::RenderScreenShot(const bool needsPresent)
@@ -1075,6 +1073,11 @@ void CRenderer::ClearRetiredLists()
 CFontManager& CRenderer::GetFontManager()
 {
 	return m->fontManager;
+}
+
+void CRenderer::PublishFontAtlases()
+{
+	m->fontManager.PublishAtlases();
 }
 
 void CRenderer::PreloadResourcesBeforeNextFrame()

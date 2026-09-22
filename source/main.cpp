@@ -369,7 +369,6 @@ static void RendererIncrementalLoad()
 {
 	PROFILE3("renderer incremental load");
 
-	// In a running game this shares the frame with rendering.
 	const double maxTime = g_Game && g_Game->IsGameStarted() ? 0.002 : 0.1;
 
 	double startTime = timer_Time();
@@ -425,6 +424,9 @@ static void LogicStep(const float realTimeSinceLastFrame, RL::Interface* rlInter
 	ReloadChangedFiles();
 
 	ProgressiveLoad();
+
+	if (CRenderer::IsInitialised())
+		RendererIncrementalLoad();
 
 	UpdateMainThreadAffinity();
 
@@ -487,6 +489,7 @@ static void LogicStep(const float realTimeSinceLastFrame, RL::Interface* rlInter
 			CCanvas2D canvas(g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight(), g_VideoMode.GetScale(), *logger);
 			g_Logger->Render(canvas);
 		}
+		g_Renderer.PublishFontAtlases();
 		g_Renderer.SetOverlayLists(std::move(overlay), std::move(logger));
 	}
 
@@ -505,8 +508,6 @@ static void RenderStep(const int /*fixedFrameFrequency*/)
 	PROFILE2("frame");
 	g_Profiler2.IncrementFrameNumber();
 	PROFILE2_ATTR("%d", g_Profiler2.GetFrameNumber());
-
-	RendererIncrementalLoad();
 
 	TakeRenderingOptions();
 

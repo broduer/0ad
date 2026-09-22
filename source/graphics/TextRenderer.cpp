@@ -210,12 +210,18 @@ void CTextRenderer::Render(
 	const CVector2D& transformScale, const CVector2D& translation,
 	const bool debugFontBox, const CColor& debugBoxColor)
 {
-	RenderBatches(Snapshot(), deviceCommandContext, shader, transformScale, translation, debugFontBox, debugBoxColor);
+	RenderBatches(TakeBatches(), deviceCommandContext, shader, transformScale, translation, debugFontBox, debugBoxColor);
 }
 
 CTextRenderer::Batches CTextRenderer::Snapshot()
 {
+	Batches batches{TakeBatches()};
+	GenerateGlyphs(batches);
+	return batches;
+}
 
+CTextRenderer::Batches CTextRenderer::TakeBatches()
+{
 	// Try to merge non-consecutive batches that share the same font/color/translate:
 	// sort the batch list by font, then merge the runs of adjacent compatible batches
 	m_Batches.sort(SBatchCompare());
@@ -249,6 +255,19 @@ CTextRenderer::Batches CTextRenderer::Snapshot()
 	return result;
 }
 
+void CTextRenderer::GenerateGlyphs(const Batches& batches)
+{
+	for (const Batches::Batch& batch : batches.batches)
+	{
+		bool missing{false};
+		for (const Batches::Run& run : batch.runs)
+			for (const wchar_t c : run.text)
+				missing |= !batch.font->GetGlyph(c);
+		if (missing)
+			batch.font->GetGlyph(0xFFFD);
+	}
+}
+
 void CTextRenderer::RenderBatches(
 	const Batches& batches,
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
@@ -267,15 +286,14 @@ void CTextRenderer::RenderBatches(
 
 	bool translationChanged = false;
 
-	CTexture* lastTexture = nullptr;
+	CFont* lastFont = nullptr;
 	for (const Batches::Batch& batch : batches.batches)
 	{
-		if (lastTexture != batch.font->GetTexture().get())
+		if (lastFont != batch.font)
 		{
-			batch.font->InitalizeAtlasTextureIfNeeded(deviceCommandContext);
-			lastTexture = batch.font->GetTexture().get();
-			lastTexture->UploadBackendTextureIfNeeded(deviceCommandContext);
-			deviceCommandContext->SetTexture(texBindingSlot, lastTexture->GetBackendTexture());
+			lastFont = batch.font;
+			lastFont->UploadAtlasTextureToGPU(deviceCommandContext);
+			deviceCommandContext->SetTexture(texBindingSlot, lastFont->GetTexture()->GetBackendTexture());
 		}
 
 		if (batch.translate.X != 0.0f || batch.translate.Y != 0.0f)
@@ -328,11 +346,11 @@ void CTextRenderer::RenderBatches(
 			float y{std::ceil(run.y)};
 			for (size_t i = 0; i < run.text.size(); ++i)
 			{
-				const CFont::GlyphData* g = batch.font->GetGlyph(run.text[i]);
+				const CFont::GlyphData* g = batch.font->FindGlyph(run.text[i]);
 
 				// Use the missing glyph symbol.
 				if (!g)
-					g = batch.font->GetGlyph(0xFFFD);
+					g = batch.font->FindGlyph(0xFFFD);
 
 				// Missing the missing glyph symbol - give up.
 				if (!g)
