@@ -373,7 +373,12 @@ static void UpdateMainThreadAffinity()
 		return;
 	// The render thread pins itself to the render CPU when it exists.
 	if (RenderThread::IsThreaded())
-		ThreadAffinity::KeepCurrentThreadOffRenderCore();
+	{
+		if (g_ConfigDB.Get("renderthread.logicdomain", true))
+			ThreadAffinity::KeepCurrentThreadOffRenderCacheDomain();
+		else
+			ThreadAffinity::KeepCurrentThreadOffRenderCore();
+	}
 	else
 		ThreadAffinity::PinCurrentThreadToRenderCpu();
 }

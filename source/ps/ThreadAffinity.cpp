@@ -214,9 +214,29 @@ void KeepCurrentThreadOffRenderCore()
 		pthread_setaffinity_np(pthread_self(), sizeof(set), &set);
 }
 
+void KeepCurrentThreadOffRenderCacheDomain()
+{
+	const RenderCore& core = GetRenderCore();
+	if (core.cpu < 0)
+		return;
+	cpu_set_t set;
+	if (pthread_getaffinity_np(pthread_self(), sizeof(set), &set) != 0)
+		return;
+	for (int cpu = 0; cpu < CPU_SETSIZE; ++cpu)
+		if (CPU_ISSET(cpu, &core.neighbours) || CPU_ISSET(cpu, &core.siblings))
+			CPU_CLR(cpu, &set);
+	if (CPU_COUNT(&set) < 4)
+	{
+		KeepCurrentThreadOffRenderCore();
+		return;
+	}
+	pthread_setaffinity_np(pthread_self(), sizeof(set), &set);
+}
+
 #else
 
 void PinCurrentThreadToRenderCpu() {}
+void KeepCurrentThreadOffRenderCacheDomain() {}
 bool RestoreCurrentThreadAffinity() { return false; }
 void KeepCurrentThreadOffRenderCore() {}
 

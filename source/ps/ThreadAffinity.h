@@ -58,6 +58,12 @@ private:
  * that is large enough.
  */
 void KeepCurrentThreadOffRenderCore();
+
+/**
+ * Keep the calling thread off the render core's cache domain if at least four
+ * allowed CPUs remain, otherwise off the render core only.
+ */
+void KeepCurrentThreadOffRenderCacheDomain();
 }
 
 #endif // INCLUDED_THREADAFFINITY
