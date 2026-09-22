@@ -646,7 +646,9 @@ Attack.prototype.StartAttacking = function(target, type, callerIID, force)
 	{
 		cmpVisual.SelectAnimation("attack_" + type.toLowerCase(), false, 1.0);
 		cmpVisual.SetAnimationSyncRepeat(timings.repeat);
-		cmpVisual.SetAnimationSyncOffset(prepare);
+		// Sync the animation's action frame with the first hit. Timers only fire at turn ends,
+		// so that is slightly later than the prepare time.
+		cmpVisual.SetAnimationSyncOffset(this.TimerFiringDelay(prepare, cmpTimer.GetLatestTurnLength()));
 	}
 
 	// Find the number of range checks needed during repeat time.
@@ -663,8 +665,6 @@ Attack.prototype.StartAttacking = function(target, type, callerIID, force)
 	if ((prepare - checkStart) % repeatPerCheck === 0)
 		checkStart += offset;
 
-	// If using a non-default prepare time, re-sync the animation when the timer runs.
-	this.resyncAnimation = prepare != timings.prepare;
 	this.target = target;
 	this.callerIID = callerIID;
 	this.force = force;
@@ -750,16 +750,14 @@ Attack.prototype.Attack = function(type, lateness)
 		return;
 	}
 
-	if (this.resyncAnimation)
+	// The next hit lands when the timer fires again, at a turn end: play one animation cycle from the action
+	// frame to the next in exactly that time, so the swing and its hit stay together at any turn length.
+	const cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
+	if (cmpVisual)
 	{
-		const cmpVisual = Engine.QueryInterface(this.entity, IID_Visual);
-		if (cmpVisual)
-		{
-			const repeat = this.GetTimers(type).repeat;
-			cmpVisual.SetAnimationSyncRepeat(repeat);
-			cmpVisual.SetAnimationSyncOffset(repeat);
-		}
-		delete this.resyncAnimation;
+		const nextHit = this.TimerFiringDelay(this.GetTimers(type).repeat - lateness, cmpTimer.GetLatestTurnLength());
+		cmpVisual.SetAnimationSyncRepeat(nextHit);
+		cmpVisual.SetAnimationSyncOffset(nextHit);
 	}
 };
 
@@ -943,6 +941,17 @@ Attack.prototype.AlignFlightToTurn = function(flightTimeMs, turnLengthMs)
 	if (Math.abs(aligned - flightTimeMs) > this.ALIGN_FLIGHT_MAX_CHANGE * flightTimeMs)
 		return flightTimeMs * (1 + this.ALIGN_FLIGHT_MAX_CHANGE);
 	return aligned;
+};
+
+/**
+ * A timer fires at the end of the first turn that reaches its time. Returns how long a timer set delayMs from now
+ * waits before it fires: at least a turn, and always a whole number of them.
+ */
+Attack.prototype.TimerFiringDelay = function(delayMs, turnLengthMs)
+{
+	if (!(turnLengthMs > 0))
+		return delayMs;
+	return Math.max(turnLengthMs, Math.ceil(delayMs / turnLengthMs) * turnLengthMs);
 };
 
 /**
