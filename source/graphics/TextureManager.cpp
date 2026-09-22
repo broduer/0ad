@@ -730,7 +730,7 @@ public:
 			}
 		}
 
-		if (m_TextureCache.empty())
+		if (m_TextureCache.empty() || !m_MayNeedProgress)
 			return false;
 
 		const auto getPriority = [busy = m_TextureConverter.IsBusy()](const CTexturePtr& tex)
@@ -748,6 +748,9 @@ public:
 		};
 
 		CTexturePtr highPrioritytexture = std::ranges::max(m_TextureCache, {}, getPriority);
+
+		if (!m_TextureConverter.IsBusy() && getPriority(highPrioritytexture) == 0)
+			m_MayNeedProgress = false;
 
 		switch (highPrioritytexture->m_State)
 		{
@@ -844,6 +847,7 @@ public:
 
 	Status ReloadChangedFile(const VfsPath& path)
 	{
+		m_MayNeedProgress = true;
 		// Uncache settings file, if this is one
 		m_SettingsFiles.erase(path);
 
@@ -869,6 +873,7 @@ public:
 
 	void ReloadAllTextures()
 	{
+		m_MayNeedProgress = true;
 		for (const CTexturePtr& texture : m_TextureCache)
 		{
 			texture->m_State = CTexture::UNLOADED;
@@ -904,6 +909,7 @@ private:
 	CGradientTexture m_AlphaGradientTexture;
 	CSingleColorTextureCube m_BlackTextureCube;
 	bool m_PredefinedTexturesUploaded = false;
+	bool m_MayNeedProgress = true;
 
 	// Cache of all loaded textures
 	using TextureCache =
@@ -989,7 +995,10 @@ bool CTexture::TryLoad()
 			if (m_State != PREFETCH_NEEDS_CONVERTING && m_TextureManager->TryLoadingCached(self))
 				m_State = LOADED;
 			else
+			{
 				m_State = HIGH_NEEDS_CONVERTING;
+				m_TextureManager->m_MayNeedProgress = true;
+			}
 		}
 	}
 
@@ -1003,6 +1012,7 @@ void CTexture::Prefetch()
 		if (std::shared_ptr<CTexture> self = m_Self.lock())
 		{
 			m_State = PREFETCH_NEEDS_LOADING;
+			m_TextureManager->m_MayNeedProgress = true;
 		}
 	}
 }
