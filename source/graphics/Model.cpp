@@ -517,6 +517,9 @@ std::unique_ptr<CModelAbstract> CModel::Clone() const
 // SetTransform: set the transform on this object, and reorientate props accordingly
 void CModel::SetTransform(const CMatrix3D& transform)
 {
+	// Animation changes invalidate bone and prop matrices separately.
+	if (GetTransform() == transform)
+		return;
 	// call base class to set transform on this object
 	CRenderableObject::SetTransform(transform);
 	InvalidatePosition();
