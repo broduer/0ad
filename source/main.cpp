@@ -71,6 +71,7 @@ that of Atlas depending on commandline parameters.
 #include "ps/Profile.h"
 #include "ps/Profiler2.h"
 #include "ps/Pyrogenesis.h"
+#include "ps/RenderThread.h"
 #include "ps/Replay.h"
 #include "ps/TaskManager.h"
 #include "ps/ThreadAffinity.h"
@@ -374,34 +375,29 @@ static void RendererIncrementalLoad()
 	while (more && timer_Time() - startTime < maxTime);
 }
 
-#if CONFIG2_DAP_INTERFACE
-static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency, DAP::Interface* dapInterface)
-#else
-static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency)
-#endif // CONFIG2_DAP_INTERFACE
+/**
+ * Return the fixed or smoothed frame duration, in seconds.
+ */
+static double FrameRealTime(const int fixedFrameFrequency)
 {
-	g_Profiler2.RecordFrameStart();
-	PROFILE2("frame");
-	g_Profiler2.IncrementFrameNumber();
-	PROFILE2_ATTR("%d", g_Profiler2.GetFrameNumber());
-
-	// get elapsed time
 	const double time = timer_Time();
 	g_frequencyFilter->Update(time);
-	// .. old method - "exact" but contains jumps
-#if 0
-	static double last_time;
-	const double time = timer_Time();
-	const float TimeSinceLastFrame = (float)(time-last_time);
-	last_time = time;
-	ONCE(return);	// first call: set last_time and return
+	const double realTime{
+		1.0 / (fixedFrameFrequency > 0 ? fixedFrameFrequency : g_frequencyFilter->SmoothedFrequency())};
+	ENSURE(realTime > 0.0);
+	return realTime;
+}
 
-	// .. new method - filtered and more smooth, but errors may accumulate
+/**
+ * Run the logic step on the main thread.
+ */
+#if CONFIG2_DAP_INTERFACE
+static void LogicStep(const float realTimeSinceLastFrame, RL::Interface* rlInterface, DAP::Interface* dapInterface)
 #else
-	const float realTimeSinceLastFrame{static_cast<float>(
-		1.0 / (fixedFrameFrequency > 0 ? fixedFrameFrequency : g_frequencyFilter->SmoothedFrequency()))};
-#endif
-	ENSURE(realTimeSinceLastFrame > 0.0f);
+static void LogicStep(const float realTimeSinceLastFrame, RL::Interface* rlInterface)
+#endif // CONFIG2_DAP_INTERFACE
+{
+	PROFILE2("logic");
 
 	// Decide if update is necessary
 	const bool needUpdate{g_app_has_focus || g_NetClient || !g_PauseOnFocusLoss};
@@ -423,8 +419,6 @@ static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency)
 	ProgressiveLoad();
 
 	UpdateMainThreadAffinity();
-
-	RendererIncrementalLoad();
 
 	PumpEvents();
 
@@ -469,12 +463,42 @@ static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency)
 
 	if (g_SoundManager)
 		g_SoundManager->IdleTask();
+}
+
+/**
+ * Render a frame, on the render thread if there is one.
+ */
+static void RenderStep(const int /*fixedFrameFrequency*/)
+{
+	g_Profiler2.RecordFrameStart();
+	PROFILE2("frame");
+	g_Profiler2.IncrementFrameNumber();
+	PROFILE2_ATTR("%d", g_Profiler2.GetFrameNumber());
+
+	RendererIncrementalLoad();
 
 	g_Renderer.RenderFrame(true);
 
 	g_Profiler.Frame();
 
 	LimitFPS();
+}
+
+#if CONFIG2_DAP_INTERFACE
+static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency, DAP::Interface* dapInterface)
+#else
+static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency)
+#endif // CONFIG2_DAP_INTERFACE
+{
+	const float realTime{static_cast<float>(FrameRealTime(fixedFrameFrequency))};
+#if CONFIG2_DAP_INTERFACE
+	LogicStep(realTime, rlInterface, dapInterface);
+#else
+	LogicStep(realTime, rlInterface);
+#endif // CONFIG2_DAP_INTERFACE
+	if (g_Shutdown != ShutdownType::None)
+		return;
+	RenderStep(fixedFrameFrequency);
 }
 
 static void NonVisualFrame()
