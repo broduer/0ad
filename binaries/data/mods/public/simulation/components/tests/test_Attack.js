@@ -62,6 +62,28 @@ let entityID = 903;
 	TS_ASSERT_EQUALS(cmpAttack.AlignFlightToTurn(1000, 0), 1000);
 }
 
+// A timer fires at the end of the first turn that reaches its time, never before the next turn end: the attack
+// animation puts its action frame there.
+{
+	const cmpAttack = ConstructComponent(++entityID, "Attack", {
+		"Melee": {
+			"Damage": { "Hack": 10, "Pierce": 0, "Crush": 0 },
+			"MaxRange": 4,
+			"PrepareTime": 500,
+			"RepeatTime": 1250
+		}
+	});
+
+	TS_ASSERT_EQUALS(cmpAttack.TimerFiringDelay(1000, 200), 1000);
+	TS_ASSERT_EQUALS(cmpAttack.TimerFiringDelay(1250, 200), 1400);
+	TS_ASSERT_EQUALS(cmpAttack.TimerFiringDelay(1250, 500), 1500);
+	TS_ASSERT_EQUALS(cmpAttack.TimerFiringDelay(0, 200), 200);
+	TS_ASSERT_EQUALS(cmpAttack.TimerFiringDelay(-50, 200), 200);
+	// A hit that fired 150 ms late (nominally at 1250, at the turn end of 1400) hits next at 2600: 1200 ms on.
+	TS_ASSERT_EQUALS(cmpAttack.TimerFiringDelay(1250 - 150, 200), 1200);
+	TS_ASSERT_EQUALS(cmpAttack.TimerFiringDelay(1250, 0), 1250);
+}
+
 
 function attackComponentTest(defenderClass, isEnemy, test_function)
 {
