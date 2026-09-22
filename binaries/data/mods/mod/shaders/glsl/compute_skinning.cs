@@ -12,14 +12,13 @@ BEGIN_DRAW_UNIFORMS
 	UNIFORM(float, vertexCount)
 	// offset.x - input vertex offset
 	// offset.y - input skinning data offset
-	// offset.z - output position offset
-	// offset.w - output packed normal and tangent offset
+	// offset.z - first instance
+	// offset.w - first matrix of the first instance
 	UNIFORM(vec4, offset)
+	// batch.x - number of instances
+	// batch.y - number of matrices per instance
+	UNIFORM(vec2, batch)
 END_DRAW_UNIFORMS
-
-BEGIN_UNIFORM_BUFFER(SkinningMatrices)
-	mat4 skinBlendMatrices[MAX_BONES];
-END_UNIFORM_BUFFER
 
 struct Vertex
 {
@@ -48,6 +47,22 @@ STORAGE_BUFFER(3) writeonly buffer OutputNormalsTangents
 	uvec4 outputPackedNT[];
 };
 
+STORAGE_BUFFER(4) restrict readonly buffer SkinningMatrices
+{
+	mat4 skinBlendMatrices[];
+};
+
+struct Instance
+{
+	uint positionOffset;
+	uint normalTangentOffset;
+};
+
+STORAGE_BUFFER(5) restrict readonly buffer SkinningInstances
+{
+	Instance instances[];
+};
+
 uvec4 getSkinJoints(in uvec2 skinData)
 {
 	return uvec4(unpackUnorm4x8(skinData.y) * 255.0);
@@ -69,10 +84,13 @@ layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 void main()
 {
 	uint index = gl_GlobalInvocationID.x;
-	if (index >= vertexCount)
+	uint instanceIndex = gl_GlobalInvocationID.y;
+	if (index >= vertexCount || instanceIndex >= batch.x)
 		return;
 
 	uvec4 offsets = uvec4(offset);
+	Instance instance = instances[offsets[2] + instanceIndex];
+	uint firstMatrix = offsets[3] + instanceIndex * uint(batch.y);
 
 	Vertex vertex = vertices[index + offsets[0]];
 	uvec2 skinData = skinDatas[index + offsets[1]];
@@ -91,7 +109,7 @@ void main()
 		uint joint = skinJoints[i];
 		if (joint != 0xFF)
 		{
-			mat4 matrix = skinBlendMatrices[joint];
+			mat4 matrix = skinBlendMatrices[firstMatrix + joint];
 			transformedPosition += vec3(matrix * vec4(localPosition, 1.0)) * skinWeights[i];
 			transformedNormal += vec3(matrix * vec4(localNormal, 0.0)) * skinWeights[i];
 			transformedTangent += vec3(matrix * vec4(localTangent, 0.0)) * skinWeights[i];
@@ -100,6 +118,6 @@ void main()
 	transformedNormal = normalize(transformedNormal);
 	transformedTangent = normalize(transformedTangent);
 
-	outputPositions[index + offsets[2]] = vec4(transformedPosition, 0.0);
-	outputPackedNT[index + offsets[3]] = packNormalTangent(transformedNormal, transformedTangent, vertex.tangent.w);
+	outputPositions[index + instance.positionOffset] = vec4(transformedPosition, 0.0);
+	outputPackedNT[index + instance.normalTangentOffset] = packNormalTangent(transformedNormal, transformedTangent, vertex.tangent.w);
 }

@@ -23,7 +23,6 @@
 #include "graphics/Model.h"
 #include "graphics/ModelDef.h"
 #include "graphics/RenderableObject.h"
-#include "graphics/ShaderDefines.h"
 #include "graphics/ShaderManager.h"
 #include "graphics/ShaderTechnique.h"
 #include "graphics/ShaderTechniquePtr.h"
@@ -35,6 +34,7 @@
 #include "ps/CLogger.h"
 #include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
+#include "ps/VideoMode.h"
 #include "ps/containers/StaticVector.h"
 #include "renderer/ModelRenderer.h"
 #include "renderer/Renderer.h"
@@ -44,6 +44,7 @@
 #include "renderer/backend/Barrier.h"
 #include "renderer/backend/Format.h"
 #include "renderer/backend/IBuffer.h"
+#include "renderer/backend/IDevice.h"
 #include "renderer/backend/IDeviceCommandContext.h"
 #include "renderer/backend/IShaderProgram.h"
 #include "third_party/mikktspace/weldmesh.h"
@@ -52,7 +53,10 @@
 #include <iterator>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <memory>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace
@@ -143,12 +147,11 @@ ModelDefRData::ModelDefRData(const CModelDefPtr& modelDef)
 		m_UVArray.AddAttribute(&m_UVs[index]);
 	}
 
-	// We can't use a lot of bones because it costs uniform memory. Recommended
-	// number of bones per model is 32.
+	// Joint indices are bytes and 0xFF means no joint.
 	// Add 1 to NumBones because of the special 'root' bone.
-	if (modelDef->GetNumBones() + 1 > 192)
-		LOGERROR("Model '%s' has too many bones %zu/192", modelDef->GetName().string8().c_str(), modelDef->GetNumBones() + 1);
-	ENSURE(modelDef->GetNumBones() + 1 <= 192);
+	if (modelDef->GetNumBones() + 1 > 255)
+		LOGERROR("Model '%s' has too many bones %zu/255", modelDef->GetName().string8().c_str(), modelDef->GetNumBones() + 1);
+	ENSURE(modelDef->GetNumBones() + 1 <= 255);
 
 	m_BlendJoints.format = Renderer::Backend::Format::R8G8B8A8_UINT;
 	m_BlendArray.AddAttribute(&m_BlendJoints);
@@ -313,6 +316,20 @@ struct ModelRData : public CModelRData
 	{}
 };
 
+/**
+ * A skinned model to dispatch, with what its dispatch batches by.
+ */
+struct SkinningItem
+{
+	ModelDefRData* modelDefRData;
+	CVertexBuffer* positions;
+	CVertexBuffer* normalsTangents;
+	const ModelRData* modelRData;
+	CModel* model;
+
+	auto Batch() const { return std::tie(modelDefRData, positions, normalsTangents); }
+};
+
 } // anonymous namespace
 
 struct GPUSkinnedModelModelRenderer::Internals
@@ -320,22 +337,18 @@ struct GPUSkinnedModelModelRenderer::Internals
 	// Previously prepared modeldef
 	ModelDefRData* modelDefRData;
 
-	// Shader technique for models with up to 64 bones.
-	CShaderTechniquePtr skinningShaderTechnique64;
-	// Shader technique for models with up to 192 bones.
-	CShaderTechniquePtr skinningShaderTechnique192;
+	CShaderTechniquePtr skinningShaderTechnique;
+
+	std::unique_ptr<Renderer::Backend::IBuffer> matricesBuffer;
+	std::unique_ptr<Renderer::Backend::IBuffer> instancesBuffer;
+	std::vector<SkinningItem> skinningItems;
 };
 
 GPUSkinnedModelModelRenderer::GPUSkinnedModelModelRenderer()
 	: m(std::make_unique<Internals>())
 {
 	m->modelDefRData = nullptr;
-	CShaderDefines shaderDefines64;
-	shaderDefines64.Add(CStrIntern{"MAX_BONES"}, CStrIntern{"64"});
-	m->skinningShaderTechnique64 = g_Renderer.GetShaderManager().LoadEffect(str_compute_skinning, shaderDefines64);
-	CShaderDefines shaderDefines192;
-	shaderDefines192.Add(CStrIntern{"MAX_BONES"}, CStrIntern{"192"});
-	m->skinningShaderTechnique192 = g_Renderer.GetShaderManager().LoadEffect(str_compute_skinning, shaderDefines192);
+	m->skinningShaderTechnique = g_Renderer.GetShaderManager().LoadEffect(str_compute_skinning);
 }
 
 GPUSkinnedModelModelRenderer::~GPUSkinnedModelModelRenderer() = default;
@@ -376,8 +389,58 @@ void GPUSkinnedModelModelRenderer::UpdateModelsData(
 
 	GPU_SCOPED_LABEL(deviceCommandContext, "Compute Skinning");
 
-	// Models with up to 192 bones.
-	std::vector<CModel*> models192;
+	std::vector<SkinningItem>& items{m->skinningItems};
+	items.clear();
+	items.reserve(models.size());
+	size_t numberOfMatrices{0};
+	for (CModel* model : models)
+	{
+		ENSURE(model->IsSkinned());
+		const CModelDefPtr& modelDef{model->GetModelDef()};
+		const ModelRData* modelRData{static_cast<const ModelRData*>(model->GetRenderData())};
+		ENSURE(modelRData->m_PositionHandle->m_Count == modelRData->m_NormalTangentHandle->m_Count);
+		items.push_back({
+			static_cast<ModelDefRData*>(modelDef->GetRenderData(m.get())),
+			modelRData->m_PositionHandle->m_Owner, modelRData->m_NormalTangentHandle->m_Owner,
+			modelRData, model});
+		// Add 1 to NumBones because of the special 'root' bone.
+		numberOfMatrices += modelDef->GetNumBones() + 1;
+	}
+	std::sort(items.begin(), items.end(), [](const SkinningItem& a, const SkinningItem& b)
+	{
+		return a.Batch() < b.Batch();
+	});
+
+	const auto upload = [&](std::unique_ptr<Renderer::Backend::IBuffer>& buffer, const char* name,
+		const size_t size, const Renderer::Backend::IDeviceCommandContext::UploadBufferFunction& function)
+	{
+		if (!buffer || buffer->GetSize() < size)
+		{
+			buffer = g_VideoMode.GetBackendDevice()->CreateBuffer(
+				name, Renderer::Backend::IBuffer::Type::VERTEX, static_cast<uint32_t>(size + size / 2),
+				Renderer::Backend::IBuffer::Usage::DYNAMIC | Renderer::Backend::IBuffer::Usage::TRANSFER_DST |
+					Renderer::Backend::IBuffer::Usage::STORAGE);
+		}
+		deviceCommandContext->UploadBufferRegion(buffer.get(), 0, static_cast<uint32_t>(size), function);
+	};
+	upload(m->matricesBuffer, "SkinningMatrices", numberOfMatrices * sizeof(CMatrix3D), [&items](std::uint8_t* data)
+	{
+		for (const SkinningItem& item : items)
+		{
+			const size_t size{(item.model->GetModelDef()->GetNumBones() + 1) * sizeof(CMatrix3D)};
+			std::memcpy(data, item.model->GetAnimatedBoneMatrices(), size);
+			data += size;
+		}
+	});
+	upload(m->instancesBuffer, "SkinningInstances", items.size() * 2 * sizeof(uint32_t), [&items](std::uint8_t* data)
+	{
+		uint32_t* offsets{reinterpret_cast<uint32_t*>(data)};
+		for (const SkinningItem& item : items)
+		{
+			*offsets++ = static_cast<uint32_t>(item.modelRData->m_PositionHandle->m_Index);
+			*offsets++ = static_cast<uint32_t>(item.modelRData->m_NormalTangentHandle->m_Index);
+		}
+	});
 
 	deviceCommandContext->InsertMemoryBarrier(
 		Renderer::Backend::PipelineStage::VERTEX_INPUT, Renderer::Backend::PipelineStage::COMPUTE_SHADER,
@@ -385,30 +448,52 @@ void GPUSkinnedModelModelRenderer::UpdateModelsData(
 		Renderer::Backend::Access::SHADER_READ | Renderer::Backend::Access::SHADER_WRITE);
 	deviceCommandContext->BeginComputePass();
 	deviceCommandContext->SetComputePipelineState(
-		m->skinningShaderTechnique64->GetComputePipelineState());
+		m->skinningShaderTechnique->GetComputePipelineState());
 
-	for (CModel* model : models)
-	{
-		ENSURE(model->IsSkinned());
-		CModelDefPtr modelDef{model->GetModelDef()};
-		if (modelDef->GetNumBones() + 1 > 64)
-		{
-			models192.emplace_back(model);
-			continue;
-		}
-		CModelRData* rdata{static_cast<CModelRData*>(model->GetRenderData())};
-		UpdateModelData(deviceCommandContext, m->skinningShaderTechnique64->GetShader(), model, rdata);
-	}
+	Renderer::Backend::IShaderProgram* shaderProgram{m->skinningShaderTechnique->GetShader()};
+	const int32_t vertexCountSlot{shaderProgram->GetBindingSlot(str_vertexCount)};
+	const int32_t offsetSlot{shaderProgram->GetBindingSlot(str_offset)};
+	const int32_t batchSlot{shaderProgram->GetBindingSlot(str_batch)};
+	const int32_t inputVerticesSlot{shaderProgram->GetBindingSlot(str_InputVertices)};
+	const int32_t skinDataSlot{shaderProgram->GetBindingSlot(str_SkinData)};
+	const int32_t outputPositionsSlot{shaderProgram->GetBindingSlot(str_OutputPositions)};
+	const int32_t outputNormalsTangentsSlot{shaderProgram->GetBindingSlot(str_OutputNormalsTangents)};
+	const int32_t matricesSlot{shaderProgram->GetBindingSlot(str_SkinningMatrices)};
+	const int32_t instancesSlot{shaderProgram->GetBindingSlot(str_SkinningInstances)};
 
-	if (!models192.empty())
+	constexpr uint32_t threadGroupWorkRegionDim{64};
+	constexpr size_t maxDispatchInstances{65535};
+	size_t firstMatrix{0};
+	for (size_t begin{0}; begin < items.size();)
 	{
-		deviceCommandContext->SetComputePipelineState(
-			m->skinningShaderTechnique192->GetComputePipelineState());
-		for (CModel* model : models192)
-		{
-			CModelRData* rdata{static_cast<CModelRData*>(model->GetRenderData())};
-			UpdateModelData(deviceCommandContext, m->skinningShaderTechnique192->GetShader(), model, rdata);
-		}
+		const SkinningItem& first{items[begin]};
+		size_t end{begin + 1};
+		while (end < items.size() && end - begin < maxDispatchInstances && items[end].Batch() == first.Batch())
+			++end;
+
+		const size_t numberOfInstances{end - begin};
+		const size_t matricesPerInstance{first.model->GetModelDef()->GetNumBones() + 1};
+		const uint32_t vertexCount{static_cast<uint32_t>(first.modelRData->m_PositionHandle->m_Count)};
+
+		deviceCommandContext->SetUniform(vertexCountSlot, static_cast<float>(vertexCount));
+		deviceCommandContext->SetUniform(offsetSlot,
+			static_cast<float>(first.modelDefRData->m_Array.GetOffset()),
+			static_cast<float>(first.modelDefRData->m_BlendArray.GetOffset()),
+			static_cast<float>(begin),
+			static_cast<float>(firstMatrix));
+		deviceCommandContext->SetUniform(batchSlot,
+			static_cast<float>(numberOfInstances), static_cast<float>(matricesPerInstance));
+		deviceCommandContext->SetStorageBuffer(inputVerticesSlot, first.modelDefRData->m_Array.GetBuffer());
+		deviceCommandContext->SetStorageBuffer(skinDataSlot, first.modelDefRData->m_BlendArray.GetBuffer());
+		deviceCommandContext->SetStorageBuffer(outputPositionsSlot, first.positions->GetBuffer());
+		deviceCommandContext->SetStorageBuffer(outputNormalsTangentsSlot, first.normalsTangents->GetBuffer());
+		deviceCommandContext->SetStorageBuffer(matricesSlot, m->matricesBuffer.get());
+		deviceCommandContext->SetStorageBuffer(instancesSlot, m->instancesBuffer.get());
+		deviceCommandContext->Dispatch(
+			DivideRoundUp(vertexCount, threadGroupWorkRegionDim), static_cast<uint32_t>(numberOfInstances), 1);
+
+		firstMatrix += numberOfInstances * matricesPerInstance;
+		begin = end;
 	}
 
 	deviceCommandContext->EndComputePass();
@@ -416,42 +501,6 @@ void GPUSkinnedModelModelRenderer::UpdateModelsData(
 		Renderer::Backend::PipelineStage::COMPUTE_SHADER, Renderer::Backend::PipelineStage::VERTEX_INPUT,
 		Renderer::Backend::Access::SHADER_READ | Renderer::Backend::Access::SHADER_WRITE,
 		Renderer::Backend::Access::VERTEX_ATTRIBUTE_READ | Renderer::Backend::Access::INDEX_READ);
-}
-
-void GPUSkinnedModelModelRenderer::UpdateModelData(
-	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
-	Renderer::Backend::IShaderProgram* shaderProgram,
-	CModel* model, CModelRData* data)
-{
-	CModelDefPtr modelDef{model->GetModelDef()};
-	ModelDefRData* modelDefRData{static_cast<ModelDefRData*>(modelDef->GetRenderData(m.get()))};
-	ModelRData* modelRData{static_cast<ModelRData*>(data)};
-
-	constexpr uint32_t threadGroupWorkRegionDim{64};
-	const uint32_t vertexCount{static_cast<uint32_t>(modelRData->m_PositionHandle->m_Count)};
-	const uint32_t dispatchGroupCountX{DivideRoundUp(vertexCount, threadGroupWorkRegionDim)};
-
-	// Bind matrices for current animation state.
-	// Add 1 to NumBones because of the special 'root' bone.
-	deviceCommandContext->SetUniform(
-		shaderProgram->GetBindingSlot(str_skinBlendMatrices),
-		std::span<const float>(
-			model->GetAnimatedBoneMatrices()[0]._data,
-			model->GetAnimatedBoneMatrices()[0].AsFloatArray().size() * (modelDef->GetNumBones() + 1)));
-
-	ENSURE(modelRData->m_PositionHandle->m_Count == modelRData->m_NormalTangentHandle->m_Count);
-	deviceCommandContext->SetUniform(shaderProgram->GetBindingSlot(str_vertexCount),
-		static_cast<float>(vertexCount));
-	deviceCommandContext->SetUniform(shaderProgram->GetBindingSlot(str_offset),
-		static_cast<float>(modelDefRData->m_Array.GetOffset()),
-		static_cast<float>(modelDefRData->m_BlendArray.GetOffset()),
-		static_cast<float>(modelRData->m_PositionHandle->m_Index),
-		static_cast<float>(modelRData->m_NormalTangentHandle->m_Index));
-	deviceCommandContext->SetStorageBuffer(shaderProgram->GetBindingSlot(str_InputVertices), modelDefRData->m_Array.GetBuffer());
-	deviceCommandContext->SetStorageBuffer(shaderProgram->GetBindingSlot(str_SkinData), modelDefRData->m_BlendArray.GetBuffer());
-	deviceCommandContext->SetStorageBuffer(shaderProgram->GetBindingSlot(str_OutputPositions), modelRData->m_PositionHandle->m_Owner->GetBuffer());
-	deviceCommandContext->SetStorageBuffer(shaderProgram->GetBindingSlot(str_OutputNormalsTangents), modelRData->m_NormalTangentHandle->m_Owner->GetBuffer());
-	deviceCommandContext->Dispatch(dispatchGroupCountX, 1, 1);
 }
 
 void GPUSkinnedModelModelRenderer::UploadModelsData(Renderer::Backend::IDeviceCommandContext*,
