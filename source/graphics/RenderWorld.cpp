@@ -842,12 +842,9 @@ void CRenderWorld::Submit(SceneCollector& collector, const CFrustum& frustum, co
 {
 	PROFILE3("render world submit");
 
-	// Units only visible to later cull groups are positioned in the loop below.
-	if (m_LastParallelUpdateFrame != m_FrameNumber)
-	{
-		m_LastParallelUpdateFrame = m_FrameNumber;
-		PositionUnitsInParallel(frustum, culling);
-	}
+	// Each cull group positions the units it is the first to see: the
+	// camera's, then the shadow frustum's remainder.
+	PositionUnitsInParallel(frustum, culling);
 
 	for (SUnit& unit : m_Units)
 	{

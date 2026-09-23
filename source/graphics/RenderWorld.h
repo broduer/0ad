@@ -253,7 +253,6 @@ private:
 	std::vector<std::pair<entity_id_t, SPositionState*>> m_Rotating;
 
 	int m_FrameNumber{0};
-	int m_LastParallelUpdateFrame{-1};
 	float m_FrameOffset{0.0f};
 	std::vector<std::uint32_t> m_UnitsToPosition;
 
