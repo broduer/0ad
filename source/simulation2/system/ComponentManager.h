@@ -35,6 +35,7 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -284,6 +285,11 @@ public:
 	void BroadcastMessage(const CMessage& msg);
 
 	/**
+	 * Deliver the frame step once to each requesting and subscribed component.
+	 */
+	void BroadcastFrameStep(const CMessage& msg);
+
+	/**
 	 * Resets the dynamic simulation state (deletes all entities, resets entity ID counters;
 	 * doesn't unload/reload component scripts).
 	 */
@@ -367,6 +373,7 @@ private:
 	std::vector<IComponent*> m_FrameStepRequests;
 	// Members only to reuse their storage across frame steps.
 	std::vector<IComponent*> m_FrameStepDelivering;
+	std::unordered_set<IComponent*> m_FrameStepDelivered;
 
 	ComponentTypeId m_NextScriptComponentTypeId;
 	entity_id_t m_NextEntityId;

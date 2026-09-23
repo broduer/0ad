@@ -48,6 +48,7 @@
 #include <js/ValueArray.h>
 #include <stdexcept>
 #include <string_view>
+#include <unordered_set>
 
 namespace Script { class Context; }
 
@@ -1082,10 +1083,8 @@ void CComponentManager::BroadcastMessage(const CMessage& msg)
 {
 	if (msg.GetType() == MT_FrameStep)
 	{
-		m_FrameStepDelivering.swap(m_FrameStepRequests);
-		for (IComponent* component : m_FrameStepDelivering)
-			component->HandleMessage(msg, false);
-		m_FrameStepDelivering.clear();
+		BroadcastFrameStep(msg);
+		return;
 	}
 
 	// Send the message to components of all entities that subscribed locally to this message
@@ -1096,16 +1095,6 @@ void CComponentManager::BroadcastMessage(const CMessage& msg)
 		std::vector<ComponentTypeId>::const_iterator ctit = it->second.begin();
 		for (; ctit != it->second.end(); ++ctit)
 		{
-			// The frame step records what the render world draws; no script.
-			if (msg.GetType() == MT_FrameStep)
-			{
-				const auto type = m_ComponentTypesById.find(*ctit);
-				if (type != m_ComponentTypesById.end() && type->second.type == CT_Script)
-				{
-					ONCE(LOGERROR("Script component %s subscribes to FrameStep; it is not delivered", type->second.name.c_str()));
-					continue;
-				}
-			}
 			// Find the component instances of this type (if any)
 			std::map<ComponentTypeId, std::map<entity_id_t, IComponent*> >::const_iterator emap = m_ComponentsByTypeId.find(*ctit);
 			if (emap == m_ComponentsByTypeId.end())
@@ -1119,6 +1108,53 @@ void CComponentManager::BroadcastMessage(const CMessage& msg)
 	}
 
 	SendGlobalMessage(INVALID_ENTITY, msg);
+}
+
+void CComponentManager::BroadcastFrameStep(const CMessage& msg)
+{
+	// Deliver once to a component that both requested the step and subscribes to it.
+	m_FrameStepDelivered.clear();
+	const auto deliver = [&](IComponent* component)
+	{
+		if (m_FrameStepDelivered.insert(component).second)
+			component->HandleMessage(msg, false);
+	};
+
+	m_FrameStepDelivering.swap(m_FrameStepRequests);
+	for (IComponent* component : m_FrameStepDelivering)
+		deliver(component);
+	m_FrameStepDelivering.clear();
+
+	for (const auto* subscriptions : {&m_LocalMessageSubscriptions, &m_GlobalMessageSubscriptions})
+	{
+		const auto it = subscriptions->find(MT_FrameStep);
+		if (it == subscriptions->end())
+			continue;
+		for (const ComponentTypeId ctid : it->second)
+		{
+			// The frame step must not run script.
+			const auto type = m_ComponentTypesById.find(ctid);
+			if (type != m_ComponentTypesById.end() && type->second.type == CT_Script)
+			{
+				ONCE(LOGERROR("Script component %s subscribes to FrameStep; it is not delivered", type->second.name.c_str()));
+				continue;
+			}
+			const auto emap = m_ComponentsByTypeId.find(ctid);
+			if (emap == m_ComponentsByTypeId.end())
+				continue;
+			for (const auto& [ent, component] : emap->second)
+				deliver(component);
+		}
+	}
+
+	const auto dynamic = m_DynamicMessageSubscriptionsNonsync.find(MT_FrameStep);
+	if (dynamic != m_DynamicMessageSubscriptionsNonsync.end())
+	{
+		dynamic->second.Flatten();
+		const std::vector<IComponent*>& components = dynamic->second.GetComponents();
+		for (size_t i = 0; i < components.size(); ++i)
+			deliver(components[i]);
+	}
 }
 
 void CComponentManager::SendGlobalMessage(entity_id_t ent, const CMessage& msg)
