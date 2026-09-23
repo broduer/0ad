@@ -44,8 +44,10 @@
 #include "maths/Vector4D.h"
 #include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
+#include "ps/Future.h"
 #include "ps/Game.h"
 #include "ps/Profile.h"
+#include "ps/TaskManager.h"
 #include "renderer/CPUSkinnedModelRenderer.h"
 #include "renderer/DebugRenderer.h"
 #include "renderer/GPUSkinnedModelRenderer.h"
@@ -1159,19 +1161,11 @@ void CSceneRenderer::EnumerateSceneObjects(Scene& scene)
 
 	m->particleManager.RenderSubmit(*this, frustum);
 
+	// Compute silhouettes from the default group's submissions on a worker
+	// while the shadow cascades enumerate.
+	std::optional<Future<void>> silhouettes;
 	if (!g_RenderingOptions.GetCutsceneMode() && g_RenderingOptions.GetSilhouettes())
-	{
-		m->silhouetteRenderer.ComputeSubmissions(m_ViewCamera);
-
-		m_CurrentCullGroup = CULL_DEFAULT;
-		m->silhouetteRenderer.RenderSubmitOverlays(*this);
-
-		m_CurrentCullGroup = CULL_SILHOUETTE_OCCLUDER;
-		m->silhouetteRenderer.RenderSubmitOccluders(*this);
-
-		m_CurrentCullGroup = CULL_SILHOUETTE_CASTER;
-		m->silhouetteRenderer.RenderSubmitCasters(*this);
-	}
+		silhouettes.emplace(g_TaskManager, [this] { m->silhouetteRenderer.ComputeSubmissions(m_ViewCamera); });
 
 	if (g_RenderingOptions.GetShadows())
 	{
@@ -1181,6 +1175,20 @@ void CSceneRenderer::EnumerateSceneObjects(Scene& scene)
 			const CFrustum shadowFrustum = m->shadow.GetShadowCasterCullFrustum(cascade);
 			scene.EnumerateObjects(shadowFrustum, this);
 		}
+	}
+
+	if (silhouettes)
+	{
+		silhouettes->Get();
+
+		m_CurrentCullGroup = CULL_DEFAULT;
+		m->silhouetteRenderer.RenderSubmitOverlays(*this);
+
+		m_CurrentCullGroup = CULL_SILHOUETTE_OCCLUDER;
+		m->silhouetteRenderer.RenderSubmitOccluders(*this);
+
+		m_CurrentCullGroup = CULL_SILHOUETTE_CASTER;
+		m->silhouetteRenderer.RenderSubmitCasters(*this);
 	}
 
 	if (m->waterManager.m_RenderWater)
