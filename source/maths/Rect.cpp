@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -29,11 +29,6 @@ CRect::CRect() :
 {
 }
 
-CRect::CRect(const CRect& rect) :
-	left(rect.left), top(rect.top), right(rect.right), bottom(rect.bottom)
-{
-}
-
 CRect::CRect(const CVector2D& pos) :
 	left(pos.X), top(pos.Y), right(pos.X), bottom(pos.Y)
 {
@@ -57,15 +52,6 @@ CRect::CRect(const CVector2D& pos, const CSize2D& size) :
 CRect::CRect(const float l, const float t, const float r, const float b) :
 	left(l), top(t), right(r), bottom(b)
 {
-}
-
-CRect& CRect::operator=(const CRect& a)
-{
-	left = a.left;
-	top = a.top;
-	right = a.right;
-	bottom = a.bottom;
-	return *this;
 }
 
 bool CRect::operator==(const CRect &a) const

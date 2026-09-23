@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -36,9 +36,9 @@ public:
 	CRect(const CVector2D& upperleft, const CVector2D& bottomright);
 	CRect(const CVector2D& pos, const CSize2D& size);
 	CRect(const float l, const float t, const float r, const float b);
-	CRect(const CRect&);
+	CRect(const CRect&) = default;
 
-	CRect& operator=(const CRect& a);
+	CRect& operator=(const CRect& a) = default;
 	bool operator==(const CRect& a) const;
 	bool operator!=(const CRect& a) const;
 	CRect operator-() const;
