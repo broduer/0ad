@@ -135,9 +135,11 @@ public:
 	void Apply(CFramePacket& packet);
 
 	/**
-	 * Advance animations and interpolated rotations, by nothing while paused.
+	 * Advance animations and interpolated rotations, and position the units @p cullFrustum sees.
+	 * While paused, only invalidate the units' positions from the last frame.
 	 */
-	void Interpolate(float simFrameLength, float frameOffset, float realFrameLength, bool paused);
+	void Interpolate(float simFrameLength, float frameOffset, float realFrameLength, bool paused,
+		const CFrustum* cullFrustum = nullptr, bool culling = true);
 
 	void Submit(SceneCollector& collector, const CFrustum& frustum, bool culling);
 
@@ -236,6 +238,10 @@ private:
 	bool PositionUnit(SUnit& unit) const;
 	bool ShouldPosition(const SUnit& unit, const CFrustum& frustum, bool culling) const;
 	void PositionUnitsInParallel(const CFrustum& frustum, bool culling);
+	/**
+	 * Advance every unit's animation and position the ones @p frustum sees, if given.
+	 */
+	void AnimateAndPositionUnits(float frameLength, const CFrustum* frustum, bool culling);
 
 	CUnitManager& m_UnitManager;
 	CTerrain& m_Terrain;
@@ -254,6 +260,8 @@ private:
 
 	int m_FrameNumber{0};
 	float m_FrameOffset{0.0f};
+	// Per slot: whether the unit's animation reached an action sound.
+	std::vector<std::uint8_t> m_ActionSoundsReached;
 	std::vector<std::uint32_t> m_UnitsToPosition;
 
 	bool m_EnableDebugOverlays{false};

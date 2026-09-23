@@ -75,6 +75,11 @@ public:
 	 */
 	void TakePublished(SViewFrame& frame);
 
+	/**
+	 * Return whether the render thread culls, as of the last frame packet.
+	 */
+	bool IsRenderCulling() const;
+
 	void EnumerateSceneObjects();
 
 	CVector3D GetCameraPivot() const;

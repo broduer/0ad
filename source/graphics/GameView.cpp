@@ -379,6 +379,11 @@ void CGameView::TakePublished(SViewFrame& frame)
 	m->MiniMapTexture.TakePublished(std::move(frame.minimap));
 }
 
+bool CGameView::IsRenderCulling() const
+{
+	return m->RenderCulling;
+}
+
 CVector3D CGameView::GetCameraPivot() const
 {
 	return m->CameraController->GetCameraPivot();

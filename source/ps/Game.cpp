@@ -621,7 +621,10 @@ void CGame::RenderInterpolate()
 	m_RenderTiming.realTimeDelta = 0.0f;
 	if ((timing.timeManagerDelta != 0.0f || timing.realTimeDelta != 0.0f) && CRenderer::IsInitialised())
 		g_Renderer.GetTimeManager().Update(timing.timeManagerDelta, timing.realTimeDelta);
-	renderWorld.Interpolate(timing.simFrameLength, timing.offset, timing.realFrameLength, timing.paused);
+	const CFrustum* cullFrustum{CRenderer::IsInitialised() ?
+		&g_Renderer.GetSceneRenderer().GetCullCamera().GetFrustum() : nullptr};
+	renderWorld.Interpolate(timing.simFrameLength, timing.offset, timing.realFrameLength, timing.paused,
+		cullFrustum, m_GameView->IsRenderCulling());
 }
 
 void CGame::RenderInterpolate(const float simFrameLength, const float realFrameLength)

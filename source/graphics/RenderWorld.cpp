@@ -694,7 +694,8 @@ CUnit* CRenderWorld::GetUnit(const entity_id_t entity) const
 	return unit ? unit->actor : nullptr;
 }
 
-void CRenderWorld::Interpolate(const float simFrameLength, const float frameOffset, const float realFrameLength, const bool paused)
+void CRenderWorld::Interpolate(const float simFrameLength, const float frameOffset, const float realFrameLength,
+	const bool paused, const CFrustum* cullFrustum, const bool culling)
 {
 	PROFILE3("render world interpolate");
 
@@ -737,25 +738,10 @@ void CRenderWorld::Interpolate(const float simFrameLength, const float frameOffs
 		}
 	}
 
-	// TODO: we shouldn't update all the animations etc for units that are off-screen
-	// (but need to be careful about e.g. sounds triggered by animations of off-screen
-	// units)
-	for (SUnit& unit : m_Units)
-	{
-		if (!unit.actor)
-			continue;
-		unit.actor->UpdateModel(simFrameLength);
-		CUnitAnimation* animation{unit.actor->GetAnimation()};
-		if (animation && animation->TakeActionSoundReached())
-			m_FrameSounds.push_back({animation->GetEntity(), animation->GetActionSound()});
-	}
-	if (!m_FrameSounds.empty())
-	{
-		std::lock_guard<std::mutex> lock(m_SoundMutex);
-		m_SoundEvents.insert(m_SoundEvents.end(), std::make_move_iterator(m_FrameSounds.begin()),
-			std::make_move_iterator(m_FrameSounds.end()));
-		m_FrameSounds.clear();
-	}
+	// Position the units the camera sees right after their animation, while
+	// their models are in cache and before the frame waits for a backbuffer;
+	// the other cull groups position theirs at submission.
+	AnimateAndPositionUnits(simFrameLength, cullFrustum, culling);
 
 	m_Projectiles.Interpolate(simFrameLength);
 	m_Overlays.Interpolate(simFrameLength, realFrameLength);
@@ -813,6 +799,42 @@ bool CRenderWorld::PositionUnit(SUnit& unit) const
 	return true;
 }
 
+void CRenderWorld::AnimateAndPositionUnits(const float frameLength, const CFrustum* frustum, const bool culling)
+{
+	// TODO: we shouldn't update all the animations etc for units that are off-screen
+	// (but need to be careful about e.g. sounds triggered by animations of off-screen
+	// units)
+	// A unit's animation touches only its own models and random sequence, so
+	// the units advance on the workers in batches.
+	m_ActionSoundsReached.assign(m_Units.size(), 0);
+	Threading::ForEachInParallel(m_Units.size(), 8, [this, frameLength, frustum, culling](const size_t slot) {
+		SUnit& unit = m_Units[slot];
+		if (!unit.actor)
+			return;
+		const bool position{frustum && ShouldPosition(unit, *frustum, culling)};
+		unit.actor->UpdateModel(frameLength);
+		CUnitAnimation* animation{unit.actor->GetAnimation()};
+		m_ActionSoundsReached[slot] = animation && animation->TakeActionSoundReached();
+		if (position && PositionUnit(unit))
+			unit.lastTransformFrame = m_FrameNumber;
+	});
+
+	// The sounds play in the order of the units' slots.
+	for (size_t slot = 0; slot < m_Units.size(); ++slot)
+	{
+		if (!m_ActionSoundsReached[slot])
+			continue;
+		const CUnitAnimation& animation{*m_Units[slot].actor->GetAnimation()};
+		m_FrameSounds.push_back({animation.GetEntity(), animation.GetActionSound()});
+	}
+	if (m_FrameSounds.empty())
+		return;
+	std::lock_guard<std::mutex> lock(m_SoundMutex);
+	m_SoundEvents.insert(m_SoundEvents.end(), std::make_move_iterator(m_FrameSounds.begin()),
+		std::make_move_iterator(m_FrameSounds.end()));
+	m_FrameSounds.clear();
+}
+
 bool CRenderWorld::ShouldPosition(const SUnit& unit, const CFrustum& frustum, const bool culling) const
 {
 	if (!unit.actor || !unit.position || !unit.position->sim.inWorld || unit.lastTransformFrame == m_FrameNumber)
@@ -842,8 +864,7 @@ void CRenderWorld::Submit(SceneCollector& collector, const CFrustum& frustum, co
 {
 	PROFILE3("render world submit");
 
-	// Each cull group positions the units it is the first to see: the
-	// camera's, then the shadow frustum's remainder.
+	// Each cull group positions the units no earlier one saw.
 	PositionUnitsInParallel(frustum, culling);
 
 	for (SUnit& unit : m_Units)
