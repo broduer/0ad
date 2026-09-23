@@ -60,7 +60,8 @@ public:
 	void Update(const SOverlayTexturedLine& line);
 	void Render(Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		Renderer::Backend::IVertexInputLayout* vertexInputLayout,
-		const SOverlayTexturedLine& line, Renderer::Backend::IShaderProgram* shader);
+		const CTexturePtr& textureBase, const CTexturePtr& textureMask, const CColor& color,
+		Renderer::Backend::IShaderProgram* shader);
 
 	bool IsVisibleInFrustum(const CFrustum& frustum) const;
 

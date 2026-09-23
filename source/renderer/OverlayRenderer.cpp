@@ -177,10 +177,21 @@ struct OverlayRendererInternals
 
 	Renderer::Backend::IDevice* device = nullptr;
 
+	// A submitted textured line minus its coordinates, which its render data,
+	// shared with the source, already holds.
+	struct STexturedLineDraw
+	{
+		std::shared_ptr<CTexturedLineRData> renderData;
+		CTexturePtr textureBase;
+		CTexturePtr textureMask;
+		CColor color;
+		bool alwaysVisible;
+	};
+
 	// Copies of the submitted overlays, since the sources belong to the logic
 	// thread and may change once the scene is collected.
 	std::vector<SOverlayLine> lines;
-	std::vector<SOverlayTexturedLine> texlines;
+	std::vector<STexturedLineDraw> texlines;
 	std::vector<SOverlaySprite> sprites;
 	std::vector<SOverlayQuad> quads;
 	std::vector<SOverlaySphere> spheres;
@@ -365,7 +376,8 @@ void OverlayRenderer::Submit(SOverlayTexturedLine* line)
 		// call Update again. Also we assume the caller won't change
 		// any of the parameters after first submitting the line.
 	}
-	m->texlines.push_back(*line);
+	m->texlines.push_back({line->m_RenderData, line->m_TextureBase, line->m_TextureMask,
+		line->m_Color, line->m_AlwaysVisible});
 }
 
 void OverlayRenderer::Submit(SOverlaySprite* overlay)
@@ -587,15 +599,14 @@ void OverlayRenderer::RenderTexturedOverlayLines(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	Renderer::Backend::IShaderProgram* shader, bool alwaysVisible)
 {
-	for (const SOverlayTexturedLine& line : m->texlines)
+	for (const OverlayRendererInternals::STexturedLineDraw& line : m->texlines)
 	{
-
 		// render only those lines matching the requested alwaysVisible status
-		if (!line.m_RenderData || line.m_AlwaysVisible != alwaysVisible)
+		if (line.alwaysVisible != alwaysVisible)
 			continue;
 
-		line.m_RenderData->Render(
-			deviceCommandContext, m->texturedLineVertexInputLayout, line, shader);
+		line.renderData->Render(deviceCommandContext, m->texturedLineVertexInputLayout,
+			line.textureBase, line.textureMask, line.color, shader);
 	}
 }
 

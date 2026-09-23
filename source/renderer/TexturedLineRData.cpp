@@ -71,25 +71,26 @@ Renderer::Backend::IVertexInputLayout* CTexturedLineRData::GetVertexInputLayout(
 void CTexturedLineRData::Render(
 	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 	Renderer::Backend::IVertexInputLayout* vertexInputLayout,
-	const SOverlayTexturedLine& line, Renderer::Backend::IShaderProgram* shader)
+	const CTexturePtr& textureBase, const CTexturePtr& textureMask, const CColor& color,
+	Renderer::Backend::IShaderProgram* shader)
 {
 	if (!m_VB || !m_VBIndices)
 		return; // might have failed to allocate
 
 	// -- render main line quad strip ----------------------
 
-	line.m_TextureBase->UploadBackendTextureIfNeeded(deviceCommandContext);
-	line.m_TextureMask->UploadBackendTextureIfNeeded(deviceCommandContext);
+	textureBase->UploadBackendTextureIfNeeded(deviceCommandContext);
+	textureMask->UploadBackendTextureIfNeeded(deviceCommandContext);
 
 	ENSURE(!m_VB->m_Owner->GetBuffer()->IsDynamic());
 	ENSURE(!m_VBIndices->m_Owner->GetBuffer()->IsDynamic());
 
 	deviceCommandContext->SetTexture(
-		shader->GetBindingSlot(str_baseTex), line.m_TextureBase->GetBackendTexture());
+		shader->GetBindingSlot(str_baseTex), textureBase->GetBackendTexture());
 	deviceCommandContext->SetTexture(
-		shader->GetBindingSlot(str_maskTex), line.m_TextureMask->GetBackendTexture());
+		shader->GetBindingSlot(str_maskTex), textureMask->GetBackendTexture());
 	deviceCommandContext->SetUniform(
-		shader->GetBindingSlot(str_objectColor), line.m_Color.AsFloatArray());
+		shader->GetBindingSlot(str_objectColor), color.AsFloatArray());
 
 	deviceCommandContext->SetVertexInputLayout(vertexInputLayout);
 
