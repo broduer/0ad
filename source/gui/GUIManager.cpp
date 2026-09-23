@@ -45,8 +45,6 @@
 #include "simulation2/system/Component.h"
 
 #include <SDL_events.h>
-#include <algorithm>
-#include <iterator>
 #include <js/Equality.h>
 #include <js/GCVector.h>
 #include <js/Promise.h>
@@ -414,7 +412,7 @@ void CGUIManager::SendEventToAll(const CStr& eventName,
 {
 	const auto pageStack = GetCopyOfFrozenStack();
 
-	for (const SGUIPage& p : pageStack)
+	for (const SFrozenPage& p : pageStack)
 	{
 		if (paramData.has_value())
 			p.gui->SendEventToAll(eventName, paramData.value());
@@ -433,11 +431,11 @@ std::optional<bool> CGUIManager::TickObjects()
 
 	const auto pageStack = GetCopyOfFrozenStack();
 
-	for (const SGUIPage& p : pageStack)
+	for (const SFrozenPage& p : pageStack)
 	{
 		const Script::Request rq{p.gui->GetScriptInterface()};
 		JS::RootedObject newSendingPromise{rq.cx, p.gui->TickObjects(rq, p.initData,
-			utf8_from_wstring(p.m_Name))};
+			utf8_from_wstring(p.name))};
 		if (newSendingPromise)
 			(*p.sendingPromise) = newSendingPromise;
 	}
@@ -480,7 +478,7 @@ void CGUIManager::UpdateResolution()
 {
 	const auto pageStack = GetCopyOfFrozenStack();
 
-	for (const SGUIPage& p : pageStack)
+	for (const SFrozenPage& p : pageStack)
 	{
 		p.gui->UpdateResolution();
 		p.gui->SendEventToAll(EVENT_NAME_WINDOW_RESIZED);
@@ -526,9 +524,10 @@ std::shared_ptr<CGUI> CGUIManager::top() const
 	return m_PageStack.back().gui;
 }
 
-PS::StaticVector<CGUIManager::SGUIPage, 16> CGUIManager::GetCopyOfFrozenStack() const
+PS::StaticVector<CGUIManager::SFrozenPage, 16> CGUIManager::GetCopyOfFrozenStack() const
 {
-	PS::StaticVector<CGUIManager::SGUIPage, 16> stack;
-	std::copy(m_PageStack.begin(), m_PageStack.end(), std::back_inserter(stack));
+	PS::StaticVector<SFrozenPage, 16> stack;
+	for (const SGUIPage& p : m_PageStack)
+		stack.push_back(SFrozenPage{p.m_Name, p.initData, p.gui, p.sendingPromise});
 	return stack;
 }

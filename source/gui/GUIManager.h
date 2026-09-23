@@ -204,6 +204,18 @@ private:
 		std::shared_ptr<JS::PersistentRootedObject> receivingPromise;
 	};
 
+	/**
+	 * The parts of a page that ticking and event dispatch use, copied so a
+	 * handler opening or closing pages doesn't invalidate the iteration.
+	 */
+	struct SFrozenPage
+	{
+		std::wstring name;
+		Script::StructuredClone initData;
+		std::shared_ptr<CGUI> gui;
+		std::shared_ptr<JS::PersistentRootedObject> sendingPromise;
+	};
+
 	std::shared_ptr<CGUI> top() const;
 
 	Script::Context& m_ScriptContext;
@@ -234,7 +246,7 @@ private:
 	/**
 	 * Returns an immutable copy so iterators aren't invalidated by handlers.
 	 */
-	PS::StaticVector<SGUIPage, 16> GetCopyOfFrozenStack() const;
+	PS::StaticVector<SFrozenPage, 16> GetCopyOfFrozenStack() const;
 
 	CTemplateLoader m_TemplateLoader;
 
