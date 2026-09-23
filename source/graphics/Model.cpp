@@ -210,10 +210,8 @@ void CModel::UpdateTo(float time)
 // InvalidatePosition
 void CModel::InvalidatePosition()
 {
+	// ValidatePosition re-derives every prop, so props need no invalidating.
 	m_PositionValid = false;
-
-	for (size_t i = 0; i < m_Props.size(); ++i)
-		m_Props[i].m_Model->InvalidatePosition();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -222,7 +220,9 @@ void CModel::ValidatePosition()
 {
 	if (m_PositionValid)
 	{
-		ENSURE(!m_Parent || m_Parent->m_PositionValid);
+		// A prop is stale once its parent is invalid; the parent re-derives it.
+		if (m_Parent && !m_Parent->m_PositionValid)
+			m_Parent->ValidatePosition();
 		return;
 	}
 

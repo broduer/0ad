@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -87,7 +87,9 @@ void CModelDecal::ValidatePosition()
 {
 	if (m_PositionValid)
 	{
-		ENSURE(!m_Parent || m_Parent->m_PositionValid);
+		// A prop is stale once its parent is invalid; the parent re-derives it.
+		if (m_Parent && !m_Parent->m_PositionValid)
+			m_Parent->ValidatePosition();
 		return;
 	}
 
