@@ -739,6 +739,8 @@ void ModelRenderer::Render(
 
 				CModelDef* currentModeldef = NULL;
 				CShaderUniforms currentStaticUniforms;
+				// Material state is re-examined only when the material changes.
+				uint64_t currentMaterial = 0;
 
 				// Accumulate models sharing the bound state, flushing on any state change.
 				const bool instanced =
@@ -760,45 +762,51 @@ void ModelRenderer::Render(
 						if (flags && !(model->GetFlags() & flags))
 							continue;
 
-						const CMaterial::SamplersVector& samplers = model->GetMaterial().GetSamplers();
-						size_t samplersNum = samplers.size();
-
-						// make sure the vectors are the right virtual sizes, and also
-						// reallocate if there are more samplers than expected.
-						if (currentTexs.size() != samplersNum)
+						const CMaterial& material = model->GetMaterial();
+						const bool materialChanged = material.GetIdentity() != currentMaterial;
+						if (materialChanged)
 						{
-							currentTexs.resize(samplersNum, NULL);
-							texBindings.resize(samplersNum, -1);
-							texBindingNames.resize(samplersNum, CStrIntern());
+							currentMaterial = material.GetIdentity();
+							const CMaterial::SamplersVector& samplers = material.GetSamplers();
+							size_t samplersNum = samplers.size();
 
-							// ensure they are definitely empty
-							std::fill(texBindings.begin(), texBindings.end(), -1);
-							std::fill(currentTexs.begin(), currentTexs.end(), nullptr);
-							std::fill(texBindingNames.begin(), texBindingNames.end(), CStrIntern());
-						}
-
-						// bind the samplers to the shader
-						for (size_t s = 0; s < samplersNum; ++s)
-						{
-							const CMaterial::TextureSampler& samp = samplers[s];
-
-							// check that the handles are current
-							// and reevaluate them if necessary
-							if (texBindingNames[s] != samp.Name || texBindings[s] < 0)
+							// make sure the vectors are the right virtual sizes, and also
+							// reallocate if there are more samplers than expected.
+							if (currentTexs.size() != samplersNum)
 							{
-								texBindings[s] = shader->GetBindingSlot(samp.Name);
-								texBindingNames[s] = samp.Name;
+								currentTexs.resize(samplersNum, NULL);
+								texBindings.resize(samplersNum, -1);
+								texBindingNames.resize(samplersNum, CStrIntern());
+
+								// ensure they are definitely empty
+								std::fill(texBindings.begin(), texBindings.end(), -1);
+								std::fill(currentTexs.begin(), currentTexs.end(), nullptr);
+								std::fill(texBindingNames.begin(), texBindingNames.end(), CStrIntern());
 							}
 
-							// same with the actual sampler bindings
-							CTexture* newTex = samp.Sampler.get();
-							if (texBindings[s] >= 0 && newTex != currentTexs[s])
+							// bind the samplers to the shader
+							for (size_t s = 0; s < samplersNum; ++s)
 							{
-								flushRun();
-								newTex->UploadBackendTextureIfNeeded(deviceCommandContext);
-								deviceCommandContext->SetTexture(
-									texBindings[s], newTex->GetBackendTexture());
-								currentTexs[s] = newTex;
+								const CMaterial::TextureSampler& samp = samplers[s];
+
+								// check that the handles are current
+								// and reevaluate them if necessary
+								if (texBindingNames[s] != samp.Name || texBindings[s] < 0)
+								{
+									texBindings[s] = shader->GetBindingSlot(samp.Name);
+									texBindingNames[s] = samp.Name;
+								}
+
+								// same with the actual sampler bindings
+								CTexture* newTex = samp.Sampler.get();
+								if (texBindings[s] >= 0 && newTex != currentTexs[s])
+								{
+									flushRun();
+									newTex->UploadBackendTextureIfNeeded(deviceCommandContext);
+									deviceCommandContext->SetTexture(
+										texBindings[s], newTex->GetBackendTexture());
+									currentTexs[s] = newTex;
+								}
 							}
 						}
 
@@ -811,63 +819,66 @@ void ModelRenderer::Render(
 							modelVertexRenderer.PrepareModelDef(deviceCommandContext, *currentModeldef);
 						}
 
-						// Bind all uniforms when any change
-						CShaderUniforms newStaticUniforms = model->GetMaterial().GetStaticUniforms();
-						if (newStaticUniforms != currentStaticUniforms)
+						if (materialChanged)
 						{
-							flushRun();
-							currentStaticUniforms = newStaticUniforms;
-							currentStaticUniforms.BindUniforms(deviceCommandContext, shader);
-						}
-
-						const CShaderRenderQueries& renderQueries = model->GetMaterial().GetRenderQueries();
-
-						for (size_t q = 0; q < renderQueries.GetSize(); ++q)
-						{
-							CShaderRenderQueries::RenderQuery rq = renderQueries.GetItem(q);
-							if (rq.first == RQUERY_TIME)
+							// Bind all uniforms when any change
+							const CShaderUniforms& newStaticUniforms = material.GetStaticUniforms();
+							if (newStaticUniforms != currentStaticUniforms)
 							{
-								if (!boundTime)
-								{
-									flushRun();
-									deviceCommandContext->SetUniform(
-										shader->GetBindingSlot(rq.second), time);
-									boundTime = true;
-								}
+								flushRun();
+								currentStaticUniforms = newStaticUniforms;
+								currentStaticUniforms.BindUniforms(deviceCommandContext, shader);
 							}
-							else if (rq.first == RQUERY_WATER_TEX)
+
+							const CShaderRenderQueries& renderQueries = material.GetRenderQueries();
+
+							for (size_t q = 0; q < renderQueries.GetSize(); ++q)
 							{
-								if (!boundWaterTexture)
+								CShaderRenderQueries::RenderQuery rq = renderQueries.GetItem(q);
+								if (rq.first == RQUERY_TIME)
 								{
-									flushRun();
-									const double period = 1.6;
-									const WaterManager& waterManager = g_Renderer.GetSceneRenderer().GetWaterManager();
-									if (waterManager.m_RenderWater && waterManager.WillRenderFancyWater())
+									if (!boundTime)
 									{
-										const CTexturePtr& waterTexture = waterManager.m_NormalMap[waterManager.GetCurrentTextureIndex(period)];
-										waterTexture->UploadBackendTextureIfNeeded(deviceCommandContext);
-										deviceCommandContext->SetTexture(
-											shader->GetBindingSlot(str_waterTex),
-											waterTexture->GetBackendTexture());
+										flushRun();
+										deviceCommandContext->SetUniform(
+											shader->GetBindingSlot(rq.second), time);
+										boundTime = true;
 									}
-									else
-									{
-										deviceCommandContext->SetTexture(
-											shader->GetBindingSlot(str_waterTex),
-											g_Renderer.GetTextureManager().GetErrorTexture()->GetBackendTexture());
-									}
-									boundWaterTexture = true;
 								}
-							}
-							else if (rq.first == RQUERY_SKY_CUBE)
-							{
-								if (!boundSkyCube)
+								else if (rq.first == RQUERY_WATER_TEX)
 								{
-									flushRun();
-									deviceCommandContext->SetTexture(
-										shader->GetBindingSlot(str_skyCube),
-										g_Renderer.GetSceneRenderer().GetSkyManager().GetSkyCube());
-									boundSkyCube = true;
+									if (!boundWaterTexture)
+									{
+										flushRun();
+										const double period = 1.6;
+										const WaterManager& waterManager = g_Renderer.GetSceneRenderer().GetWaterManager();
+										if (waterManager.m_RenderWater && waterManager.WillRenderFancyWater())
+										{
+											const CTexturePtr& waterTexture = waterManager.m_NormalMap[waterManager.GetCurrentTextureIndex(period)];
+											waterTexture->UploadBackendTextureIfNeeded(deviceCommandContext);
+											deviceCommandContext->SetTexture(
+												shader->GetBindingSlot(str_waterTex),
+												waterTexture->GetBackendTexture());
+										}
+										else
+										{
+											deviceCommandContext->SetTexture(
+												shader->GetBindingSlot(str_waterTex),
+												g_Renderer.GetTextureManager().GetErrorTexture()->GetBackendTexture());
+										}
+										boundWaterTexture = true;
+									}
+								}
+								else if (rq.first == RQUERY_SKY_CUBE)
+								{
+									if (!boundSkyCube)
+									{
+										flushRun();
+										deviceCommandContext->SetTexture(
+											shader->GetBindingSlot(str_skyCube),
+											g_Renderer.GetSceneRenderer().GetSkyManager().GetSkyCube());
+										boundSkyCube = true;
+									}
 								}
 							}
 						}

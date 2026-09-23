@@ -66,7 +66,7 @@ public:
 	// Whether this material's shaders use alpha blending, in which case
 	// models using this material need to be rendered in a special order
 	// relative to the alpha-blended water plane
-	void SetUsesAlphaBlending(bool flag) { m_AlphaBlending = flag; }
+	void SetUsesAlphaBlending(bool flag) { m_AlphaBlending = flag; m_Identity = 0; }
  	bool UsesAlphaBlending() const { return m_AlphaBlending; }
 
 	const CTexturePtr& GetDiffuseTexture() const { return m_DiffuseTexture; }
@@ -91,7 +91,19 @@ public:
 	void AddRequiredSampler(RequiredSampler sampler);
 	const std::vector<RequiredSampler>& GetRequiredSamplers() const { return m_RequiredSamplers; }
 
+	/**
+	 * Return an ID equal for materials with equal content. Computed on first
+	 * use after a change, so only the thread that owns the material may call it.
+	 */
+	uint64_t GetIdentity() const
+	{
+		if (!m_Identity)
+			m_Identity = ComputeIdentity();
+		return m_Identity;
+	}
+
 private:
+	uint64_t ComputeIdentity() const;
 
 	// This pointer is kept to make it easier for the fixed pipeline to
 	// access the only texture it's interested in.
@@ -106,6 +118,7 @@ private:
 	CShaderRenderQueries m_RenderQueries;
 
 	bool m_AlphaBlending;
+	mutable uint64_t m_Identity = 0;
 };
 
 #endif // INCLUDED_MATERIAL
