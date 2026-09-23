@@ -354,12 +354,16 @@ class CRenderer::Internals
 	NONCOPYABLE(Internals);
 public:
 	// Set by the logic thread, read by the render thread.
-	PS::AtomicSharedPtr<const CCanvas2D::DisplayList> overlayList;
-	PS::AtomicSharedPtr<const CCanvas2D::DisplayList> loggerList;
-	// Lists replaced by SetOverlayLists, which the render thread destroys so
-	// the textures they hold are released there.
+	PS::AtomicSharedPtr<CCanvas2D::DisplayList> overlayList;
+	PS::AtomicSharedPtr<CCanvas2D::DisplayList> loggerList;
 	std::mutex displayListMutex;
-	std::vector<std::shared_ptr<const CCanvas2D::DisplayList>> retiredLists;
+	// Replaced by SetOverlayLists. The render thread clears them so their
+	// textures are released on that thread.
+	std::vector<std::shared_ptr<CCanvas2D::DisplayList>> retiredLists;
+	// Cleared, for the logic thread to reuse.
+	std::vector<std::shared_ptr<CCanvas2D::DisplayList>> spareLists;
+	// Render thread only: retired lists being cleared outside the lock.
+	std::vector<std::shared_ptr<CCanvas2D::DisplayList>> clearingLists;
 
 	Renderer::Backend::IDevice* device;
 
@@ -813,7 +817,7 @@ void CRenderer::Render2D(const bool renderGUI, const bool renderLogger)
 		GPU_SCOPED_LABEL(m->deviceCommandContext.get(), "Render GUI");
 		// All GUI elements are drawn in Z order to render semi-transparent
 		// objects correctly.
-		if (const std::shared_ptr<const CCanvas2D::DisplayList> overlay = m->overlayList.load())
+		if (const std::shared_ptr<CCanvas2D::DisplayList> overlay = m->overlayList.load())
 			canvas.Replay(*overlay);
 	}
 
@@ -826,7 +830,7 @@ void CRenderer::Render2D(const bool renderGUI, const bool renderLogger)
 	if (renderLogger)
 	{
 		GPU_SCOPED_LABEL(m->deviceCommandContext.get(), "Render logger");
-		if (const std::shared_ptr<const CCanvas2D::DisplayList> logger = m->loggerList.load())
+		if (const std::shared_ptr<CCanvas2D::DisplayList> logger = m->loggerList.load())
 			canvas.Replay(*logger);
 	}
 }
@@ -1082,12 +1086,27 @@ CDebugRenderer& CRenderer::GetDebugRenderer()
 	return m->debugRenderer;
 }
 
-void CRenderer::SetOverlayLists(
-	std::shared_ptr<const CCanvas2D::DisplayList> overlay,
-	std::shared_ptr<const CCanvas2D::DisplayList> logger)
+std::pair<std::shared_ptr<CCanvas2D::DisplayList>, std::shared_ptr<CCanvas2D::DisplayList>>
+	CRenderer::TakeOverlayLists()
 {
-	std::shared_ptr<const CCanvas2D::DisplayList> oldOverlay{m->overlayList.exchange(std::move(overlay))};
-	std::shared_ptr<const CCanvas2D::DisplayList> oldLogger{m->loggerList.exchange(std::move(logger))};
+	std::lock_guard<std::mutex> lock(m->displayListMutex);
+	const auto take = [this]() {
+		if (m->spareLists.empty())
+			return std::make_shared<CCanvas2D::DisplayList>();
+		std::shared_ptr<CCanvas2D::DisplayList> list{std::move(m->spareLists.back())};
+		m->spareLists.pop_back();
+		return list;
+	};
+	std::shared_ptr<CCanvas2D::DisplayList> overlay{take()};
+	return {std::move(overlay), take()};
+}
+
+void CRenderer::SetOverlayLists(
+	std::shared_ptr<CCanvas2D::DisplayList> overlay,
+	std::shared_ptr<CCanvas2D::DisplayList> logger)
+{
+	std::shared_ptr<CCanvas2D::DisplayList> oldOverlay{m->overlayList.exchange(std::move(overlay))};
+	std::shared_ptr<CCanvas2D::DisplayList> oldLogger{m->loggerList.exchange(std::move(logger))};
 	std::lock_guard<std::mutex> lock(m->displayListMutex);
 	if (oldOverlay)
 		m->retiredLists.push_back(std::move(oldOverlay));
@@ -1097,11 +1116,20 @@ void CRenderer::SetOverlayLists(
 
 void CRenderer::ClearRetiredLists()
 {
-	std::vector<std::shared_ptr<const CCanvas2D::DisplayList>> retired;
 	{
 		std::lock_guard<std::mutex> lock(m->displayListMutex);
-		retired.swap(m->retiredLists);
+		m->clearingLists.swap(m->retiredLists);
 	}
+	if (m->clearingLists.empty())
+		return;
+	for (std::shared_ptr<CCanvas2D::DisplayList>& list : m->clearingLists)
+		list->commands.clear();
+	std::lock_guard<std::mutex> lock(m->displayListMutex);
+	// Four spares cover the steady state of two lists per step.
+	for (std::shared_ptr<CCanvas2D::DisplayList>& list : m->clearingLists)
+		if (m->spareLists.size() < 4)
+			m->spareLists.push_back(std::move(list));
+	m->clearingLists.clear();
 }
 
 CFontManager& CRenderer::GetFontManager()

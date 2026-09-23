@@ -26,6 +26,7 @@
 #include <atomic>
 #include <memory>
 #include <span>
+#include <utility>
 
 class CDebugRenderer;
 class CFontManager;
@@ -122,15 +123,22 @@ public:
 	void PublishFontAtlases();
 
 	/**
-	 * Set the GUI, console and profiler (and separately the logger) as the
-	 * logic thread recorded them for this frame, for the render thread to draw.
+	 * Return two empty lists to record into, one for the GUI, console and
+	 * profiler and one for the logger, reusing lists the render thread has
+	 * cleared. Logic thread.
 	 */
-	void SetOverlayLists(
-		std::shared_ptr<const CCanvas2D::DisplayList> overlay,
-		std::shared_ptr<const CCanvas2D::DisplayList> logger);
+	std::pair<std::shared_ptr<CCanvas2D::DisplayList>, std::shared_ptr<CCanvas2D::DisplayList>>
+		TakeOverlayLists();
 
 	/**
-	 * Destroy the lists SetOverlayLists replaced, releasing their textures on
+	 * Set the lists recorded for this frame, for the render thread to draw.
+	 */
+	void SetOverlayLists(
+		std::shared_ptr<CCanvas2D::DisplayList> overlay,
+		std::shared_ptr<CCanvas2D::DisplayList> logger);
+
+	/**
+	 * Clear the lists SetOverlayLists replaced, releasing their textures on
 	 * the render thread. Render thread.
 	 */
 	void ClearRetiredLists();

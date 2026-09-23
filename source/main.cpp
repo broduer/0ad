@@ -495,8 +495,7 @@ static void LogicStep(const float realTimeSinceLastFrame, RL::Interface* rlInter
 
 	if (CRenderer::IsInitialised())
 	{
-		auto overlay = std::make_shared<CCanvas2D::DisplayList>();
-		auto logger = std::make_shared<CCanvas2D::DisplayList>();
+		auto [overlay, logger] = g_Renderer.TakeOverlayLists();
 		{
 			PROFILE3("draw overlays");
 			CCanvas2D canvas(g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight(), g_VideoMode.GetScale(), *overlay);
