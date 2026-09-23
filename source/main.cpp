@@ -513,7 +513,10 @@ static void LogicStep(const float realTimeSinceLastFrame, RL::Interface* rlInter
 	PublishRenderingOptions();
 
 	if (RenderThread::IsThreaded())
+	{
 		g_Profiler.Frame();
+		RenderThread::MarkLogicStepDone();
+	}
 }
 
 /**
@@ -532,8 +535,10 @@ static void RenderStep(const int fixedFrameFrequency)
 
 	TakeRenderingOptions();
 
+	RenderThread::WaitForLogicStep();
 	if (g_Game && g_Game->IsGameStarted())
 		g_Game->RenderInterpolate();
+	RenderThread::MarkFrameTaken();
 
 	g_Renderer.RenderFrame(true);
 
@@ -860,6 +865,7 @@ static void RunGameOrAtlas(const std::span<const char* const> argv)
 					RenderThread::SetDeviceHandoff(
 						[] { g_VideoMode.GetBackendDevice()->BindToCurrentThread(); },
 						[] { g_VideoMode.GetBackendDevice()->UnbindFromCurrentThread(); });
+					RenderThread::SetLockstep(g_ConfigDB.Get("renderthread.lockstep", false));
 					RenderThread::Start([fixedFrameFrequency] { RenderStep(fixedFrameFrequency); });
 				}
 

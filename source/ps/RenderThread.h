@@ -61,6 +61,26 @@ void SetDeviceHandoff(std::function<void()> bind, std::function<void()> unbind);
 void SignalFrame(double realTime);
 
 /**
+ * Pair render frame N with logic step N-1's publish: the frame waits for the
+ * step to finish, and the next step publishes only once the frame has taken
+ * it, so timing never changes which step a frame shows. Set before Start,
+ * from renderthread.lockstep, for comparing frames between runs.
+ */
+void SetLockstep(bool lockstep);
+
+/**
+ * Pair frames with steps in lockstep, or for a frame that shows the step it
+ * starts: the frame waits for its step to finish, and the next step publishes
+ * only once the frame has taken it. The render thread calls WaitForLogicStep
+ * and MarkFrameTaken; the logic thread calls WaitForFrameTaken and
+ * MarkLogicStepDone. Otherwise they do nothing.
+ */
+void WaitForLogicStep();
+void MarkFrameTaken();
+void WaitForFrameTaken();
+void MarkLogicStepDone();
+
+/**
  * Wait for a new frame and return the time elapsed since the last call;
  * without a render thread, return the accumulated time at once.
  */

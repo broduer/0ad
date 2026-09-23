@@ -597,6 +597,7 @@ void CGame::PublishFrame(const float deltaSimTime, const float offset, const flo
 	if (m_GameView)
 		m_GameView->PrepareFrameStep(deltaRealTime);
 
+	RenderThread::WaitForFrameTaken();
 	m_Simulation2->FrameStep(deltaSimTime, offset, deltaRealTime);
 	const RenderWorld::CFramePacket::STiming timing{m_InterpolationSimFrameLength,
 		m_InterpolationOffset, m_InterpolationRealFrameLength,
