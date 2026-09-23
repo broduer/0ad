@@ -258,11 +258,7 @@ void CCanvas2D::Replay(const DisplayList& displayList)
 				command.multiply, command.add, command.grayscaleFactor, command.origin, command.angle);
 			break;
 		case Type::TEXT:
-			m->BindTechIfNeeded();
-			m->DeviceCommandContext->SetUniform(m->BindingSlots.grayscaleFactor, 0.0f);
-			CTextRenderer::RenderBatches(command.text,
-				m->DeviceCommandContext, m->Tech->GetShader(), m->TransformScale, m->Translation,
-				m->DebugFontBox, m->DebugBoxColor);
+			DrawText(command.text);
 			break;
 		case Type::PUSH_SCISSOR:
 			PushScissor(command.destination);
@@ -597,9 +593,7 @@ void CCanvas2D::DrawText(CTextRenderer& textRenderer)
 {
 	if (m->Recording)
 	{
-		DisplayList::Command& command = m->Recording->commands.emplace_back();
-		command.type = DisplayList::Command::Type::TEXT;
-		command.text = textRenderer.Snapshot();
+		DrawText(std::make_shared<const CTextRenderer::Batches>(textRenderer.Snapshot()));
 		return;
 	}
 	m->BindTechIfNeeded();
@@ -608,6 +602,25 @@ void CCanvas2D::DrawText(CTextRenderer& textRenderer)
 		m->BindingSlots.grayscaleFactor, 0.0f);
 
 	textRenderer.Render(
+		m->DeviceCommandContext, m->Tech->GetShader(), m->TransformScale, m->Translation,
+		m->DebugFontBox, m->DebugBoxColor);
+}
+
+void CCanvas2D::DrawText(std::shared_ptr<const CTextRenderer::Batches> batches)
+{
+	if (m->Recording)
+	{
+		DisplayList::Command& command = m->Recording->commands.emplace_back();
+		command.type = DisplayList::Command::Type::TEXT;
+		command.text = std::move(batches);
+		return;
+	}
+	m->BindTechIfNeeded();
+
+	m->DeviceCommandContext->SetUniform(
+		m->BindingSlots.grayscaleFactor, 0.0f);
+
+	CTextRenderer::RenderBatches(*batches,
 		m->DeviceCommandContext, m->Tech->GetShader(), m->TransformScale, m->Translation,
 		m->DebugFontBox, m->DebugBoxColor);
 }

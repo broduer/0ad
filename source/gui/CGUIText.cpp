@@ -459,22 +459,29 @@ void CGUIText::Draw(CGUI& pGUI, CCanvas2D& canvas, const CGUIColor& DefaultColor
 		scopedScissor.emplace(canvas, clipping);
 	}
 
-	CTextRenderer textRenderer;
-	textRenderer.SetClippingRect(clipping);
-	textRenderer.Translate(0.0f, 0.0f);
-
-	for (const STextCall& tc : m_TextCalls)
+	if (!m_DrawCache.batches || m_DrawCache.pos != pos || m_DrawCache.color != DefaultColor ||
+		m_DrawCache.clipping != clipping)
 	{
-		// If this is just a placeholder for a sprite call, continue
-		if (tc.m_pSpriteCall)
-			continue;
+		CTextRenderer textRenderer;
+		textRenderer.SetClippingRect(clipping);
+		textRenderer.Translate(0.0f, 0.0f);
 
-		textRenderer.SetCurrentColor(tc.m_UseCustomColor ? tc.m_Color : DefaultColor);
-		textRenderer.SetCurrentFont(tc.m_Font, tc.m_FontLocale);
-		textRenderer.Put(pos.X + tc.m_Pos.X, pos.Y + tc.m_Pos.Y, &tc.m_String);
+		for (const STextCall& tc : m_TextCalls)
+		{
+			// If this is just a placeholder for a sprite call, continue
+			if (tc.m_pSpriteCall)
+				continue;
+
+			textRenderer.SetCurrentColor(tc.m_UseCustomColor ? tc.m_Color : DefaultColor);
+			textRenderer.SetCurrentFont(tc.m_Font, tc.m_FontLocale);
+			textRenderer.Put(pos.X + tc.m_Pos.X, pos.Y + tc.m_Pos.Y, &tc.m_String);
+		}
+
+		m_DrawCache = {pos, DefaultColor, clipping,
+			std::make_shared<const CTextRenderer::Batches>(textRenderer.Snapshot())};
 	}
 
-	canvas.DrawText(textRenderer);
+	canvas.DrawText(m_DrawCache.batches);
 
 	for (const SSpriteCall& sc : m_SpriteCalls)
 		pGUI.DrawSprite(sc.m_Sprite, canvas, sc.m_Area + pos);

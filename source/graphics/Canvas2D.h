@@ -68,7 +68,7 @@ public:
 			float grayscaleFactor = 0.0f;
 			CVector2D origin;
 			float angle = 0.0f;
-			CTextRenderer::Batches text;
+			std::shared_ptr<const CTextRenderer::Batches> text;
 		};
 		std::vector<Command> commands;
 	};
@@ -146,6 +146,12 @@ public:
 	 * Draws a text using canvas materials.
 	 */
 	void DrawText(CTextRenderer& textRenderer);
+
+	/**
+	 * Draw batches taken from a text renderer; a caller whose text is unchanged
+	 * can reuse them.
+	 */
+	void DrawText(std::shared_ptr<const CTextRenderer::Batches> batches);
 
 	/**
 	 * Adds the scissor rect to a scissor stack. The only top scissor is

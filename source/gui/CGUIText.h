@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -18,6 +18,7 @@
 #ifndef INCLUDED_GUITEXT
 #define INCLUDED_GUITEXT
 
+#include "graphics/TextRenderer.h"
 #include "gui/CGUISprite.h"
 #include "gui/SettingTypes/CGUIColor.h"
 #include "lib/code_annotation.h"
@@ -29,6 +30,7 @@
 
 #include <array>
 #include <list>
+#include <memory>
 #include <vector>
 
 class CCanvas2D;
@@ -274,6 +276,19 @@ public:
 	 * scrollbars and such.
 	 */
 	CSize2D m_Size;
+
+	/**
+	 * Batches from the last Draw, reused while the position, color and
+	 * clipping are unchanged. The text calls are fixed once generated.
+	 */
+	struct SDrawCache
+	{
+		CVector2D pos;
+		CColor color;
+		CRect clipping;
+		std::shared_ptr<const CTextRenderer::Batches> batches;
+	};
+	mutable SDrawCache m_DrawCache;
 };
 
 struct SGenerateTextImage
