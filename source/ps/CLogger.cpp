@@ -177,6 +177,12 @@ void CLogger::Render(CCanvas2D& canvas)
 
 	CleanupRenderQueue();
 
+	{
+		std::lock_guard<std::mutex> lock(m_Mutex);
+		if (m_RenderMessages.empty())
+			return;
+	}
+
 	CStrIntern font_name{"mono-stroke-10"};
 	CFontMetrics font{font_name};
 	float height{font.GetHeight()};
