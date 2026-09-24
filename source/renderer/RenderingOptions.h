@@ -90,6 +90,9 @@ OPTION_CUSTOM_SETTER(NAME, TYPE); OPTION_GETTER(NAME, TYPE); OPTION_DEF(NAME, TY
 
 	OPTION_WITH_SIDE_EFFECT(RenderDebugMode, RenderDebugMode);
 
+	// The ERenderMode of the terrain, water, models and overlays.
+	OPTION_WITH_SIDE_EFFECT(SceneRenderMode, int);
+
 	OPTION(WaterEffects, bool);
 	OPTION(WaterFancyEffects, bool);
 	OPTION(WaterRealDepth, bool);
@@ -143,7 +146,8 @@ private:
 		POSTPROC_SCALE = 1 << 5,
 		UPSCALE = 1 << 6,
 		WATER_TEXTURES = 1 << 7,
-		TEXTURE_QUALITY = 1 << 8
+		TEXTURE_QUALITY = 1 << 8,
+		SCENE_RENDER_MODE = 1 << 9
 	};
 	void AddEffects(std::uint32_t effects);
 

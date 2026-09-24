@@ -134,6 +134,7 @@ CRenderingOptions::CRenderingOptions()
 	m_CutsceneMode = false;
 	m_MaxActorQuality = 100;
 	m_VariantDiversity = static_cast<int>(CObjectManager::VariantDiversity::FULL);
+	m_SceneRenderMode = SOLID;
 }
 
 CRenderingOptions::~CRenderingOptions() = default;
@@ -265,6 +266,11 @@ void CRenderingOptions::SetRenderDebugMode(RenderDebugMode value)
 	AddEffects(SHADERS);
 }
 
+void CRenderingOptions::SetSceneRenderMode(int value)
+{
+	m_SceneRenderMode = value;
+	AddEffects(SCENE_RENDER_MODE);
+}
 
 void PublishRenderingOptions()
 {
@@ -320,4 +326,12 @@ void TakeRenderingOptions()
 		sceneRenderer.GetWaterManager().RecreateOrLoadTexturesIfNeeded();
 	if (effects & CRenderingOptions::TEXTURE_QUALITY)
 		g_Renderer.GetTextureManager().OnQualityChanged();
+	if (effects & CRenderingOptions::SCENE_RENDER_MODE)
+	{
+		const ERenderMode mode{static_cast<ERenderMode>(options.GetSceneRenderMode())};
+		sceneRenderer.SetTerrainRenderMode(mode);
+		sceneRenderer.SetWaterRenderMode(mode);
+		sceneRenderer.SetModelRenderMode(mode);
+		sceneRenderer.SetOverlayRenderMode(mode);
+	}
 }

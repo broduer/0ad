@@ -54,6 +54,7 @@
 #include "ps/VideoMode.h"
 #include "ps/World.h"
 #include "renderer/Renderer.h"
+#include "renderer/RenderingOptions.h"
 #include "renderer/SceneRenderer.h"
 #include "renderer/WaterManager.h"
 #include "simulation2/Simulation2.h"
@@ -441,32 +442,13 @@ Input::Reaction CGameViewImpl::InputHandler::operator()(const SDL_Event& ev)
 	case SDL_HOTKEYPRESS:
 	{
 		std::string hotkey = static_cast<const char*>(ev.user.data1);
-		CSceneRenderer& sceneRenderer = g_Renderer.GetSceneRenderer();
 		if (hotkey == "wireframe")
 		{
 			if (g_XmppClient && g_rankedGame == true)
 				break;
-			else if (sceneRenderer.GetModelRenderMode() == SOLID)
-			{
-				sceneRenderer.SetTerrainRenderMode(EDGED_FACES);
-				sceneRenderer.SetWaterRenderMode(EDGED_FACES);
-				sceneRenderer.SetModelRenderMode(EDGED_FACES);
-				sceneRenderer.SetOverlayRenderMode(EDGED_FACES);
-			}
-			else if (sceneRenderer.GetModelRenderMode() == EDGED_FACES)
-			{
-				sceneRenderer.SetTerrainRenderMode(WIREFRAME);
-				sceneRenderer.SetWaterRenderMode(WIREFRAME);
-				sceneRenderer.SetModelRenderMode(WIREFRAME);
-				sceneRenderer.SetOverlayRenderMode(WIREFRAME);
-			}
-			else
-			{
-				sceneRenderer.SetTerrainRenderMode(SOLID);
-				sceneRenderer.SetWaterRenderMode(SOLID);
-				sceneRenderer.SetModelRenderMode(SOLID);
-				sceneRenderer.SetOverlayRenderMode(SOLID);
-			}
+			const int mode{g_LogicRenderingOptions.GetSceneRenderMode()};
+			g_LogicRenderingOptions.SetSceneRenderMode(
+				mode == SOLID ? EDGED_FACES : mode == EDGED_FACES ? WIREFRAME : SOLID);
 			return Input::Reaction::HANDLED;
 		}
 	}
