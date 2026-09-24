@@ -23,6 +23,7 @@
 #include "renderer/RenderingOptions.h"
 
 #include <cstring>
+#include <atomic>
 #include <memory>
 #include <span>
 
@@ -217,7 +218,8 @@ protected:
 	// per-frame renderer stats
 	Stats m_Stats;
 
-	bool m_ShouldPreloadResourcesBeforeNextFrame = false;
+	// Set by the logic thread when a game starts.
+	std::atomic<bool> m_ShouldPreloadResourcesBeforeNextFrame{false};
 };
 
 #define g_Renderer CRenderer::GetSingleton()

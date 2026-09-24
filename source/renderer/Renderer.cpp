@@ -414,11 +414,12 @@ public:
 		std::vector<Renderer::Backend::SVertexAttributeFormat>,
 		std::unique_ptr<Renderer::Backend::IVertexInputLayout>, VertexAttributesHash> vertexInputLayouts;
 
-	ScreenShotType m_ScreenShotType{ScreenShotType::NONE};
+	// Requested by the logic thread's hotkeys, taken by the render thread.
+	std::atomic<ScreenShotType> m_ScreenShotType{ScreenShotType::NONE};
 
 	struct InputHandler
 	{
-		ScreenShotType& screenshotType;
+		std::atomic<ScreenShotType>& screenshotType;
 
 		Input::Reaction operator()(const SDL_Event& ev)
 		{
@@ -568,11 +569,12 @@ void CRenderer::RenderFrame(const bool needsPresent)
 	if (!ShouldRender())
 		return;
 
-	if (m->m_ScreenShotType == ScreenShotType::BIG)
+	const ScreenShotType screenShotType{m->m_ScreenShotType.exchange(ScreenShotType::NONE)};
+	if (screenShotType == ScreenShotType::BIG)
 	{
 		RenderBigScreenShot(needsPresent);
 	}
-	else if (m->m_ScreenShotType == ScreenShotType::DEFAULT)
+	else if (screenShotType == ScreenShotType::DEFAULT)
 	{
 		RenderScreenShot(needsPresent);
 	}
@@ -586,9 +588,8 @@ void CRenderer::RenderFrame(const bool needsPresent)
 		if (needsPresent && !swapChain->AcquireNextBackbuffer())
 			return;
 
-		if (m_ShouldPreloadResourcesBeforeNextFrame)
+		if (m_ShouldPreloadResourcesBeforeNextFrame.exchange(false))
 		{
-			m_ShouldPreloadResourcesBeforeNextFrame = false;
 			// We don't need to render logger for the preload.
 			RenderFrameImpl(*swapChain, true, false);
 		}
@@ -832,8 +833,6 @@ void CRenderer::Render2D(const bool renderGUI, const bool renderLogger)
 
 void CRenderer::RenderScreenShot(const bool needsPresent)
 {
-	m->m_ScreenShotType = ScreenShotType::NONE;
-
 	// get next available numbered filename
 	// note: %04d -> always 4 digits, so sorting by filename works correctly.
 	const VfsPath filenameFormat(L"screenshots/screenshot%04d.png");
@@ -884,8 +883,6 @@ void CRenderer::RenderScreenShot(const bool needsPresent)
 
 void CRenderer::RenderBigScreenShot(const bool needsPresent)
 {
-	m->m_ScreenShotType = ScreenShotType::NONE;
-
 	// If the game hasn't started yet then use WriteScreenshot to generate the image.
 	if (!g_Game)
 		return RenderScreenShot(needsPresent);
@@ -944,10 +941,8 @@ void CRenderer::RenderBigScreenShot(const bool needsPresent)
 		DestroyViewSizeDependentObjects();
 		m->device->WaitUntilIdle();
 		CreateViewSizeDependentObjects(tileWidth, tileHeight);
-
-		SViewPort vp = { 0, 0, tileWidth, tileHeight };
-		g_Game->GetView()->SetViewport(vp);
 	}
+	const SViewPort tileViewPort{0, 0, tileWidth, tileHeight};
 
 	// Render each tile
 	CMatrix3D projection;
@@ -965,6 +960,7 @@ void CRenderer::RenderBigScreenShot(const bool needsPresent)
 					tiles, tileX, tileY);
 			}
 			CCamera camera{oldCamera};
+			camera.SetViewPort(tileViewPort);
 			camera.SetProjection(projection);
 			m->sceneRenderer.SetSceneCamera(camera, camera);
 
@@ -1001,7 +997,6 @@ void CRenderer::RenderBigScreenShot(const bool needsPresent)
 		SViewPort vp = { 0, 0, g_VideoMode.GetWindowWidth(), g_VideoMode.GetWindowHeight() };
 		CreateViewSizeDependentObjects(vp.m_Width, vp.m_Height);
 
-		g_Game->GetView()->SetViewport(vp);
 		m->sceneRenderer.SetSceneCamera(oldCamera, oldCamera);
 	}
 
@@ -1126,7 +1121,7 @@ void CRenderer::PreloadResourcesBeforeNextFrame()
 
 void CRenderer::MakeScreenShotOnNextFrame(ScreenShotType screenShotType)
 {
-	m->m_ScreenShotType = screenShotType;
+	m->m_ScreenShotType.store(screenShotType);
 }
 
 Renderer::Backend::IDeviceCommandContext* CRenderer::GetDeviceCommandContext()
