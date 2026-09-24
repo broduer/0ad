@@ -96,17 +96,54 @@ size_t g_NextScreenShotNumber = 0;
 // CRendererStatsTable - Profile display of rendering stats
 
 /**
+ * Renderer statistics, gathered by the render thread at the end of a frame
+ * and read by the profile viewer on the logic thread.
+ */
+class CPublishedStats
+{
+public:
+	struct Values
+	{
+		CRenderer::Stats stats{};
+		size_t vbReserved{0};
+		size_t vbAllocated{0};
+		size_t textureBytes{0};
+		size_t shaderEffects{0};
+		size_t linearAllocatorCapacity{0};
+		Renderer::Backend::IDevice::StatisticsVector backend;
+	};
+
+	// Logic thread.
+	Values Get()
+	{
+		m_Wanted.store(true, std::memory_order_relaxed);
+		std::lock_guard<std::mutex> lock(m_Mutex);
+		return m_Values;
+	}
+
+	// Render thread.
+	bool IsWanted() { return m_Wanted.exchange(false, std::memory_order_relaxed); }
+	void Set(Values&& values)
+	{
+		std::lock_guard<std::mutex> lock(m_Mutex);
+		m_Values = std::move(values);
+	}
+
+private:
+	std::atomic<bool> m_Wanted{false};
+	std::mutex m_Mutex;
+	Values m_Values;
+};
+
+/**
  * Class CRendererStatsTable: Implementation of AbstractProfileTable to
  * display the renderer stats in-game.
- *
- * Accesses CRenderer::m_Stats by keeping the reference passed to the
- * constructor.
  */
 class CRendererStatsTable : public AbstractProfileTable
 {
 	NONCOPYABLE(CRendererStatsTable);
 public:
-	CRendererStatsTable(const CRenderer::Stats& st, const PS::Memory::LinearAllocator& linearAllocator);
+	CRendererStatsTable(CPublishedStats& published);
 
 	// Implementation of AbstractProfileTable interface
 	CStr GetName() override;
@@ -117,9 +154,7 @@ public:
 	AbstractProfileTable* GetChild(size_t row) override;
 
 private:
-	/// Reference to the renderer singleton's stats
-	const CRenderer::Stats& Stats;
-	const PS::Memory::LinearAllocator& m_LinearAllocator;
+	CPublishedStats& m_Published;
 
 	/// Column descriptions
 	std::vector<ProfileColumn> columnDescriptions;
@@ -145,8 +180,8 @@ private:
 };
 
 // Construction
-CRendererStatsTable::CRendererStatsTable(const CRenderer::Stats& st, const PS::Memory::LinearAllocator& linearAllocator)
-	: Stats(st), m_LinearAllocator(linearAllocator)
+CRendererStatsTable::CRendererStatsTable(CPublishedStats& published)
+	: m_Published(published)
 {
 	columnDescriptions.push_back(ProfileColumn("Name", 230));
 	columnDescriptions.push_back(ProfileColumn("Value", 100));
@@ -176,6 +211,8 @@ const std::vector<ProfileColumn>& CRendererStatsTable::GetColumns()
 CStr CRendererStatsTable::GetCellText(size_t row, size_t col)
 {
 	char buf[256];
+	const CPublishedStats::Values values{m_Published.Get()};
+	const CRenderer::Stats& Stats{values.stats};
 
 	switch(row)
 	{
@@ -224,31 +261,31 @@ CStr CRendererStatsTable::GetCellText(size_t row, size_t col)
 	case Row_VBReserved:
 		if (col == 0)
 			return "VB reserved";
-		sprintf_s(buf, sizeof(buf), "%lu kB", static_cast<unsigned long>(g_Renderer.GetVertexBufferManager().GetBytesReserved() / 1024));
+		sprintf_s(buf, sizeof(buf), "%lu kB", static_cast<unsigned long>(values.vbReserved / 1024));
 		return buf;
 
 	case Row_VBAllocated:
 		if (col == 0)
 			return "VB allocated";
-		sprintf_s(buf, sizeof(buf), "%lu kB", static_cast<unsigned long>(g_Renderer.GetVertexBufferManager().GetBytesAllocated() / 1024));
+		sprintf_s(buf, sizeof(buf), "%lu kB", static_cast<unsigned long>(values.vbAllocated / 1024));
 		return buf;
 
 	case Row_TextureMemory:
 		if (col == 0)
 			return "textures uploaded";
-		sprintf_s(buf, sizeof(buf), "%lu kB", (unsigned long)g_Renderer.GetTextureManager().GetBytesUploaded() / 1024);
+		sprintf_s(buf, sizeof(buf), "%lu kB", static_cast<unsigned long>(values.textureBytes / 1024));
 		return buf;
 
 	case Row_ShadersLoaded:
 		if (col == 0)
 			return "shader effects loaded";
-		sprintf_s(buf, sizeof(buf), "%lu", (unsigned long)g_Renderer.GetShaderManager().GetNumEffectsLoaded());
+		sprintf_s(buf, sizeof(buf), "%lu", static_cast<unsigned long>(values.shaderEffects));
 		return buf;
 
 	case Row_LinearAllocator:
 		if (col == 0)
 			return "linear allocator";
-		sprintf_s(buf, sizeof(buf), "%lu", static_cast<unsigned long>(m_LinearAllocator.GetCapacity()));
+		sprintf_s(buf, sizeof(buf), "%lu", static_cast<unsigned long>(values.linearAllocatorCapacity));
 		return buf;
 
 	default:
@@ -264,8 +301,8 @@ AbstractProfileTable* CRendererStatsTable::GetChild(size_t /*row*/)
 class CRendererBackendStatsTable : public AbstractProfileTable
 {
 public:
-	CRendererBackendStatsTable(const Renderer::Backend::IDevice& device)
-		: m_Device(device)
+	CRendererBackendStatsTable(CPublishedStats& published)
+		: m_Published(published)
 	{
 		m_ColumnDescriptions.push_back(ProfileColumn("Name", 230));
 		m_ColumnDescriptions.push_back(ProfileColumn("Value", 100));
@@ -273,13 +310,16 @@ public:
 
 	CStr GetName() override { return "renderer.backend"; }
 	CStr GetTitle() override { return "Renderer backend statistics"; }
-	size_t GetNumberRows() override { UpdateIfNeeded(); return m_Statistics.size(); }
+	size_t GetNumberRows() override
+	{
+		m_Statistics = m_Published.Get().backend;
+		return m_Statistics.size();
+	}
 	const std::vector<ProfileColumn>& GetColumns() override { return m_ColumnDescriptions; }
 	AbstractProfileTable* GetChild(size_t) override { return nullptr; }
 
 	CStr GetCellText(size_t row, size_t col) override
 	{
-		UpdateIfNeeded();
 		if (row >= m_Statistics.size() || col > 2)
 			return "";
 		if (col == 0)
@@ -292,25 +332,12 @@ public:
 			m_Statistics[row].value) + " " + CStr{m_Statistics[row].unit};
 	}
 
-	void MakeOutdated() { m_Outdated = true; }
-
 private:
-	void UpdateIfNeeded()
-	{
-		if (!m_Outdated)
-			return;
-		m_Outdated = false;
-		m_Statistics.clear();
-		m_Device.CollectStatistics(m_Statistics);
-	}
-
-	const Renderer::Backend::IDevice& m_Device;
+	CPublishedStats& m_Published;
 
 	std::vector<ProfileColumn> m_ColumnDescriptions;
+	// As of the last GetNumberRows, which the viewer calls before the cells.
 	Renderer::Backend::IDevice::StatisticsVector m_Statistics;
-
-	// We need to recalculate statistics only when a new frame happened.
-	bool m_Outdated{true};
 };
 
 } // anonymous namespace
@@ -344,6 +371,7 @@ public:
 	/// true if shaders need to be reloaded
 	bool ShadersDirty;
 
+	CPublishedStats publishedStats;
 	/// Table to display renderer stats in-game via profile system
 	CRendererStatsTable profileTable;
 	CRendererBackendStatsTable backendProfileTable;
@@ -418,8 +446,8 @@ public:
 	Internals(Renderer::Backend::IDevice* device) :
 		device(device),
 		deviceCommandContext(device->CreateCommandContext()),
-		IsOpen(false), ShadersDirty(true), profileTable(g_Renderer.m_Stats, linearAllocator),
-		backendProfileTable(*device),
+		IsOpen(false), ShadersDirty(true), profileTable(publishedStats),
+		backendProfileTable(publishedStats),
 		shaderManager(device), textureManager(g_VFS, false, device), vertexBufferManager(device),
 		postprocManager(device), sceneRenderer(device)
 	{
@@ -626,6 +654,19 @@ void CRenderer::RenderFrameImpl(
 	PROFILE2_ATTR("overlay tris: %zu", stats.m_OverlayTris);
 	PROFILE2_ATTR("blend splats: %zu", stats.m_BlendSplats);
 	PROFILE2_ATTR("particles: %zu", stats.m_Particles);
+
+	if (m->publishedStats.IsWanted())
+	{
+		CPublishedStats::Values values;
+		values.stats = stats;
+		values.vbReserved = m->vertexBufferManager.GetBytesReserved();
+		values.vbAllocated = m->vertexBufferManager.GetBytesAllocated();
+		values.textureBytes = m->textureManager.GetBytesUploaded();
+		values.shaderEffects = m->shaderManager.GetNumEffectsLoaded();
+		values.linearAllocatorCapacity = m->linearAllocator.GetCapacity();
+		m->device->CollectStatistics(values.backend);
+		m->publishedStats.Set(std::move(values));
+	}
 
 	g_Profiler2.RecordGPUFrameEnd(m->deviceCommandContext.get());
 
@@ -1003,8 +1044,6 @@ void CRenderer::EndFrame()
 	m->sceneRenderer.EndFrame();
 
 	m->linearAllocator.Release();
-
-	m->backendProfileTable.MakeOutdated();
 }
 
 void CRenderer::MakeShadersDirty()
