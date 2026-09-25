@@ -500,14 +500,16 @@ function TestWalkAndFightTargets()
 
 	// The result is stored here
 	let result;
+	// Targets for which Order.Attack refuses the order right away.
+	let refused;
 	unitAI.PushOrderFront = function(type, order)
 	{
-		if (type === "Attack" && order?.target)
-		{
-			result = order.target;
-			// FindWalkAndFightTargets checks the order is still queued.
-			this.orderQueue.unshift({ "type": type, "data": order });
-		}
+		if (type !== "Attack" || !order?.target || refused.has(order.target))
+			return;
+
+		result = order.target;
+		// FindWalkAndFightTargets checks the order is still queued.
+		this.orderQueue.unshift({ "type": type, "data": order });
 	};
 
 	// Create some targets.
@@ -533,9 +535,10 @@ function TestWalkAndFightTargets()
 		}?.[target])
 	});
 
-	const runTest = function(ents, res)
+	const runTest = function(ents, res, refusedEnts = [])
 	{
 		result = undefined;
+		refused = new Set(refusedEnts);
 		unitAI.orderQueue = [];
 		AddMock(SYSTEM_ENTITY, IID_RangeManager, {
 			"ResetActiveQuery": () => ents
@@ -561,6 +564,12 @@ function TestWalkAndFightTargets()
 	runTest([ent+1, ent+2, ent+7, ent+6, ent+3, ent+5], ent+5);
 	runTest([ent+1, ent+2, ent+7, ent+6, ent+3], ent+6);
 	runTest([ent+1, ent+2, ent+7, ent+3], ent+3);
+
+	// Refused targets are skipped for the next preferred one, then those without preference.
+	runTest([ent+1, ent+2, ent+6, ent+3, ent+4, ent+5], ent+5, [ent+4]);
+	runTest([ent+1, ent+2, ent+6, ent+3, ent+4, ent+5], ent+6, [ent+4, ent+5]);
+	runTest([ent+1, ent+2, ent+6, ent+3, ent+4, ent+5], ent+3, [ent+4, ent+5, ent+6]);
+	runTest([ent+3, ent+4], undefined, [ent+3, ent+4]);
 }
 
 TestWalkAndFightTargets();

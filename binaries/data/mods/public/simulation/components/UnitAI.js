@@ -6790,30 +6790,32 @@ UnitAI.prototype.FindWalkAndFightTargets = function()
 	const rangefilter = e => !this.GetStance().respondStandGround ||
 		this.CheckTargetAttackRange(e, this.GetBestAttackAgainst(e, allowCapture));
 
-	const prefs = {};
-	let bestPref;
-	const targets = [];
-	let pref;
+	const preferred = [];
+	const others = [];
 	for (const v of entities)
 	{
-		if (this.CanAttack(v) && attackfilter(v) && rangefilter(v))
+		if (!this.CanAttack(v) || !attackfilter(v) || !rangefilter(v))
+			continue;
+
+		const pref = cmpAttack.GetPreference(v);
+		if (pref === 0)
 		{
-			pref = cmpAttack.GetPreference(v);
-			if (pref === 0)
-				return attack(v);
-			targets.push(v);
+			// Can't do better, attack right away.
+			if (attack(v))
+				return true;
 		}
-		prefs[v] = pref;
-		if (pref !== undefined && (bestPref === undefined || pref < bestPref))
-			bestPref = pref;
+		else if (pref === undefined)
+			others.push(v);
+		else
+			preferred.push({ "ent": v, "pref": pref });
 	}
 
-	for (const targ of targets)
-	{
-		if (prefs[targ] !== bestPref)
-			continue;
-		return attack(targ);
-	}
+	// Order.Attack can still refuse a target, e.g. one we can only capture while capturing
+	// isn't allowed: then try the next one, by preference and those without one last.
+	preferred.sort((a, b) => a.pref - b.pref);
+	for (const target of preferred.map(p => p.ent).concat(others))
+		if (attack(target))
+			return true;
 
 	// healers on a walk-and-fight order should heal injured units
 	if (this.IsHealer())
