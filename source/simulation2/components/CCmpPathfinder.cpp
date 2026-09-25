@@ -42,6 +42,7 @@
 #include "simulation2/components/ICmpObstruction.h"
 #include "simulation2/components/ICmpObstructionManager.h"
 #include "simulation2/components/ICmpPathfinder.h"
+#include "simulation2/components/ICmpPhysicalBody.h"
 #include "simulation2/components/ICmpPosition.h"
 #include "simulation2/components/ICmpTerrain.h"
 #include "simulation2/components/ICmpWaterManager.h"
@@ -915,32 +916,58 @@ std::vector<CFixedVector2D> CCmpPathfinder::DistributeAround(std::vector<entity_
 	if (units.empty())
 		return positions;
 
-	positions.reserve(units.size());
+	positions.resize(units.size());
 
-	// Initialize spiral parameters
-	fixed angle = fixed::Zero();
-	fixed radius = fixed::FromInt(1);
-	const fixed increment = fixed::FromInt(7) / 4;
-
-	// Calculate the angle step so that at this radius we don't crowd the units
-	fixed angleStep = fixed::FromInt(9).MulDiv(fixed::FromInt(1), fixed::Pi().Multiply(radius));
-
+	// Solid units (PhysicalBody/Solid: ships, the largest elephants) and everyone else get a spiral each.
+	// The spiral's spacing, between rings and along them, is a few metres, which is right for anything
+	// that collides as a circle of its clearance; those keep it and the centre. The solids are spaced by
+	// the longest body among them instead, on rings outside the others' last: points a body's length
+	// apart hold bodies arriving from any direction without overlap.
+	std::vector<size_t> solids, others;
+	fixed bodyLength;
 	for (size_t i = 0; i < units.size(); ++i)
 	{
-		CFixedVector2D offset(radius, fixed::Zero());
-		offset = offset.Rotate(angle);
-
-		positions.emplace_back(x + offset.X, z + offset.Y);
-
-		angle += angleStep;
-		// If we complete a circle, increase radius and recalculate angle step
-		if (angle >= fixed::Pi().Multiply(fixed::FromInt(2)))
+		CmpPtr<ICmpPhysicalBody> cmpPhysicalBody(GetSimContext(), units[i]);
+		if (cmpPhysicalBody && cmpPhysicalBody->GetCollisionShape().IsSolid())
 		{
-			angle = fixed::Zero();
-			radius += increment;
-			angleStep = fixed::FromInt(9).MulDiv(fixed::FromInt(1), fixed::Pi().Multiply(radius));
+			solids.push_back(i);
+			bodyLength = std::max(bodyLength, cmpPhysicalBody->GetCollisionShape().Extent() * 2);
 		}
+		else
+			others.push_back(i);
 	}
+
+	// Lay @p group on a spiral from @p radius out, @p ringSpacing between rings and @p arcSpacing along
+	// them, and return the radius of the last ring.
+	const auto lay = [&](const std::vector<size_t>& group, fixed radius, const fixed ringSpacing, const fixed arcSpacing)
+	{
+		fixed angle;
+		// Calculate the angle step so that at this radius we don't crowd the units
+		fixed angleStep{arcSpacing / radius};
+		for (const size_t i : group)
+		{
+			CFixedVector2D offset(radius, fixed::Zero());
+			offset = offset.Rotate(angle);
+			positions[i] = CFixedVector2D(x + offset.X, z + offset.Y);
+
+			angle += angleStep;
+			// If we complete a circle, increase radius and recalculate angle step
+			if (angle >= fixed::Pi().Multiply(fixed::FromInt(2)))
+			{
+				angle = fixed::Zero();
+				radius += ringSpacing;
+				angleStep = arcSpacing / radius;
+			}
+		}
+		return radius;
+	};
+
+	const fixed innerRing{fixed::FromInt(7) / 4};
+	const fixed innerArc{fixed::FromInt(9) / fixed::Pi()};
+	fixed solidsFrom{bodyLength};
+	if (!others.empty())
+		solidsFrom = std::max(solidsFrom, lay(others, fixed::FromInt(1), innerRing, innerArc) + innerRing + bodyLength / 2);
+	lay(solids, solidsFrom, bodyLength, bodyLength);
 
 	// Get current unit positions to calculate travel distances
 	std::vector<CFixedVector2D> unitPositions;
@@ -956,36 +983,42 @@ std::vector<CFixedVector2D> CCmpPathfinder::DistributeAround(std::vector<entity_
 		unitPositions.push_back(pos);
 	}
 
-	// Optimize positions by swapping them if it reduces total travel distance.
-	bool improved;
-	do
+	// Optimize positions by swapping them if it reduces total travel distance. Within each spiral only:
+	// a point on the inner spiral is no place for an elephant.
+	for (const std::vector<size_t>* group : {&solids, &others})
 	{
-		improved = false;
-		for (size_t i = 0; i < positions.size(); ++i)
+		bool improved;
+		do
 		{
-			// Helper to compute squared distance between two points as integers
-			auto distSq = [](const CFixedVector2D& p1, const CFixedVector2D& p2) -> std::uint32_t {
-				std::int32_t dx = (p1.X - p2.X).ToInt_RoundToInfinity();
-				std::int32_t dy = (p1.Y - p2.Y).ToInt_RoundToInfinity();
-				return dx*dx + dy*dy;
-			};
-
-			for (size_t j = i + 1; j < positions.size(); ++j)
+			improved = false;
+			for (size_t a = 0; a < group->size(); ++a)
 			{
-				std::uint32_t currentDistSq = distSq(positions[i], unitPositions[i]) +
-					distSq(positions[j], unitPositions[j]);
-				std::uint32_t swappedDistSq = distSq(positions[j], unitPositions[i]) +
-					distSq(positions[i], unitPositions[j]);
+				// Helper to compute squared distance between two points as integers
+				auto distSq = [](const CFixedVector2D& p1, const CFixedVector2D& p2) -> std::uint32_t {
+					std::int32_t dx = (p1.X - p2.X).ToInt_RoundToInfinity();
+					std::int32_t dy = (p1.Y - p2.Y).ToInt_RoundToInfinity();
+					return dx*dx + dy*dy;
+				};
 
-				// Swap if it reduces total squared distance
-				if (swappedDistSq < currentDistSq)
+				const size_t i{(*group)[a]};
+				for (size_t b = a + 1; b < group->size(); ++b)
 				{
-					std::swap(positions[i], positions[j]);
-					improved = true;
+					const size_t j{(*group)[b]};
+					std::uint32_t currentDistSq = distSq(positions[i], unitPositions[i]) +
+						distSq(positions[j], unitPositions[j]);
+					std::uint32_t swappedDistSq = distSq(positions[j], unitPositions[i]) +
+						distSq(positions[i], unitPositions[j]);
+
+					// Swap if it reduces total squared distance
+					if (swappedDistSq < currentDistSq)
+					{
+						std::swap(positions[i], positions[j]);
+						improved = true;
+					}
 				}
 			}
-		}
-	} while (improved);
+		} while (improved);
+	}
 
 	return positions;
 }
