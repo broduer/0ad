@@ -91,6 +91,11 @@ constexpr uint32_t OUTPUT_NORMAL_TANGENT_STRIDE{16};
 constexpr uint32_t OUTPUT_NORMAL_OFFSET{0};
 constexpr uint32_t OUTPUT_TANGENT_OFFSET{8};
 
+// With vertex fetch, an instance holds the model's transform, then its vertex
+// offsets into the position and normal-tangent outputs.
+constexpr uint32_t INSTANCE_OFFSETS_OFFSET{MODEL_INSTANCE_STRIDE};
+constexpr uint32_t INSTANCE_STRIDE{MODEL_INSTANCE_STRIDE + 2 * sizeof(float)};
+
 class ModelDefRData : public CModelDefRPrivate
 {
 public:
@@ -116,10 +121,10 @@ public:
 	// Indices are the same for all models, so share them
 	VertexIndexArray m_IndexArray;
 
-	ModelDefRData(const CModelDefPtr& mdef);
+	ModelDefRData(const CModelDefPtr& mdef, bool vertexFetch);
 };
 
-ModelDefRData::ModelDefRData(const CModelDefPtr& modelDef)
+ModelDefRData::ModelDefRData(const CModelDefPtr& modelDef, const bool vertexFetch)
 	: m_IndexArray(Renderer::Backend::IBuffer::Usage::TRANSFER_DST),
 	m_Array(Renderer::Backend::IBuffer::Type::VERTEX,
 		Renderer::Backend::IBuffer::Usage::TRANSFER_DST |
@@ -277,17 +282,25 @@ ModelDefRData::ModelDefRData(const CModelDefPtr& modelDef)
 
 	constexpr size_t MAX_UV{2};
 
-	PS::StaticVector<Renderer::Backend::SVertexAttributeFormat, 4 + 3 + MAX_UV> attributes{
-		{Renderer::Backend::VertexAttributeStream::POSITION,
+	PS::StaticVector<Renderer::Backend::SVertexAttributeFormat, 4 + 3 + MAX_UV> attributes;
+	if (vertexFetch)
+	{
+		attributes.push_back({Renderer::Backend::VertexAttributeStream::UV7,
+			Renderer::Backend::Format::R32G32_SFLOAT, INSTANCE_OFFSETS_OFFSET, INSTANCE_STRIDE,
+			Renderer::Backend::VertexAttributeRate::PER_INSTANCE, MODEL_INSTANCE_BINDING_SLOT});
+	}
+	else
+	{
+		attributes.push_back({Renderer::Backend::VertexAttributeStream::POSITION,
 			m_Position.format, 0, OUTPUT_POSITION_STRIDE,
-			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0},
-		{Renderer::Backend::VertexAttributeStream::NORMAL,
+			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 0});
+		attributes.push_back({Renderer::Backend::VertexAttributeStream::NORMAL,
 			Renderer::Backend::Format::R16G16B16A16_SFLOAT, OUTPUT_NORMAL_OFFSET, OUTPUT_NORMAL_TANGENT_STRIDE,
-		Renderer::Backend::VertexAttributeRate::PER_VERTEX, 1},
-		{Renderer::Backend::VertexAttributeStream::UV2,
-		Renderer::Backend::Format::R16G16B16A16_SFLOAT, OUTPUT_TANGENT_OFFSET, OUTPUT_NORMAL_TANGENT_STRIDE,
-			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 1}
-	};
+			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 1});
+		attributes.push_back({Renderer::Backend::VertexAttributeStream::UV2,
+			Renderer::Backend::Format::R16G16B16A16_SFLOAT, OUTPUT_TANGENT_OFFSET, OUTPUT_NORMAL_TANGENT_STRIDE,
+			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 1});
+	}
 
 	for (size_t uv{0}; uv < std::min(MAX_UV, modelDef->GetNumUVsPerVertex()); ++uv)
 	{
@@ -299,7 +312,8 @@ ModelDefRData::ModelDefRData(const CModelDefPtr& modelDef)
 			Renderer::Backend::VertexAttributeRate::PER_VERTEX, 2});
 	}
 
-	std::ranges::copy(ModelRenderer::GetInstanceTransformAttributes(), std::back_inserter(attributes));
+	std::ranges::copy(ModelRenderer::GetInstanceTransformAttributes(vertexFetch ? INSTANCE_STRIDE : MODEL_INSTANCE_STRIDE),
+		std::back_inserter(attributes));
 
 	m_VertexInputLayout = g_Renderer.GetVertexInputLayout({attributes.begin(), attributes.end()});
 }
@@ -342,6 +356,11 @@ struct GPUSkinnedModelModelRenderer::Internals
 	std::unique_ptr<Renderer::Backend::IBuffer> matricesBuffer;
 	std::unique_ptr<Renderer::Backend::IBuffer> instancesBuffer;
 	std::vector<SkinningItem> skinningItems;
+
+	// Whether the vertex shader fetches skinned vertices, which lets a
+	// modeldef's models draw instanced.
+	bool vertexFetch;
+	std::vector<float> instances;
 };
 
 GPUSkinnedModelModelRenderer::GPUSkinnedModelModelRenderer()
@@ -349,6 +368,9 @@ GPUSkinnedModelModelRenderer::GPUSkinnedModelModelRenderer()
 {
 	m->modelDefRData = nullptr;
 	m->skinningShaderTechnique = g_Renderer.GetShaderManager().LoadEffect(str_compute_skinning);
+	const Renderer::Backend::IDevice::Capabilities& capabilities{
+		g_VideoMode.GetBackendDevice()->GetCapabilities()};
+	m->vertexFetch = capabilities.instancing && capabilities.vertexStorage;
 }
 
 GPUSkinnedModelModelRenderer::~GPUSkinnedModelModelRenderer() = default;
@@ -361,7 +383,7 @@ CModelRData* GPUSkinnedModelModelRenderer::CreateModelData(const void* key, CMod
 
 	if (!modelDefRData)
 	{
-		modelDefRData = new ModelDefRData(modelDef);
+		modelDefRData = new ModelDefRData(modelDef, m->vertexFetch);
 		modelDef->SetRenderData(m.get(), modelDefRData);
 	}
 
@@ -527,17 +549,69 @@ void GPUSkinnedModelModelRenderer::PrepareModelDef(
 	}
 }
 
-void GPUSkinnedModelModelRenderer::RenderModels(
-	Renderer::Backend::IDeviceCommandContext*, Renderer::Backend::IShaderProgram*,
-	const std::span<CModel* const>)
+bool GPUSkinnedModelModelRenderer::CanInstance() const
 {
-	debug_warn("RenderModels called on a renderer without instancing support");
+	return m->vertexFetch;
+}
+
+void GPUSkinnedModelModelRenderer::RenderModels(
+	Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
+	Renderer::Backend::IShaderProgram* shader, const std::span<CModel* const> models)
+{
+	const int32_t positionsSlot{shader->GetBindingSlot(str_SkinnedPositions)};
+	const int32_t normalsTangentsSlot{shader->GetBindingSlot(str_SkinnedNormalsTangents)};
+	const size_t numberOfFaces{models.front()->GetModelDef()->GetNumFaces()};
+
+	for (size_t begin{0}; begin < models.size();)
+	{
+		// An instanced draw fetches from a single pair of output buffers.
+		const ModelRData* first{static_cast<const ModelRData*>(models[begin]->GetRenderData())};
+		CVertexBuffer* positions{first->m_PositionHandle->m_Owner};
+		CVertexBuffer* normalsTangents{first->m_NormalTangentHandle->m_Owner};
+
+		m->instances.clear();
+		size_t end{begin};
+		for (; end < models.size(); ++end)
+		{
+			const ModelRData* modelRData{static_cast<const ModelRData*>(models[end]->GetRenderData())};
+			if (modelRData->m_PositionHandle->m_Owner != positions ||
+				modelRData->m_NormalTangentHandle->m_Owner != normalsTangents)
+			{
+				break;
+			}
+			const std::span<const float, 16> transform{models[end]->GetTransform().AsFloatArray()};
+			m->instances.insert(m->instances.end(), transform.begin(), transform.end());
+			m->instances.push_back(static_cast<float>(modelRData->m_PositionHandle->m_Index));
+			m->instances.push_back(static_cast<float>(modelRData->m_NormalTangentHandle->m_Index));
+		}
+
+		if (positionsSlot >= 0)
+			deviceCommandContext->SetStorageBuffer(positionsSlot, positions->GetBuffer());
+		if (normalsTangentsSlot >= 0)
+			deviceCommandContext->SetStorageBuffer(normalsTangentsSlot, normalsTangents->GetBuffer());
+		deviceCommandContext->SetVertexBufferData(MODEL_INSTANCE_BINDING_SLOT, m->instances.data(),
+			static_cast<uint32_t>(m->instances.size() * sizeof(float)));
+		deviceCommandContext->DrawIndexedInstanced(
+			m->modelDefRData->m_IndexArray.GetOffset(), numberOfFaces * 3,
+			0, static_cast<uint32_t>(end - begin), 0);
+
+		g_Renderer.m_Stats.m_DrawCalls++;
+		g_Renderer.m_Stats.m_ModelTris += numberOfFaces * (end - begin);
+		begin = end;
+	}
 }
 
 void GPUSkinnedModelModelRenderer::RenderModel(
-	Renderer::Backend::IDeviceCommandContext* deviceCommandContext, Renderer::Backend::IShaderProgram*,
+	Renderer::Backend::IDeviceCommandContext* deviceCommandContext, Renderer::Backend::IShaderProgram* shader,
 	CModel* model, CModelRData* data)
 {
+	if (m->vertexFetch)
+	{
+		CModel* const models[]{model};
+		RenderModels(deviceCommandContext, shader, models);
+		return;
+	}
+
 	ModelRData* modelRData{static_cast<ModelRData*>(data)};
 
 	// Render the lot.

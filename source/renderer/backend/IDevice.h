@@ -76,6 +76,8 @@ public:
 		uint32_t maxTextureSize;
 		bool instancing;
 		bool storage;
+		// Storage buffers can be read in the vertex stage.
+		bool vertexStorage = false;
 		bool timestamps;
 		double timestampMultiplier;
 	};

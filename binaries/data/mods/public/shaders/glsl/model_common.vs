@@ -4,12 +4,28 @@
 
 #include "common/los_vertex.h"
 #include "common/shadows_vertex.h"
+#include "common/storage.h"
 #include "common/vertex.h"
 
+#if USE_SKINNED_VERTEX_FETCH
+// The offsets of the instance's vertices in the skinning outputs.
+VERTEX_INPUT_ATTRIBUTE(9, vec2, a_skinnedOffsets);
+
+STORAGE_BUFFER(0) restrict readonly buffer SkinnedPositions
+{
+	vec4 skinnedPositions[];
+};
+
+STORAGE_BUFFER(1) restrict readonly buffer SkinnedNormalsTangents
+{
+	uvec4 skinnedNormalsTangents[];
+};
+#else
 VERTEX_INPUT_ATTRIBUTE(0, vec3, a_vertex);
 VERTEX_INPUT_ATTRIBUTE(1, vec3, a_normal);
 #if USE_INSTANCING
 VERTEX_INPUT_ATTRIBUTE(2, vec4, a_tangent);
+#endif
 #endif
 VERTEX_INPUT_ATTRIBUTE(3, vec2, a_uv0);
 #if USE_AO
@@ -30,6 +46,13 @@ vec4 fakeCos(vec4 x)
 
 void main()
 {
+  #if USE_SKINNED_VERTEX_FETCH
+    vec3 a_vertex = skinnedPositions[uint(a_skinnedOffsets.x) + uint(gl_VertexIndex)].xyz;
+    uvec4 packedNormalTangent = skinnedNormalsTangents[uint(a_skinnedOffsets.y) + uint(gl_VertexIndex)];
+    vec3 a_normal = vec3(unpackHalf2x16(packedNormalTangent.x), unpackHalf2x16(packedNormalTangent.y).x);
+    vec4 a_tangent = vec4(unpackHalf2x16(packedNormalTangent.z), unpackHalf2x16(packedNormalTangent.w));
+  #endif
+
   #if (USE_INSTANCING)
     mat4 instancingTransform = mat4(
       a_instanceTransform0, a_instanceTransform1,

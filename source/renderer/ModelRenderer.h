@@ -187,7 +187,8 @@ public:
 	/**
 	 * Return the vertex attributes of the instance transform.
 	 */
-	static std::array<Renderer::Backend::SVertexAttributeFormat, 4> GetInstanceTransformAttributes();
+	static std::array<Renderer::Backend::SVertexAttributeFormat, 4> GetInstanceTransformAttributes(
+		uint32_t stride = MODEL_INSTANCE_STRIDE);
 
 	/**
 	 * Bind a model's transform as instance attributes.

@@ -405,14 +405,15 @@ struct SMRTechBucket
 	// so that sorting lists of this struct is fast
 };
 
-std::array<Renderer::Backend::SVertexAttributeFormat, 4> ModelRenderer::GetInstanceTransformAttributes()
+std::array<Renderer::Backend::SVertexAttributeFormat, 4> ModelRenderer::GetInstanceTransformAttributes(
+	const uint32_t stride)
 {
-	const auto row = [](const uint32_t index)
+	const auto row = [stride](const uint32_t index)
 	{
 		return Renderer::Backend::SVertexAttributeFormat{
 			static_cast<Renderer::Backend::VertexAttributeStream>(
 				static_cast<uint32_t>(Renderer::Backend::VertexAttributeStream::UV3) + index),
-			Renderer::Backend::Format::R32G32B32A32_SFLOAT, index * 16, MODEL_INSTANCE_STRIDE,
+			Renderer::Backend::Format::R32G32B32A32_SFLOAT, index * 16, stride,
 			Renderer::Backend::VertexAttributeRate::PER_INSTANCE, MODEL_INSTANCE_BINDING_SLOT};
 	};
 	return {row(0), row(1), row(2), row(3)};

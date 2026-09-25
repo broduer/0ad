@@ -634,6 +634,8 @@ std::unique_ptr<CDevice> CDevice::Create(SDL_Window* window)
 		!g_ConfigDB.Get("renderer.backend.vulkan.disabledescriptorindexing", false)};
 	device->m_DescriptorManager =
 		std::make_unique<CDescriptorManager>(device.get(), useDescriptorIndexing);
+	// Without descriptor indexing the storage set overlaps the texture set.
+	capabilities.vertexStorage = capabilities.storage && useDescriptorIndexing;
 
 	device->m_Name = choosenDevice.properties.deviceName;
 	device->m_Version =

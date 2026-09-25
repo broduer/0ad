@@ -2,15 +2,16 @@
 <program type="glsl">
 
 	<vertex file="glsl/model_common.vs">
-		<stream name="pos" attribute="a_vertex"/>
-		<stream name="normal" attribute="a_normal"/>
+		<stream name="pos" attribute="a_vertex" if="!USE_SKINNED_VERTEX_FETCH"/>
+		<stream name="normal" attribute="a_normal" if="!USE_SKINNED_VERTEX_FETCH"/>
 		<stream name="uv0" attribute="a_uv0"/>
 		<stream name="uv1" attribute="a_uv1" if="USE_AO"/>
-		<stream name="uv2" attribute="a_tangent" if="USE_INSTANCING"/>
+		<stream name="uv2" attribute="a_tangent" if="USE_INSTANCING &amp;&amp; !USE_SKINNED_VERTEX_FETCH"/>
 		<stream name="uv3" attribute="a_instanceTransform0" if="USE_INSTANCING"/>
 		<stream name="uv4" attribute="a_instanceTransform1" if="USE_INSTANCING"/>
 		<stream name="uv5" attribute="a_instanceTransform2" if="USE_INSTANCING"/>
 		<stream name="uv6" attribute="a_instanceTransform3" if="USE_INSTANCING"/>
+		<stream name="uv7" attribute="a_skinnedOffsets" if="USE_SKINNED_VERTEX_FETCH"/>
 	</vertex>
 
 	<fragment file="glsl/model_solid_tex.fs"/>

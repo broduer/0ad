@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright (C) 2025 Wildfire Games.
+# Copyright (C) 2026 Wildfire Games.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -93,35 +93,31 @@ def get_combination_hash(combination: list[dict[str, str]]) -> str:
     return hashlib.sha256(json.dumps(hashable_combination, sort_keys=True).encode()).hexdigest()
 
 
+def resolve_define(defines, item):
+    item = item.strip()
+    assert len(item) > 1
+    name = item
+    invert = False
+    if name[0] == "!":
+        invert = True
+        name = item[1:]
+        assert item[1].isalpha()
+    else:
+        assert item[0].isalpha()
+    for define in defines:
+        if define["name"] == name:
+            assert (
+                define["value"] == "UNDEFINED" or define["value"] == "0" or define["value"] == "1"
+            )
+            return (define["value"] == "1") != invert
+    return invert
+
+
 def resolve_if(defines, expression):
-    for item in expression.strip().split("||"):
-        item = item.strip()
-        assert len(item) > 1
-        name = item
-        invert = False
-        if name[0] == "!":
-            invert = True
-            name = item[1:]
-            assert item[1].isalpha()
-        else:
-            assert item[0].isalpha()
-        found_define = False
-        for define in defines:
-            if define["name"] == name:
-                assert (
-                    define["value"] == "UNDEFINED"
-                    or define["value"] == "0"
-                    or define["value"] == "1"
-                )
-                if invert:
-                    if define["value"] != "1":
-                        return True
-                    found_define = True
-                elif define["value"] == "1":
-                    return True
-        if invert and not found_define:
-            return True
-    return False
+    return any(
+        all(resolve_define(defines, item) for item in alternative.split("&&"))
+        for alternative in expression.strip().split("||")
+    )
 
 
 def compile_and_reflect(input_mod_path, dependencies, stage, path, out_path, defines):

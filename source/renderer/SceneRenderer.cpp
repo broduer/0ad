@@ -279,7 +279,11 @@ public:
 
 		CShaderDefines contextSkinned = context;
 		if (Model.GPUSkinningEnabled)
+		{
 			contextSkinned.Add(str_USE_INSTANCING, str_1);
+			if (modelVertexSkinningRenderer.CanInstance())
+				contextSkinned.Add(str_USE_SKINNED_VERTEX_FETCH, str_1);
+		}
 		Model.modelRenderer.Render(deviceCommandContext, modelVertexSkinningRenderer, Model.ModShader, contextSkinned, cullGroup, flags, renderMode, Model.OpaqueSkinned.submissions[cullGroup]);
 
 		CShaderDefines contextUnskinned = context;
@@ -301,7 +305,11 @@ public:
 
 		CShaderDefines contextSkinned = context;
 		if (Model.GPUSkinningEnabled)
+		{
 			contextSkinned.Add(str_USE_INSTANCING, str_1);
+			if (modelVertexSkinningRenderer.CanInstance())
+				contextSkinned.Add(str_USE_SKINNED_VERTEX_FETCH, str_1);
+		}
 		Model.modelRenderer.Render(deviceCommandContext, modelVertexSkinningRenderer, Model.ModShader, contextSkinned, cullGroup, flags, renderMode, Model.TransparentSkinned.submissions[cullGroup]);
 
 		CShaderDefines contextUnskinned = context;

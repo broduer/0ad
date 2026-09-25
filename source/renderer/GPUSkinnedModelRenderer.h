@@ -55,6 +55,7 @@ public:
 		const CModelDef& def) override;
 	void RenderModel(Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		Renderer::Backend::IShaderProgram* shader, CModel* model, CModelRData* data) override;
+	bool CanInstance() const override;
 	void RenderModels(
 		Renderer::Backend::IDeviceCommandContext* deviceCommandContext,
 		Renderer::Backend::IShaderProgram* shader, const std::span<CModel* const> models) override;
