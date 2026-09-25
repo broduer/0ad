@@ -36,6 +36,7 @@
 #include "maths/Vector4D.h"
 #include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
+#include "ps/ForEachInParallel.h"
 #include "ps/Profile.h"
 #include "ps/VideoMode.h"
 #include "renderer/DebugRenderer.h"
@@ -157,12 +158,17 @@ static Entry EntryCreate(int type, std::uint16_t id, std::uint16_t x)
 static int EntryGetId(Entry e) { return e & 0xffff; }
 static int EntryGetType(Entry e) { return (e >> 16) & 3; }
 
+constexpr size_t MAX_SWEEP_TASKS = 4;
+
 struct SilhouetteRenderer::SScratch
 {
 	std::vector<Occluder> occluders;
 	std::vector<Caster> casters;
 	std::vector<Entry> entries;
 	std::vector<Entry> entryScratch;
+	std::vector<Occluder> occluderBounds;
+	std::vector<Caster> casterPositions;
+	std::array<std::vector<std::uint8_t>, MAX_SWEEP_TASKS> occluderRendered;
 };
 
 SilhouetteRenderer::SilhouetteRenderer()
@@ -339,16 +345,43 @@ void SilhouetteRenderer::ComputeSubmissions(const CCamera& camera)
 	{
 		PROFILE("compute bounds");
 
-		for (size_t i = 0; i < m_SubmittedModelOccluders.size(); ++i)
+		// Compute the bounds in parallel; the lists keep submission order.
+		const size_t modelOccluders{m_SubmittedModelOccluders.size()};
+		const size_t occluderCount{modelOccluders + m_SubmittedPatchOccluders.size()};
+		std::vector<Occluder>& occluderBounds{m_Scratch->occluderBounds};
+		std::vector<Caster>& casterPositions{m_Scratch->casterPositions};
+		occluderBounds.resize(occluderCount);
+		casterPositions.resize(m_SubmittedModelCasters.size());
+		Threading::ForEachInParallel(occluderCount + casterPositions.size(), 16,
+			[&](const size_t i)
+			{
+				if (i < modelOccluders)
+				{
+					Occluder& d{occluderBounds[i]};
+					d.renderable = m_SubmittedModelOccluders[i];
+					d.isPatch = false;
+					d.rendered = false;
+					ComputeScreenBounds(d, d.renderable->GetWorldBounds(), proj);
+				}
+				else if (i < occluderCount)
+				{
+					Occluder& d{occluderBounds[i]};
+					d.renderable = m_SubmittedPatchOccluders[i - modelOccluders];
+					d.isPatch = true;
+					d.rendered = false;
+					ComputeScreenBounds(d, d.renderable->GetWorldBounds(), proj);
+				}
+				else
+				{
+					Caster& d{casterPositions[i - occluderCount]};
+					d.model = m_SubmittedModelCasters[i - occluderCount];
+					d.rendered = false;
+					ComputeScreenPos(d, d.model->GetTransform().GetTranslation() + posOffset, proj);
+				}
+			});
+
+		for (const Occluder& d : occluderBounds)
 		{
-			CModel* occluder = m_SubmittedModelOccluders[i];
-
-			Occluder d;
-			d.renderable = occluder;
-			d.isPatch = false;
-			d.rendered = false;
-			ComputeScreenBounds(d, occluder->GetWorldBounds(), proj);
-
 			// Skip zero-sized occluders, so we don't need to worry about EDGE_OUT
 			// getting sorted before EDGE_IN
 			if (d.x0 == d.x1 || d.y0 == d.y1)
@@ -361,37 +394,8 @@ void SilhouetteRenderer::ComputeSubmissions(const CCamera& camera)
 			entries.push_back(EntryCreate(EDGE_OUT, id, d.x1));
 		}
 
-		for (size_t i = 0; i < m_SubmittedPatchOccluders.size(); ++i)
+		for (const Caster& d : casterPositions)
 		{
-			CPatch* occluder = m_SubmittedPatchOccluders[i];
-
-			Occluder d;
-			d.renderable = occluder;
-			d.isPatch = true;
-			d.rendered = false;
-			ComputeScreenBounds(d, occluder->GetWorldBounds(), proj);
-
-			// Skip zero-sized occluders
-			if (d.x0 == d.x1 || d.y0 == d.y1)
-				continue;
-
-			std::uint16_t id = static_cast<std::uint16_t>(occluders.size());
-			occluders.push_back(d);
-
-			entries.push_back(EntryCreate(EDGE_IN, id, d.x0));
-			entries.push_back(EntryCreate(EDGE_OUT, id, d.x1));
-		}
-
-		for (size_t i = 0; i < m_SubmittedModelCasters.size(); ++i)
-		{
-			CModel* model = m_SubmittedModelCasters[i];
-			CVector3D pos = model->GetTransform().GetTranslation() + posOffset;
-
-			Caster d;
-			d.model = model;
-			d.rendered = false;
-			ComputeScreenPos(d, pos, proj);
-
 			std::uint16_t id = static_cast<std::uint16_t>(casters.size());
 			casters.push_back(d);
 
@@ -410,57 +414,73 @@ void SilhouetteRenderer::ComputeSubmissions(const CCamera& camera)
 	{
 		PROFILE("sweeping");
 
-		ActiveList active;
-		CVector3D cameraPos = camera.GetOrientation().GetTranslation();
+		// Split the casters among tasks. Each sweeps every edge with its own
+		// active list and occluder flags; flags only turn on, so the merged
+		// result doesn't depend on the split.
+		constexpr size_t MIN_CASTERS_PER_TASK = 16;
+		const size_t tasks{casters.size() >= MAX_SWEEP_TASKS * MIN_CASTERS_PER_TASK ? MAX_SWEEP_TASKS : 1};
+		std::array<std::vector<std::uint8_t>, MAX_SWEEP_TASKS>& occluderRendered{m_Scratch->occluderRendered};
+		const CVector3D cameraPos = camera.GetOrientation().GetTranslation();
 
-		for (size_t i = 0; i < entries.size(); ++i)
+		Threading::ForEachInParallel(tasks, 1, [&](const size_t task)
 		{
-			Entry e = entries[i];
-			int type = EntryGetType(e);
-			std::uint16_t id = EntryGetId(e);
-			if (type == EDGE_IN)
-				active.Add(id);
-			else if (type == EDGE_OUT)
-				active.Remove(id);
-			else
+			std::vector<std::uint8_t>& rendered{occluderRendered[task]};
+			rendered.assign(occluders.size(), 0);
+			ActiveList active;
+			for (size_t i = 0; i < entries.size(); ++i)
 			{
-				Caster& caster = casters[id];
-				for (size_t j = 0; j < active.m_Ids.size(); ++j)
+				Entry e = entries[i];
+				int type = EntryGetType(e);
+				std::uint16_t id = EntryGetId(e);
+				if (type == EDGE_IN)
+					active.Add(id);
+				else if (type == EDGE_OUT)
+					active.Remove(id);
+				else if (id % tasks == task)
 				{
-					Occluder& occluder = occluders[active.m_Ids[j]];
-
-					if (caster.y < occluder.y0 || caster.y > occluder.y1)
-						continue;
-
-					if (caster.z < occluder.z)
-						continue;
-
-					// No point checking further if both are already being rendered
-					if (caster.rendered && occluder.rendered)
-						continue;
-
-					if (!g_DisablePreciseIntersections)
+					Caster& caster = casters[id];
+					for (size_t j = 0; j < active.m_Ids.size(); ++j)
 					{
-						CVector3D pos = caster.model->GetTransform().GetTranslation() + posOffset;
-						if (occluder.isPatch)
-						{
-							CPatch* patch = static_cast<CPatch*>(occluder.renderable);
-							if (!CHFTracer::PatchRayIntersect(patch, pos, cameraPos - pos, NULL))
-								continue;
-						}
-						else
-						{
-							float tmin, tmax;
-							if (!occluder.renderable->GetWorldBounds().RayIntersect(pos, cameraPos - pos, tmin, tmax))
-								continue;
-						}
-					}
+						const std::uint16_t occluderId = active.m_Ids[j];
+						const Occluder& occluder = occluders[occluderId];
 
-					caster.rendered = true;
-					occluder.rendered = true;
+						if (caster.y < occluder.y0 || caster.y > occluder.y1)
+							continue;
+
+						if (caster.z < occluder.z)
+							continue;
+
+						// No point checking further if both are already being rendered
+						if (caster.rendered && rendered[occluderId])
+							continue;
+
+						if (!g_DisablePreciseIntersections)
+						{
+							CVector3D pos = caster.model->GetTransform().GetTranslation() + posOffset;
+							if (occluder.isPatch)
+							{
+								CPatch* patch = static_cast<CPatch*>(occluder.renderable);
+								if (!CHFTracer::PatchRayIntersect(patch, pos, cameraPos - pos, NULL))
+									continue;
+							}
+							else
+							{
+								float tmin, tmax;
+								if (!occluder.renderable->GetWorldBounds().RayIntersect(pos, cameraPos - pos, tmin, tmax))
+									continue;
+							}
+						}
+
+						caster.rendered = true;
+						rendered[occluderId] = 1;
+					}
 				}
 			}
-		}
+		});
+
+		for (size_t task = 0; task < tasks; ++task)
+			for (size_t i = 0; i < occluders.size(); ++i)
+				occluders[i].rendered |= occluderRendered[task][i] != 0;
 	}
 
 	if (m_DebugEnabled)
