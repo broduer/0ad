@@ -166,6 +166,7 @@ const CRenderWorld::SPositionState* CRenderWorld::FindPosition(const entity_id_t
 void CRenderWorld::Apply(CFramePacket& packet)
 {
 	PROFILE3("render world apply");
+	m_CullCandidatesValid = false;
 
 	if (packet.waterLevel)
 		m_WaterLevel = *packet.waterLevel;
@@ -702,6 +703,7 @@ void CRenderWorld::Interpolate(const float simFrameLength, const float frameOffs
 	// Every frame positions its units afresh, paused or not, so a unit
 	// rebuilt while paused is never drawn with its old model tree.
 	++m_FrameNumber;
+	m_CullCandidatesValid = false;
 	if (paused)
 		return;
 	m_FrameOffset = frameOffset;
@@ -844,42 +846,58 @@ bool CRenderWorld::ShouldPosition(const SUnit& unit, const CFrustum& frustum, co
 	return !culling || frustum.IsSphereVisible(unit.sweptBounds.GetCenter(), unit.sweptBounds.GetRadius());
 }
 
-void CRenderWorld::PositionUnitsInParallel(const CFrustum& frustum, const bool culling)
+void CRenderWorld::CollectVisible(const CFrustum& frustum, const bool culling)
 {
-	m_UnitsToPosition.clear();
-	for (size_t i = 0; i < m_Units.size(); ++i)
-		if (ShouldPosition(m_Units[i], frustum, culling))
-			m_UnitsToPosition.push_back(static_cast<std::uint32_t>(i));
-
-	if (m_UnitsToPosition.size() < 4 * 16)
-		return;
-	Threading::ForEachInParallel(m_UnitsToPosition.size(), 16, [this](const size_t k) {
-		SUnit& unit = m_Units[m_UnitsToPosition[k]];
-		if (PositionUnit(unit))
-			unit.lastTransformFrame = m_FrameNumber;
-	});
+	if (!m_CullCandidatesValid)
+	{
+		m_CullCandidates.clear();
+		for (size_t i = 0; i < m_Units.size(); ++i)
+		{
+			const SUnit& unit{m_Units[i]};
+			if (unit.actor && unit.position && unit.position->sim.inWorld &&
+				unit.visibility != LosVisibility::HIDDEN)
+			{
+				m_CullCandidates.push_back({unit.sweptBounds, static_cast<std::uint32_t>(i)});
+			}
+		}
+		m_CullCandidatesValid = true;
+	}
+	m_VisibleSlots.clear();
+	for (const SCullCandidate& candidate : m_CullCandidates)
+		if (!culling || frustum.IsSphereVisible(candidate.bounds.GetCenter(), candidate.bounds.GetRadius()))
+			m_VisibleSlots.push_back(candidate.slot);
 }
 
 void CRenderWorld::Submit(SceneCollector& collector, const CFrustum& frustum, const bool culling)
 {
 	PROFILE3("render world submit");
 
+	CollectVisible(frustum, culling);
+
 	// Each cull group positions the units no earlier one saw.
-	PositionUnitsInParallel(frustum, culling);
-
-	for (SUnit& unit : m_Units)
+	m_UnitsToPosition.clear();
+	for (const std::uint32_t slot : m_VisibleSlots)
+		if (m_Units[slot].lastTransformFrame != m_FrameNumber)
+			m_UnitsToPosition.push_back(slot);
+	if (m_UnitsToPosition.size() >= 4 * 16)
 	{
-		unit.culled = true;
+		Threading::ForEachInParallel(m_UnitsToPosition.size(), 16, [this](const size_t k) {
+			SUnit& unit = m_Units[m_UnitsToPosition[k]];
+			if (PositionUnit(unit))
+				unit.lastTransformFrame = m_FrameNumber;
+		});
+	}
 
-		if (!unit.actor || !unit.position || !unit.position->sim.inWorld)
-			continue;
-		if (unit.visibility == LosVisibility::HIDDEN)
-			continue;
+	if (m_EnableDebugOverlays)
+		for (SUnit& unit : m_Units)
+			unit.culled = true;
+
+	for (const std::uint32_t slot : m_VisibleSlots)
+	{
+		SUnit& unit{m_Units[slot]};
 		if (!g_AtlasGameLoop->running && !g_RenderingOptions.GetRenderActors() && unit.visual.actorOnly)
 			continue;
 		if (!g_AtlasGameLoop->running && unit.visual.visibleInAtlasOnly)
-			continue;
-		if (culling && !frustum.IsSphereVisible(unit.sweptBounds.GetCenter(), unit.sweptBounds.GetRadius()))
 			continue;
 
 		unit.culled = false;
@@ -954,6 +972,7 @@ void CRenderWorld::TakeSoundEvents(std::vector<SSoundEvent>& out)
 
 void CRenderWorld::ReloadActors(const std::wstring& actorName)
 {
+	m_CullCandidatesValid = false;
 	const auto matches = [&actorName](const SUnit& unit) {
 		return unit.entity != INVALID_ENTITY && (actorName.empty() ||
 			unit.visual.actorName == actorName || unit.visual.actorName + L".xml" == actorName);

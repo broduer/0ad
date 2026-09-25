@@ -237,7 +237,10 @@ private:
 
 	bool PositionUnit(SUnit& unit) const;
 	bool ShouldPosition(const SUnit& unit, const CFrustum& frustum, bool culling) const;
-	void PositionUnitsInParallel(const CFrustum& frustum, bool culling);
+	/**
+	 * Collect the slots of the units @p frustum sees into m_VisibleSlots.
+	 */
+	void CollectVisible(const CFrustum& frustum, bool culling);
 	/**
 	 * Advance every unit's animation and position the ones @p frustum sees, if given.
 	 */
@@ -263,6 +266,17 @@ private:
 	// Per slot: whether the unit's animation reached an action sound.
 	std::vector<std::uint8_t> m_ActionSoundsReached;
 	std::vector<std::uint32_t> m_UnitsToPosition;
+
+	// The bounds of the units that can be drawn at all, packed so each cull
+	// group tests them without touching the units; rebuilt after any change.
+	struct SCullCandidate
+	{
+		CBoundingSphere bounds;
+		std::uint32_t slot;
+	};
+	std::vector<SCullCandidate> m_CullCandidates;
+	bool m_CullCandidatesValid{false};
+	std::vector<std::uint32_t> m_VisibleSlots;
 
 	bool m_EnableDebugOverlays{false};
 	std::vector<SOverlaySphere> m_DebugSpheres;
