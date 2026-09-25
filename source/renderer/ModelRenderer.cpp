@@ -512,26 +512,37 @@ void ModelRenderer::Render(
 	{
 		PROFILE3("bucketing by material");
 
+		// Materials with the same identity have the same effects and defines,
+		// so the full key is looked up once per identity.
+		using IdentityBuckets_t = std::unordered_map<uint64_t, ModelList_t*, std::hash<uint64_t>,
+			std::equal_to<uint64_t>,
+			ProxyAllocator<std::pair<const uint64_t, ModelList_t*>, PS::Memory::ScopedLinearAllocator>>;
+		IdentityBuckets_t identityBuckets((IdentityBuckets_t::allocator_type(scopedLinearAllocator)));
+		uint64_t lastIdentity{0};
+		ModelList_t* lastBucket{nullptr};
 		for (CModel* model : submissions)
 		{
 			const CMaterial& material{model->GetMaterial()};
-			const CShaderDefines& defines{material.GetShaderDefines()};
-			const CStrIntern shaderEffect{material.GetShaderEffect(materialPass)};
-			SMRMaterialBucketKey key(shaderEffect, defines);
-
-			MaterialBuckets_t::iterator it = materialBuckets.find(key);
-			if (it == materialBuckets.end())
+			const uint64_t identity{material.GetIdentity()};
+			if (identity != lastIdentity)
 			{
-				std::pair<MaterialBuckets_t::iterator, bool> inserted = materialBuckets.insert(
-					std::make_pair(key, ModelList_t(ModelList_t::allocator_type(scopedLinearAllocator))));
-				inserted.first->second.reserve(32);
-				inserted.first->second.push_back(model);
-				bucketOrder.push_back(&*inserted.first);
+				const auto [identityBucket, newIdentity] = identityBuckets.try_emplace(identity, nullptr);
+				if (newIdentity)
+				{
+					SMRMaterialBucketKey key(material.GetShaderEffect(materialPass), material.GetShaderDefines());
+					const auto [it, inserted] = materialBuckets.try_emplace(
+						key, ModelList_t::allocator_type(scopedLinearAllocator));
+					if (inserted)
+					{
+						it->second.reserve(32);
+						bucketOrder.push_back(&*it);
+					}
+					identityBucket->second = &it->second;
+				}
+				lastIdentity = identity;
+				lastBucket = identityBucket->second;
 			}
-			else
-			{
-				it->second.push_back(model);
-			}
+			lastBucket->push_back(model);
 		}
 	}
 
