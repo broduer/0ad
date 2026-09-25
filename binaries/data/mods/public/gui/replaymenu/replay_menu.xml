@@ -101,6 +101,11 @@
 				<translatableAttribute id="tooltip">Copy to clipboard.</translatableAttribute>
 				<translatableAttribute id="caption">Copy</translatableAttribute>
 			</object>
+
+			<object name="openPath" type="button" style="StoneButton" size="91% 100%-24 96% 100%">
+				<translatableAttribute id="tooltip">Open in filebrowser.</translatableAttribute>
+				<translatableAttribute id="caption">Open</translatableAttribute>
+			</object>
 		</object>
 
 		<!-- Right Panel: Compatibility Filter & Replay Details -->

@@ -289,6 +289,7 @@ function displayReplayDetails()
 	Engine.GetGUIObjectByName("startReplayButton").enabled = replaySelected;
 	Engine.GetGUIObjectByName("deleteReplayButton").enabled = replaySelected;
 	Engine.GetGUIObjectByName("replayFilename").hidden = !replaySelected;
+	Engine.GetGUIObjectByName("openPath").hidden = !replaySelected;
 	Engine.GetGUIObjectByName("summaryButton").hidden = true;
 
 	const copyPathButton = Engine.GetGUIObjectByName("copyPath");
@@ -319,6 +320,8 @@ function displayReplayDetails()
 		if (copied)
 			copyPathButton.caption = translate("Copied!");
 	};
+
+	Engine.GetGUIObjectByName("openPath").onPress = openURL.bind(undefined, replayDirectoryPath, true);
 
 	const metadata = Engine.GetReplayMetadata(replay.directory);
 	Engine.GetGUIObjectByName("sgPlayersNames").caption =

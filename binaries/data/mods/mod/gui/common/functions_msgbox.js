@@ -26,14 +26,16 @@ function timedConfirmation(width, height, message, timeParameter, timeout, title
 		});
 }
 
-function openURL(url)
+function openURL(url, isFilepath)
 {
 	Engine.OpenURL(url);
 
 	messageBox(
 		600, 200,
 		sprintf(
-			translate("Opening %(url)s\n in default web browser. Please wait…"),
+			isFilepath ?
+				translate("Opening %(url)s\n in default file browser. Please wait…") :
+				translate("Opening %(url)s\n in default web browser. Please wait…"),
 			{ "url": url }
 		),
 		translate("Opening page"));
