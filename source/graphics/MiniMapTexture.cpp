@@ -48,6 +48,7 @@
 #include "ps/XML/Xeromyces.h"
 #include "renderer/Renderer.h"
 #include "renderer/SceneRenderer.h"
+#include "renderer/TimeManager.h"
 #include "renderer/WaterManager.h"
 #include "renderer/backend/Backend.h"
 #include "renderer/backend/Format.h"
@@ -519,7 +520,7 @@ void CMiniMapTexture::RenderFinalTexture(
 	// (note: since units only move a few pixels per second on the minimap,
 	// we can get away with infrequent updates; this is slow)
 	// TODO: Update all but camera at same speed as simulation
-	const double currentTime = timer_Time();
+	const double currentTime = g_Renderer.GetTimeManager().GetRealTime();
 	const bool doUpdate = (currentTime - m_LastFinalTextureUpdate > 0.5) || m_FinalTextureDirty;
 	if (!doUpdate)
 		return;

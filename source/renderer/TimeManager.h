@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -26,11 +26,19 @@ public:
 	double GetFrameDelta() const;
 	double GetGlobalTime() const;
 
-	void Update(double delta);
+	/**
+	 * Return the real time summed over rendered frames, for effects that
+	 * follow the clock rather than the simulation. It advances while paused
+	 * and, unlike the wall clock, is reproducible for the same frames.
+	 */
+	double GetRealTime() const;
+
+	void Update(double delta, double realDelta);
 
 private:
 	double m_FrameDelta = 0.0;
 	double m_GlobalTime = 0.0;
+	double m_RealTime = 0.0;
 };
 
 #endif // INCLUDED_TIMEMANAGER

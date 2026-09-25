@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -22,6 +22,8 @@
 #include "ps/CStr.h"
 #include "simulation2/system/Entity.h"
 
+#include <cstdint>
+#include <random>
 #include <vector>
 
 class CModel;
@@ -39,8 +41,9 @@ class CUnitAnimation
 public:
 	/**
 	 * Construct for a given unit, defaulting to the "idle" animation.
+	 * @p seed seeds the unit's choices among animation variants.
 	 */
-	CUnitAnimation(entity_id_t ent, CModel* model, CObjectEntry* object);
+	CUnitAnimation(entity_id_t ent, CModel* model, CObjectEntry* object, uint32_t seed);
 
 	/**
 	 * Start playing an animation.
@@ -120,6 +123,7 @@ private:
 	void AddModel(CModel* model, const CObjectEntry* object);
 
 	entity_id_t m_Entity;
+	std::minstd_rand m_Random;
 	CModel* m_Model;
 	const CObjectEntry* m_Object;
 	CStr m_State;

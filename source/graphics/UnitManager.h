@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -53,6 +53,14 @@ public:
 	void SetObjectManager(CObjectManager& objectManager) { m_ObjectManager = &objectManager; }
 
 	/**
+	 * Seed the random visual choices the simulation does not depend on, such
+	 * as animation variants. A game sets it from its settings so replays look
+	 * the same; otherwise it is random.
+	 */
+	void SetVisualSeed(std::uint32_t seed) { m_VisualSeed = seed; }
+	std::uint32_t GetVisualSeed() const { return m_VisualSeed; }
+
+	/**
 	 * Mark a specific region of the terrain as dirty.
 	 * Coordinates are in terrain tiles, lower inclusive, upper exclusive.
 	 */
@@ -63,6 +71,7 @@ private:
 	std::vector<std::unique_ptr<CUnit>> m_Units;
 	// graphical object manager; may be NULL if not set up
 	CObjectManager* m_ObjectManager;
+	std::uint32_t m_VisualSeed;
 };
 
 #endif // INCLUDED_UNITMANAGER

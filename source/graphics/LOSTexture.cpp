@@ -159,7 +159,7 @@ void CLOSTexture::InterpolateLOS(Renderer::Backend::IDeviceCommandContext* devic
 		RecomputeTexture(deviceCommandContext);
 		// We need to subtract the frame time because without it we have the
 		// same output images for the current and previous frames.
-		m_LastTextureRecomputeTime = timer_Time() - g_Renderer.GetTimeManager().GetFrameDelta();
+		m_LastTextureRecomputeTime = g_Renderer.GetTimeManager().GetRealTime() - g_Renderer.GetTimeManager().GetFrameDelta();
 		m_WhichTexture = 1u - m_WhichTexture;
 		m_Dirty = false;
 	}
@@ -182,7 +182,7 @@ void CLOSTexture::InterpolateLOS(Renderer::Backend::IDeviceCommandContext* devic
 		shader->GetBindingSlot(str_losTex2), m_SmoothTextures[1u - m_WhichTexture].get());
 
 	const float delta = Clamp<float>(
-		(timer_Time() - m_LastTextureRecomputeTime) * 2.0f, 0.0f, 1.0f);
+		(g_Renderer.GetTimeManager().GetRealTime() - m_LastTextureRecomputeTime) * 2.0f, 0.0f, 1.0f);
 	deviceCommandContext->SetUniform(shader->GetBindingSlot(str_delta), delta);
 
 	Renderer::Backend::IDeviceCommandContext::Rect viewportRect{};

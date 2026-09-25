@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -32,8 +32,10 @@
 #include <utility>
 #include <vector>
 
-CUnit::CUnit(CObjectManager& objectManager, const CActorDef& actor, const entity_id_t id, const uint32_t seed)
-	: m_ObjectManager(objectManager), m_Actor(actor), m_ID(id), m_Seed(seed), m_Animation(nullptr)
+CUnit::CUnit(CObjectManager& objectManager, const CActorDef& actor, const entity_id_t id, const uint32_t seed,
+	const uint32_t randomSeed)
+	: m_ObjectManager(objectManager), m_Actor(actor), m_ID(id), m_Seed(seed), m_RandomSeed(randomSeed),
+	m_Animation(nullptr)
 {
 	/**
 	 * When entity selections change, we might end up with a different layout in terms of variants/groups,
@@ -51,11 +53,12 @@ CUnit::~CUnit()
 	delete m_Animation;
 }
 
-std::unique_ptr<CUnit> CUnit::Create(const CStrW& actorName, const entity_id_t id, const uint32_t seed, CObjectManager& objectManager)
+std::unique_ptr<CUnit> CUnit::Create(const CStrW& actorName, const entity_id_t id, const uint32_t seed,
+	const uint32_t randomSeed, CObjectManager& objectManager)
 {
 	const CActorDef& actor{std::get<1>(objectManager.FindActorDef(actorName))};
 
-	std::unique_ptr<CUnit> unit{new CUnit(objectManager, actor, id, seed)};
+	std::unique_ptr<CUnit> unit{new CUnit(objectManager, actor, id, seed, randomSeed)};
 	if (!unit->m_Model)
 		return nullptr;
 
@@ -121,13 +124,15 @@ void CUnit::ReloadObject()
 	{
 		m_Object = newObject;
 		m_Model = newObject->m_Model->Clone();
+		m_Model->SetRandomSeed(m_RandomSeed);
 		if (m_Model->ToCModel())
-			m_Animation = new CUnitAnimation(m_ID, m_Model->ToCModel(), m_Object);
+			m_Animation = new CUnitAnimation(m_ID, m_Model->ToCModel(), m_Object, m_RandomSeed);
 	}
 	else if (m_Object && newObject != m_Object)
 	{
 		// Clone the new object's base (non-instance) model
 		std::unique_ptr<CModelAbstract> newModel = newObject->m_Model->Clone();
+		newModel->SetRandomSeed(m_RandomSeed);
 
 		// Copy the old instance-specific settings from the old model to the new instance
 		newModel->SetTransform(m_Model->GetTransform());
@@ -149,7 +154,7 @@ void CUnit::ReloadObject()
 			if (m_Animation)
 				m_Animation->ReloadUnit(m_Model->ToCModel(), m_Object); // TODO: maybe this should try to preserve animation state?
 			else
-				m_Animation = new CUnitAnimation(m_ID, m_Model->ToCModel(), m_Object);
+				m_Animation = new CUnitAnimation(m_ID, m_Model->ToCModel(), m_Object, m_RandomSeed);
 		}
 		else
 		{

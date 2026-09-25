@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -130,6 +130,8 @@ public:
 		for (size_t i = 0; i < m_Props.size(); ++i)
 			m_Props[i].m_Model->SetEntityVariable(name, value);
 	}
+
+	void SetRandomSeed(std::uint32_t seed) override;
 
 	// --- WORLD/OBJECT SPACE BOUNDS -----------------------------------------------------------------
 

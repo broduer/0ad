@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -41,14 +41,15 @@ class CUnit
 	NONCOPYABLE(CUnit);
 private:
 	// Private constructor. Needs complete list of selections for the variation.
-	CUnit(CObjectManager& objectManager, const CActorDef& actor, const entity_id_t id, const uint32_t seed);
+	CUnit(CObjectManager& objectManager, const CActorDef& actor, const entity_id_t id, const uint32_t seed,
+		const uint32_t randomSeed);
 
 public:
 	// Attempt to create a unit with the given actor.
 	// If specific selections are wanted, call SetEntitySelection or SetActorSelections after creation.
 	// Returns an empty `std::unique_ptr` on failure.
 	static std::unique_ptr<CUnit> Create(const CStrW& actorName, const entity_id_t id,
-		const uint32_t seed, CObjectManager& objectManager);
+		const uint32_t seed, const uint32_t randomSeed, CObjectManager& objectManager);
 
 	~CUnit();
 
@@ -98,6 +99,8 @@ private:
 
 	// seed used when creating unit
 	uint32_t m_Seed;
+	// seed of the unit's own random choices, such as its animations
+	uint32_t m_RandomSeed;
 
 	// Actor-level selections for this unit. This is normally set at init time,
 	// so that we always re-use the same aesthetic variants.

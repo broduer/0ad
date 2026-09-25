@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -158,6 +158,11 @@ public:
 	 * and/or its child objects.
 	 */
 	virtual void SetEntityVariable(const std::string& /*name*/, float /*value*/) { }
+
+	/**
+	 * Seed the randomness of this model and its props.
+	 */
+	virtual void SetRandomSeed(std::uint32_t /*seed*/) { }
 
 	/**
 	 * Ensure that both the transformation and the bone matrices are correct for this model and all its props.

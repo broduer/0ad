@@ -1,4 +1,4 @@
-/* Copyright (C) 2021 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -31,8 +31,14 @@ double CTimeManager::GetGlobalTime() const
 	return m_GlobalTime;
 }
 
-void CTimeManager::Update(double delta)
+double CTimeManager::GetRealTime() const
+{
+	return m_RealTime;
+}
+
+void CTimeManager::Update(double delta, double realDelta)
 {
 	m_FrameDelta = delta;
 	m_GlobalTime += delta;
+	m_RealTime += realDelta;
 }

@@ -239,6 +239,15 @@ void CGame::RegisterInit(const JS::HandleValue attribs, const std::string& saved
 		Script::GetProperty(rq, settings, "CheatsEnabled", m_CheatsEnabled);
 	}
 
+	// The simulation seeds its generator from the same setting.
+	std::uint32_t seed;
+	if (Script::HasProperty(rq, attribs, "settings") &&
+	    Script::HasProperty(rq, settings, "Seed") &&
+	    Script::GetProperty(rq, settings, "Seed", seed))
+	{
+		m_World->GetUnitManager().SetVisualSeed(seed);
+	}
+
 	float speed;
 	if (Script::HasProperty(rq, attribs, "gameSpeed"))
 	{
@@ -425,8 +434,17 @@ void CGame::StartGame(JS::MutableHandleValue attribs, const std::string& savedSt
 
 void CGame::Update(const double deltaRealTime, bool doInterpolate)
 {
-	if (m_Paused || !m_TurnManager)
+	if (!m_TurnManager)
 		return;
+
+	// The renderer's real clock advances while paused; its simulation clock
+	// doesn't.
+	if (m_Paused)
+	{
+		if (CRenderer::IsInitialised())
+			g_Renderer.GetTimeManager().Update(0.0, deltaRealTime);
+		return;
+	}
 
 	const double deltaSimTime = deltaRealTime * m_SimRate;
 
@@ -448,10 +466,10 @@ void CGame::Update(const double deltaRealTime, bool doInterpolate)
 
 			GetView()->GetLOSTexture().MakeDirty();
 		}
-
-		if (CRenderer::IsInitialised())
-			g_Renderer.GetTimeManager().Update(deltaSimTime);
 	}
+
+	if (CRenderer::IsInitialised())
+		g_Renderer.GetTimeManager().Update(deltaSimTime, deltaRealTime);
 
 	if (doInterpolate)
 		m_TurnManager->Interpolate(deltaSimTime, deltaRealTime);

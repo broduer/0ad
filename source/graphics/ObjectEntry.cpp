@@ -36,7 +36,6 @@
 #include "graphics/Texture.h"
 #include "graphics/TextureManager.h"
 #include "lib/debug.h"
-#include "lib/rand.h"
 #include "lib/utf8.h"
 #include "maths/Vector4D.h"
 #include "ps/CLogger.h"
@@ -235,8 +234,9 @@ bool CObjectEntry::BuildVariation(const std::vector<const std::set<CStr>*>& comp
 	}
 	else
 	{
-		// start up idling
-		if (!model->SetAnimation(GetRandomAnimation("idle")))
+		// start up idling; the unit picks its own animation later
+		std::minstd_rand random;
+		if (!model->SetAnimation(GetRandomAnimation("idle", "", random)))
 			LOGERROR("Failed to set idle animation in model \"%s\"", m_ModelName.string8());
 	}
 
@@ -281,7 +281,10 @@ bool CObjectEntry::BuildVariation(const std::vector<const std::set<CStr>*>& comp
 		{
 			std::unique_ptr<CModelAbstract> propmodel = oe->m_Model->Clone();
 			if (propmodel->ToCModel())
-				propmodel->ToCModel()->SetAnimation(oe->GetRandomAnimation("idle"));
+			{
+				std::minstd_rand random;
+				propmodel->ToCModel()->SetAnimation(oe->GetRandomAnimation("idle", "", random));
+			}
 			if (isAmmo)
 				model->AddAmmoProp(proppoint, std::move(propmodel), oe);
 			else
@@ -305,7 +308,7 @@ bool CObjectEntry::BuildVariation(const std::vector<const std::set<CStr>*>& comp
 	return true;
 }
 
-CSkeletonAnim* CObjectEntry::GetRandomAnimation(const CStr& animationName, const CStr& ID) const
+CSkeletonAnim* CObjectEntry::GetRandomAnimation(const CStr& animationName, const CStr& ID, std::minstd_rand& random) const
 {
 	std::vector<CSkeletonAnim*> anims = GetAnimations(animationName, ID);
 
@@ -314,9 +317,9 @@ CSkeletonAnim* CObjectEntry::GetRandomAnimation(const CStr& animationName, const
 		totalFreq += anim->m_Frequency;
 
 	if (totalFreq == 0)
-		return anims[rand(0, anims.size())];
+		return anims[std::uniform_int_distribution<size_t>{0, anims.size() - 1}(random)];
 
-	int r = rand(0, totalFreq);
+	int r = std::uniform_int_distribution<int>{0, totalFreq - 1}(random);
 	for (CSkeletonAnim* anim : anims)
 	{
 		r -= anim->m_Frequency;

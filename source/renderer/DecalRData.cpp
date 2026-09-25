@@ -38,6 +38,7 @@
 #include "ps/CStrInternStatic.h"
 #include "ps/memory/LinearAllocator.h"
 #include "ps/Profile.h"
+#include "renderer/FirstAppearance.h"
 #include "renderer/Renderer.h"
 #include "renderer/TerrainRenderer.h"
 #include "renderer/VertexBuffer.h"
@@ -54,6 +55,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <utility>
 
 // TODO: Currently each decal is a separate CDecalRData. We might want to use
@@ -64,6 +66,21 @@
 namespace
 {
 
+/**
+ * First-appearance rank of each part of a batch's state. Unlike the parts'
+ * addresses, it orders the same batches identically in every run.
+ */
+struct SDecalBatchRank
+{
+	uint32_t shaderEffect;
+	uint32_t shaderDefines;
+	uint32_t texture;
+	uint32_t vertices;
+	uint32_t indices;
+
+	auto operator<=>(const SDecalBatchRank&) const = default;
+};
+
 struct SDecalBatch
 {
 	CDecalRData* decal;
@@ -71,27 +88,31 @@ struct SDecalBatch
 	CShaderDefines shaderDefines;
 	CVertexBuffer::VBChunk* vertices;
 	CVertexBuffer::VBChunk* indices;
+	SDecalBatchRank rank{};
 };
 
-struct SDecalBatchComparator
+struct SShaderDefinesHash
 {
-	bool operator()(const SDecalBatch& lhs, const SDecalBatch& rhs) const
+	size_t operator()(const CShaderDefines& defines) const
 	{
-		if (lhs.shaderEffect != rhs.shaderEffect)
-			return lhs.shaderEffect < rhs.shaderEffect;
-		if (lhs.shaderDefines != rhs.shaderDefines)
-			return lhs.shaderDefines < rhs.shaderDefines;
-		const CMaterial& lhsMaterial = lhs.decal->GetDecal()->m_Decal.m_Material;
-		const CMaterial& rhsMaterial = rhs.decal->GetDecal()->m_Decal.m_Material;
-		if (lhsMaterial.GetDiffuseTexture() != rhsMaterial.GetDiffuseTexture())
-			return lhsMaterial.GetDiffuseTexture() < rhsMaterial.GetDiffuseTexture();
-		if (lhs.vertices->m_Owner != rhs.vertices->m_Owner)
-			return lhs.vertices->m_Owner < rhs.vertices->m_Owner;
-		if (lhs.indices->m_Owner != rhs.indices->m_Owner)
-			return lhs.indices->m_Owner < rhs.indices->m_Owner;
-		return lhs.decal < rhs.decal;
+		return defines.GetHash();
 	}
 };
+
+void RankDecalBatches(std::span<SDecalBatch> batches, PS::Memory::ScopedLinearAllocator& allocator)
+{
+	CFirstAppearance<const char*> shaderEffects{allocator};
+	CFirstAppearance<CShaderDefines, SShaderDefinesHash> shaderDefines{allocator};
+	CFirstAppearance<const CTexture*> textures{allocator};
+	CFirstAppearance<const CVertexBuffer*> vertices{allocator};
+	CFirstAppearance<const CVertexBuffer*> indices{allocator};
+	for (SDecalBatch& batch : batches)
+	{
+		batch.rank = {shaderEffects(batch.shaderEffect.c_str()), shaderDefines(batch.shaderDefines),
+			textures(batch.decal->GetDecal()->m_Decal.m_Material.GetDiffuseTexture().get()),
+			vertices(batch.vertices->m_Owner), indices(batch.indices->m_Owner)};
+	}
+}
 
 } // anonymous namespace
 
@@ -178,7 +199,9 @@ void CDecalRData::RenderDecals(
 	if (batches.empty())
 		return;
 
-	std::sort(batches.begin(), batches.end(), SDecalBatchComparator());
+	// Overlapping decals blend, so their order shows.
+	RankDecalBatches(batches, scopedLinearAllocator);
+	std::ranges::sort(batches, {}, &SDecalBatch::rank);
 
 	CVertexBuffer* lastIB = nullptr;
 	for (auto itTechBegin = batches.begin(), itTechEnd = batches.begin(); itTechBegin != batches.end(); itTechBegin = itTechEnd)

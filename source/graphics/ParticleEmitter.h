@@ -30,6 +30,7 @@
 #include <cstddef>
 #include <map>
 #include <memory>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -160,6 +161,9 @@ public:
 
 	std::map<std::string, float> m_EntityVariables;
 
+	/// The source of this emitter's random particle variables.
+	std::minstd_rand m_Random;
+
 	std::vector<SParticle> m_Particles;
 	uint32_t m_NextParticleIdx{0};
 	uint32_t m_NumberOfVisibleParticles{0};
@@ -208,6 +212,7 @@ public:
 	}
 
 	void SetEntityVariable(const std::string& name, float value) override;
+	void SetRandomSeed(std::uint32_t seed) override;
 
 	void CalcBounds() override;
 	void ValidatePosition() override;

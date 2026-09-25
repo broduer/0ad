@@ -83,7 +83,7 @@ public:
 	virtual float Max(const CParticleEmitterType& type) = 0;
 
 protected:
-	virtual float Compute(const CParticleEmitterType& type, const CParticleEmitter& emitter) = 0;
+	virtual float Compute(const CParticleEmitterType& type, CParticleEmitter& emitter) = 0;
 
 private:
 	float m_LastValue;
@@ -100,7 +100,7 @@ public:
 	{
 	}
 
-	float Compute(const CParticleEmitterType&, const CParticleEmitter&) override
+	float Compute(const CParticleEmitterType&, CParticleEmitter&) override
 	{
 		return m_Value;
 	}
@@ -130,9 +130,9 @@ public:
 	{
 	}
 
-	float Compute(const CParticleEmitterType& type, const CParticleEmitter&) override
+	float Compute(const CParticleEmitterType&, CParticleEmitter& emitter) override
 	{
-		return m_Distribution(type.m_Manager.m_RNG);
+		return m_Distribution(emitter.m_Random);
 	}
 
 	float Min(const CParticleEmitterType&) override
@@ -161,7 +161,7 @@ public:
 	{
 	}
 
-	float Compute(const CParticleEmitterType& type, const CParticleEmitter&) override
+	float Compute(const CParticleEmitterType& type, CParticleEmitter&) override
 	{
 		return type.m_Variables[m_From]->LastValue();
 	}
@@ -192,7 +192,7 @@ public:
 	{
 	}
 
-	float Compute(const CParticleEmitterType&, const CParticleEmitter& emitter) override
+	float Compute(const CParticleEmitterType&, CParticleEmitter& emitter) override
 	{
 		float value{0.0f};
 		if (auto it{emitter.m_EntityVariables.find(m_From)}; it != emitter.m_EntityVariables.end())

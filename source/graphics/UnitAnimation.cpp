@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,7 +25,6 @@
 #include "graphics/SkeletonAnim.h"
 #include "graphics/SkeletonAnimDef.h"
 #include "lib/debug.h"
-#include "lib/rand.h"
 #include "ps/CStr.h"
 #include "ps/Game.h"
 #include "simulation2/components/ICmpSoundManager.h"
@@ -38,16 +37,16 @@
 
 // Randomly modify the speed, so that units won't stay perfectly
 // synchronised if they're playing animations of the same length
-static float DesyncSpeed(float speed, float desync)
+static float DesyncSpeed(float speed, float desync, std::minstd_rand& random)
 {
 	if (desync == 0.0f)
 		return speed;
 
-	return speed * (1.f - desync + 2.f*desync*(rand(0, 256)/255.f));
+	return speed * std::uniform_real_distribution<float>{1.f - desync, 1.f + desync}(random);
 }
 
-CUnitAnimation::CUnitAnimation(entity_id_t ent, CModel* model, CObjectEntry* object)
-	: m_Entity(ent), m_State("idle"), m_Looping(true),
+CUnitAnimation::CUnitAnimation(entity_id_t ent, CModel* model, CObjectEntry* object, const uint32_t seed)
+	: m_Entity(ent), m_Random(seed), m_State("idle"), m_Looping(true),
 	  m_Speed(1.f), m_SyncRepeatTime(0.f), m_OriginalSpeed(1.f), m_Desync(0.f)
 {
 	ReloadUnit(model, object);
@@ -59,7 +58,7 @@ void CUnitAnimation::AddModel(CModel* model, const CObjectEntry* object)
 
 	state.model = model;
 	state.object = object;
-	state.anim = object->GetRandomAnimation(m_State, m_AnimationID);
+	state.anim = object->GetRandomAnimation(m_State, m_AnimationID, m_Random);
 	state.time = 0.f;
 	state.pastLoadPos = false;
 	state.pastActionPos = false;
@@ -109,7 +108,7 @@ void CUnitAnimation::SetAnimationState(const CStr& name, bool once, float speed,
 	m_Desync = desync;
 	m_ActionSound = actionSound;
 
-	m_Speed = DesyncSpeed(m_OriginalSpeed, m_Desync);
+	m_Speed = DesyncSpeed(m_OriginalSpeed, m_Desync, m_Random);
 	m_SyncRepeatTime = 0.f;
 
 	if (name != m_State)
@@ -236,15 +235,15 @@ void CUnitAnimation::Update(float time)
 				// choose animations from the complete state
 				CStr oldID = m_AnimationID;
 				PickAnimationID();
-				anim = it->object->GetRandomAnimation(m_State, m_AnimationID);
+				anim = it->object->GetRandomAnimation(m_State, m_AnimationID, m_Random);
 				if (oldID != m_AnimationID)
 					for (SModelAnimState animState : m_AnimStates)
 						if (animState.model != m_Model)
-							animState.model->SetAnimation(animState.object->GetRandomAnimation(m_State, m_AnimationID));
+							animState.model->SetAnimation(animState.object->GetRandomAnimation(m_State, m_AnimationID, m_Random));
 			}
 			else
 				// choose animations that match the root
-				anim = it->object->GetRandomAnimation(m_State, m_AnimationID);
+				anim = it->object->GetRandomAnimation(m_State, m_AnimationID, m_Random);
 
 			if (anim != it->anim)
 			{
@@ -282,5 +281,5 @@ void CUnitAnimation::Update(float time)
 
 void CUnitAnimation::PickAnimationID()
 {
-	m_AnimationID = m_Object->GetRandomAnimation(m_State)->m_ID;
+	m_AnimationID = m_Object->GetRandomAnimation(m_State, "", m_Random)->m_ID;
 }

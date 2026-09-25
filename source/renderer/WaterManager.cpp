@@ -25,6 +25,7 @@
 #include "graphics/ShaderTechniquePtr.h"
 #include "graphics/Terrain.h"
 #include "graphics/TextureManager.h"
+#include "graphics/UnitManager.h"
 #include "lib/code_annotation.h"
 #include "lib/debug.h"
 #include "lib/path.h"
@@ -61,6 +62,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <deque>
+#include <random>
 #include <set>
 #include <utility>
 
@@ -713,7 +715,9 @@ void WaterManager::CreateWaveMeshes()
 		nullptr, CVertexBufferManager::Group::WATER);
 	m_ShoreWavesVBIndices->m_Owner->UpdateChunkVertices(m_ShoreWavesVBIndices.Get(), &water_indices[0]);
 
-	float diff = (rand() % 50) / 5.0f;
+	std::seed_seq sequence{g_Game->GetWorld()->GetUnitManager().GetVisualSeed()};
+	std::minstd_rand random{sequence};
+	float diff = std::uniform_int_distribution<int>{0, 49}(random) / 5.0f;
 
 	std::vector<SWavesVertex> vertices, reversed;
 	for (size_t i = 0; i < CoastalPointsChains.size(); ++i)
@@ -813,7 +817,7 @@ void WaterManager::CreateWaveMeshes()
 
 			shoreWave->m_Width = width;
 			shoreWave->m_TimeDiff = diff;
-			diff += (rand() % 100) / 25.0f + 4.0f;
+			diff += std::uniform_int_distribution<int>{0, 99}(random) / 25.0f + 4.0f;
 
 			for (std::uint16_t a = 0; a < width; ++a)
 			{

@@ -40,9 +40,9 @@
 #include "ps/CLogger.h"
 #include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
-#include "ps/containers/StaticVector.h"
 #include "ps/memory/LinearAllocator.h"
 #include "ps/Profile.h"
+#include "renderer/FirstAppearance.h"
 #include "renderer/MikktspaceWrap.h"
 #include "renderer/ModelRenderer.h"
 #include "renderer/ModelVertexRenderer.h"
@@ -64,7 +64,6 @@
 #include <functional>
 #include <iterator>
 #include <numeric>
-#include <optional>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -207,6 +206,7 @@ struct SMRSortByDistItem
 	size_t techIdx;
 	CModel* model;
 	float dist;
+	uint32_t index;
 };
 
 struct SMRBatchKey
@@ -216,7 +216,20 @@ struct SMRBatchKey
 	// Interned static uniforms.
 	const void* uniforms;
 
-	auto operator<=>(const SMRBatchKey&) const = default;
+	bool operator==(const SMRBatchKey&) const = default;
+};
+
+/**
+ * First-appearance rank of each part of a key. Unlike the parts' addresses,
+ * it orders the same submissions identically in every run.
+ */
+struct SMRBatchRank
+{
+	uint32_t modelDef;
+	uint32_t texture;
+	uint32_t uniforms;
+
+	auto operator<=>(const SMRBatchRank&) const = default;
 };
 
 /**
@@ -236,42 +249,31 @@ struct SMRBatchItem
 	}
 };
 
+struct SMRBatchKeyHash
+{
+	size_t operator()(const SMRBatchKey& key) const
+	{
+		size_t hash = 0;
+		hash_combine(hash, key.modelDef);
+		hash_combine(hash, key.texture);
+		hash_combine(hash, key.uniforms);
+		return hash;
+	}
+};
+
 struct SMRBatchGroup
 {
-	SMRBatchKey key;
+	SMRBatchRank rank;
 	uint32_t count;
 	uint32_t start;
 };
 
-constexpr size_t MAX_BATCH_GROUPS = 32;
-using SMRBatchGroups = PS::StaticVector<SMRBatchGroup, MAX_BATCH_GROUPS>;
-
 /**
- * Group items by key, or return nothing if there are too many keys.
- */
-std::optional<SMRBatchGroups> GroupBatchItems(const std::span<SMRBatchItem> items)
-{
-	SMRBatchGroups groups;
-	for (SMRBatchItem& item : items)
-	{
-		SMRBatchGroup* group = std::ranges::find(groups, item.key, &SMRBatchGroup::key);
-		if (group == groups.end())
-		{
-			if (groups.full())
-				return std::nullopt;
-			group = &groups.emplace_back(item.key, 0u, 0u);
-		}
-		++group->count;
-		item.group = static_cast<uint32_t>(group - groups.begin());
-	}
-	return groups;
-}
-
-/**
- * Sort models by batch key.
+ * Sort models by batch key, keeping the order of models with the same key.
  */
 template<typename Models, typename Items, typename Ordered>
-void SortModelsForBatching(Models& models, Items& items, Ordered& ordered)
+void SortModelsForBatching(Models& models, Items& items, Ordered& ordered,
+	PS::Memory::ScopedLinearAllocator& allocator)
 {
 	if (models.size() < 2)
 		return;
@@ -279,22 +281,40 @@ void SortModelsForBatching(Models& models, Items& items, Ordered& ordered)
 	items.reserve(models.size());
 	std::ranges::transform(models, std::back_inserter(items), &SMRBatchItem::Of);
 
-	std::optional<SMRBatchGroups> grouped{GroupBatchItems(items)};
-	if (!grouped)
+	using GroupAllocator = ProxyAllocator<SMRBatchGroup, PS::Memory::ScopedLinearAllocator>;
+	std::vector<SMRBatchGroup, GroupAllocator> groups{GroupAllocator{allocator}};
+	using IndexAllocator = ProxyAllocator<std::pair<const SMRBatchKey, uint32_t>, PS::Memory::ScopedLinearAllocator>;
+	std::unordered_map<SMRBatchKey, uint32_t, SMRBatchKeyHash, std::equal_to<SMRBatchKey>, IndexAllocator>
+		groupIndices{0, SMRBatchKeyHash{}, std::equal_to<SMRBatchKey>{}, IndexAllocator{allocator}};
+	CFirstAppearance<const CModelDef*> modelDefs{allocator};
+	CFirstAppearance<const CTexture*> textures{allocator};
+	CFirstAppearance<const void*> uniforms{allocator};
+	const SMRBatchKey* lastKey{nullptr};
+	uint32_t lastGroup{0};
+	for (SMRBatchItem& item : items)
 	{
-		std::ranges::sort(items, {}, &SMRBatchItem::key);
-		std::ranges::transform(items, models.begin(), &SMRBatchItem::model);
-		return;
+		if (!lastKey || !(item.key == *lastKey))
+		{
+			const auto [it, inserted] = groupIndices.try_emplace(item.key, static_cast<uint32_t>(groups.size()));
+			if (inserted)
+			{
+				groups.push_back({{modelDefs(item.key.modelDef), textures(item.key.texture),
+					uniforms(item.key.uniforms)}, 0, 0});
+			}
+			lastKey = &item.key;
+			lastGroup = it->second;
+		}
+		++groups[lastGroup].count;
+		item.group = lastGroup;
 	}
-	SMRBatchGroups& groups{*grouped};
 	if (groups.size() < 2)
 		return;
 
-	PS::StaticVector<uint32_t, MAX_BATCH_GROUPS> order;
-	order.resize(groups.size());
+	using OrderAllocator = ProxyAllocator<uint32_t, PS::Memory::ScopedLinearAllocator>;
+	std::vector<uint32_t, OrderAllocator> order(groups.size(), 0u, OrderAllocator{allocator});
 	std::iota(order.begin(), order.end(), 0u);
 	std::ranges::sort(order, {},
-		[&groups](const uint32_t group) -> const SMRBatchKey& { return groups[group].key; });
+		[&groups](const uint32_t group) -> const SMRBatchRank& { return groups[group].rank; });
 	std::uint32_t start{0};
 	for (const std::uint32_t group : order)
 	{
@@ -313,10 +333,12 @@ struct SMRCompareSortByDistItem
 	bool operator()(const SMRSortByDistItem& a, const SMRSortByDistItem& b)
 	{
 		// Prefer items with greater distance, so we draw back-to-front
-		return (a.dist > b.dist);
+		if (a.dist != b.dist)
+			return a.dist > b.dist;
 
-		// (Distances will almost always be distinct, so we don't need to bother
-		// tie-breaking on modeldef/texture/etc)
+		// Props share their parent's position; break ties by bucket order to
+		// keep a technique's items together.
+		return a.index < b.index;
 	}
 };
 
@@ -355,17 +377,12 @@ struct SMRTechBucket
 {
 	CShaderTechniquePtr tech;
 	std::span<CModel*> models;
+	// Sort key: the technique's first appearance, then the bucket's index.
+	uint32_t order = 0;
+	uint32_t index = 0;
 
 	// Model list is stored as pointers, not as a std::vector,
 	// so that sorting lists of this struct is fast
-};
-
-struct SMRCompareTechBucket
-{
-	bool operator()(const SMRTechBucket& a, const SMRTechBucket& b)
-	{
-		return a.tech < b.tech;
-	}
 };
 
 std::array<Renderer::Backend::SVertexAttributeFormat, 4> ModelRenderer::GetInstanceTransformAttributes()
@@ -468,6 +485,9 @@ void ModelRenderer::Render(
 			PS::Memory::ScopedLinearAllocator>>;
 
 	MaterialBuckets_t materialBuckets((MaterialBuckets_t::allocator_type(scopedLinearAllocator)));
+	// Buckets in order of first appearance; the table's order varies between runs.
+	using BucketOrderAllocator = ProxyAllocator<MaterialBuckets_t::value_type*, PS::Memory::ScopedLinearAllocator>;
+	std::vector<MaterialBuckets_t::value_type*, BucketOrderAllocator> bucketOrder((BucketOrderAllocator(scopedLinearAllocator)));
 
 	{
 		PROFILE3("bucketing by material");
@@ -486,6 +506,7 @@ void ModelRenderer::Render(
 					std::make_pair(key, ModelList_t(ModelList_t::allocator_type(scopedLinearAllocator))));
 				inserted.first->second.reserve(32);
 				inserted.first->second.push_back(model);
+				bucketOrder.push_back(&*inserted.first);
 			}
 			else
 			{
@@ -515,7 +536,7 @@ void ModelRenderer::Render(
 
 	{
 		PROFILE3("processing material buckets");
-		for (MaterialBuckets_t::iterator it = materialBuckets.begin(); it != materialBuckets.end(); ++it)
+		for (MaterialBuckets_t::value_type* it : bucketOrder)
 		{
 			CShaderDefines defines = context;
 			defines.SetMany(it->first.defines);
@@ -544,6 +565,7 @@ void ModelRenderer::Render(
 
 					CVector3D modelpos = model->GetTransform().GetTranslation();
 					itemWithDist.dist = worldToCam.Transform(modelpos).Z;
+					itemWithDist.index = static_cast<uint32_t>(sortByDistItems.size());
 
 					sortByDistItems.push_back(itemWithDist);
 				}
@@ -554,7 +576,7 @@ void ModelRenderer::Render(
 				// TODO: This only sorts by base texture. While this is an OK approximation
 				// for most cases (as related samplers are usually used together), it would be better
 				// to take all the samplers into account when sorting here.
-				SortModelsForBatching(it->second, batchItems, batchOrdered);
+				SortModelsForBatching(it->second, batchItems, batchOrdered, scopedLinearAllocator);
 
 				// Add a tech bucket pointing at this model list
 				SMRTechBucket techBucket{tech, it->second};
@@ -566,7 +588,14 @@ void ModelRenderer::Render(
 	{
 		PROFILE3("sorting tech buckets");
 		// Sort by technique, for better batching
-		std::sort(techBuckets.begin(), techBuckets.end(), SMRCompareTechBucket());
+		CFirstAppearance<const CShaderTechnique*> techniques{scopedLinearAllocator};
+		for (uint32_t i = 0; i < techBuckets.size(); ++i)
+		{
+			techBuckets[i].order = techniques(techBuckets[i].tech.get());
+			techBuckets[i].index = i;
+		}
+		std::ranges::sort(techBuckets, {},
+			[](const SMRTechBucket& techBucket) { return std::pair{techBucket.order, techBucket.index}; });
 	}
 
 	// List of models corresponding to sortByDistItems[i].model

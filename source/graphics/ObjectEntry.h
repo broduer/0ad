@@ -26,6 +26,7 @@
 
 #include <map>
 #include <memory>
+#include <random>
 #include <set>
 #include <string>
 #include <vector>
@@ -65,11 +66,11 @@ public:
 
 	/**
 	 * Returns a randomly-chosen animation matching the given ID, or animationName if ID is empty.
-	 * The chosen animation is picked randomly from the GetAnimations list
+	 * The chosen animation is picked with @p random from the GetAnimations list
 	 * with the frequencies as weights (if there are any defined).
 	 * This method should always return an animation
 	 */
-	CSkeletonAnim* GetRandomAnimation(const CStr& animationName, const CStr& ID = "") const;
+	CSkeletonAnim* GetRandomAnimation(const CStr& animationName, const CStr& ID, std::minstd_rand& random) const;
 
 	/**
 	 * Returns all the animations matching the given ID or animationName if ID is empty.

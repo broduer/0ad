@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -41,7 +41,10 @@
 #include "simulation2/system/Entity.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <random>
 #include <utility>
+#include <vector>
 
 CModel::CModel(const CSimulation2& simulation, const CMaterial& material, const CModelDefPtr& modeldef)
 	: m_Simulation{simulation}, m_Material{material}, m_pModelDef{modeldef}
@@ -545,4 +548,14 @@ void CModel::SetShadingColor(const CColor& color)
 
 	for (std::vector<Prop>::iterator it = m_Props.begin(); it != m_Props.end(); ++it)
 		it->m_Model->SetShadingColor(color);
+}
+
+void CModel::SetRandomSeed(const std::uint32_t seed)
+{
+	if (m_Props.empty())
+		return;
+	std::vector<std::uint32_t> seeds(m_Props.size());
+	std::seed_seq{seed}.generate(seeds.begin(), seeds.end());
+	for (size_t i = 0; i < m_Props.size(); ++i)
+		m_Props[i].m_Model->SetRandomSeed(seeds[i]);
 }

@@ -24,7 +24,6 @@
 #include "lib/path.h"
 #include "lib/status.h"
 
-#include <random>
 #include <unordered_map>
 #include <vector>
 
@@ -65,9 +64,6 @@ public:
 	Status ReloadChangedFile(const VfsPath& path);
 
 	bool ShouldUseInstancing() const { return m_UseInstancing; }
-
-	/// Random number generator shared between all particle emitters.
-	std::mt19937 m_RNG;
 
 private:
 	float m_CurrentTime{0.0f};

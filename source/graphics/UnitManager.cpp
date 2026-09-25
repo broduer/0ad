@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -24,12 +24,14 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
+#include <random>
 #include <utility>
 
 ///////////////////////////////////////////////////////////////////////////////
 // CUnitManager constructor
 CUnitManager::CUnitManager() :
-	m_ObjectManager(NULL)
+	m_ObjectManager(NULL), m_VisualSeed(std::random_device{}())
 {
 }
 
@@ -66,7 +68,10 @@ CUnit* CUnitManager::CreateUnit(const CStrW& actorName, const entity_id_t id, co
 	if (!m_ObjectManager)
 		return nullptr;
 
-	std::unique_ptr<CUnit> unit{CUnit::Create(actorName, id, seed, *m_ObjectManager)};
+	std::seed_seq sequence{m_VisualSeed, seed};
+	std::uint32_t randomSeed;
+	sequence.generate(&randomSeed, &randomSeed + 1);
+	std::unique_ptr<CUnit> unit{CUnit::Create(actorName, id, seed, randomSeed, *m_ObjectManager)};
 	if (!unit)
 		return nullptr;
 

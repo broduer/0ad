@@ -410,6 +410,11 @@ void CModelParticleEmitter::SetEntityVariable(const std::string& name, float val
 	m_Emitter->SetEntityVariable(name, value);
 }
 
+void CModelParticleEmitter::SetRandomSeed(const std::uint32_t seed)
+{
+	m_Emitter->m_Random.seed(seed);
+}
+
 std::unique_ptr<CModelAbstract> CModelParticleEmitter::Clone() const
 {
 	return std::make_unique<CModelParticleEmitter>(m_Type);
