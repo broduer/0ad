@@ -75,13 +75,15 @@ class JoinButton
 		if (this.joinButton.hidden)
 			return;
 
-		Engine.OpenChildPage("page_gamesetup_mp.xml", {
+		const pageToOpen = await Engine.OpenChildPage("page_gamesetup_mp.xml", {
 			"multiplayerGameType": "join",
 			"name": g_Nickname,
 			"rating": this.getRejoinRating(stanza),
 			"hasPassword": !!stanza.hasPassword,
 			"hostJID": stanza.hostJID
 		});
+		if (pageToOpen)
+			this.closePageCallback({ [Engine.openRequest]: pageToOpen });
 	}
 
 	/**
