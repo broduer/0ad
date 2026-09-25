@@ -189,6 +189,7 @@ private:
 	std::vector<Uniform> m_Uniforms;
 	std::unordered_map<CStrIntern, uint32_t> m_UniformMapping;
 	std::unordered_map<CStrIntern, uint32_t> m_PushConstantMapping;
+	std::unordered_map<CStrIntern, int32_t> m_BindingSlots;
 
 	std::optional<CSingleTypeDescriptorSetBinding<CTexture>> m_TextureBinding;
 	std::optional<CSingleTypeDescriptorSetBinding<CTexture>> m_StorageImageBinding;

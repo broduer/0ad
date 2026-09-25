@@ -588,6 +588,26 @@ std::unique_ptr<CShaderProgram> CShaderProgram::Create(
 			std::make_unique<std::byte[]>(shaderProgram->m_MaterialConstantsDataSize);
 	}
 
+	// Map each name to its binding slot; when kinds share a name, the first
+	// added wins.
+	const auto addBindingSlots = [&shaderProgram](
+		const std::unordered_map<CStrIntern, uint32_t>& mapping, const BindingSlotType type)
+	{
+		for (const auto& [name, value] : mapping)
+		{
+			shaderProgram->m_BindingSlots.try_emplace(
+				name, static_cast<int32_t>((static_cast<uint32_t>(type) << BINDING_SLOT_TYPE_SHIFT) | value));
+		}
+	};
+	addBindingSlots(shaderProgram->m_PushConstantMapping, BindingSlotType::PUSH_CONSTANT);
+	addBindingSlots(shaderProgram->m_UniformMapping, BindingSlotType::UNIFORM);
+	if (texturesDescriptorSetSize > 0)
+		addBindingSlots(textureMapping, BindingSlotType::TEXTURE);
+	if (storageImageDescriptorSetSize > 0)
+		addBindingSlots(storageImageMapping, BindingSlotType::STORAGE_IMAGE);
+	if (storageBufferDescriptorSetSize > 0)
+		addBindingSlots(storageBufferMapping, BindingSlotType::STORAGE_BUFFER);
+
 	std::vector<VkDescriptorSetLayout> layouts =
 		device->GetDescriptorManager().GetDescriptorSetLayouts();
 	if (texturesDescriptorSetSize > 0)
@@ -648,17 +668,8 @@ IDevice* CShaderProgram::GetDevice()
 
 int32_t CShaderProgram::GetBindingSlot(const CStrIntern name) const
 {
-	if (auto it = m_PushConstantMapping.find(name); it != m_PushConstantMapping.end())
-		return (static_cast<uint32_t>(BindingSlotType::PUSH_CONSTANT) << BINDING_SLOT_TYPE_SHIFT) | it->second;
-	if (auto it = m_UniformMapping.find(name); it != m_UniformMapping.end())
-		return (static_cast<uint32_t>(BindingSlotType::UNIFORM) << BINDING_SLOT_TYPE_SHIFT) | it->second;
-	if (const int32_t bindingSlot = m_TextureBinding.has_value() ? m_TextureBinding->GetBindingSlot(name) : -1; bindingSlot != -1)
-		return (static_cast<uint32_t>(BindingSlotType::TEXTURE) << BINDING_SLOT_TYPE_SHIFT) | bindingSlot;
-	if (const int32_t bindingSlot = m_StorageImageBinding.has_value() ? m_StorageImageBinding->GetBindingSlot(name) : -1; bindingSlot != -1)
-		return (static_cast<uint32_t>(BindingSlotType::STORAGE_IMAGE) << BINDING_SLOT_TYPE_SHIFT) | bindingSlot;
-	if (const int32_t bindingSlot = m_StorageBufferBinding.has_value() ? m_StorageBufferBinding->GetBindingSlot(name) : -1; bindingSlot != -1)
-		return (static_cast<uint32_t>(BindingSlotType::STORAGE_BUFFER) << BINDING_SLOT_TYPE_SHIFT) | bindingSlot;
-	return -1;
+	const auto it = m_BindingSlots.find(name);
+	return it != m_BindingSlots.end() ? it->second : -1;
 }
 
 std::vector<VfsPath> CShaderProgram::GetFileDependencies() const
