@@ -291,6 +291,10 @@ function displayReplayDetails()
 	Engine.GetGUIObjectByName("replayFilename").hidden = !replaySelected;
 	Engine.GetGUIObjectByName("summaryButton").hidden = true;
 
+	const copyPathButton = Engine.GetGUIObjectByName("copyPath");
+	copyPathButton.hidden = !replaySelected;
+	copyPathButton.caption = translate("Copy");
+
 	if (!replaySelected)
 		return;
 
@@ -303,7 +307,18 @@ function displayReplayDetails()
 		translateVictoryCondition(victoryConditionName)).join(translate(", "));
 	Engine.GetGUIObjectByName("sgNbPlayers").caption = sprintf(translate("Players: %(numberOfPlayers)s"),
 		{ "numberOfPlayers": replay.attribs.settings.PlayerData.length });
-	Engine.GetGUIObjectByName("replayFilename").caption = Engine.GetReplayDirectoryName(replay.directory);
+
+	const replayDirectoryPath = Engine.GetReplayDirectoryName(replay.directory);
+	Engine.GetGUIObjectByName("replayFilename").caption = sprintf(translate("Path: %(replayDirectoryPath)s"),
+		{ "replayDirectoryPath": replayDirectoryPath });
+
+	copyPathButton.onPress = () =>
+	{
+		const copied = Engine.CopyToClipboard(replayDirectoryPath);
+
+		if (copied)
+			copyPathButton.caption = translate("Copied!");
+	};
 
 	const metadata = Engine.GetReplayMetadata(replay.directory);
 	Engine.GetGUIObjectByName("sgPlayersNames").caption =

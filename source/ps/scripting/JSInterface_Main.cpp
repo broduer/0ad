@@ -37,6 +37,7 @@
 #include "ps/Util.h"
 #include "scriptinterface/FunctionWrapper.h"
 #include "scriptinterface/Request.h"
+#include "SDL_clipboard.h"
 #include "tools/atlas/GameInterface/GameLoop.h"
 
 #include <js/RootingAPI.h>
@@ -63,6 +64,11 @@ bool IsAtlasRunning()
 void OpenURL(const std::string& url)
 {
 	sys_open_url(url);
+}
+
+bool CopyToClipboard(const std::string& value)
+{
+	return SDL_SetClipboardText(value.c_str()) == 0;
 }
 
 std::wstring GetSystemUsername()
@@ -139,6 +145,7 @@ void RegisterScriptFunctions(const Script::Request& rq)
 	Script::Function::Register<&AtlasIsAvailable>(rq, "AtlasIsAvailable");
 	Script::Function::Register<&IsAtlasRunning>(rq, "IsAtlasRunning");
 	Script::Function::Register<&OpenURL>(rq, "OpenURL");
+	Script::Function::Register<&CopyToClipboard>(rq, "CopyToClipboard");
 	Script::Function::Register<&GetSystemUsername>(rq, "GetSystemUsername");
 	Script::Function::Register<&GetMatchID>(rq, "GetMatchID");
 	Script::Function::Register<&LoadMapSettings>(rq, "LoadMapSettings");

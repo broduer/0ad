@@ -92,9 +92,14 @@
 
 			</object>
 
-			<!-- Filename -->
-			<object name="replayFilename" type="input" size="0 100%-25 100% 100%" style="ModernInput" readonly="true" font="sans-14" textcolor="208 174 132" sprite="ReplayMenuFilenameBackground">
+			<!-- Filename Actions -->
+			<object name="replayFilename" type="input" size="0 100%-24 84% 100%" style="ModernInput" readonly="true" font="sans-14" textcolor="208 174 132" sprite="ReplayMenuFilenameBackground">
 				<translatableAttribute id="tooltip">File path for the currently selected replay.</translatableAttribute>
+			</object>
+
+			<object name="copyPath" type="button" style="StoneButton" size="85% 100%-24 90% 100%">
+				<translatableAttribute id="tooltip">Copy to clipboard.</translatableAttribute>
+				<translatableAttribute id="caption">Copy</translatableAttribute>
 			</object>
 		</object>
 
