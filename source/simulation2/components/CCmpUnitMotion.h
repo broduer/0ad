@@ -164,6 +164,14 @@ constexpr std::uint8_t BACKUP_HACK_DELAY = 10;
 constexpr fixed MIN_PROGRESS_SHARE = fixed::FromFraction(1, 10);
 
 /**
+ * The speeds from which a unit plays its walk animation, as shares of its own speed: what it moves by
+ * itself on an order, and what it is carried by (pushes, hits, coasting without an order). Below both it
+ * shows the idle animation, and a carried unit slides rather than walks.
+ */
+constexpr fixed OWN_WALK_SHARE = fixed::FromFraction(1, 30);
+constexpr fixed CARRIED_WALK_SHARE = fixed::FromFraction(3, 10);
+
+/**
  * Likewise for rotation (radians/second): turning slower than this, a unit isn't pivoting, it's just settling.
  * (Turning in place is deliberate and must not be counted as a stall - a high-inertia unit spends
  * several turns doing it.)
@@ -1050,7 +1058,7 @@ private:
 	 * Update other components on our speed.
 	 * (For performance, this should try to avoid sending messages).
 	 */
-	void UpdateMovementState(entity_pos_t speed, entity_pos_t meanSpeed);
+	void UpdateMovementState(entity_pos_t speed, entity_pos_t meanSpeed, entity_pos_t ownSpeed);
 
 	/**
 	 * React if our move was obstructed.
@@ -1451,15 +1459,16 @@ void CCmpUnitMotion::PostMove(MotionState& state, fixed dt)
 	{
 		if (state.angle != state.initialAngle)
 			state.cmpPosition->TurnTo(state.angle);
-		UpdateMovementState(fixed::Zero(), fixed::Zero());
+		UpdateMovementState(fixed::Zero(), fixed::Zero(), fixed::Zero());
 	}
 	else
 	{
 		state.cmpPosition->MoveAndTurnTo(state.pos.X, state.pos.Y, state.angle);
 
-		// Calculate the mean speed over this past turn.
+		// Calculate the mean speed over this past turn, and the part of it the unit made by itself.
 		CFixedVector2D offset = state.pos - state.initialPos;
-		UpdateMovementState(state.speed, offset.Length() / dt);
+		UpdateMovementState(state.speed, offset.Length() / dt,
+			IsMoveRequested() ? state.inertiaVelocity.Length() : fixed::Zero());
 	}
 
 	// Apply roll
@@ -2152,15 +2161,17 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 	}
 }
 
-void CCmpUnitMotion::UpdateMovementState(entity_pos_t speed, entity_pos_t meanSpeed)
+void CCmpUnitMotion::UpdateMovementState(entity_pos_t speed, entity_pos_t meanSpeed, entity_pos_t ownSpeed)
 {
 	CmpPtr<ICmpVisual> cmpVisual(GetEntityHandle());
 	if (cmpVisual)
 	{
-		// A crawl below the progress threshold is standing still as far as the eye is concerned. Braking
-		// can leave a unit with a speed that is not quite zero, and walking on the spot for it is exactly
-		// what makes a stuck unit look like it's still on its way somewhere.
-		if (meanSpeed < MinProgressSpeed())
+		// A crawl is standing still as far as the eye is concerned, and walking on the spot for it is exactly
+		// what makes a stuck unit look like it's still on its way somewhere. Being carried, by pushes or its
+		// own coasting, is sliding, so it has a threshold of its own.
+		const bool walking{ownSpeed > m_Speed.Multiply(OWN_WALK_SHARE) ||
+			meanSpeed > m_Speed.Multiply(CARRIED_WALK_SHARE)};
+		if (!walking)
 			cmpVisual->SelectMovementAnimation("idle", fixed::FromInt(1));
 		else
 			cmpVisual->SelectMovementAnimation(meanSpeed > (m_WalkSpeed / 2).Multiply(m_RunMultiplier + fixed::FromInt(1)) ? "run" : "walk", meanSpeed);
