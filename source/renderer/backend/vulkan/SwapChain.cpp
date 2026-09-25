@@ -162,8 +162,13 @@ std::unique_ptr<CSwapChain> CSwapChain::Create(
 	const uint32_t minImageCount = surfaceCapabilities.minImageCount < maxImageCount
 		? surfaceCapabilities.minImageCount + 1
 		: surfaceCapabilities.minImageCount;
+	// Without vsync the compositor can hold two images, the one on screen and
+	// the latest presented, and each frame in flight holds another. Spare
+	// images keep acquire from waiting on the compositor, and since immediate
+	// presents never queue, they add no latency.
+	const uint32_t spareImageCount{presentMode == VK_PRESENT_MODE_IMMEDIATE_KHR ? 3u : 0u};
 	swapChainCreateInfo.minImageCount =
-		Clamp<uint32_t>(NUMBER_OF_FRAMES_IN_FLIGHT,
+		Clamp<uint32_t>(NUMBER_OF_FRAMES_IN_FLIGHT + spareImageCount,
 			minImageCount, maxImageCount);
 	swapChainCreateInfo.imageFormat = surfaceFormat.format;
 	swapChainCreateInfo.imageColorSpace = surfaceFormat.colorSpace;
