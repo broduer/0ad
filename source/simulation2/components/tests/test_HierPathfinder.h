@@ -449,7 +449,7 @@ public:
 		pi = 34 * scale + 3; pj = 6 * scale + 2; goal.x = fixed::FromInt(pi); goal.z = fixed::FromInt(pj);
 		hierPath.MakeGoalReachable(oi, oj, goal, PASS_1);
 		hierPath.FindNearestPassableNavcell(pi, pj, PASS_1);
-		TS_ASSERT_EQUALS(pi, goal.x.ToInt_RoundToNegInfinity())
+		TS_ASSERT_EQUALS(pi, goal.x.ToInt_RoundToNegInfinity());
 		TS_ASSERT_EQUALS(pj, goal.z.ToInt_RoundToNegInfinity());
 
 		// Square
