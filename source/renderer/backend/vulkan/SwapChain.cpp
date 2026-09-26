@@ -36,9 +36,12 @@
 #include "renderer/backend/vulkan/Utilities.h"
 
 #include <algorithm>
+#include <array>
+#include <chrono>
 #include <cstdio>
 #include <iterator>
 #include <limits>
+#include <thread>
 #include <SDL_video.h>
 #include <utility>
 
@@ -50,6 +53,24 @@ namespace Backend
 
 namespace Vulkan
 {
+
+namespace
+{
+
+// Return the monotonic clock's time in nanoseconds.
+uint64_t Now()
+{
+	return std::chrono::duration_cast<std::chrono::nanoseconds>(
+		std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+// Sleep until @p time on the monotonic clock.
+void SleepUntil(const uint64_t time)
+{
+	std::this_thread::sleep_until(std::chrono::steady_clock::time_point{std::chrono::nanoseconds{time}});
+}
+
+} // anonymous namespace
 
 // static
 std::unique_ptr<CSwapChain> CSwapChain::Create(
@@ -218,6 +239,47 @@ std::unique_ptr<CSwapChain> CSwapChain::Create(
 	swapChain->m_SubmitScheduler = submitScheduler;
 	swapChain->m_Queue = queue;
 
+	// With vsync, frames are paced by waiting on presents, and scheduled by
+	// present timing where the surface can report and honour it.
+	VkPresentTimingSurfaceCapabilitiesEXT presentTimingCapabilities{};
+	presentTimingCapabilities.sType = VK_STRUCTURE_TYPE_PRESENT_TIMING_SURFACE_CAPABILITIES_EXT;
+	if (presentMode == VK_PRESENT_MODE_FIFO_KHR && device->UsePresentWait2())
+	{
+		VkSurfaceCapabilitiesPresentId2KHR presentId2Capabilities{};
+		presentId2Capabilities.sType = VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_PRESENT_ID_2_KHR;
+		VkSurfaceCapabilitiesPresentWait2KHR presentWait2Capabilities{};
+		presentWait2Capabilities.sType = VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_PRESENT_WAIT_2_KHR;
+		presentId2Capabilities.pNext = &presentWait2Capabilities;
+		if (device->UsePresentTiming())
+			presentWait2Capabilities.pNext = &presentTimingCapabilities;
+		VkPhysicalDeviceSurfaceInfo2KHR surfaceInfo{};
+		surfaceInfo.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO_2_KHR;
+		surfaceInfo.surface = surface;
+		VkSurfaceCapabilities2KHR surfaceCapabilities2{};
+		surfaceCapabilities2.sType = VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR;
+		surfaceCapabilities2.pNext = &presentId2Capabilities;
+		if (vkGetPhysicalDeviceSurfaceCapabilities2KHR(physicalDevice, &surfaceInfo, &surfaceCapabilities2) == VK_SUCCESS &&
+			presentId2Capabilities.presentId2Supported && presentWait2Capabilities.presentWait2Supported)
+		{
+			swapChain->m_PresentWait = PresentWait::V2;
+			swapChainCreateInfo.flags |= VK_SWAPCHAIN_CREATE_PRESENT_ID_2_BIT_KHR | VK_SWAPCHAIN_CREATE_PRESENT_WAIT_2_BIT_KHR;
+			const VkPresentStageFlagsEXT displayStages{
+				VK_PRESENT_STAGE_IMAGE_FIRST_PIXEL_OUT_BIT_EXT | VK_PRESENT_STAGE_IMAGE_FIRST_PIXEL_VISIBLE_BIT_EXT};
+			if (device->UsePresentTiming() && presentTimingCapabilities.presentTimingSupported &&
+				presentTimingCapabilities.presentAtAbsoluteTimeSupported &&
+				(presentTimingCapabilities.presentStageQueries & displayStages))
+			{
+				swapChain->m_PresentTiming = true;
+				swapChainCreateInfo.flags |= VK_SWAPCHAIN_CREATE_PRESENT_TIMING_BIT_EXT;
+			}
+		}
+	}
+	if (presentMode == VK_PRESENT_MODE_FIFO_KHR && swapChain->m_PresentWait == PresentWait::NONE &&
+		device->UsePresentWait())
+	{
+		swapChain->m_PresentWait = PresentWait::V1;
+	}
+
 	RETURN_NULLPTR_IF_NOT_VK_SUCCESS(vkCreateSwapchainKHR(
 		device->GetVkDevice(), &swapChainCreateInfo, nullptr, &swapChain->m_SwapChain));
 
@@ -237,6 +299,12 @@ std::unique_ptr<CSwapChain> CSwapChain::Create(
 		}
 	} while (getSwapchainImagesResult == VK_INCOMPLETE);
 	LOGMESSAGE("SwapChain image count: %u (min: %u)", imageCount, swapChainCreateInfo.minImageCount);
+	if (swapChain->m_PresentTiming)
+		swapChain->SetUpPresentTiming(presentTimingCapabilities);
+	swapChain->m_Pacer.SetEveryPresentationReported(swapChain->m_PresentTiming);
+	LOGMESSAGE("SwapChain frame pacing: %s",
+		swapChain->m_PresentTiming ? "present timing" :
+		swapChain->m_PresentWait != PresentWait::NONE ? "present wait" : "none");
 	ENSURE_VK_SUCCESS(getSwapchainImagesResult);
 	ENSURE(imageCount > 0);
 
@@ -498,6 +566,58 @@ void CSwapChain::Present(VkSemaphore submitDone, VkQueue queue)
 	presentInfo.pImageIndices = &m_CurrentImageIndex;
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pWaitSemaphores = &submitDone;
+	const void** next{&presentInfo.pNext};
+	const auto chain = [&next](auto& info)
+	{
+		*next = &info;
+		next = &info.pNext;
+	};
+	VkPresentIdKHR presentId{};
+	presentId.sType = VK_STRUCTURE_TYPE_PRESENT_ID_KHR;
+	VkPresentId2KHR presentId2{};
+	presentId2.sType = VK_STRUCTURE_TYPE_PRESENT_ID_2_KHR;
+	if (m_PresentWait != PresentWait::NONE)
+	{
+		++m_PresentID;
+		if (m_PresentWait == PresentWait::V2)
+		{
+			presentId2.swapchainCount = 1;
+			presentId2.pPresentIds = &m_PresentID;
+			chain(presentId2);
+		}
+		else
+		{
+			presentId.swapchainCount = 1;
+			presentId.pPresentIds = &m_PresentID;
+			chain(presentId);
+		}
+		m_Pacer.OnFramePresented(m_PresentID, Now());
+	}
+	VkPresentTimingInfoEXT timingInfo{};
+	timingInfo.sType = VK_STRUCTURE_TYPE_PRESENT_TIMING_INFO_EXT;
+	VkPresentTimingsInfoEXT timingsInfo{};
+	timingsInfo.sType = VK_STRUCTURE_TYPE_PRESENT_TIMINGS_INFO_EXT;
+	if (m_PresentTiming)
+	{
+		timingInfo.timeDomainId = m_TimeDomainID;
+		if (m_Schedule.deadline != 0)
+		{
+			timingInfo.targetTime = m_Schedule.target + m_ShownOffset;
+			if (m_Schedule.nearestRefresh)
+				timingInfo.flags = VK_PRESENT_TIMING_INFO_PRESENT_AT_NEAREST_REFRESH_CYCLE_BIT_EXT;
+			if (m_TimeDomain == VK_TIME_DOMAIN_PRESENT_STAGE_LOCAL_EXT)
+				timingInfo.targetTimeDomainPresentStage = m_ShownStage;
+		}
+		// Each present asking for timings holds a result until it's read.
+		if (m_PendingTimings < m_Timings.size())
+		{
+			timingInfo.presentStageQueries = m_ReadyStage | m_ShownStage;
+			++m_PendingTimings;
+		}
+		timingsInfo.swapchainCount = 1;
+		timingsInfo.pTimingInfos = &timingInfo;
+		chain(timingsInfo);
+	}
 	const VkResult presentResult = vkQueuePresentKHR(queue, &presentInfo);
 	if (presentResult != VK_SUCCESS)
 	{
@@ -512,6 +632,283 @@ void CSwapChain::Present(VkSemaphore submitDone, VkQueue queue)
 	}
 
 	m_CurrentImageIndex = std::numeric_limits<uint32_t>::max();
+}
+
+void CSwapChain::SetUpPresentTiming(const VkPresentTimingSurfaceCapabilitiesEXT& capabilities)
+{
+	m_ReadyStage = capabilities.presentStageQueries & VK_PRESENT_STAGE_QUEUE_OPERATIONS_END_BIT_EXT;
+	m_ShownStage = (capabilities.presentStageQueries & VK_PRESENT_STAGE_IMAGE_FIRST_PIXEL_OUT_BIT_EXT) ?
+		VK_PRESENT_STAGE_IMAGE_FIRST_PIXEL_OUT_BIT_EXT : VK_PRESENT_STAGE_IMAGE_FIRST_PIXEL_VISIBLE_BIT_EXT;
+
+	// Times are converted to the monotonic clock, so it must be calibrateable.
+	const VkPhysicalDevice physicalDevice{m_Device->GetChoosenPhysicalDevice().device};
+	uint32_t calibrateableCount{0};
+	vkGetPhysicalDeviceCalibrateableTimeDomainsKHR(physicalDevice, &calibrateableCount, nullptr);
+	std::vector<VkTimeDomainKHR> calibrateable(calibrateableCount);
+	vkGetPhysicalDeviceCalibrateableTimeDomainsKHR(physicalDevice, &calibrateableCount, calibrateable.data());
+	constexpr uint32_t TIMING_QUEUE_SIZE{32};
+	m_PresentTiming =
+		std::find(calibrateable.begin(), calibrateable.end(), VK_TIME_DOMAIN_CLOCK_MONOTONIC_KHR) != calibrateable.end() &&
+		vkSetSwapchainPresentTimingQueueSizeEXT(m_Device->GetVkDevice(), m_SwapChain, TIMING_QUEUE_SIZE) == VK_SUCCESS &&
+		ChooseTimeDomain();
+	if (!m_PresentTiming)
+		return;
+
+	constexpr size_t STAGES{2};
+	m_Timings.resize(TIMING_QUEUE_SIZE);
+	m_StageTimes.resize(TIMING_QUEUE_SIZE * STAGES);
+	for (size_t index = 0; index < m_Timings.size(); ++index)
+	{
+		m_Timings[index].sType = VK_STRUCTURE_TYPE_PAST_PRESENTATION_TIMING_EXT;
+		m_Timings[index].pPresentStages = m_StageTimes.data() + index * STAGES;
+	}
+}
+
+bool CSwapChain::ChooseTimeDomain()
+{
+	VkSwapchainTimeDomainPropertiesEXT properties{};
+	properties.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_TIME_DOMAIN_PROPERTIES_EXT;
+	if (vkGetSwapchainTimeDomainPropertiesEXT(m_Device->GetVkDevice(), m_SwapChain, &properties, nullptr) != VK_SUCCESS)
+		return false;
+	std::vector<VkTimeDomainKHR> domains(properties.timeDomainCount);
+	std::vector<uint64_t> domainIDs(properties.timeDomainCount);
+	properties.pTimeDomains = domains.data();
+	properties.pTimeDomainIds = domainIDs.data();
+	if (vkGetSwapchainTimeDomainPropertiesEXT(
+		m_Device->GetVkDevice(), m_SwapChain, &properties, &m_TimeDomainsCounter) != VK_SUCCESS)
+	{
+		return false;
+	}
+
+	// The monotonic clock needs no conversion, and a domain shared by the
+	// stages needs one calibration rather than one per stage.
+	for (const VkTimeDomainKHR preferred : {VK_TIME_DOMAIN_CLOCK_MONOTONIC_KHR,
+		VK_TIME_DOMAIN_SWAPCHAIN_LOCAL_EXT, VK_TIME_DOMAIN_PRESENT_STAGE_LOCAL_EXT})
+	{
+		const auto domain = std::find(domains.begin(), domains.begin() + properties.timeDomainCount, preferred);
+		if (domain == domains.begin() + properties.timeDomainCount)
+			continue;
+		m_TimeDomain = preferred;
+		m_TimeDomainID = domainIDs[domain - domains.begin()];
+		return Calibrate();
+	}
+	return false;
+}
+
+bool CSwapChain::Calibrate()
+{
+	m_TimingsSinceCalibration = 0;
+	if (m_TimeDomain == VK_TIME_DOMAIN_CLOCK_MONOTONIC_KHR)
+	{
+		m_ReadyOffset = m_ShownOffset = 0;
+		return true;
+	}
+	const auto offset = [this](const VkPresentStageFlagsEXT stage, int64_t& result)
+	{
+		VkSwapchainCalibratedTimestampInfoEXT swapchainInfo{};
+		swapchainInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CALIBRATED_TIMESTAMP_INFO_EXT;
+		swapchainInfo.swapchain = m_SwapChain;
+		swapchainInfo.presentStage = m_TimeDomain == VK_TIME_DOMAIN_PRESENT_STAGE_LOCAL_EXT ? stage : 0;
+		swapchainInfo.timeDomainId = m_TimeDomainID;
+		std::array<VkCalibratedTimestampInfoKHR, 2> infos{};
+		infos[0].sType = infos[1].sType = VK_STRUCTURE_TYPE_CALIBRATED_TIMESTAMP_INFO_KHR;
+		infos[0].pNext = &swapchainInfo;
+		infos[0].timeDomain = m_TimeDomain;
+		infos[1].timeDomain = VK_TIME_DOMAIN_CLOCK_MONOTONIC_KHR;
+		std::array<uint64_t, 2> timestamps{};
+		uint64_t maxDeviation{0};
+		if (vkGetCalibratedTimestampsKHR(m_Device->GetVkDevice(), static_cast<uint32_t>(infos.size()),
+			infos.data(), timestamps.data(), &maxDeviation) != VK_SUCCESS)
+		{
+			return false;
+		}
+		result = static_cast<int64_t>(timestamps[0] - timestamps[1]);
+		return true;
+	};
+	return offset(m_ShownStage, m_ShownOffset) && (m_ReadyStage == 0 || offset(m_ReadyStage, m_ReadyOffset));
+}
+
+void CSwapChain::ReadPresentTimings()
+{
+	for (VkPastPresentationTimingEXT& timing : m_Timings)
+		timing.presentStageCount = 2;
+	VkPastPresentationTimingInfoEXT info{};
+	info.sType = VK_STRUCTURE_TYPE_PAST_PRESENTATION_TIMING_INFO_EXT;
+	info.swapchain = m_SwapChain;
+	VkPastPresentationTimingPropertiesEXT properties{};
+	properties.sType = VK_STRUCTURE_TYPE_PAST_PRESENTATION_TIMING_PROPERTIES_EXT;
+	properties.presentationTimingCount = static_cast<uint32_t>(m_Timings.size());
+	properties.pPresentationTimings = m_Timings.data();
+	const VkResult result{vkGetPastPresentationTimingEXT(m_Device->GetVkDevice(), &info, &properties)};
+	if (result != VK_SUCCESS && result != VK_INCOMPLETE)
+		return;
+
+	// Recalibrate as the clocks slowly drift apart, and choose again when the
+	// available domains change.
+	constexpr uint32_t TIMINGS_PER_CALIBRATION{256};
+	if (properties.timeDomainsCounter != m_TimeDomainsCounter)
+		m_PresentTiming = ChooseTimeDomain();
+	else if (m_TimingsSinceCalibration >= TIMINGS_PER_CALIBRATION)
+		m_PresentTiming = Calibrate();
+	m_Pacer.SetEveryPresentationReported(m_PresentTiming);
+
+	for (uint32_t index = 0; index < properties.presentationTimingCount; ++index)
+	{
+		const VkPastPresentationTimingEXT& timing{m_Timings[index]};
+		if (!timing.reportComplete)
+			continue;
+		m_PendingTimings -= std::min(m_PendingTimings, 1u);
+		++m_TimingsSinceCalibration;
+		uint64_t ready{0};
+		uint64_t shown{0};
+		for (uint32_t stage = 0; stage < timing.presentStageCount && timing.timeDomainId == m_TimeDomainID; ++stage)
+		{
+			const VkPresentStageTimeEXT& time{timing.pPresentStages[stage]};
+			if (time.time == 0)
+				continue;
+			if (time.stage == m_ReadyStage)
+				ready = time.time - m_ReadyOffset;
+			else if (time.stage == m_ShownStage)
+				shown = time.time - m_ShownOffset;
+		}
+		if (ready != 0)
+			m_Pacer.OnFrameReady(timing.presentId, ready);
+		m_Pacer.OnFrameDisplayed(timing.presentId, shown);
+		m_ShownPresentID = std::max(m_ShownPresentID, timing.presentId);
+	}
+
+	if (properties.timingPropertiesCounter == m_TimingPropertiesCounter)
+		return;
+	VkSwapchainTimingPropertiesEXT timingProperties{};
+	timingProperties.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_TIMING_PROPERTIES_EXT;
+	uint64_t counter{0};
+	if (vkGetSwapchainTimingPropertiesEXT(
+		m_Device->GetVkDevice(), m_SwapChain, &timingProperties, &counter) != VK_SUCCESS)
+	{
+		return;
+	}
+	m_TimingPropertiesCounter = counter;
+	// For a variable refresh the duration is the shortest, and an interval
+	// of 0 means the display doesn't say which it has.
+	if (timingProperties.refreshDuration == 0)
+		return;
+	const CFramePacer::RefreshMode mode{
+		timingProperties.refreshInterval == std::numeric_limits<uint64_t>::max() ? CFramePacer::RefreshMode::VARIABLE :
+		timingProperties.refreshInterval == 0 ? CFramePacer::RefreshMode::UNKNOWN : CFramePacer::RefreshMode::FIXED};
+	m_Pacer.SetRefreshPeriod(timingProperties.refreshDuration, mode);
+}
+
+VkResult CSwapChain::WaitForPresent(const uint64_t id, const uint64_t timeout)
+{
+	if (m_PresentWait == PresentWait::V1)
+		return vkWaitForPresentKHR(m_Device->GetVkDevice(), m_SwapChain, id, timeout);
+	VkPresentWait2InfoKHR info{};
+	info.sType = VK_STRUCTURE_TYPE_PRESENT_WAIT_2_INFO_KHR;
+	info.presentId = id;
+	info.timeout = timeout;
+	return vkWaitForPresent2KHR(m_Device->GetVkDevice(), m_SwapChain, &info);
+}
+
+uint64_t CSwapChain::GetNextOverdueTime() const
+{
+	return m_ShownPresentID < m_PresentID ? m_Pacer.GetOverdueTime(m_ShownPresentID + 1) : 0;
+}
+
+bool CSwapChain::CheckOverduePresents()
+{
+	const uint64_t now{Now()};
+	for (uint64_t overdue{GetNextOverdueTime()}; overdue != 0 && now > overdue; overdue = GetNextOverdueTime())
+	{
+		const uint64_t next{m_ShownPresentID + 1};
+		const VkResult result{WaitForPresent(next, 0)};
+		if (result == VK_TIMEOUT)
+		{
+			m_Pacer.OnFrameNotShownBy(next, now);
+			return true;
+		}
+		if (result == VK_ERROR_OUT_OF_DATE_KHR)
+			m_IsValid = false;
+		if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+			return false;
+		m_ShownPresentID = next;
+	}
+	return false;
+}
+
+void CSwapChain::WaitForPresents(const uint64_t id, const uint64_t until)
+{
+	while (m_ShownPresentID < m_PresentID && (id == 0 || m_ShownPresentID < id))
+	{
+		const uint64_t next{m_ShownPresentID + 1};
+		// A present already shown has no known time; one shown while waiting
+		// for it does.
+		uint64_t shown{0};
+		VkResult result{WaitForPresent(next, 0)};
+		if (result == VK_TIMEOUT)
+		{
+			const uint64_t now{Now()};
+			if (now >= until)
+				return;
+			result = WaitForPresent(next, until - now);
+			shown = Now();
+			if (result == VK_TIMEOUT)
+				m_Pacer.OnFrameNotShownBy(next, shown);
+		}
+		if (result == VK_ERROR_OUT_OF_DATE_KHR)
+			m_IsValid = false;
+		if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+			return;
+		m_ShownPresentID = next;
+		if (!m_PresentTiming)
+			m_Pacer.OnFrameDisplayed(next, shown);
+	}
+}
+
+double CSwapChain::WaitForFrameStart()
+{
+	if (!m_IsValid || m_PresentWait == PresentWait::NONE)
+		return 0.0;
+	PROFILE3("WaitForFrameStart");
+	if (m_PresentTiming)
+	{
+		ReadPresentTimings();
+		CheckOverduePresents();
+	}
+	else
+		WaitForPresents(0, 0);
+
+	CFramePacer::SSchedule schedule{m_Pacer.Schedule(Now())};
+	if (schedule.deadline != 0)
+	{
+		// Without present timing, waiting on presents until the start is what
+		// times them.
+		if (!m_PresentTiming)
+			WaitForPresents(0, schedule.start);
+		// Until the start, check each present as it falls overdue: a late one
+		// has taken this frame's vblank, so the frame aims at a later one.
+		for (uint64_t overdue{GetNextOverdueTime()}, last{0};
+			m_PresentTiming && overdue != 0 && overdue != last && overdue < schedule.start;
+			last = overdue, overdue = GetNextOverdueTime())
+		{
+			SleepUntil(overdue + 1);
+			if (CheckOverduePresents())
+				schedule = m_Pacer.Schedule(Now());
+		}
+		SleepUntil(schedule.start);
+	}
+	else if (m_PresentID >= 2)
+	{
+		// Until there's a vblank to aim at, keep at most one frame queued. A
+		// present that is never shown, as in a hidden window, must not stop
+		// the game; the swapchain's own limit then paces it.
+		constexpr uint64_t TIMEOUT_NANOSECONDS{100'000'000};
+		WaitForPresents(m_PresentID - 1, Now() + TIMEOUT_NANOSECONDS);
+	}
+	const uint64_t previousDeadline{std::exchange(m_Schedule, schedule).deadline};
+	m_Pacer.OnFrameStarted(m_PresentID + 1, Now(), schedule);
+	if (previousDeadline == 0 || schedule.deadline <= previousDeadline)
+		return 0.0;
+	return static_cast<double>(schedule.deadline - previousDeadline) / 1e9;
 }
 
 IFramebuffer* CSwapChain::GetCurrentBackbuffer(

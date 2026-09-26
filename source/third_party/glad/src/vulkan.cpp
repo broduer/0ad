@@ -28,15 +28,22 @@ int GLAD_VK_VERSION_1_1 = 0;
 int GLAD_VK_EXT_debug_utils = 0;
 int GLAD_VK_EXT_descriptor_indexing = 0;
 int GLAD_VK_EXT_mesh_shader = 0;
+int GLAD_VK_EXT_present_timing = 0;
 int GLAD_VK_EXT_texture_compression_astc_hdr = 0;
 int GLAD_VK_EXT_validation_features = 0;
 int GLAD_VK_KHR_acceleration_structure = 0;
 int GLAD_VK_KHR_buffer_device_address = 0;
+int GLAD_VK_KHR_calibrated_timestamps = 0;
 int GLAD_VK_KHR_deferred_host_operations = 0;
+int GLAD_VK_KHR_get_surface_capabilities2 = 0;
 #if defined(VK_ENABLE_BETA_EXTENSIONS)
 int GLAD_VK_KHR_portability_subset = 0;
 
 #endif
+int GLAD_VK_KHR_present_id = 0;
+int GLAD_VK_KHR_present_id2 = 0;
+int GLAD_VK_KHR_present_wait = 0;
+int GLAD_VK_KHR_present_wait2 = 0;
 int GLAD_VK_KHR_ray_query = 0;
 int GLAD_VK_KHR_ray_tracing_maintenance1 = 0;
 int GLAD_VK_KHR_ray_tracing_pipeline = 0;
@@ -199,6 +206,7 @@ PFN_vkGetBufferDeviceAddressKHR glad_vkGetBufferDeviceAddressKHR = NULL;
 PFN_vkGetBufferMemoryRequirements glad_vkGetBufferMemoryRequirements = NULL;
 PFN_vkGetBufferMemoryRequirements2 glad_vkGetBufferMemoryRequirements2 = NULL;
 PFN_vkGetBufferOpaqueCaptureAddressKHR glad_vkGetBufferOpaqueCaptureAddressKHR = NULL;
+PFN_vkGetCalibratedTimestampsKHR glad_vkGetCalibratedTimestampsKHR = NULL;
 PFN_vkGetDeferredOperationMaxConcurrencyKHR glad_vkGetDeferredOperationMaxConcurrencyKHR = NULL;
 PFN_vkGetDeferredOperationResultKHR glad_vkGetDeferredOperationResultKHR = NULL;
 PFN_vkGetDescriptorSetLayoutSupport glad_vkGetDescriptorSetLayoutSupport = NULL;
@@ -219,6 +227,8 @@ PFN_vkGetImageSparseMemoryRequirements glad_vkGetImageSparseMemoryRequirements =
 PFN_vkGetImageSparseMemoryRequirements2 glad_vkGetImageSparseMemoryRequirements2 = NULL;
 PFN_vkGetImageSubresourceLayout glad_vkGetImageSubresourceLayout = NULL;
 PFN_vkGetInstanceProcAddr glad_vkGetInstanceProcAddr = NULL;
+PFN_vkGetPastPresentationTimingEXT glad_vkGetPastPresentationTimingEXT = NULL;
+PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsKHR glad_vkGetPhysicalDeviceCalibrateableTimeDomainsKHR = NULL;
 PFN_vkGetPhysicalDeviceExternalBufferProperties glad_vkGetPhysicalDeviceExternalBufferProperties = NULL;
 PFN_vkGetPhysicalDeviceExternalFenceProperties glad_vkGetPhysicalDeviceExternalFenceProperties = NULL;
 PFN_vkGetPhysicalDeviceExternalSemaphoreProperties glad_vkGetPhysicalDeviceExternalSemaphoreProperties = NULL;
@@ -237,7 +247,9 @@ PFN_vkGetPhysicalDeviceQueueFamilyProperties glad_vkGetPhysicalDeviceQueueFamily
 PFN_vkGetPhysicalDeviceQueueFamilyProperties2 glad_vkGetPhysicalDeviceQueueFamilyProperties2 = NULL;
 PFN_vkGetPhysicalDeviceSparseImageFormatProperties glad_vkGetPhysicalDeviceSparseImageFormatProperties = NULL;
 PFN_vkGetPhysicalDeviceSparseImageFormatProperties2 glad_vkGetPhysicalDeviceSparseImageFormatProperties2 = NULL;
+PFN_vkGetPhysicalDeviceSurfaceCapabilities2KHR glad_vkGetPhysicalDeviceSurfaceCapabilities2KHR = NULL;
 PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR glad_vkGetPhysicalDeviceSurfaceCapabilitiesKHR = NULL;
+PFN_vkGetPhysicalDeviceSurfaceFormats2KHR glad_vkGetPhysicalDeviceSurfaceFormats2KHR = NULL;
 PFN_vkGetPhysicalDeviceSurfaceFormatsKHR glad_vkGetPhysicalDeviceSurfaceFormatsKHR = NULL;
 PFN_vkGetPhysicalDeviceSurfacePresentModesKHR glad_vkGetPhysicalDeviceSurfacePresentModesKHR = NULL;
 PFN_vkGetPhysicalDeviceSurfaceSupportKHR glad_vkGetPhysicalDeviceSurfaceSupportKHR = NULL;
@@ -249,6 +261,8 @@ PFN_vkGetRayTracingShaderGroupStackSizeKHR glad_vkGetRayTracingShaderGroupStackS
 PFN_vkGetRenderAreaGranularity glad_vkGetRenderAreaGranularity = NULL;
 PFN_vkGetSemaphoreCounterValueKHR glad_vkGetSemaphoreCounterValueKHR = NULL;
 PFN_vkGetSwapchainImagesKHR glad_vkGetSwapchainImagesKHR = NULL;
+PFN_vkGetSwapchainTimeDomainPropertiesEXT glad_vkGetSwapchainTimeDomainPropertiesEXT = NULL;
+PFN_vkGetSwapchainTimingPropertiesEXT glad_vkGetSwapchainTimingPropertiesEXT = NULL;
 PFN_vkInvalidateMappedMemoryRanges glad_vkInvalidateMappedMemoryRanges = NULL;
 PFN_vkMapMemory glad_vkMapMemory = NULL;
 PFN_vkMergePipelineCaches glad_vkMergePipelineCaches = NULL;
@@ -267,6 +281,7 @@ PFN_vkResetFences glad_vkResetFences = NULL;
 PFN_vkSetDebugUtilsObjectNameEXT glad_vkSetDebugUtilsObjectNameEXT = NULL;
 PFN_vkSetDebugUtilsObjectTagEXT glad_vkSetDebugUtilsObjectTagEXT = NULL;
 PFN_vkSetEvent glad_vkSetEvent = NULL;
+PFN_vkSetSwapchainPresentTimingQueueSizeEXT glad_vkSetSwapchainPresentTimingQueueSizeEXT = NULL;
 PFN_vkSignalSemaphoreKHR glad_vkSignalSemaphoreKHR = NULL;
 PFN_vkSubmitDebugUtilsMessageEXT glad_vkSubmitDebugUtilsMessageEXT = NULL;
 PFN_vkTrimCommandPool glad_vkTrimCommandPool = NULL;
@@ -274,6 +289,8 @@ PFN_vkUnmapMemory glad_vkUnmapMemory = NULL;
 PFN_vkUpdateDescriptorSetWithTemplate glad_vkUpdateDescriptorSetWithTemplate = NULL;
 PFN_vkUpdateDescriptorSets glad_vkUpdateDescriptorSets = NULL;
 PFN_vkWaitForFences glad_vkWaitForFences = NULL;
+PFN_vkWaitForPresent2KHR glad_vkWaitForPresent2KHR = NULL;
+PFN_vkWaitForPresentKHR glad_vkWaitForPresentKHR = NULL;
 PFN_vkWaitSemaphoresKHR glad_vkWaitSemaphoresKHR = NULL;
 PFN_vkWriteAccelerationStructuresPropertiesKHR glad_vkWriteAccelerationStructuresPropertiesKHR = NULL;
 
@@ -469,6 +486,13 @@ static void glad_vk_load_VK_EXT_mesh_shader( GLADuserptrloadfunc load, void* use
     glad_vkCmdDrawMeshTasksIndirectCountEXT = (PFN_vkCmdDrawMeshTasksIndirectCountEXT) load(userptr, "vkCmdDrawMeshTasksIndirectCountEXT");
     glad_vkCmdDrawMeshTasksIndirectEXT = (PFN_vkCmdDrawMeshTasksIndirectEXT) load(userptr, "vkCmdDrawMeshTasksIndirectEXT");
 }
+static void glad_vk_load_VK_EXT_present_timing( GLADuserptrloadfunc load, void* userptr) {
+    if(!GLAD_VK_EXT_present_timing) return;
+    glad_vkGetPastPresentationTimingEXT = (PFN_vkGetPastPresentationTimingEXT) load(userptr, "vkGetPastPresentationTimingEXT");
+    glad_vkGetSwapchainTimeDomainPropertiesEXT = (PFN_vkGetSwapchainTimeDomainPropertiesEXT) load(userptr, "vkGetSwapchainTimeDomainPropertiesEXT");
+    glad_vkGetSwapchainTimingPropertiesEXT = (PFN_vkGetSwapchainTimingPropertiesEXT) load(userptr, "vkGetSwapchainTimingPropertiesEXT");
+    glad_vkSetSwapchainPresentTimingQueueSizeEXT = (PFN_vkSetSwapchainPresentTimingQueueSizeEXT) load(userptr, "vkSetSwapchainPresentTimingQueueSizeEXT");
+}
 static void glad_vk_load_VK_KHR_acceleration_structure( GLADuserptrloadfunc load, void* userptr) {
     if(!GLAD_VK_KHR_acceleration_structure) return;
     glad_vkBuildAccelerationStructuresKHR = (PFN_vkBuildAccelerationStructuresKHR) load(userptr, "vkBuildAccelerationStructuresKHR");
@@ -494,6 +518,11 @@ static void glad_vk_load_VK_KHR_buffer_device_address( GLADuserptrloadfunc load,
     glad_vkGetBufferOpaqueCaptureAddressKHR = (PFN_vkGetBufferOpaqueCaptureAddressKHR) load(userptr, "vkGetBufferOpaqueCaptureAddressKHR");
     glad_vkGetDeviceMemoryOpaqueCaptureAddressKHR = (PFN_vkGetDeviceMemoryOpaqueCaptureAddressKHR) load(userptr, "vkGetDeviceMemoryOpaqueCaptureAddressKHR");
 }
+static void glad_vk_load_VK_KHR_calibrated_timestamps( GLADuserptrloadfunc load, void* userptr) {
+    if(!GLAD_VK_KHR_calibrated_timestamps) return;
+    glad_vkGetCalibratedTimestampsKHR = (PFN_vkGetCalibratedTimestampsKHR) load(userptr, "vkGetCalibratedTimestampsKHR");
+    glad_vkGetPhysicalDeviceCalibrateableTimeDomainsKHR = (PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsKHR) load(userptr, "vkGetPhysicalDeviceCalibrateableTimeDomainsKHR");
+}
 static void glad_vk_load_VK_KHR_deferred_host_operations( GLADuserptrloadfunc load, void* userptr) {
     if(!GLAD_VK_KHR_deferred_host_operations) return;
     glad_vkCreateDeferredOperationKHR = (PFN_vkCreateDeferredOperationKHR) load(userptr, "vkCreateDeferredOperationKHR");
@@ -501,6 +530,19 @@ static void glad_vk_load_VK_KHR_deferred_host_operations( GLADuserptrloadfunc lo
     glad_vkDestroyDeferredOperationKHR = (PFN_vkDestroyDeferredOperationKHR) load(userptr, "vkDestroyDeferredOperationKHR");
     glad_vkGetDeferredOperationMaxConcurrencyKHR = (PFN_vkGetDeferredOperationMaxConcurrencyKHR) load(userptr, "vkGetDeferredOperationMaxConcurrencyKHR");
     glad_vkGetDeferredOperationResultKHR = (PFN_vkGetDeferredOperationResultKHR) load(userptr, "vkGetDeferredOperationResultKHR");
+}
+static void glad_vk_load_VK_KHR_get_surface_capabilities2( GLADuserptrloadfunc load, void* userptr) {
+    if(!GLAD_VK_KHR_get_surface_capabilities2) return;
+    glad_vkGetPhysicalDeviceSurfaceCapabilities2KHR = (PFN_vkGetPhysicalDeviceSurfaceCapabilities2KHR) load(userptr, "vkGetPhysicalDeviceSurfaceCapabilities2KHR");
+    glad_vkGetPhysicalDeviceSurfaceFormats2KHR = (PFN_vkGetPhysicalDeviceSurfaceFormats2KHR) load(userptr, "vkGetPhysicalDeviceSurfaceFormats2KHR");
+}
+static void glad_vk_load_VK_KHR_present_wait( GLADuserptrloadfunc load, void* userptr) {
+    if(!GLAD_VK_KHR_present_wait) return;
+    glad_vkWaitForPresentKHR = (PFN_vkWaitForPresentKHR) load(userptr, "vkWaitForPresentKHR");
+}
+static void glad_vk_load_VK_KHR_present_wait2( GLADuserptrloadfunc load, void* userptr) {
+    if(!GLAD_VK_KHR_present_wait2) return;
+    glad_vkWaitForPresent2KHR = (PFN_vkWaitForPresent2KHR) load(userptr, "vkWaitForPresent2KHR");
 }
 static void glad_vk_load_VK_KHR_ray_tracing_maintenance1( GLADuserptrloadfunc load, void* userptr) {
     if(!GLAD_VK_KHR_ray_tracing_maintenance1) return;
@@ -675,15 +717,22 @@ static int glad_vk_find_extensions_vulkan( VkPhysicalDevice physical_device) {
     GLAD_VK_EXT_debug_utils = glad_vk_has_extension("VK_EXT_debug_utils", extension_count, extensions);
     GLAD_VK_EXT_descriptor_indexing = glad_vk_has_extension("VK_EXT_descriptor_indexing", extension_count, extensions);
     GLAD_VK_EXT_mesh_shader = glad_vk_has_extension("VK_EXT_mesh_shader", extension_count, extensions);
+    GLAD_VK_EXT_present_timing = glad_vk_has_extension("VK_EXT_present_timing", extension_count, extensions);
     GLAD_VK_EXT_texture_compression_astc_hdr = glad_vk_has_extension("VK_EXT_texture_compression_astc_hdr", extension_count, extensions);
     GLAD_VK_EXT_validation_features = glad_vk_has_extension("VK_EXT_validation_features", extension_count, extensions);
     GLAD_VK_KHR_acceleration_structure = glad_vk_has_extension("VK_KHR_acceleration_structure", extension_count, extensions);
     GLAD_VK_KHR_buffer_device_address = glad_vk_has_extension("VK_KHR_buffer_device_address", extension_count, extensions);
+    GLAD_VK_KHR_calibrated_timestamps = glad_vk_has_extension("VK_KHR_calibrated_timestamps", extension_count, extensions);
     GLAD_VK_KHR_deferred_host_operations = glad_vk_has_extension("VK_KHR_deferred_host_operations", extension_count, extensions);
+    GLAD_VK_KHR_get_surface_capabilities2 = glad_vk_has_extension("VK_KHR_get_surface_capabilities2", extension_count, extensions);
 #if defined(VK_ENABLE_BETA_EXTENSIONS)
     GLAD_VK_KHR_portability_subset = glad_vk_has_extension("VK_KHR_portability_subset", extension_count, extensions);
 
 #endif
+    GLAD_VK_KHR_present_id = glad_vk_has_extension("VK_KHR_present_id", extension_count, extensions);
+    GLAD_VK_KHR_present_id2 = glad_vk_has_extension("VK_KHR_present_id2", extension_count, extensions);
+    GLAD_VK_KHR_present_wait = glad_vk_has_extension("VK_KHR_present_wait", extension_count, extensions);
+    GLAD_VK_KHR_present_wait2 = glad_vk_has_extension("VK_KHR_present_wait2", extension_count, extensions);
     GLAD_VK_KHR_ray_query = glad_vk_has_extension("VK_KHR_ray_query", extension_count, extensions);
     GLAD_VK_KHR_ray_tracing_maintenance1 = glad_vk_has_extension("VK_KHR_ray_tracing_maintenance1", extension_count, extensions);
     GLAD_VK_KHR_ray_tracing_pipeline = glad_vk_has_extension("VK_KHR_ray_tracing_pipeline", extension_count, extensions);
@@ -748,9 +797,14 @@ int gladLoadVulkanUserPtr( VkPhysicalDevice physical_device, GLADuserptrloadfunc
     if (!glad_vk_find_extensions_vulkan( physical_device)) return 0;
     glad_vk_load_VK_EXT_debug_utils(load, userptr);
     glad_vk_load_VK_EXT_mesh_shader(load, userptr);
+    glad_vk_load_VK_EXT_present_timing(load, userptr);
     glad_vk_load_VK_KHR_acceleration_structure(load, userptr);
     glad_vk_load_VK_KHR_buffer_device_address(load, userptr);
+    glad_vk_load_VK_KHR_calibrated_timestamps(load, userptr);
     glad_vk_load_VK_KHR_deferred_host_operations(load, userptr);
+    glad_vk_load_VK_KHR_get_surface_capabilities2(load, userptr);
+    glad_vk_load_VK_KHR_present_wait(load, userptr);
+    glad_vk_load_VK_KHR_present_wait2(load, userptr);
     glad_vk_load_VK_KHR_ray_tracing_maintenance1(load, userptr);
     glad_vk_load_VK_KHR_ray_tracing_pipeline(load, userptr);
     glad_vk_load_VK_KHR_surface(load, userptr);

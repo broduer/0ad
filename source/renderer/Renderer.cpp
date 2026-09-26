@@ -606,6 +606,14 @@ void CRenderer::RenderFrame(const bool needsPresent)
 	}
 }
 
+double CRenderer::WaitForFrameStart()
+{
+	Renderer::Backend::ISwapChain* swapChain{g_VideoMode.GetOrCreateSwapChain()};
+	if (swapChain && swapChain->IsValid())
+		return swapChain->WaitForFrameStart();
+	return 0.0;
+}
+
 void CRenderer::RenderFrameImpl(
 	Renderer::Backend::ISwapChain& swapChain,
 	const bool renderGUI, const bool renderLogger)

@@ -62,6 +62,7 @@
 #include "simulation2/system/TurnManager.h"
 #include "tools/atlas/GameInterface/GameLoop.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <fstream>
 #include <js/RootingAPI.h>
@@ -467,7 +468,31 @@ void CGame::Update(const double deltaRealTime, bool doInterpolate)
 		return;
 
 	const double deltaSimTime = deltaRealTime * m_SimRate;
+	// Advance only by what UpdateAhead hasn't already.
+	const double ahead{std::min(m_RealTimeAhead, deltaRealTime)};
+	m_RealTimeAhead -= ahead;
+	Advance((deltaRealTime - ahead) * m_SimRate);
 
+	if (doInterpolate)
+	{
+		const CTurnManager::InterpolationState state{
+			m_TurnManager->GetInterpolationState(deltaSimTime, deltaRealTime)};
+		m_InterpolationSimFrameLength = state.simFrameLength;
+		m_InterpolationOffset = state.offset;
+		m_InterpolationRealFrameLength = state.realFrameLength;
+	}
+}
+
+void CGame::UpdateAhead(const double deltaRealTime)
+{
+	if (m_Paused || !m_TurnManager || deltaRealTime <= m_RealTimeAhead)
+		return;
+	Advance((deltaRealTime - m_RealTimeAhead) * m_SimRate);
+	m_RealTimeAhead = deltaRealTime;
+}
+
+void CGame::Advance(const double deltaSimTime)
+{
 	if (deltaSimTime)
 	{
 		// At the normal sim rate, we currently want to render at least one
@@ -490,15 +515,6 @@ void CGame::Update(const double deltaRealTime, bool doInterpolate)
 
 		if (CRenderer::IsInitialised())
 			m_TimeManagerDelta += deltaSimTime;
-	}
-
-	if (doInterpolate)
-	{
-		const CTurnManager::InterpolationState state{
-			m_TurnManager->GetInterpolationState(deltaSimTime, deltaRealTime)};
-		m_InterpolationSimFrameLength = state.simFrameLength;
-		m_InterpolationOffset = state.offset;
-		m_InterpolationRealFrameLength = state.realFrameLength;
 	}
 }
 

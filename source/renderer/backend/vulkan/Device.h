@@ -177,6 +177,11 @@ public:
 
 	const SAvailablePhysicalDevice& GetChoosenPhysicalDevice() const { return m_ChoosenDevice; }
 
+	bool UseSurfaceCapabilities2() const { return m_UseSurfaceCapabilities2; }
+	bool UsePresentWait() const { return m_UsePresentWait; }
+	bool UsePresentWait2() const { return m_UsePresentWait2; }
+	bool UsePresentTiming() const { return m_UsePresentTiming; }
+
 	CRenderPassManager& GetRenderPassManager() { return *m_RenderPassManager; }
 
 	CSamplerManager& GetSamplerManager() { return *m_SamplerManager; }
@@ -204,6 +209,10 @@ private:
 	std::vector<std::string> m_ValidationLayers;
 
 	SAvailablePhysicalDevice m_ChoosenDevice{};
+	bool m_UseSurfaceCapabilities2{false};
+	bool m_UsePresentWait{false};
+	bool m_UsePresentWait2{false};
+	bool m_UsePresentTiming{false};
 	std::vector<SAvailablePhysicalDevice> m_AvailablePhysicalDevices;
 
 	Capabilities m_Capabilities{};

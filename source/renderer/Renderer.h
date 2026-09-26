@@ -97,6 +97,13 @@ public:
 
 	void RenderFrame(bool needsPresent);
 
+	/**
+	 * Wait until the next frame should start, before it reads its input, and
+	 * return how long after the previous frame it is meant to be shown, in
+	 * seconds, or 0 when that isn't known.
+	 */
+	double WaitForFrameStart();
+
 	// signal frame start
 	void BeginFrame();
 	// signal frame end

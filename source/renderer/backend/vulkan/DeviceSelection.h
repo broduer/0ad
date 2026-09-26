@@ -49,6 +49,12 @@ struct SAvailablePhysicalDevice
 	VkPhysicalDeviceMemoryProperties memoryProperties{};
 	VkPhysicalDeviceFeatures features{};
 	VkPhysicalDeviceDescriptorIndexingFeaturesEXT descriptorIndexingFeatures{};
+	// Whether presents can be tagged with IDs and waited for, by
+	// VK_KHR_present_wait or VK_KHR_present_wait2, and whether they can be
+	// timed and scheduled by VK_EXT_present_timing.
+	bool presentWait = false;
+	bool presentWait2 = false;
+	bool presentTiming = false;
 	std::vector<VkQueueFamilyProperties> queueFamilies;
 	bool hasRequiredExtensions = false;
 	bool hasOutputToSurfaceSupport = false;

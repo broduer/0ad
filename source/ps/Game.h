@@ -93,6 +93,8 @@ class CGame
 	float m_InterpolationRealFrameLength = 0.0f;
 	// Simulation time the renderer's time manager has yet to advance by.
 	float m_TimeManagerDelta = 0.0f;
+	// Real time UpdateAhead advanced by that no Update has covered yet.
+	double m_RealTimeAhead = 0.0;
 	// Player colors are script state, so they change only with a turn or the
 	// viewed player.
 	bool m_PlayerColorsDirty = true;
@@ -145,6 +147,14 @@ public:
 	 *	indicating that you might want to render less frequently.
 	 */
 	void Update(const double deltaRealTime, bool doInterpolate = true);
+
+	/**
+	 * Advance the simulation now by the real time the next Update is expected
+	 * to cover, so a turn due then doesn't delay that step's input. Commands
+	 * are scheduled turns ahead, so a turn needs none from its own step. The
+	 * next Update advances only by any difference.
+	 */
+	void UpdateAhead(const double deltaRealTime);
 
 	void Interpolate(float simFrameLength, float realFrameLength);
 
@@ -287,6 +297,8 @@ private:
 	static const CStr EventNameSimulationUpdate;
 
 	void RegisterInit(const JS::HandleValue attribs, const std::string& savedState);
+	// Process the turns due within @p deltaSimTime.
+	void Advance(const double deltaSimTime);
 	IReplayLogger* m_ReplayLogger;
 
 	std::vector<CColor> m_PlayerColors;

@@ -220,6 +220,52 @@ SAvailablePhysicalDevice MakeAvailablePhysicalDevice(
 		vkGetPhysicalDeviceFeatures(availablePhysicalDevice.device, &availablePhysicalDevice.features);
 	}
 
+	const bool hasPresentWait{
+		hasExtension(VK_KHR_PRESENT_ID_EXTENSION_NAME) && hasExtension(VK_KHR_PRESENT_WAIT_EXTENSION_NAME)};
+	const bool hasPresentWait2{
+		hasExtension(VK_KHR_PRESENT_ID_2_EXTENSION_NAME) && hasExtension(VK_KHR_PRESENT_WAIT_2_EXTENSION_NAME)};
+	const bool hasPresentTiming{hasPresentWait2 &&
+		hasExtension(VK_EXT_PRESENT_TIMING_EXTENSION_NAME) && hasExtension(VK_KHR_CALIBRATED_TIMESTAMPS_EXTENSION_NAME)};
+	if (hasPresentWait || hasPresentWait2)
+	{
+		VkPhysicalDevicePresentIdFeaturesKHR presentIdFeatures{};
+		presentIdFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR;
+		VkPhysicalDevicePresentWaitFeaturesKHR presentWaitFeatures{};
+		presentWaitFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR;
+		VkPhysicalDevicePresentId2FeaturesKHR presentId2Features{};
+		presentId2Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_2_FEATURES_KHR;
+		VkPhysicalDevicePresentWait2FeaturesKHR presentWait2Features{};
+		presentWait2Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_2_FEATURES_KHR;
+		VkPhysicalDevicePresentTimingFeaturesEXT presentTimingFeatures{};
+		presentTimingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_TIMING_FEATURES_EXT;
+
+		VkPhysicalDeviceFeatures2 deviceFeatures2{};
+		deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+		void** next{&deviceFeatures2.pNext};
+		const auto chain = [&next](auto& features)
+		{
+			*next = &features;
+			next = &features.pNext;
+		};
+		if (hasPresentWait)
+		{
+			chain(presentIdFeatures);
+			chain(presentWaitFeatures);
+		}
+		if (hasPresentWait2)
+		{
+			chain(presentId2Features);
+			chain(presentWait2Features);
+		}
+		if (hasPresentTiming)
+			chain(presentTimingFeatures);
+		vkGetPhysicalDeviceFeatures2(availablePhysicalDevice.device, &deviceFeatures2);
+		availablePhysicalDevice.presentWait = presentIdFeatures.presentId && presentWaitFeatures.presentWait;
+		availablePhysicalDevice.presentWait2 = presentId2Features.presentId2 && presentWait2Features.presentWait2;
+		availablePhysicalDevice.presentTiming = availablePhysicalDevice.presentWait2 &&
+			presentTimingFeatures.presentTiming && presentTimingFeatures.presentAtAbsoluteTime;
+	}
+
 	uint32_t queueFamilyCount = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(availablePhysicalDevice.device, &queueFamilyCount, nullptr);
 	availablePhysicalDevice.queueFamilies.resize(queueFamilyCount);

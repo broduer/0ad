@@ -56,15 +56,17 @@ void Stop();
 void SetDeviceHandoff(std::function<void()> bind, std::function<void()> unbind);
 
 /**
- * Signal a new frame, adding its duration in seconds.
+ * Signal a new frame, adding its duration in seconds. With @p showCurrentStep
+ * the frame waits for the logic step it starts and shows it, instead of showing
+ * the previous step while this one runs. That shows input a frame sooner but
+ * stops the two overlapping, so it suits a capped frame rate.
  */
-void SignalFrame(double realTime);
+void SignalFrame(double realTime, bool showCurrentStep);
 
 /**
- * Pair render frame N with logic step N-1's publish: the frame waits for the
- * step to finish, and the next step publishes only once the frame has taken
- * it, so timing never changes which step a frame shows. Set before Start,
- * from renderthread.lockstep, for comparing frames between runs.
+ * Set whether every render frame N shows logic step N - 1, so that timing never
+ * changes which step a frame shows. For comparing frames between runs; call
+ * before Start.
  */
 void SetLockstep(bool lockstep);
 

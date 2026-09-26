@@ -61,6 +61,10 @@ struct State
 	uint64_t stepIndex = 0;
 	uint64_t stepsDone = 0;
 	uint64_t framesTaken = 0;
+	// Whether the frame last signalled shows the step it starts rather than
+	// the one before, and whether the logic thread's step is shown so.
+	bool showCurrentStep = false;
+	bool stepShownCurrent = false;
 };
 
 State& GetState()
@@ -169,7 +173,7 @@ void Stop()
 	g_BindDevice();
 }
 
-void SignalFrame(const double realTime)
+void SignalFrame(const double realTime, const bool showCurrentStep)
 {
 	State& state = GetState();
 	if (!state.running)
@@ -179,10 +183,11 @@ void SignalFrame(const double realTime)
 		return;
 	}
 	std::lock_guard<std::mutex> lock(state.mutex);
-	// In lockstep a step advances by the length of its paired frame, as without
-	// the thread; frames rendered while the logic thread is paused or busy
-	// (loading, starting the game) aren't game time.
-	if (state.lockstep)
+	state.showCurrentStep = showCurrentStep;
+	// Paired with a frame, a step advances by the length of that frame, as
+	// without the thread; frames rendered while the logic thread is paused or
+	// busy (loading, starting the game) aren't game time.
+	if (state.lockstep || showCurrentStep)
 		state.pendingRealTime = realTime;
 	else
 		state.pendingRealTime += realTime;
@@ -199,19 +204,23 @@ void SetLockstep(const bool lockstep)
 void WaitForLogicStep()
 {
 	State& state = GetState();
-	if (!state.lockstep || !state.running || !g_IsRenderThread)
+	if (!state.running || !g_IsRenderThread)
 		return;
 	std::unique_lock<std::mutex> lock(state.mutex);
-	// A pause needs the frame to end, so it does not wait.
-	state.condition.wait(lock, [&state] {
-		return state.stop || state.pauseRequests > 0 || state.stepsDone + 1 >= state.signals;
+	if (!state.lockstep && !state.showCurrentStep)
+		return;
+	// Frame n shows step n, or, overlapping it, step n - 1. A pause needs the
+	// frame to end, so it does not wait.
+	const uint64_t step{state.showCurrentStep ? state.signals : state.signals - 1};
+	state.condition.wait(lock, [&state, step] {
+		return state.stop || state.pauseRequests > 0 || state.stepsDone >= step;
 	});
 }
 
 void MarkFrameTaken()
 {
 	State& state = GetState();
-	if (!state.lockstep || !state.running || !g_IsRenderThread)
+	if (!state.running || !g_IsRenderThread)
 		return;
 	std::lock_guard<std::mutex> lock(state.mutex);
 	state.framesTaken = state.signals;
@@ -221,19 +230,23 @@ void MarkFrameTaken()
 void WaitForFrameTaken()
 {
 	State& state = GetState();
-	if (!state.lockstep || !state.running || g_IsRenderThread)
+	if (!state.running || g_IsRenderThread)
 		return;
 	std::unique_lock<std::mutex> lock(state.mutex);
-	// A parked render thread takes nothing.
-	state.condition.wait(lock, [&state] {
-		return state.stop || state.pauseRequests > 0 || state.framesTaken >= state.stepIndex;
+	if (!state.lockstep && !state.stepShownCurrent)
+		return;
+	// Step n publishes once the frame before the one showing it has taken its
+	// step. A parked render thread takes nothing.
+	const uint64_t frame{state.stepShownCurrent ? state.stepIndex - 1 : state.stepIndex};
+	state.condition.wait(lock, [&state, frame] {
+		return state.stop || state.pauseRequests > 0 || state.framesTaken >= frame;
 	});
 }
 
 void MarkLogicStepDone()
 {
 	State& state = GetState();
-	if (!state.lockstep || !state.running || g_IsRenderThread)
+	if (!state.running || g_IsRenderThread)
 		return;
 	std::lock_guard<std::mutex> lock(state.mutex);
 	state.stepsDone = state.stepIndex;
@@ -252,6 +265,7 @@ double WaitForFrames()
 	state.condition.wait(lock, [&state] { return state.framePending || state.stop; });
 	state.framePending = false;
 	state.stepIndex = state.signals;
+	state.stepShownCurrent = state.showCurrentStep;
 	return std::exchange(state.pendingRealTime, 0.0);
 }
 

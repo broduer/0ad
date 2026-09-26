@@ -18,6 +18,7 @@
 #ifndef INCLUDED_RENDERER_BACKEND_VULKAN_SWAPCHAIN
 #define INCLUDED_RENDERER_BACKEND_VULKAN_SWAPCHAIN
 
+#include "renderer/backend/FramePacer.h"
 #include "renderer/backend/IFramebuffer.h"
 #include "renderer/backend/ISwapChain.h"
 #include "renderer/backend/vulkan/SubmitScheduler.h"
@@ -64,6 +65,8 @@ public:
 
 	void Present() override;
 
+	double WaitForFrameStart() override;
+
 	VkSwapchainKHR GetVkSwapchain() { return m_SwapChain; }
 
 	bool AcquireNextImage();
@@ -106,6 +109,60 @@ private:
 	VkFormat m_ImageFormat = VK_FORMAT_UNDEFINED;
 
 	uint32_t m_FrameID{0};
+
+	// With vsync, presents carry increasing IDs to be waited for, by
+	// VK_KHR_present_wait or VK_KHR_present_wait2. Where the surface supports
+	// it, VK_EXT_present_timing also times and schedules them.
+	enum class PresentWait
+	{
+		NONE,
+		V1,
+		V2
+	};
+	PresentWait m_PresentWait{PresentWait::NONE};
+	bool m_PresentTiming{false};
+	uint64_t m_PresentID{0};
+	// The newest present known to be shown.
+	uint64_t m_ShownPresentID{0};
+
+	// Present timing's time domain and the two stages it times: ready, when the
+	// GPU is done with a frame, and shown, when the display takes it. Each
+	// offset is how far the domain's clock is ahead of the monotonic clock.
+	VkTimeDomainKHR m_TimeDomain{VK_TIME_DOMAIN_CLOCK_MONOTONIC_KHR};
+	uint64_t m_TimeDomainID{0};
+	uint64_t m_TimeDomainsCounter{0};
+	VkPresentStageFlagsEXT m_ReadyStage{0};
+	VkPresentStageFlagsEXT m_ShownStage{0};
+	int64_t m_ReadyOffset{0};
+	int64_t m_ShownOffset{0};
+	uint32_t m_TimingsSinceCalibration{0};
+	uint64_t m_TimingPropertiesCounter{std::numeric_limits<uint64_t>::max()};
+	uint32_t m_PendingTimings{0};
+	std::vector<VkPastPresentationTimingEXT> m_Timings;
+	std::vector<VkPresentStageTimeEXT> m_StageTimes;
+
+	CFramePacer m_Pacer;
+	// The schedule of the frame being rendered, all 0 when unpaced.
+	CFramePacer::SSchedule m_Schedule;
+
+	void SetUpPresentTiming(const VkPresentTimingSurfaceCapabilitiesEXT& capabilities);
+	bool ChooseTimeDomain();
+	bool Calibrate();
+	void ReadPresentTimings();
+	/**
+	 * Ask present wait about overdue presents, which it answers before their
+	 * timing reports arrive. Report the first not yet shown to the pacer and
+	 * return whether there was one.
+	 */
+	bool CheckOverduePresents();
+	// Return when the oldest present not known to be shown falls overdue, or 0.
+	uint64_t GetNextOverdueTime() const;
+	VkResult WaitForPresent(const uint64_t id, const uint64_t timeout);
+	/**
+	 * Wait until present @p id is shown, or every present when @p id is 0, but
+	 * not past @p until. Report each present shown meanwhile to the pacer.
+	 */
+	void WaitForPresents(const uint64_t id, const uint64_t until);
 
 	// We can't reuse the same acquire semaphore immediately after present
 	// because it might still be processing on GPU as vkQueuePresentKHR doesn't

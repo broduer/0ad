@@ -269,6 +269,20 @@ static void PumpEvents()
 }
 
 /**
+ * Return the configured frame rate limit, if one is set.
+ */
+static std::optional<double> ConfiguredFpsLimit()
+{
+	const double fpsLimit{
+		g_ConfigDB.Get(g_Game && g_Game->IsGameStarted() ? "adaptivefps.session" : "adaptivefps.menu", 0.0)};
+
+	// Keep in sync with options.json
+	if (fpsLimit < 20.0 || fpsLimit >= 360.0)
+		return std::nullopt;
+	return fpsLimit;
+}
+
+/**
  * Optionally throttle the render frequency in order to
  * prevent 100% workload of the currently used CPU core.
  */
@@ -277,14 +291,11 @@ inline static void LimitFPS()
 	if (g_VideoMode.IsVSyncEnabled())
 		return;
 
-	const double fpsLimit{
-		g_ConfigDB.Get(g_Game && g_Game->IsGameStarted() ? "adaptivefps.session" : "adaptivefps.menu", 0.0)};
-
-	// Keep in sync with options.json
-	if (fpsLimit < 20.0 || fpsLimit >= 360.0)
+	const std::optional<double> fpsLimit{ConfiguredFpsLimit()};
+	if (!fpsLimit)
 		return;
 
-	double wait = 1000.0 / fpsLimit -
+	double wait = 1000.0 / *fpsLimit -
 		std::chrono::duration_cast<std::chrono::microseconds>(
 			std::chrono::high_resolution_clock::now() - lastFrameTime).count() / 1000.0;
 
@@ -398,16 +409,28 @@ static void RendererIncrementalLoad()
 }
 
 /**
- * Return the fixed or smoothed frame duration, in seconds.
+ * Return the real time a frame covers, in seconds: the fixed frame duration if
+ * set, else @p presentInterval, how long after the previous frame it's meant
+ * to be shown, if known, so the world moves as much as the display advances,
+ * else the smoothed frame duration.
  */
-static double FrameRealTime(const int fixedFrameFrequency)
+static double FrameRealTime(const int fixedFrameFrequency, const double presentInterval)
 {
 	const double time = timer_Time();
 	g_frequencyFilter->Update(time);
-	const double realTime{
-		1.0 / (fixedFrameFrequency > 0 ? fixedFrameFrequency : g_frequencyFilter->SmoothedFrequency())};
+	const double realTime{fixedFrameFrequency > 0 ? 1.0 / fixedFrameFrequency :
+		presentInterval > 0.0 ? presentInterval : 1.0 / g_frequencyFilter->SmoothedFrequency()};
 	ENSURE(realTime > 0.0);
 	return realTime;
+}
+
+/**
+ * Return whether the game advances, which a single-player game doesn't while
+ * out of focus.
+ */
+static bool NeedsUpdate()
+{
+	return g_app_has_focus || g_NetClient || !g_PauseOnFocusLoss;
 }
 
 /**
@@ -426,7 +449,7 @@ static void LogicStep(const float realTimeSinceLastFrame, RL::Interface* rlInter
 		g_Game->RefreshRenderFeedback();
 
 	// Decide if update is necessary
-	const bool needUpdate{g_app_has_focus || g_NetClient || !g_PauseOnFocusLoss};
+	const bool needUpdate{NeedsUpdate()};
 
 	// If we are not running a multiplayer game, disable updates when the game is
 	// minimized or out of focus and relinquish the CPU a bit, in order to make
@@ -535,7 +558,15 @@ static void RenderStep(const int fixedFrameFrequency)
 	PROFILE2_ATTR("%d", g_Profiler2.GetFrameNumber());
 
 	if (RenderThread::IsThreaded())
-		RenderThread::SignalFrame(FrameRealTime(fixedFrameFrequency));
+	{
+		// When vsync or an FPS limit caps the frame rate, the frame has time to
+		// wait for the logic step it starts and show its input a frame sooner,
+		// instead of overlapping that step.
+		const bool showCurrentStep{g_VideoMode.IsVSyncEnabled() || ConfiguredFpsLimit().has_value()};
+		// Wait for the display before the logic step reads input, not after.
+		const double presentInterval{g_Renderer.WaitForFrameStart()};
+		RenderThread::SignalFrame(FrameRealTime(fixedFrameFrequency, presentInterval), showCurrentStep);
+	}
 
 	TakeRenderingOptions();
 
@@ -557,6 +588,14 @@ static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency, DAP
 static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency)
 #endif // CONFIG2_DAP_INTERFACE
 {
+	// Run the next step's simulation once this step is done, expecting it to
+	// be as long, so turns stay off the path from input to screen.
+	const auto updateAhead = [rlInterface](const float realTime)
+	{
+		if (g_Game && g_Game->IsGameStarted() && !rlInterface && NeedsUpdate())
+			g_Game->UpdateAhead(realTime);
+	};
+
 	if (RenderThread::IsThreaded())
 	{
 		const float realTime{static_cast<float>(RenderThread::WaitForFrames())};
@@ -565,10 +604,14 @@ static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency)
 #else
 		LogicStep(realTime, rlInterface);
 #endif // CONFIG2_DAP_INTERFACE
+		if (g_Shutdown == ShutdownType::None)
+			updateAhead(realTime);
 		return;
 	}
 
-	const float realTime{static_cast<float>(FrameRealTime(fixedFrameFrequency))};
+	// Wait for the display before the logic step reads input, not after.
+	const double presentInterval{g_Renderer.WaitForFrameStart()};
+	const float realTime{static_cast<float>(FrameRealTime(fixedFrameFrequency, presentInterval))};
 #if CONFIG2_DAP_INTERFACE
 	LogicStep(realTime, rlInterface, dapInterface);
 #else
@@ -577,6 +620,7 @@ static void Frame(RL::Interface* rlInterface, const int fixedFrameFrequency)
 	if (g_Shutdown != ShutdownType::None)
 		return;
 	RenderStep(fixedFrameFrequency);
+	updateAhead(realTime);
 }
 
 static void NonVisualFrame()

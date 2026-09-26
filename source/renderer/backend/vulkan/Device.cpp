@@ -255,6 +255,10 @@ std::unique_ptr<CDevice> CDevice::Create(SDL_Window* window)
 	const bool enableDebugLayers = enableDebugContext || enableDebugMessages || enableDebugLabels || enableDebugScopedLabels;
 	if (enableDebugLayers)
 		requiredInstanceExtensions.emplace_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+	// Needed to query the surface's support for waiting on and timing presents.
+	device->m_UseSurfaceCapabilities2 = hasInstanceExtension(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
+	if (device->m_UseSurfaceCapabilities2)
+		requiredInstanceExtensions.emplace_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
 
 	std::vector<const char*> requestedValidationLayers;
 	const bool enableValidationFeatures = enableDebugMessages && hasValidationLayer("VK_LAYER_KHRONOS_validation");
@@ -462,6 +466,24 @@ std::unique_ptr<CDevice> CDevice::Create(SDL_Window* window)
 	std::vector<const char*> deviceExtensions = requiredDeviceExtensions;
 	if (hasDescriptorIndexing)
 		deviceExtensions.emplace_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+	device->m_UsePresentWait = choosenDevice.presentWait;
+	device->m_UsePresentWait2 = choosenDevice.presentWait2 && device->m_UseSurfaceCapabilities2;
+	device->m_UsePresentTiming = choosenDevice.presentTiming && device->m_UsePresentWait2;
+	if (device->m_UsePresentWait)
+	{
+		deviceExtensions.emplace_back(VK_KHR_PRESENT_ID_EXTENSION_NAME);
+		deviceExtensions.emplace_back(VK_KHR_PRESENT_WAIT_EXTENSION_NAME);
+	}
+	if (device->m_UsePresentWait2)
+	{
+		deviceExtensions.emplace_back(VK_KHR_PRESENT_ID_2_EXTENSION_NAME);
+		deviceExtensions.emplace_back(VK_KHR_PRESENT_WAIT_2_EXTENSION_NAME);
+	}
+	if (device->m_UsePresentTiming)
+	{
+		deviceExtensions.emplace_back(VK_KHR_CALIBRATED_TIMESTAMPS_EXTENSION_NAME);
+		deviceExtensions.emplace_back(VK_EXT_PRESENT_TIMING_EXTENSION_NAME);
+	}
 
 	device->m_GraphicsQueueFamilyIndex = choosenDevice.graphicsQueueFamilyIndex;
 	const std::array<size_t, 1> queueFamilyIndices{{
@@ -509,6 +531,40 @@ std::unique_ptr<CDevice> CDevice::Create(SDL_Window* window)
 	deviceFeatures2.features = deviceFeatures;
 	if (hasNeededDescriptorIndexingFeatures)
 		deviceFeatures2.pNext = &descriptorIndexingFeatures;
+
+	VkPhysicalDevicePresentIdFeaturesKHR presentIdFeatures{};
+	presentIdFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR;
+	presentIdFeatures.presentId = VK_TRUE;
+	VkPhysicalDevicePresentWaitFeaturesKHR presentWaitFeatures{};
+	presentWaitFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR;
+	presentWaitFeatures.presentWait = VK_TRUE;
+	VkPhysicalDevicePresentId2FeaturesKHR presentId2Features{};
+	presentId2Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_2_FEATURES_KHR;
+	presentId2Features.presentId2 = VK_TRUE;
+	VkPhysicalDevicePresentWait2FeaturesKHR presentWait2Features{};
+	presentWait2Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_2_FEATURES_KHR;
+	presentWait2Features.presentWait2 = VK_TRUE;
+	VkPhysicalDevicePresentTimingFeaturesEXT presentTimingFeatures{};
+	presentTimingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_TIMING_FEATURES_EXT;
+	presentTimingFeatures.presentTiming = VK_TRUE;
+	presentTimingFeatures.presentAtAbsoluteTime = VK_TRUE;
+	const auto prepend = [&deviceFeatures2](auto& features)
+	{
+		features.pNext = deviceFeatures2.pNext;
+		deviceFeatures2.pNext = &features;
+	};
+	if (device->m_UsePresentWait)
+	{
+		prepend(presentIdFeatures);
+		prepend(presentWaitFeatures);
+	}
+	if (device->m_UsePresentWait2)
+	{
+		prepend(presentId2Features);
+		prepend(presentWait2Features);
+	}
+	if (device->m_UsePresentTiming)
+		prepend(presentTimingFeatures);
 
 	VkDeviceCreateInfo deviceCreateInfo{};
 	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;

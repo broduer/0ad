@@ -69,6 +69,15 @@ public:
 	 * returned true.
 	 */
 	virtual void Present() = 0;
+
+	/**
+	 * Wait until the next frame should start: as late as still lets it reach
+	 * the display on time, so it reads its input as late as possible. Return
+	 * how long after the previous frame this one is meant to be shown, in
+	 * seconds, or 0 when that isn't known. Backends that can't pace frames
+	 * return 0 at once.
+	 */
+	virtual double WaitForFrameStart() { return 0.0; }
 };
 
 } // namespace Backend
