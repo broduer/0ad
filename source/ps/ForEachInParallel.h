@@ -76,9 +76,9 @@ void ForEachInParallel(const size_t count, const size_t batch, Work&& work)
 	// The first helper wakes the others, so the caller pays for one wake only.
 	g_TaskManager.PushTask([run, helpers]() {
 		for (size_t i = 1; i < helpers; ++i)
-			g_TaskManager.PushTask(run);
+			g_TaskManager.PushTask(run, TaskPriority::HIGH);
 		run();
-	});
+	}, TaskPriority::HIGH);
 	run();
 	if (progress->done.load(std::memory_order_acquire) != count)
 	{

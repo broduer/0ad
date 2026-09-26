@@ -1173,7 +1173,8 @@ void CSceneRenderer::EnumerateSceneObjects(Scene& scene)
 	// while the shadow cascades enumerate.
 	std::optional<Future<void>> silhouettes;
 	if (!g_RenderingOptions.GetCutsceneMode() && g_RenderingOptions.GetSilhouettes())
-		silhouettes.emplace(g_TaskManager, [this] { m->silhouetteRenderer.ComputeSubmissions(m_ViewCamera); });
+		silhouettes.emplace(g_TaskManager, [this] { m->silhouetteRenderer.ComputeSubmissions(m_ViewCamera); },
+			Threading::TaskPriority::HIGH);
 
 	if (g_RenderingOptions.GetShadows())
 	{

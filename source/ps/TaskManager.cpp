@@ -25,6 +25,7 @@
 #include "ps/ThreadAffinity.h"
 #include "ps/Threading.h"
 
+#include <array>
 #include <atomic>
 #include <condition_variable>
 #include <deque>
@@ -113,7 +114,9 @@ protected:
 /**
  * PImpl-ed implementation of the Task manager.
  *
- * The normal priority queue is processed first, the low priority only if there are no higher-priority tasks
+ * The queues are processed in order of priority, each only if there are no
+ * higher-priority tasks. Normal and low priority tasks leave some workers free,
+ * so high-priority tasks start at once however many others are running.
  */
 class TaskManager::Impl
 {
@@ -123,13 +126,10 @@ public:
 	Impl() = default;
 	~Impl()
 	{
+		for (Queue& queue : m_Queues)
 		{
-			std::lock_guard<std::mutex> lock(m_GlobalMutex);
-			ENSURE(m_GlobalQueue.empty());
-		}
-		{
-			std::lock_guard<std::mutex> lock(m_GlobalLowPriorityMutex);
-			ENSURE(m_GlobalLowPriorityQueue.empty());
+			std::lock_guard<std::mutex> lock(queue.mutex);
+			ENSURE(queue.items.empty());
 		}
 	}
 
@@ -148,15 +148,24 @@ public:
 protected:
 	void ClearQueue();
 
-	template<TaskPriority Priority>
-	bool PopTask(std::function<void()>& taskOut);
+	bool PopTask(TaskPriority priority, std::function<void()>& taskOut);
 
-	std::atomic<bool> m_HasWork = false;
-	std::atomic<bool> m_HasLowPriorityWork = false;
-	std::mutex m_GlobalMutex;
-	std::mutex m_GlobalLowPriorityMutex;
-	std::deque<QueueItem> m_GlobalQueue;
-	std::deque<QueueItem> m_GlobalLowPriorityQueue;
+	/**
+	 * Return whether a worker has a task it may take.
+	 */
+	bool HasWorkForWorker() const;
+
+	struct Queue
+	{
+		std::atomic<bool> hasWork = false;
+		std::mutex mutex;
+		std::deque<QueueItem> items;
+	};
+	std::array<Queue, 3> m_Queues;
+
+	// Workers running normal or low priority tasks, at most m_LowerPriorityLimit.
+	std::atomic<size_t> m_LowerPriorityRunning = 0;
+	size_t m_LowerPriorityLimit = 0;
 
 	// Ideally this would be a vector, since it does get iterated, but that requires movable types.
 	std::deque<WorkerThread> m_Workers;
@@ -177,6 +186,7 @@ TaskManager::~TaskManager() = default;
 
 void TaskManager::Impl::SetupWorkers(size_t numberOfWorkers)
 {
+	m_LowerPriorityLimit = numberOfWorkers - numberOfWorkers / 4;
 	for (size_t i = 0; i < numberOfWorkers; ++i)
 		m_Workers.emplace_back(*this);
 }
@@ -193,36 +203,40 @@ void TaskManager::PushTask(std::function<void()> task, TaskPriority priority)
 
 void TaskManager::Impl::PushTask(std::function<void()>&& task, TaskPriority priority)
 {
-	std::mutex& mutex = priority == TaskPriority::NORMAL ? m_GlobalMutex : m_GlobalLowPriorityMutex;
-	std::deque<QueueItem>& queue = priority == TaskPriority::NORMAL ? m_GlobalQueue : m_GlobalLowPriorityQueue;
-	std::atomic<bool>& hasWork = priority == TaskPriority::NORMAL ? m_HasWork : m_HasLowPriorityWork;
+	Queue& queue = m_Queues[static_cast<size_t>(priority)];
 	{
-		std::lock_guard<std::mutex> lock(mutex);
-		queue.emplace_back(std::move(task));
-		hasWork = true;
+		std::lock_guard<std::mutex> lock(queue.mutex);
+		queue.items.emplace_back(std::move(task));
+		queue.hasWork = true;
 	}
 
 	for (WorkerThread& worker : m_Workers)
 		worker.Wake();
 }
 
-template<TaskPriority Priority>
-bool TaskManager::Impl::PopTask(std::function<void()>& taskOut)
+bool TaskManager::Impl::PopTask(TaskPriority priority, std::function<void()>& taskOut)
 {
-	std::mutex& mutex = Priority == TaskPriority::NORMAL ? m_GlobalMutex : m_GlobalLowPriorityMutex;
-	std::deque<QueueItem>& queue = Priority == TaskPriority::NORMAL ? m_GlobalQueue : m_GlobalLowPriorityQueue;
-	std::atomic<bool>& hasWork = Priority == TaskPriority::NORMAL ? m_HasWork : m_HasLowPriorityWork;
+	Queue& queue = m_Queues[static_cast<size_t>(priority)];
 
 	// Particularly critical section since we're locking the global queue.
-	std::lock_guard<std::mutex> globalLock(mutex);
-	if (!queue.empty())
+	std::lock_guard<std::mutex> globalLock(queue.mutex);
+	if (!queue.items.empty())
 	{
-		taskOut = std::move(queue.front());
-		queue.pop_front();
-		hasWork = !queue.empty();
+		taskOut = std::move(queue.items.front());
+		queue.items.pop_front();
+		queue.hasWork = !queue.items.empty();
 		return true;
 	}
 	return false;
+}
+
+bool TaskManager::Impl::HasWorkForWorker() const
+{
+	if (m_Queues[static_cast<size_t>(TaskPriority::HIGH)].hasWork)
+		return true;
+	return m_LowerPriorityRunning < m_LowerPriorityLimit &&
+		(m_Queues[static_cast<size_t>(TaskPriority::NORMAL)].hasWork ||
+		m_Queues[static_cast<size_t>(TaskPriority::LOW)].hasWork);
 }
 
 // Thread definition
@@ -263,7 +277,7 @@ void WorkerThread::RunUntilDeath()
 	{
 		lock.lock();
 		m_ConditionVariable.wait(lock, [this](){
-			return m_Kill || m_TaskManager.m_HasWork || m_TaskManager.m_HasLowPriorityWork;
+			return m_Kill || m_TaskManager.HasWorkForWorker();
 		});
 		lock.unlock();
 
@@ -271,11 +285,20 @@ void WorkerThread::RunUntilDeath()
 			break;
 
 		// Fetch work from the global queues.
-		hasTask = m_TaskManager.PopTask<TaskPriority::NORMAL>(task);
-		if (!hasTask)
-			hasTask = m_TaskManager.PopTask<TaskPriority::LOW>(task);
-		if (hasTask)
+		if (m_TaskManager.PopTask(TaskPriority::HIGH, task))
+		{
 			task();
+			continue;
+		}
+		if (m_TaskManager.m_LowerPriorityRunning.fetch_add(1) < m_TaskManager.m_LowerPriorityLimit)
+		{
+			hasTask = m_TaskManager.PopTask(TaskPriority::NORMAL, task);
+			if (!hasTask)
+				hasTask = m_TaskManager.PopTask(TaskPriority::LOW, task);
+			if (hasTask)
+				task();
+		}
+		--m_TaskManager.m_LowerPriorityRunning;
 	}
 }
 
