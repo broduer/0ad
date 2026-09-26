@@ -97,16 +97,8 @@ public:
 	WorkerThread(TaskManager::Impl& taskManager);
 	~WorkerThread();
 
-	/**
-	 * Wake the worker.
-	 */
-	void Wake();
-
 protected:
 	void RunUntilDeath();
-
-	std::mutex m_Mutex;
-	std::condition_variable m_ConditionVariable;
 
 	TaskManager::Impl& m_TaskManager;
 };
@@ -155,6 +147,12 @@ protected:
 	 */
 	bool HasWorkForWorker() const;
 
+	/**
+	 * Wake one sleeping worker, or all of them.
+	 */
+	void WakeOne();
+	void WakeAll();
+
 	struct Queue
 	{
 		std::atomic<bool> hasWork = false;
@@ -166,6 +164,10 @@ protected:
 	// Workers running normal or low priority tasks, at most m_LowerPriorityLimit.
 	std::atomic<size_t> m_LowerPriorityRunning = 0;
 	size_t m_LowerPriorityLimit = 0;
+
+	// Idle workers sleep here; each task pushed wakes one.
+	std::mutex m_SleepMutex;
+	std::condition_variable m_Sleep;
 
 	// Ideally this would be a vector, since it does get iterated, but that requires movable types.
 	std::deque<WorkerThread> m_Workers;
@@ -209,9 +211,24 @@ void TaskManager::Impl::PushTask(std::function<void()>&& task, TaskPriority prio
 		queue.items.emplace_back(std::move(task));
 		queue.hasWork = true;
 	}
+	WakeOne();
+}
 
-	for (WorkerThread& worker : m_Workers)
-		worker.Wake();
+void TaskManager::Impl::WakeOne()
+{
+	// A worker that found no work holds the mutex until it sleeps.
+	{
+		std::lock_guard<std::mutex> lock(m_SleepMutex);
+	}
+	m_Sleep.notify_one();
+}
+
+void TaskManager::Impl::WakeAll()
+{
+	{
+		std::lock_guard<std::mutex> lock(m_SleepMutex);
+	}
+	m_Sleep.notify_all();
 }
 
 bool TaskManager::Impl::PopTask(TaskPriority priority, std::function<void()>& taskOut)
@@ -250,14 +267,9 @@ WorkerThread::WorkerThread(TaskManager::Impl& taskManager)
 WorkerThread::~WorkerThread()
 {
 	m_Kill = true;
-	m_ConditionVariable.notify_one();
+	m_TaskManager.WakeAll();
 	if (m_Thread.joinable())
 		m_Thread.join();
-}
-
-void WorkerThread::Wake()
-{
-	m_ConditionVariable.notify_one();
 }
 
 void WorkerThread::RunUntilDeath()
@@ -272,11 +284,11 @@ void WorkerThread::RunUntilDeath()
 
 	std::function<void()> task;
 	bool hasTask = false;
-	std::unique_lock<std::mutex> lock(m_Mutex, std::defer_lock);
+	std::unique_lock<std::mutex> lock(m_TaskManager.m_SleepMutex, std::defer_lock);
 	while (!m_Kill)
 	{
 		lock.lock();
-		m_ConditionVariable.wait(lock, [this](){
+		m_TaskManager.m_Sleep.wait(lock, [this](){
 			return m_Kill || m_TaskManager.HasWorkForWorker();
 		});
 		lock.unlock();
