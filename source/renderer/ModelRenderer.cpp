@@ -899,13 +899,17 @@ void ModelRenderer::Render(
 							flushRun();
 						modifier.PrepareModel(deviceCommandContext, model);
 
-						CModelRData* rdata = static_cast<CModelRData*>(model->GetRenderData());
-						ENSURE(rdata->GetKey() == &modelVertexRenderer);
-
 						if (instanced)
+						{
+							ASSERT(static_cast<CModelRData*>(model->GetRenderData())->GetKey() == &modelVertexRenderer);
 							run.push_back(model);
+						}
 						else
+						{
+							CModelRData* rdata = static_cast<CModelRData*>(model->GetRenderData());
+							ENSURE(rdata->GetKey() == &modelVertexRenderer);
 							modelVertexRenderer.RenderModel(deviceCommandContext, shader, model, rdata);
+						}
 					}
 				}
 				flushRun();
