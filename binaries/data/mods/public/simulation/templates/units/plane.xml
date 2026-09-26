@@ -53,7 +53,7 @@
     <Anchor>upright</Anchor>
     <Floating>true</Floating>
     <FloatDepth>0</FloatDepth>
-    <TurnRate>1</TurnRate>
+    <TurnRate>2</TurnRate>
   </Position>
   <Repairable>
     <RepairTimeRatio>3.0</RepairTimeRatio>
@@ -73,6 +73,9 @@
     <OvershootTime>2.0</OvershootTime>
     <FlyingHeight>50.0</FlyingHeight>
     <ClimbRate>15.0</ClimbRate>
+    <MaxBank>0.6</MaxBank>
+    <PitchRate>1.0</PitchRate>
+    <BankRate>1.0</BankRate>
     <DiesInWater>true</DiesInWater>
     <PassabilityClass>unrestricted</PassabilityClass>
   </UnitMotionFlying>

@@ -35,7 +35,7 @@
   </UnitAI>
   <UnitMotionFlying>
     <MaxSpeed>15.0</MaxSpeed>
-    <TakeoffSpeed>1.0</TakeoffSpeed>
+    <TakeoffSpeed>3.0</TakeoffSpeed>
     <LandingSpeed>5.0</LandingSpeed>
     <AccelRate>5.0</AccelRate>
     <SlowingRate>5.0</SlowingRate>
@@ -44,6 +44,9 @@
     <OvershootTime>2.0</OvershootTime>
     <FlyingHeight>40.0</FlyingHeight>
     <ClimbRate>4.0</ClimbRate>
+    <MaxBank>0.35</MaxBank>
+    <PitchRate>1.0</PitchRate>
+    <BankRate>1.0</BankRate>
     <DiesInWater>false</DiesInWater>
     <PassabilityClass>unrestricted</PassabilityClass>
   </UnitMotionFlying>

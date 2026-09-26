@@ -39,6 +39,21 @@ UnitMotionFlying.prototype.Schema =
 	"<element name='ClimbRate'>" +
 		"<ref name='nonNegativeDecimal'/>" +
 	"</element>" +
+	"<optional>" +
+		"<element name='MaxBank' a:help='Steepest bank angle in a turn, in radians.'>" +
+			"<ref name='nonNegativeDecimal'/>" +
+		"</element>" +
+	"</optional>" +
+	"<optional>" +
+		"<element name='PitchRate' a:help='Fastest change of the pitch, in radians per second.'>" +
+			"<ref name='nonNegativeDecimal'/>" +
+		"</element>" +
+	"</optional>" +
+	"<optional>" +
+		"<element name='BankRate' a:help='Fastest change of the bank angle, in radians per second.'>" +
+			"<ref name='nonNegativeDecimal'/>" +
+		"</element>" +
+	"</optional>" +
 	"<element name='DiesInWater'>" +
 		"<data type='boolean'/>" +
 	"</element>" +
@@ -71,6 +86,7 @@ UnitMotionFlying.prototype.OnUpdate = function(msg)
 	const cmpGarrisonHolder = Engine.QueryInterface(this.entity, IID_GarrisonHolder);
 	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
 	const pos = cmpPosition.GetPosition();
+	const startY = pos.y;
 	const angle = cmpPosition.GetRotation().y;
 	const cmpTerrain = Engine.QueryInterface(SYSTEM_ENTITY, IID_Terrain);
 	const cmpWaterManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_WaterManager);
@@ -84,7 +100,6 @@ UnitMotionFlying.prototype.OnUpdate = function(msg)
 		{
 			if (pos.y <= cmpWaterManager.GetWaterLevel(pos.x, pos.z) && this.template.DiesInWater == "true")
 				this.waterDeath = true;
-			this.pitch = 0;
 			// Deaccelerate forwards...at a very reduced pace.
 			if (this.waterDeath)
 				this.speed = Math.max(0, this.speed - turnLength * this.template.BrakingRate * 10);
@@ -104,7 +119,6 @@ UnitMotionFlying.prototype.OnUpdate = function(msg)
 				cmpHealth.Kill();
 			else
 			{
-				this.pitch = 0;
 				// We've stopped.
 				if (cmpGarrisonHolder)
 					cmpGarrisonHolder.AllowGarrisoning(true, "UnitMotionFlying");
@@ -145,10 +159,6 @@ UnitMotionFlying.prototype.OnUpdate = function(msg)
 			canTurn = false;
 			const targetHeight = ground;
 			// Steep, then gradual descent.
-			if ((pos.y - targetHeight) / this.template.FlyingHeight > 1 / SHORT_FINAL)
-				this.pitch = -Math.PI / 18;
-			else
-				this.pitch = Math.PI / 18;
 			const descentRate = ((pos.y - targetHeight) / this.template.FlyingHeight * this.template.ClimbRate + SHORT_FINAL) * SHORT_FINAL;
 			if (pos.y < targetHeight)
 				pos.y = Math.max(targetHeight, pos.y + turnLength * descentRate);
@@ -166,9 +176,10 @@ UnitMotionFlying.prototype.OnUpdate = function(msg)
 	{
 		if (this.template.StationaryDistance && distanceToTargetSquared <= +this.template.StationaryDistance * +this.template.StationaryDistance)
 		{
-			cmpPosition.SetXZRotation(0, 0);
-			this.pitch = 0;
-			this.roll = 0;
+			// Hovering on the spot: level out.
+			this.pitch = this.PitchTowards(0, turnLength);
+			this.roll = this.BankTowards(0, turnLength);
+			cmpPosition.SetXZRotation(this.pitch, this.roll);
 			this.reachedTarget = true;
 			cmpPosition.TurnTo(Math.atan2(this.targetX - pos.x, this.targetZ - pos.z));
 			Engine.PostMessage(this.entity, MT_MotionUpdate, { "updateString": "likelySuccess" });
@@ -182,7 +193,6 @@ UnitMotionFlying.prototype.OnUpdate = function(msg)
 		{
 			if (cmpGarrisonHolder)
 				cmpGarrisonHolder.AllowGarrisoning(false, "UnitMotionFlying");
-			this.pitch = 0;
 			// Accelerate forwards.
 			this.speed = Math.min(this.template.MaxSpeed, this.speed + turnLength * this.template.AccelRate);
 			canTurn = false;
@@ -199,19 +209,11 @@ UnitMotionFlying.prototype.OnUpdate = function(msg)
 			this.speed = Math.min(this.template.MaxSpeed, this.speed + turnLength * this.template.AccelRate);
 			const targetHeight = ground + (+this.template.FlyingHeight);
 			if (Math.abs(pos.y-targetHeight) > this.template.FlyingHeight/5)
-			{
-				this.pitch = Math.PI / 9;
 				canTurn = false;
-			}
-			else
-				this.pitch = 0;
 			if (pos.y < targetHeight)
 				pos.y = Math.min(targetHeight, pos.y + turnLength * this.template.ClimbRate);
 			else if (pos.y > targetHeight)
-			{
 				pos.y = Math.max(targetHeight, pos.y - turnLength * this.template.ClimbRate);
-				this.pitch *= -1;
-			}
 		}
 	}
 
@@ -232,6 +234,9 @@ UnitMotionFlying.prototype.OnUpdate = function(msg)
 	if (isBehindTarget && distanceToTargetSquared < this.template.MaxSpeed * this.template.MaxSpeed * this.template.OvershootTime * this.template.OvershootTime)
 		canTurn = false;
 
+	// How much of a turn is still owed, which is what the wings bank for.
+	let pendingTurnAngle = 0;
+
 	if (canTurn)
 	{
 		// Turn towards the target.
@@ -247,23 +252,64 @@ UnitMotionFlying.prototype.OnUpdate = function(msg)
 		// Calculate new orientation, in a peculiar way in order to make sure the
 		// result gets close to targetAngle (rather than being n*2*pi out).
 		newangle = targetAngle + deltaClamped - delta;
-		if (newangle - angle > Math.PI / 18)
-			this.roll = Math.PI / 9;
-		else if (newangle - angle < -Math.PI / 18)
-			this.roll = -Math.PI / 9;
-		else
-			this.roll = newangle - angle;
+		pendingTurnAngle = delta;
 	}
-	else
-		this.roll = 0;
 
 	pos.x += this.speed * turnLength * Math.sin(angle);
 	pos.z += this.speed * turnLength * Math.cos(angle);
+
+	// The nose points along the path flown this turn, and the wings bank for the turn still owed. Each changes
+	// at no more than its rate.
+	const climb = pos.y - startY;
+	const forward = this.speed * turnLength;
+	this.pitch = this.PitchTowards(forward > 0 ? Math.atan2(climb, forward) : 0, turnLength);
+	// Full bank, easing off over the last part of the turn so the wings are level as it ends.
+	const maxBank = this.GetMaxBank();
+	const bankRate = this.template.BankRate !== undefined ? +this.template.BankRate : this.DEFAULT_BANK_RATE;
+	const rollOutTurn = this.template.TurnRate * Math.max(turnLength, bankRate > 0 ? maxBank / bankRate : turnLength);
+	const bankTarget = rollOutTurn > 0 ? maxBank * Math.max(-1, Math.min(1, pendingTurnAngle / rollOutTurn)) : 0;
+	this.roll = this.BankTowards(bankTarget, turnLength);
+
 	cmpPosition.SetHeightFixed(pos.y);
 	cmpPosition.TurnTo(newangle);
 	cmpPosition.SetXZRotation(this.pitch, this.roll);
 	cmpPosition.MoveTo(pos.x, pos.z);
 };
+
+UnitMotionFlying.prototype.DEFAULT_MAX_BANK = Math.PI / 9;
+UnitMotionFlying.prototype.DEFAULT_PITCH_RATE = 2;
+UnitMotionFlying.prototype.DEFAULT_BANK_RATE = 2;
+
+UnitMotionFlying.prototype.GetMaxBank = function()
+{
+	return this.template.MaxBank !== undefined ? +this.template.MaxBank : this.DEFAULT_MAX_BANK;
+};
+
+/**
+ * The pitch after moving towards @p target for @p turnLength seconds, by at most PitchRate per second.
+ */
+UnitMotionFlying.prototype.PitchTowards = function(target, turnLength)
+{
+	const rate = this.template.PitchRate !== undefined ? +this.template.PitchRate : this.DEFAULT_PITCH_RATE;
+	return Approach(this.pitch, target, rate * turnLength);
+};
+
+/**
+ * The bank angle after moving towards @p target for @p turnLength seconds, by at most BankRate per second.
+ */
+UnitMotionFlying.prototype.BankTowards = function(target, turnLength)
+{
+	const rate = this.template.BankRate !== undefined ? +this.template.BankRate : this.DEFAULT_BANK_RATE;
+	return Approach(this.roll, target, rate * turnLength);
+};
+
+/**
+ * @p value moved towards @p target by at most @p step.
+ */
+function Approach(value, target, step)
+{
+	return value + Math.max(-step, Math.min(step, target - value));
+}
 
 UnitMotionFlying.prototype.MoveToPointRange = function(x, z, minRange, maxRange)
 {
