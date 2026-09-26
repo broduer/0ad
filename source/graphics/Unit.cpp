@@ -28,6 +28,7 @@
 #include "lib/code_generation.h"
 #include "ps/CLogger.h"
 
+#include <algorithm>
 #include <string>
 #include <utility>
 #include <vector>
@@ -93,10 +94,11 @@ void CUnit::SetEntitySelection(const std::map<CStr, CStr>& selections)
 void CUnit::SetActorSelections(const std::set<CStr>& selections)
 {
 	m_ActorSelections = selections;
+	m_Variations.clear();
 	ReloadObject();
 }
 
-void CUnit::ReloadObject()
+CObjectEntry* CUnit::FindObjectVariation() const
 {
 	std::set<CStr> entitySelections;
 	for (const std::pair<const CStr, CStr>& selection : m_EntitySelections)
@@ -112,12 +114,25 @@ void CUnit::ReloadObject()
 
 	// If these selections give a different object, change this unit to use it
 	// Use the entity ID as randomization seed (same as when the unit was first created)
-	CObjectEntry* newObject = m_ObjectManager.FindObjectVariation(&m_Actor, selections, m_Seed);
+	return m_ObjectManager.FindObjectVariation(&m_Actor, selections, m_Seed);
+}
+
+void CUnit::ReloadObject()
+{
+	const auto cached = std::ranges::find(m_Variations, m_EntitySelections,
+		&std::pair<std::map<CStr, CStr>, CObjectEntry*>::first);
+	CObjectEntry* newObject{cached != m_Variations.end() ? cached->second : FindObjectVariation()};
 	if (!newObject)
 	{
 		LOGERROR("Error loading object variation (actor: %s)", m_Actor.GetPathname().string8());
 		// Don't delete the unit, don't override our current (valid) state.
 		return;
+	}
+	if (m_Object && cached == m_Variations.end())
+	{
+		if (m_Variations.size() == MAX_CACHED_VARIATIONS)
+			m_Variations.erase(m_Variations.begin());
+		m_Variations.emplace_back(m_EntitySelections, newObject);
 	}
 
 	if (!m_Object)

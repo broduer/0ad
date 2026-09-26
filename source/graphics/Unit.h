@@ -26,6 +26,8 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <utility>
+#include <vector>
 
 class CActorDef;
 class CModelAbstract;
@@ -112,6 +114,12 @@ private:
 	// object manager which looks after this unit's objectentry
 	CObjectManager& m_ObjectManager;
 
+	// Variations this unit has used, keyed by entity selections, so switching
+	// back skips the lookup.
+	static constexpr size_t MAX_CACHED_VARIATIONS = 16;
+	std::vector<std::pair<std::map<CStr, CStr>, CObjectEntry*>> m_Variations;
+
+	CObjectEntry* FindObjectVariation() const;
 	void ReloadObject();
 
 	friend class CUnitAnimation;
