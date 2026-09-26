@@ -111,10 +111,8 @@ static const entity_pos_t EDGE_EXPAND_DELTA = entity_pos_t::FromInt(1)/16;
  * Check whether a ray from 'a' to 'b' crosses any of the edges.
  * (Edges are one-sided so it's only considered a cross if going from front to back.)
  */
-inline static bool CheckVisibility(const CFixedVector2D& a, const CFixedVector2D& b, const std::vector<Edge>& edges)
+inline static bool CheckVisibility(const CFixedVector2D& a, const CFixedVector2D& b, const CFixedVector2D& abn, const std::vector<Edge>& edges)
 {
-	CFixedVector2D abn = (b - a).Perpendicular();
-
 	// Edges of general non-axis-aligned shapes
 	for (size_t i = 0; i < edges.size(); ++i)
 	{
@@ -155,12 +153,10 @@ inline static bool CheckVisibility(const CFixedVector2D& a, const CFixedVector2D
 // They assume the caller has already excluded edges for which 'a' is
 // on the wrong side.)
 
-inline static bool CheckVisibilityLeft(const CFixedVector2D& a, const CFixedVector2D& b, const std::vector<EdgeAA>& edges)
+inline static bool CheckVisibilityLeft(const CFixedVector2D& a, const CFixedVector2D& b, const CFixedVector2D& abn, const std::vector<EdgeAA>& edges)
 {
 	if (a.X >= b.X)
 		return true;
-
-	CFixedVector2D abn = (b - a).Perpendicular();
 
 	for (size_t i = 0; i < edges.size(); ++i)
 	{
@@ -183,12 +179,10 @@ inline static bool CheckVisibilityLeft(const CFixedVector2D& a, const CFixedVect
 	return true;
 }
 
-inline static bool CheckVisibilityRight(const CFixedVector2D& a, const CFixedVector2D& b, const std::vector<EdgeAA>& edges)
+inline static bool CheckVisibilityRight(const CFixedVector2D& a, const CFixedVector2D& b, const CFixedVector2D& abn, const std::vector<EdgeAA>& edges)
 {
 	if (a.X <= b.X)
 		return true;
-
-	CFixedVector2D abn = (b - a).Perpendicular();
 
 	for (size_t i = 0; i < edges.size(); ++i)
 	{
@@ -211,12 +205,10 @@ inline static bool CheckVisibilityRight(const CFixedVector2D& a, const CFixedVec
 	return true;
 }
 
-inline static bool CheckVisibilityBottom(const CFixedVector2D& a, const CFixedVector2D& b, const std::vector<EdgeAA>& edges)
+inline static bool CheckVisibilityBottom(const CFixedVector2D& a, const CFixedVector2D& b, const CFixedVector2D& abn, const std::vector<EdgeAA>& edges)
 {
 	if (a.Y >= b.Y)
 		return true;
-
-	CFixedVector2D abn = (b - a).Perpendicular();
 
 	for (size_t i = 0; i < edges.size(); ++i)
 	{
@@ -239,12 +231,10 @@ inline static bool CheckVisibilityBottom(const CFixedVector2D& a, const CFixedVe
 	return true;
 }
 
-inline static bool CheckVisibilityTop(const CFixedVector2D& a, const CFixedVector2D& b, const std::vector<EdgeAA>& edges)
+inline static bool CheckVisibilityTop(const CFixedVector2D& a, const CFixedVector2D& b, const CFixedVector2D& abn, const std::vector<EdgeAA>& edges)
 {
 	if (a.Y <= b.Y)
 		return true;
-
-	CFixedVector2D abn = (b - a).Perpendicular();
 
 	for (size_t i = 0; i < edges.size(); ++i)
 	{
@@ -848,12 +838,14 @@ WaypointPath VertexPathfinder::ComputeShortPath(const ShortPathRequest& request,
 					continue;
 			}
 
+			const CFixedVector2D abn = (npos - m_Vertexes[curr.id].p).Perpendicular();
+
 			bool visible =
-				CheckVisibilityLeft(m_Vertexes[curr.id].p, npos, m_EdgesLeft) &&
-				CheckVisibilityRight(m_Vertexes[curr.id].p, npos, m_EdgesRight) &&
-				CheckVisibilityBottom(m_Vertexes[curr.id].p, npos, m_EdgesBottom) &&
-				CheckVisibilityTop(m_Vertexes[curr.id].p, npos, m_EdgesTop) &&
-				CheckVisibility(m_Vertexes[curr.id].p, npos, m_EdgesUnaligned);
+				CheckVisibilityLeft(m_Vertexes[curr.id].p, npos, abn, m_EdgesLeft) &&
+				CheckVisibilityRight(m_Vertexes[curr.id].p, npos, abn, m_EdgesRight) &&
+				CheckVisibilityBottom(m_Vertexes[curr.id].p, npos, abn, m_EdgesBottom) &&
+				CheckVisibilityTop(m_Vertexes[curr.id].p, npos, abn, m_EdgesTop) &&
+				CheckVisibility(m_Vertexes[curr.id].p, npos, abn, m_EdgesUnaligned);
 
 			// Render the edges that we examine.
 			g_VertexPathfinderDebugOverlay.DebugRenderEdges(cmpObstructionManager->GetSimContext(), visible, m_Vertexes[curr.id].p, npos);
