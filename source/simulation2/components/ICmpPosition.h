@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -219,12 +219,17 @@ public:
 	virtual void SetYRotation(entity_angle_t y) = 0;
 
 	/**
-	 * Rotate immediately to the given angles around the X (pitch) and Z (roll) axes.
-	 * @param x radians around the X axis. (TODO: in which direction?)
+	 * Rotate to the given angles around the X (pitch) and Z (roll) axes. The rendered rotation is
+	 * interpolated from the previous angles to these over the turn, except for an entity that has just
+	 * entered the world or been moved by JumpTo, which takes the new angles at once.
+	 * @param x radians around the X axis; positive tips the nose up.
 	 * @param z radians around the Z axis.
+	 * @param skipInterpolation show the new angles at once instead of interpolating to them over the turn, for
+	 *	a caller that sets them every frame (from MT_Interpolate), whose angles are already the ones to show.
+	 *	Only this call is affected.
 	 * @note if either x or z is non-zero, it will override terrain conformance mode
 	 */
-	virtual void SetXZRotation(entity_angle_t x, entity_angle_t z) = 0;
+	virtual void SetXZRotation(entity_angle_t x, entity_angle_t z, bool skipInterpolation = false) = 0;
 
 	// NOTE: we separate Y from XZ because most code will only ever change Y;
 	// XZ are typically just used in the editor, and other code should never

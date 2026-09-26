@@ -87,7 +87,7 @@ public:
 	fixed GetTurnRate() const override { return fixed::Zero(); }
 	void TurnTo(entity_angle_t /*y*/) override { }
 	void SetYRotation(entity_angle_t /*y*/) override { }
-	void SetXZRotation(entity_angle_t /*x*/, entity_angle_t /*z*/) override { }
+	void SetXZRotation(entity_angle_t /*x*/, entity_angle_t /*z*/, bool /*skipInterpolation*/) override { }
 	CFixedVector3D GetRotation() const override { return CFixedVector3D(); }
 	fixed GetDistanceTravelled() const override { return fixed::Zero(); }
 	void GetInterpolatedPosition2D(float /*frameOffset*/, float& x, float& z, float& rotY) const override { x = z = rotY = 0; }

@@ -112,6 +112,10 @@ public:
 	AnchorType m_ActorAnchorType;
 	float m_InterpolatedRotX, m_InterpolatedRotY, m_InterpolatedRotZ;
 	float m_LastInterpolatedRotX, m_LastInterpolatedRotZ;
+	// Whether m_LastInterpolatedRotX/Z hold last turn's pitch and roll. Entering the world, JumpTo and
+	// loading clear it, and the next turn start sets it. While it is false SetXZRotation applies at once,
+	// as there is nothing to blend from.
+	bool m_HasLastRotation;
 	bool m_ActorFloating;
 
 	bool m_EnabledMessageInterpolate;
@@ -167,6 +171,7 @@ public:
 		m_RotX = m_RotY = m_RotZ = entity_angle_t::FromInt(0);
 		m_InterpolatedRotX = m_InterpolatedRotY = m_InterpolatedRotZ = 0.f;
 		m_LastInterpolatedRotX = m_LastInterpolatedRotZ = 0.f;
+		m_HasLastRotation = false;
 
 		m_TurretParent = INVALID_ENTITY;
 		m_TurretPosition = CFixedVector3D();
@@ -354,6 +359,7 @@ public:
 	void MoveOutOfWorld() override
 	{
 		m_InWorld = false;
+		m_HasLastRotation = false;
 
 		AdvertisePositionChanges();
 		AdvertiseInterpolatedPositionChanges();
@@ -367,6 +373,7 @@ public:
 		if (!m_InWorld)
 		{
 			m_InWorld = true;
+			m_HasLastRotation = false;
 			m_LastX = m_PrevX = m_X;
 			m_LastZ = m_PrevZ = m_Z;
 			m_LastYDifference = entity_pos_t::Zero();
@@ -384,6 +391,7 @@ public:
 		if (!m_InWorld)
 		{
 			m_InWorld = true;
+			m_HasLastRotation = false;
 			m_LastX = m_PrevX = m_X;
 			m_LastZ = m_PrevZ = m_Z;
 			m_LastYDifference = entity_pos_t::Zero();
@@ -400,6 +408,7 @@ public:
 		m_LastX = m_PrevX = m_X = x;
 		m_LastZ = m_PrevZ = m_Z = z;
 		m_InWorld = true;
+		m_HasLastRotation = false;
 
 		UpdateXZRotation();
 
@@ -600,7 +609,7 @@ public:
 		UpdateMessageSubscriptions();
 	}
 
-	void SetXZRotation(entity_angle_t x, entity_angle_t z) override
+	void SetXZRotation(entity_angle_t x, entity_angle_t z, const bool skipInterpolation) override
 	{
 		m_RotX = x;
 		m_RotZ = z;
@@ -609,8 +618,11 @@ public:
 		{
 			UpdateXZRotation();
 
-			m_LastInterpolatedRotX = m_InterpolatedRotX;
-			m_LastInterpolatedRotZ = m_InterpolatedRotZ;
+			if (skipInterpolation || !m_HasLastRotation)
+			{
+				m_LastInterpolatedRotX = m_InterpolatedRotX;
+				m_LastInterpolatedRotZ = m_InterpolatedRotZ;
+			}
 		}
 	}
 
@@ -821,12 +833,7 @@ public:
 
 				// update the visual XZ rotation
 				if (m_InWorld)
-				{
-					m_LastInterpolatedRotX = m_InterpolatedRotX;
-					m_LastInterpolatedRotZ = m_InterpolatedRotZ;
-
 					UpdateXZRotation();
-				}
 
 				UpdateMessageSubscriptions();
 			}
@@ -835,6 +842,7 @@ public:
 		}
 		case MT_TurnStart:
 		{
+			m_HasLastRotation = m_InWorld;
 
 			m_LastInterpolatedRotX = m_InterpolatedRotX;
 			m_LastInterpolatedRotZ = m_InterpolatedRotZ;
@@ -861,6 +869,7 @@ public:
 		case MT_Deserialized:
 		{
 			Deserialized();
+			m_HasLastRotation = false;
 			break;
 		}
 		}

@@ -160,7 +160,7 @@ public:
 	fixed GetTurnRate() const override { return fixed::Zero(); }
 	void TurnTo(entity_angle_t) override {}
 	void SetYRotation(entity_angle_t) override {}
-	void SetXZRotation(entity_angle_t, entity_angle_t) override {}
+	void SetXZRotation(entity_angle_t, entity_angle_t, bool) override {}
 	CFixedVector3D GetRotation() const override { return CFixedVector3D(); }
 	fixed GetDistanceTravelled() const override { return fixed::Zero(); }
 	void GetInterpolatedPosition2D(float, float&, float&, float&) const override {}

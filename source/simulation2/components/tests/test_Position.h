@@ -31,6 +31,7 @@
 #include "simulation2/system/ComponentTest.h"
 #include "simulation2/system/Entity.h"
 
+#include <cmath>
 #include <memory>
 #include <string>
 
@@ -137,6 +138,40 @@ public:
 		TS_ASSERT_EQUALS(cmp->GetInterpolatedTransform(1.0f).GetTranslation(), CVector3D(300, 60, 100));
 
 		// TODO: Test the rotation methods
+	}
+
+	void test_xz_rotation()
+	{
+		CXeromycesEngine xeromycesEngine;
+		ComponentTestHelper test(*g_ScriptContext);
+
+		MockTerrain terrain;
+		test.AddMock(SYSTEM_ENTITY, IID_Terrain, terrain);
+
+		ICmpPosition* cmp{test.Add<ICmpPosition>(CID_Position, "<Anchor>upright</Anchor><Altitude>0</Altitude><Floating>false</Floating>")};
+		cmp->JumpTo(entity_pos_t::FromInt(100), entity_pos_t::FromInt(200));
+
+		// The height of the model's forward axis, which is the sine of the pitch shown.
+		const auto shownPitchSine{[cmp](const float frameOffset) {
+			return std::abs(cmp->GetInterpolatedTransform(frameOffset).GetIn().Y);
+		}};
+
+		// Just placed: there is nothing to interpolate from, so the new pitch is shown at once.
+		cmp->SetXZRotation(entity_angle_t::FromFraction(1, 2), entity_angle_t::Zero());
+		TS_ASSERT_DELTA(shownPitchSine(0.f), std::sin(0.5f), 0.001f);
+
+		// After a turn start, a new pitch is interpolated over the turn...
+		CMessageTurnStart msg;
+		test.HandleMessage(cmp, msg, false);
+		cmp->SetXZRotation(entity_angle_t::FromInt(1), entity_angle_t::Zero());
+		TS_ASSERT_DELTA(shownPitchSine(0.f), std::sin(0.5f), 0.001f);
+		TS_ASSERT_DELTA(shownPitchSine(1.f), std::sin(1.f), 0.001f);
+
+		// ...unless the interpolation is skipped.
+		test.HandleMessage(cmp, msg, false);
+		cmp->SetXZRotation(entity_angle_t::Zero(), entity_angle_t::Zero(), true);
+		TS_ASSERT_DELTA(shownPitchSine(0.f), 0.f, 0.001f);
+		TS_ASSERT_DELTA(shownPitchSine(1.f), 0.f, 0.001f);
 	}
 
 	void test_water()
