@@ -803,7 +803,7 @@ void ModelRenderer::Render(
 
 								// check that the handles are current
 								// and reevaluate them if necessary
-								if (texBindingNames[s] != samp.Name || texBindings[s] < 0)
+								if (texBindingNames[s] != samp.Name)
 								{
 									texBindings[s] = shader->GetBindingSlot(samp.Name);
 									texBindingNames[s] = samp.Name;
