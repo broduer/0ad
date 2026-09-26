@@ -39,6 +39,7 @@ class CNetMessage;
 class CNetServerSession;
 class CNetServerTurnManager;
 class CNetStatsTable;
+class CNetTurnStatsTable;
 class CPlayerAssignmentMessage;
 class CSimulationMessage;
 namespace Script { class Interface; }
@@ -266,6 +267,7 @@ private:
 	std::vector<std::unique_ptr<CNetServerSession>> m_Sessions;
 
 	std::unique_ptr<CNetStatsTable> m_Stats;
+	std::unique_ptr<CNetTurnStatsTable> m_TurnStats;
 
 	NetServerState m_State{SERVER_STATE_PREGAME};
 

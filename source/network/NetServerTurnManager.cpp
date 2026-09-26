@@ -20,6 +20,7 @@
 #include "NetServerTurnManager.h"
 
 #include "lib/debug.h"
+#include "lib/timer.h"
 #include "lib/utf8.h"
 #include "network/NetHost.h"
 #include "network/NetMessage.h"
@@ -30,7 +31,9 @@
 #include "simulation2/helpers/SimulationCommand.h"
 #include "simulation2/system/TurnManager.h"
 
+#include <algorithm>
 #include <limits>
+#include <tuple>
 #include <utility>
 
 #if 0
@@ -40,8 +43,27 @@
 #define NETSERVERTURN_LOG(...)
 #endif
 
-CNetServerTurnManager::CNetServerTurnManager(CNetServerWorker& server)
-	: m_NetServer(server), m_ReadyTurn(COMMAND_DELAY_MP - 1), m_TurnLength(DEFAULT_TURN_LENGTH)
+namespace
+{
+constexpr double STALL_WINDOW_SHORT{20.0};
+constexpr double STALL_WINDOW_LONG{300.0};
+
+/**
+ * Milliseconds of stall recorded within the last @p window seconds.
+ */
+std::uint32_t StallMsInWindow(const std::deque<std::pair<double, double>>& stalls, const double now, const double window)
+{
+	const double since{now - window};
+	double total{0.0};
+	for (const std::pair<double, double>& stall : stalls)
+		if (stall.first >= since)
+			total += stall.second;
+	return static_cast<std::uint32_t>(total * 1000.0);
+}
+} // anonymous namespace
+
+CNetServerTurnManager::CNetServerTurnManager(CNetServerWorker& server, const float gameSpeed)
+	: m_NetServer(server), m_ReadyTurn(COMMAND_DELAY_MP - 1), m_TurnLength(DEFAULT_TURN_LENGTH), m_GameSpeed(gameSpeed)
 {
 	// Turn 0 is not actually executed, store a dummy value.
 	m_SavedTurnLengths.push_back(0);
@@ -76,10 +98,39 @@ void CNetServerTurnManager::NotifyFinishedClientCommands(CNetServerSession& sess
 	m_ClientsData[client].readyTurn = turn;
 
 	// Check whether this was the final client to become ready
-	CheckClientsReady();
+	CheckClientsReady(client);
 }
 
-void CNetServerTurnManager::CheckClientsReady()
+void CNetServerTurnManager::UpdateStallBlame(const int lastClient)
+{
+	const double now{timer_Time()};
+	if (m_LastReleaseTime && !m_PausedSinceRelease)
+	{
+		const double expected{m_TurnLength / 1000.0 / m_GameSpeed};
+		// Early releases offset late ones, so that frame jitter isn't counted as stall.
+		m_ReleaseLateness = std::max(m_ReleaseLateness + now - *m_LastReleaseTime - expected, -expected);
+		if (m_ReleaseLateness > 0.0)
+		{
+			// The release was late because we were waiting on this client's progress.
+			const std::unordered_map<int, Client>::iterator it{m_ClientsData.find(lastClient)};
+			if (it != m_ClientsData.end())
+				it->second.stalls.emplace_back(now, m_ReleaseLateness);
+			m_ReleaseLateness = 0.0;
+		}
+	}
+	else
+		m_ReleaseLateness = 0.0;
+
+	m_LastReleaseTime = now;
+	m_PausedSinceRelease = false;
+}
+
+void CNetServerTurnManager::NotifyPauseChanged()
+{
+	m_PausedSinceRelease = true;
+}
+
+void CNetServerTurnManager::CheckClientsReady(const int lastClient)
 {
 	int max_observer_lag{g_ConfigDB.Get("network.observermaxlag", -1)};
 	// Clamp to 0-10000 turns, below/above that is no limit.
@@ -99,6 +150,8 @@ void CNetServerTurnManager::CheckClientsReady()
 	++m_ReadyTurn;
 
 	NETSERVERTURN_LOG("CheckClientsReady: ready for turn %d\n", m_ReadyTurn);
+
+	UpdateStallBlame(lastClient);
 
 	// Tell all clients that the next turn is ready
 	CEndCommandBatchMessage msg;
@@ -188,7 +241,7 @@ void CNetServerTurnManager::NotifyFinishedClientUpdate(CNetServerSession& sessio
 	m_ClientStateHashes.erase(m_ClientStateHashes.begin(), m_ClientStateHashes.lower_bound(newest+1));
 }
 
-void CNetServerTurnManager::InitialiseClient(int client, turn_id_t turn, bool observer)
+void CNetServerTurnManager::InitialiseClient(int client, turn_id_t turn, bool observer, int playerID)
 {
 	NETSERVERTURN_LOG("InitialiseClient(client=%d, turn=%d)\n", client, turn);
 
@@ -197,6 +250,7 @@ void CNetServerTurnManager::InitialiseClient(int client, turn_id_t turn, bool ob
 	data.readyTurn = turn + COMMAND_DELAY_MP - 1;
 	data.simulatedTurn = turn;
 	data.isObserver = observer;
+	data.playerID = playerID;
 }
 
 void CNetServerTurnManager::UninitialiseClient(int client)
@@ -212,7 +266,7 @@ void CNetServerTurnManager::UninitialiseClient(int client)
 
 	// Check whether we're ready for the next turn now that we're not
 	// waiting for this client any more
-	CheckClientsReady();
+	CheckClientsReady(client);
 
 	// Check whether we're still OOS.
 	if (checkOOS)
@@ -233,4 +287,34 @@ std::uint32_t CNetServerTurnManager::GetSavedTurnLength(turn_id_t turn)
 {
 	ENSURE(turn <= m_ReadyTurn);
 	return m_SavedTurnLengths.at(static_cast<size_t>(turn));
+}
+
+void CNetServerTurnManager::SnapshotStats(CNetTurnStatsTable& table)
+{
+	const double now{timer_Time()};
+	m_StatsRows.resize(m_ClientsData.size());
+	size_t i{0};
+	for (std::pair<const int, Client>& clientData : m_ClientsData)
+	{
+		Client& data{clientData.second};
+		while (!data.stalls.empty() && data.stalls.front().first < now - STALL_WINDOW_LONG)
+			data.stalls.pop_front();
+
+		CNetTurnStatsTable::ClientRow& row{m_StatsRows[i++]};
+		row.hostID = clientData.first;
+		row.playerName = data.playerName;
+		row.isObserver = data.isObserver;
+		row.playerID = data.playerID;
+		row.readyTurn = data.readyTurn;
+		row.simulatedTurn = data.simulatedTurn;
+		row.stallMsShort = StallMsInWindow(data.stalls, now, STALL_WINDOW_SHORT);
+		row.stallMsLong = StallMsInWindow(data.stalls, now, STALL_WINDOW_LONG);
+	}
+
+	// Order by player slot, observers last, so rows don't move when a client rejoins.
+	std::ranges::sort(m_StatsRows, {}, [](const CNetTurnStatsTable::ClientRow& row) {
+		return std::tie(row.isObserver, row.playerID, row.hostID);
+	});
+
+	table.Snapshot(m_ReadyTurn, m_TurnLength, m_StatsRows);
 }

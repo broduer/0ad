@@ -19,12 +19,16 @@
 #define INCLUDED_NETSERVERTURNMANAGER
 
 #include "lib/code_annotation.h"
+#include "network/NetTurnStats.h"
 #include "ps/CStr.h"
 #include "simulation2/helpers/SimulationCommand.h"
 
+#include <deque>
 #include <map>
+#include <optional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 class CNetServerSession;
@@ -42,7 +46,7 @@ class CNetServerTurnManager
 {
 	NONCOPYABLE(CNetServerTurnManager);
 public:
-	CNetServerTurnManager(CNetServerWorker& server);
+	CNetServerTurnManager(CNetServerWorker& server, float gameSpeed);
 
 	void NotifyFinishedClientCommands(CNetServerSession& session, turn_id_t turn);
 
@@ -51,8 +55,9 @@ public:
 	/**
 	 * Inform the turn manager of a new client
 	 * @param observer - whether this client is an observer.
+	 * @param playerID - the player slot of this client, -1 if it has none.
 	 */
-	void InitialiseClient(int client, turn_id_t turn, bool observer);
+	void InitialiseClient(int client, turn_id_t turn, bool observer, int playerID);
 
 	/**
 	 * Inform the turn manager that a previously-initialised client has left the game.
@@ -60,6 +65,12 @@ public:
 	void UninitialiseClient(int client);
 
 	void SetTurnLength(std::uint32_t msecs);
+
+	/**
+	 * Inform the turn manager that the game was paused or unpaused,
+	 * so the time until the next turn release isn't counted as stall.
+	 */
+	void NotifyPauseChanged();
 
 	/**
 	 * Returns the latest turn for which all clients are ready;
@@ -73,8 +84,23 @@ public:
 	 */
 	std::uint32_t GetSavedTurnLength(turn_id_t turn);
 
+	/**
+	 * Copy the per-client turn state into the given profiler table.
+	 */
+	void SnapshotStats(CNetTurnStatsTable& table);
+
 private:
-	void CheckClientsReady();
+	/**
+	 * Release the next turn if all clients are ready for it.
+	 * @param lastClient - the client whose change triggered this check.
+	 */
+	void CheckClientsReady(int lastClient);
+
+	/**
+	 * Record how late the turn that was just released is, blaming the client
+	 * whose progress through its turns arrived last.
+	 */
+	void UpdateStallBlame(int lastClient);
 
 	struct Client
 	{
@@ -84,7 +110,10 @@ private:
 		// Last known simulated turn.
 		turn_id_t simulatedTurn;
 		bool isObserver;
+		int playerID;
 		bool isOOS = false;
+		// Time and duration (in seconds) of the stalls caused by this client, oldest first.
+		std::deque<std::pair<double, double>> stalls;
 	};
 
 	std::unordered_map<int, Client> m_ClientsData;
@@ -103,6 +132,21 @@ private:
 
 	// Turn lengths for all previously executed turns
 	std::vector<std::uint32_t> m_SavedTurnLengths;
+
+	// Game speed the clients run turns at.
+	const float m_GameSpeed;
+
+	// Time of the latest turn release.
+	std::optional<double> m_LastReleaseTime;
+
+	// Seconds the turn releases are behind the expected pace, negative if ahead.
+	double m_ReleaseLateness{0.0};
+
+	// Whether the game was paused or unpaused since the latest turn release.
+	bool m_PausedSinceRelease{false};
+
+	// Reused by SnapshotStats to avoid reallocating every snapshot.
+	std::vector<CNetTurnStatsTable::ClientRow> m_StatsRows;
 
 	CNetServerWorker& m_NetServer;
 };

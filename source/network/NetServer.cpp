@@ -34,6 +34,7 @@
 #include "network/NetServerTurnManager.h"
 #include "network/NetServerSession.h"
 #include "network/NetStats.h"
+#include "network/NetTurnStats.h"
 #include "network/StunClient.h"
 #include "ps/CLogger.h"
 #include "ps/ConfigDB.h"
@@ -138,8 +139,12 @@ CNetServerWorker::CNetServerWorker(const bool continueSavedGame, std::uint16_t p
 	}
 
 	m_Stats = std::make_unique<CNetStatsTable>();
+	m_TurnStats = std::make_unique<CNetTurnStatsTable>();
 	if (CProfileViewer::IsInitialised())
+	{
 		g_ProfileViewer.AddRootTable(m_Stats.get());
+		g_ProfileViewer.AddRootTable(m_TurnStats.get());
+	}
 
 	m_State = SERVER_STATE_PREGAME;
 
@@ -398,6 +403,8 @@ void CNetServerWorker::Run(const std::string& initAttributes)
 
 		// Update profiler stats
 		m_Stats->LatchHostState(*m_Host);
+		if (m_ServerTurnManager)
+			m_ServerTurnManager->SnapshotStats(*m_TurnStats);
 	}
 
 	// Clear roots before deleting their context
@@ -729,7 +736,11 @@ void CNetServerWorker::OnUserLeave(CNetServerSession* session)
 {
 	std::vector<CStr>::iterator pausing = std::find(m_PausingPlayers.begin(), m_PausingPlayers.end(), session->GetGUID());
 	if (pausing != m_PausingPlayers.end())
+	{
 		m_PausingPlayers.erase(pausing);
+		if (m_ServerTurnManager)
+			m_ServerTurnManager->NotifyPauseChanged();
+	}
 
 	RemovePlayer(session->GetGUID());
 
@@ -1452,8 +1463,9 @@ bool CNetServerWorker::OnJoinSyncingLoadedGame(CNetServerSession* session, CFsmE
 
 	// Tell the turn manager to expect commands from this new client
 	// Special case: the controller shouldn't be treated as an observer in any case.
-	bool isObserver = server.m_PlayerAssignments[session->GetGUID()].m_PlayerID == -1 && server.m_ControllerGUID != session->GetGUID();
-	server.m_ServerTurnManager->InitialiseClient(session->GetHostID(), readyTurn, isObserver);
+	const int playerID{server.m_PlayerAssignments[session->GetGUID()].m_PlayerID};
+	bool isObserver = playerID == -1 && server.m_ControllerGUID != session->GetGUID();
+	server.m_ServerTurnManager->InitialiseClient(session->GetHostID(), readyTurn, isObserver, playerID);
 
 	// Tell the client that everything has finished loading and it should start now
 	CLoadedGameMessage loaded;
@@ -1540,6 +1552,9 @@ bool CNetServerWorker::OnClientPaused(CNetServerSession* session, CFsmEvent<CNet
 		server.m_PausingPlayers.erase(player);
 	}
 
+	if (server.m_ServerTurnManager)
+		server.m_ServerTurnManager->NotifyPauseChanged();
+
 	// Send messages to clients that are in game, and are not the client who paused.
 	for (const auto& netSession : server.m_Sessions)
 		if (netSession->GetCurrState() == NSS_INGAME && message->m_GUID != netSession->GetGUID())
@@ -1574,7 +1589,15 @@ void CNetServerWorker::PreStartGame(const CStr& initAttribs)
 			return;
 		}
 
-	m_ServerTurnManager = std::make_unique<CNetServerTurnManager>(*this);
+	// Update init attributes. They should no longer change.
+	Script::Request rq{m_ScriptInterface};
+	Script::ParseJSON(rq, initAttribs, &m_InitAttributes);
+
+	float gameSpeed{1.0f};
+	if (Script::HasProperty(rq, m_InitAttributes, "gameSpeed"))
+		Script::GetProperty(rq, m_InitAttributes, "gameSpeed", gameSpeed);
+
+	m_ServerTurnManager = std::make_unique<CNetServerTurnManager>(*this, gameSpeed);
 
 	for (const auto& session : m_Sessions)
 	{
@@ -1594,8 +1617,9 @@ void CNetServerWorker::PreStartGame(const CStr& initAttribs)
 		}
 
 		// Special case: the controller shouldn't be treated as an observer in any case.
-		bool isObserver = m_PlayerAssignments[session->GetGUID()].m_PlayerID == -1 && m_ControllerGUID != session->GetGUID();
-		m_ServerTurnManager->InitialiseClient(session->GetHostID(), 0, isObserver);
+		const int playerID{m_PlayerAssignments[session->GetGUID()].m_PlayerID};
+		bool isObserver = playerID == -1 && m_ControllerGUID != session->GetGUID();
+		m_ServerTurnManager->InitialiseClient(session->GetHostID(), 0, isObserver, playerID);
 	}
 
 	m_State = SERVER_STATE_LOADING;
@@ -1608,9 +1632,6 @@ void CNetServerWorker::PreStartGame(const CStr& initAttribs)
 			it = m_PlayerAssignments.erase(it);
 
 	SendPlayerAssignments();
-
-	// Update init attributes. They should no longer change.
-	Script::ParseJSON(Script::Request(m_ScriptInterface), initAttribs, &m_InitAttributes);
 }
 
 void CNetServerWorker::StartGame(const CStr& initAttribs)
