@@ -126,7 +126,7 @@ std::filesystem::perms ModeTToPerms(mode_t mode)
 Status CreateDirectoriesImpl(const std::filesystem::path& path, const std::filesystem::perms& perms)
 {
 	if (std::filesystem::exists(path))
-		return ERR::FAIL;
+		return std::filesystem::is_directory(path) ? INFO::OK : ERR::FAIL;
 
 	if (!std::filesystem::is_directory(path.parent_path()))
 	{
