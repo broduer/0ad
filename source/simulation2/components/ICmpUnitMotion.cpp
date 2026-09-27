@@ -46,8 +46,6 @@ DEFINE_INTERFACE_METHOD("SetAcceleration", ICmpUnitMotion, SetAcceleration)
 DEFINE_INTERFACE_METHOD("GetPassabilityClassName", ICmpUnitMotion, GetPassabilityClassName)
 DEFINE_INTERFACE_METHOD("SetPassabilityClassName", ICmpUnitMotion, SetPassabilityClassName)
 DEFINE_INTERFACE_METHOD("GetUnitClearance", ICmpUnitMotion, GetUnitClearance)
-DEFINE_INTERFACE_METHOD("SetFacePointAfterMove", ICmpUnitMotion, SetFacePointAfterMove)
-DEFINE_INTERFACE_METHOD("GetFacePointAfterMove", ICmpUnitMotion, GetFacePointAfterMove)
 DEFINE_INTERFACE_METHOD("SetDebugOverlay", ICmpUnitMotion, SetDebugOverlay)
 END_INTERFACE_WRAPPER(UnitMotion)
 
@@ -56,9 +54,9 @@ class CCmpUnitMotionScripted : public ICmpUnitMotion
 public:
 	DEFAULT_SCRIPT_WRAPPER(UnitMotionScripted)
 
-	bool MoveToPointRange(entity_pos_t x, entity_pos_t z, entity_pos_t minRange, entity_pos_t maxRange) override
+	bool MoveToPointRange(const entity_pos_t x, const entity_pos_t z, const entity_pos_t minRange, const entity_pos_t maxRange, const bool facePointAfterMove) override
 	{
-		return m_Script.Call<bool>("MoveToPointRange", x, z, minRange, maxRange);
+		return m_Script.Call<bool>("MoveToPointRange", x, z, minRange, maxRange, facePointAfterMove);
 	}
 
 	bool MoveToTargetRange(entity_id_t target, entity_pos_t minRange, entity_pos_t maxRange) override
@@ -159,16 +157,6 @@ public:
 	void SetAcceleration(fixed acceleration) override
 	{
 		m_Script.CallVoid("SetAcceleration", acceleration);
-	}
-
-	void SetFacePointAfterMove(bool facePointAfterMove) override
-	{
-		m_Script.CallVoid("SetFacePointAfterMove", facePointAfterMove);
-	}
-
-	bool GetFacePointAfterMove() const override
-	{
-		return m_Script.Call<bool>("GetFacePointAfterMove");
 	}
 
 	pass_class_t GetPassabilityClass() const override

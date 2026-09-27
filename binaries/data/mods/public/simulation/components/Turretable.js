@@ -87,10 +87,6 @@ Turretable.prototype.OccupyTurret = function(target, turretPointName = "", eject
 	if (cmpUnitAI)
 		cmpUnitAI.SetTurretStance();
 
-	const cmpUnitMotion = Engine.QueryInterface(this.entity, IID_UnitMotion);
-	if (cmpUnitMotion)
-		cmpUnitMotion.SetFacePointAfterMove(false);
-
 	// Remove the unit's obstruction to avoid interfering with pathing.
 	const cmpObstruction = Engine.QueryInterface(this.entity, IID_Obstruction);
 	if (cmpObstruction)
@@ -123,10 +119,6 @@ Turretable.prototype.LeaveTurret = function(forced = false)
 	const cmpTurretHolder = Engine.QueryInterface(this.holder, IID_TurretHolder);
 	if (!cmpTurretHolder || !cmpTurretHolder.LeaveTurretPoint(this.entity, forced))
 		return false;
-
-	const cmpUnitMotionEntity = Engine.QueryInterface(this.entity, IID_UnitMotion);
-	if (cmpUnitMotionEntity)
-		cmpUnitMotionEntity.SetFacePointAfterMove(true);
 
 	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
 	if (cmpPosition)

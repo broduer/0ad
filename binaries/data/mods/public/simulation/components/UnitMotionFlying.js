@@ -383,11 +383,6 @@ UnitMotionFlying.prototype.FaceTowardsPoint = function(x, z)
 	// Ignore this - angle is controlled by the target-seeking code instead.
 };
 
-UnitMotionFlying.prototype.SetFacePointAfterMove = function()
-{
-	// Ignore this - angle is controlled by the target-seeking code instead.
-};
-
 UnitMotionFlying.prototype.StopMoving = function()
 {
 	// Invert.

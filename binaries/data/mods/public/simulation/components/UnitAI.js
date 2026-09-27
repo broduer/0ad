@@ -1503,11 +1503,7 @@ UnitAI.prototype.UnitFsmSpec = {
 		{
 			// Called when selecting units out of a formation
 			// Stop moving as soon as the formation disbands
-			// Keep current rotation
-			const facePointAfterMove = this.GetFacePointAfterMove();
-			this.SetFacePointAfterMove(false);
 			this.StopMoving();
-			this.SetFacePointAfterMove(facePointAfterMove);
 
 			// If the controller handled an order but some members rejected it,
 			// they will have no orders and be in the FORMATIONMEMBER.IDLE state.
@@ -1586,13 +1582,7 @@ UnitAI.prototype.UnitFsmSpec = {
 
 			"leave": function()
 			{
-				// Don't use the logic from unitMotion, as SetInPosition
-				// has already given us a custom rotation
-				// (or we failed to move and thus don't care.)
-				const facePointAfterMove = this.GetFacePointAfterMove();
-				this.SetFacePointAfterMove(false);
 				this.StopMoving();
-				this.SetFacePointAfterMove(facePointAfterMove);
 			},
 
 			// Occurs when the unit has reached its destination and the controller
@@ -1840,7 +1830,6 @@ UnitAI.prototype.UnitFsmSpec = {
 			"ROAMING": {
 				"enter": function()
 				{
-					this.SetFacePointAfterMove(false);
 					this.MoveRandomly(+this.template.RoamDistance);
 					this.StartTimer(randIntInclusive(+this.template.RoamTimeMin, +this.template.RoamTimeMax));
 					return false;
@@ -1850,7 +1839,6 @@ UnitAI.prototype.UnitFsmSpec = {
 				{
 					this.StopMoving();
 					this.StopTimer();
-					this.SetFacePointAfterMove(true);
 				},
 
 				"Timer": function(msg)
@@ -5124,13 +5112,13 @@ UnitAI.prototype.MoveTo = function(data, iid, type)
 UnitAI.prototype.MoveToPoint = function(x, z)
 {
 	const cmpUnitMotion = Engine.QueryInterface(this.entity, IID_UnitMotion);
-	return this.AbleToMove(cmpUnitMotion) && cmpUnitMotion.MoveToPointRange(x, z, 0, 0); // For point goals, allow a max range of 0.
+	return this.AbleToMove(cmpUnitMotion) && cmpUnitMotion.MoveToPointRange(x, z, 0, 0, true); // For point goals, allow a max range of 0.
 };
 
 UnitAI.prototype.MoveToPointRange = function(x, z, rangeMin, rangeMax)
 {
 	const cmpUnitMotion = Engine.QueryInterface(this.entity, IID_UnitMotion);
-	return this.AbleToMove(cmpUnitMotion) && cmpUnitMotion.MoveToPointRange(x, z, rangeMin, rangeMax);
+	return this.AbleToMove(cmpUnitMotion) && cmpUnitMotion.MoveToPointRange(x, z, rangeMin, rangeMax, true);
 };
 
 UnitAI.prototype.MoveToTarget = function(target)
@@ -6974,20 +6962,7 @@ UnitAI.prototype.MoveRandomly = function(distance)
 	// Then second half of the rotation
 	ang += halfDelta;
 	const dist = randFloat(0.5, 1.5) * distance;
-	cmpUnitMotion.MoveToPointRange(pos.x - 0.5 * Math.sin(ang), pos.z - 0.5 * Math.cos(ang), dist, -1);
-};
-
-UnitAI.prototype.SetFacePointAfterMove = function(val)
-{
-	var cmpMotion = Engine.QueryInterface(this.entity, IID_UnitMotion);
-	if (cmpMotion)
-		cmpMotion.SetFacePointAfterMove(val);
-};
-
-UnitAI.prototype.GetFacePointAfterMove = function()
-{
-	const cmpUnitMotion = Engine.QueryInterface(this.entity, IID_UnitMotion);
-	return cmpUnitMotion && cmpUnitMotion.GetFacePointAfterMove();
+	cmpUnitMotion.MoveToPointRange(pos.x - 0.5 * Math.sin(ang), pos.z - 0.5 * Math.cos(ang), dist, -1, false);
 };
 
 UnitAI.prototype.AttackEntitiesByPreference = function(ents)

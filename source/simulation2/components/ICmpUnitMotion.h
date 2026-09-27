@@ -47,8 +47,9 @@ public:
 	 * If cannot move anywhere at all, or if there is some other error, then returns false.
 	 * Otherwise, returns true.
 	 * If maxRange is negative, then the maximum range is treated as infinity.
+	 * If facePointAfterMove is true, the entity turns toward the target when it stops.
 	 */
-	virtual bool MoveToPointRange(entity_pos_t x, entity_pos_t z, entity_pos_t minRange, entity_pos_t maxRange) = 0;
+	virtual bool MoveToPointRange(entity_pos_t x, entity_pos_t z, entity_pos_t minRange, entity_pos_t maxRange, bool facePointAfterMove) = 0;
 
 	/**
 	 * Attempt to walk into range of a given target entity, or as close as possible.
@@ -64,6 +65,7 @@ public:
 	 * Join a formation, and move towards a given offset relative to the formation controller entity.
 	 * The unit will remain 'in formation' fromthe perspective of UnitMotion
 	 * until SetMemberOfFormation(INVALID_ENTITY) is passed.
+	 * The unit doesn't turn toward its offset when it stops, the formation sets its rotation.
 	 */
 	virtual void MoveToFormationOffset(entity_id_t controller, entity_pos_t x, entity_pos_t z) = 0;
 
@@ -169,13 +171,6 @@ public:
 	 * @param acceleration The acceleration.
 	 */
 	virtual void SetAcceleration(fixed acceleration) = 0;
-
-	/**
-	 * Set whether the unit will turn to face the target point after finishing moving.
-	 */
-	virtual void SetFacePointAfterMove(bool facePointAfterMove) = 0;
-
-	virtual bool GetFacePointAfterMove() const = 0;
 
 	/**
 	 * Get the unit's passability class.

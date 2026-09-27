@@ -183,8 +183,6 @@ function TestFormationExiting(mode)
 		"PossiblyAtDestination": () => false,
 		"SetMemberOfFormation": () => {},
 		"StopMoving": () => {},
-		"SetFacePointAfterMove": () => {},
-		"GetFacePointAfterMove": () => true,
 		"GetPassabilityClassName": () => "default"
 	});
 
@@ -257,8 +255,6 @@ function TestFormationExiting(mode)
 		"SetAcceleration": (accel) => {},
 		"SetPassabilityClassName": (name) => {},
 		"MoveToPointRange": () => true,
-		"SetFacePointAfterMove": () => {},
-		"GetFacePointAfterMove": () => true,
 		"GetPassabilityClassName": () => "default"
 	});
 
@@ -377,8 +373,6 @@ function TestMoveIntoFormationWhileAttacking()
 			"PossiblyAtDestination": () => false,
 			"SetMemberOfFormation": () => {},
 			"StopMoving": () => {},
-			"SetFacePointAfterMove": () => {},
-			"GetFacePointAfterMove": () => true,
 			"GetPassabilityClassName": () => "default"
 		});
 
@@ -451,8 +445,6 @@ function TestMoveIntoFormationWhileAttacking()
 		"SetPassabilityClassName": (name) => {},
 		"MoveToPointRange": (x, z, minRange, maxRange) => {},
 		"StopMoving": () => {},
-		"SetFacePointAfterMove": () => {},
-		"GetFacePointAfterMove": () => true,
 		"GetPassabilityClassName": () => "default"
 	});
 
@@ -651,8 +643,6 @@ function TestAttemptObstructionMitigation()
 		"SetSpeedMultiplier": () => {},
 		"SetAcceleration": () => {},
 		"SetPassabilityClassName": () => {},
-		"SetFacePointAfterMove": () => {},
-		"GetFacePointAfterMove": () => true,
 		"GetPassabilityClassName": () => "default",
 		"SetMemberOfFormation": () => {},
 		"FaceTowardsPoint": () => {}

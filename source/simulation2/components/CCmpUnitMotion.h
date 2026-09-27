@@ -183,7 +183,7 @@ public:
 	// cached for efficiency
 	fixed m_WalkSpeed, m_RunMultiplier;
 
-	bool m_FacePointAfterMove;
+	bool m_FacePointAfterMove{true};
 
 	// Whether the unit participates in pushing.
 	bool m_Pushing = false;
@@ -300,8 +300,6 @@ public:
 	void Init(const CParamNode& paramNode) override
 	{
 		m_IsFormationController = paramNode.GetChild("FormationController").ToBool();
-
-		m_FacePointAfterMove = true;
 
 		m_WalkSpeed = m_TemplateWalkSpeed = m_Speed = paramNode.GetChild("WalkSpeed").ToFixed();
 		m_SpeedMultiplier = fixed::FromInt(1);
@@ -555,34 +553,28 @@ public:
 			m_LastTurnSpeed = speed;
 	}
 
-	void SetFacePointAfterMove(bool facePointAfterMove) override
-	{
-		m_FacePointAfterMove = facePointAfterMove;
-	}
-
-	bool GetFacePointAfterMove() const override
-	{
-		return m_FacePointAfterMove;
-	}
-
 	void SetDebugOverlay(bool enabled) override
 	{
 		m_DebugOverlayEnabled = enabled;
 		UpdateMessageSubscriptions();
 	}
 
-	bool MoveToPointRange(entity_pos_t x, entity_pos_t z, entity_pos_t minRange, entity_pos_t maxRange) override
+	bool MoveToPointRange(const entity_pos_t x, const entity_pos_t z, const entity_pos_t minRange, const entity_pos_t maxRange, const bool facePointAfterMove) override
 	{
+		m_FacePointAfterMove = facePointAfterMove;
 		return MoveTo(MoveRequest(CFixedVector2D(x, z), minRange, maxRange));
 	}
 
 	bool MoveToTargetRange(entity_id_t target, entity_pos_t minRange, entity_pos_t maxRange) override
 	{
+		m_FacePointAfterMove = true;
 		return MoveTo(MoveRequest(target, minRange, maxRange));
 	}
 
 	void MoveToFormationOffset(entity_id_t controller, entity_pos_t x, entity_pos_t z) override
 	{
+		// Members get their rotation from the formation instead.
+		m_FacePointAfterMove = false;
 		// Pass the controller to the move request anyways.
 		MoveTo(MoveRequest(controller, CFixedVector2D(x, z)));
 	}
