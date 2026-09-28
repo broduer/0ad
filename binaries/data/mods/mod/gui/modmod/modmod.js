@@ -1,3 +1,23 @@
+/**
+ * @file This GUI page displays all available mods and allows the player to enabled and launch a set of compatible mods.
+ */
+
+/**
+ * A mod is defined by a mod.json file.
+ * A mod is identified by the directory name.
+ * A mod must define the "name", "version", "label", "description" and "dependencies" property.
+ * The "url" property is optional.
+ *
+ * The property "name" can consist alphanumeric characters, underscore and dash.
+ * The name is used for version comparison of mod dependencies.
+ * The property "version" may only contain numbers and up to two periods.
+ * The property "label" is a human-readable name of the mod.
+ * The property "description" is a human-readable summary of the features of the mod.
+ * The property "url" is reference to a website about the mod.
+ * The property "dependencies" is an array of strings. Each string is either a modname or a mod version comparison.
+ * A mod version comparison is a modname, followed by an operator (=, <, >, <= or >=), followed by a mod version.
+ * This allows mods to express upwards and downwards compatibility.
+ */
 import { downloadModsButton } from "gui/modmod/modmodio.js";
 import { regExpComparisonOperator, validateMod } from "gui/modmod/validatemod.js";
 
