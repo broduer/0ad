@@ -111,6 +111,12 @@ public:
 		entity_pos_t inertiaPerMass);
 
 	/**
+	 * The velocity of a point of a body at @p lever from its centre: the centre's @p velocity plus what its turning
+	 * at @p angularVelocity adds there.
+	 */
+	static CFixedVector2D PointVelocity(const CFixedVector2D& velocity, fixed angularVelocity, const CFixedVector2D& lever);
+
+	/**
 	 * Where two bodies meet: the nearest points of their axes, in @p outContactA and @p outContactB, and
 	 * the distance between those axes. Each contact is the lever its body is turned about, and the line
 	 * between them is the direction the bodies push each other along. A circular body's contact is its
@@ -132,6 +138,10 @@ public:
 		entity_angle_t angle;
 		// How the unit actually moved last turn, in m/s: what the contact impulse reads closing speeds from.
 		CFixedVector2D velocity;
+		// How fast the unit is turning, in radians per second (positive turns +Z towards +X, see
+		// CFixedVector2D::Rotate). The approach between two bodies is measured where they touch, and a long
+		// body's contact point moves with its turning as well as with its centre (see PointVelocity).
+		fixed angularVelocity;
 		entity_pos_t clearance;
 		CollisionShape collisionShape;
 		entity_pos_t weight;
@@ -212,6 +222,8 @@ public:
 	 *        angular half, integrated with impact spin rather than push spin.
 	 * @param outHits - every contact that is a charge hit this turn, see ContactHit.
 	 * @param outPressures - output pressure increases for each unit
+	 * @param outCorrections - how far each solid unit is moved out of the solid units it overlaps this turn, in
+	 *        metres: a displacement for this turn only, never carried on as momentum (see ComputePairPush).
 	 */
 	static void ComputePushes(
 		const std::vector<MotionStateCompact>& units,
@@ -222,7 +234,8 @@ public:
 		std::vector<CFixedVector2D>& outVelocityChanges,
 		std::vector<fixed>& outHitSpins,
 		std::vector<ContactHit>& outHits,
-		std::vector<uint8_t>& outPressures);
+		std::vector<uint8_t>& outPressures,
+		std::vector<CFixedVector2D>& outCorrections);
 
 private:
 	/**
@@ -250,7 +263,9 @@ private:
 		fixed& outHitSpinB,
 		std::vector<ContactHit>& outHits,
 		uint8_t& outPressureA,
-		uint8_t& outPressureB);
+		uint8_t& outPressureB,
+		CFixedVector2D& outCorrectionA,
+		CFixedVector2D& outCorrectionB);
 };
 
 #endif // INCLUDED_UNITCOLLISION

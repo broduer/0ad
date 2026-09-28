@@ -412,6 +412,7 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			// an overlap apart, and read as closing on the neighbour on the other side it would earn the unit a
 			// contact impulse back, and a unit caught between two would be thrown back and forth.
 			compact.velocity = it->second.cmpUnitMotion->CarriedVelocity(it->second, dt);
+			compact.angularVelocity = it->second.cmpUnitMotion->CarriedAngularVelocity(it->second, dt);
 			compact.clearance = it->second.cmpUnitMotion->GetUnitClearance();
 			compact.isMoving = it->second.isMoving;
 			compact.ignore = it->second.ignore;
@@ -454,8 +455,12 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 		std::vector<fixed> collisionHitSpins;
 		std::vector<UnitCollision::ContactHit> collisionHits;
 		std::vector<uint8_t> collisionPressures;
+		std::vector<CFixedVector2D> collisionCorrections;
 		UnitCollision::ComputePushes(compactStates, dt, m_PushGrids, collisionForces,
-			collisionSpins, collisionVelocityChanges, collisionHitSpins, collisionHits, collisionPressures);
+			collisionSpins, collisionVelocityChanges, collisionHitSpins, collisionHits, collisionPressures,
+			collisionCorrections);
+		for (size_t i = 0; i < compactStates.size(); ++i)
+			motionStates[i]->overlapCorrection = collisionCorrections[i];
 
 #if DEBUG_RENDER
 		// The cells the pushing pass searched this turn, each drawn at the height of a unit in it, coloured
@@ -574,7 +579,8 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			// through. An attack's knockback skips it too: its size is the attack's Knockback over the unit's
 			// weight, set by the template, and a pushing threshold has no business cancelling it. (Neither has
 			// anything to do with damage, which is dealt elsewhere.)
-			const bool hasVelocityChange{!state->impulseVelocity.IsZero()};
+			// An overlap correction is no push to be ignored either: it moves the unit out of a body it is inside.
+			const bool hasVelocityChange{!state->impulseVelocity.IsZero() || !state->overlapCorrection.IsZero()};
 			const bool hasSignificantForce{hasVelocityChange || impulse.CompareLength(cfg.minimalPushing) > 0};
 
 			// Apply pressure first
@@ -632,7 +638,10 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			// The velocity change first takes away the own momentum running against it (see
 			// MomentumModel::AbsorbVelocityChange); only the rest joins the external momentum.
 			const CFixedVector2D externalImpulse{MomentumModel::AbsorbVelocityChange(state->inertiaVelocity, state->impulseVelocity)};
-			const CFixedVector2D externalVelocity{pushVelocity.Multiply(damping) + externalImpulse};
+			// The soft push can't build on the push momentum it left before (see MomentumModel::ClampCumulativePush).
+			const CFixedVector2D softPush{MomentumModel::ClampCumulativePush(
+				state->cmpUnitMotion->CarriedPushVelocity(*state, dt), pushVelocity.Multiply(damping))};
+			const CFixedVector2D externalVelocity{softPush + externalImpulse};
 
 			// Ignore negligible velocities
 			if (externalVelocity.CompareLength(entity_pos_t::FromFraction(1, 100)) >= 0)

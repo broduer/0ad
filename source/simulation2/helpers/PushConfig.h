@@ -97,6 +97,9 @@ public:
 		// push eases an overlap apart every turn, and its full spin twists a unit on an order against its own
 		// steering turn after turn.
 		entity_pos_t solidPushSpin;
+		// The share of how deep two solid units overlap that they are moved apart by every IMPACT_REFERENCE_TIME
+		// (see UnitCollision::ComputePairPush).
+		entity_pos_t solidOverlapCorrection;
 
 		bool IsEnabled() const { return radiusMultiplier != entity_pos_t::Zero(); }
 
@@ -115,6 +118,7 @@ public:
 			solidPushScale = entity_pos_t::FromInt(1);
 			solidBrushSpeed = entity_pos_t::FromInt(3);  // m/s
 			solidPushSpin = entity_pos_t::FromFraction(1, 4);
+			solidOverlapCorrection = entity_pos_t::FromFraction(1, 5);
 		}
 
 		// Validation helper
@@ -159,6 +163,7 @@ public:
 				solidBrushSpeed = entity_pos_t::Zero();
 			if (solidPushSpin < entity_pos_t::Zero())
 				solidPushSpin = entity_pos_t::Zero();
+			solidOverlapCorrection = Clamp(solidOverlapCorrection, entity_pos_t::Zero(), entity_pos_t::FromInt(1));
 		}
 	};
 
@@ -271,6 +276,10 @@ public:
 		const CParamNode solidPushSpinNode = pushingNode.GetChild("SolidPushSpin");
 		if (solidPushSpinNode.IsOk())
 			m_RuntimeConfig.solidPushSpin = solidPushSpinNode.ToFixed();
+
+		const CParamNode solidOverlapCorrectionNode = pushingNode.GetChild("SolidOverlapCorrection");
+		if (solidOverlapCorrectionNode.IsOk())
+			m_RuntimeConfig.solidOverlapCorrection = solidOverlapCorrectionNode.ToFixed();
 
 		// Apply validation to all values
 		m_RuntimeConfig.Validate();

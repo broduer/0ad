@@ -144,6 +144,25 @@ public:
 	}
 
 	/**
+	 * This turn's soft push, cut so that it never takes the push momentum along its own direction past the push's
+	 * own speed, or past what the unit already carried that way if that is more.
+	 */
+	static CFixedVector2D ClampCumulativePush(const CFixedVector2D& carried, const CFixedVector2D& push)
+	{
+		if (push.IsZero())
+			return push;
+		const fixed size{push.Length()};
+		if (size <= fixed::Zero())
+			return push;
+		const CFixedVector2D direction{push.Multiply(fixed::FromInt(1) / size)};
+		const fixed along{carried.Dot(direction)};
+		const fixed excess{along + size - std::max(size, along)};
+		if (excess <= fixed::Zero())
+			return push;
+		return push - direction.Multiply(excess);
+	}
+
+	/**
 	 * Next turn's external inertia: what carried over from past pushes plus what was applied this turn,
 	 * snapped to zero once negligible so it fully decays.
 	 */

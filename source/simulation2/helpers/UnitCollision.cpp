@@ -56,6 +56,16 @@ fixed UnitCollision::SpinFromVelocityChange(const CFixedVector2D& lever, const C
 	return torque / inertiaPerMass;
 }
 
+CFixedVector2D UnitCollision::PointVelocity(const CFixedVector2D& velocity, const fixed angularVelocity,
+	const CFixedVector2D& lever)
+{
+	// Turning by a small angle moves a point at (x, z) by (z, -x) times that angle (see CFixedVector2D::Rotate),
+	// which is lever.Perpendicular().
+	if (angularVelocity.IsZero() || lever.IsZero())
+		return velocity;
+	return velocity + lever.Perpendicular().Multiply(angularVelocity);
+}
+
 fixed UnitCollision::ContactBetween(
 	const CollisionShape& a, const CFixedVector2D& positionA, const entity_angle_t angleA,
 	const CollisionShape& b, const CFixedVector2D& positionB, const entity_angle_t angleB,
@@ -142,7 +152,9 @@ void UnitCollision::ComputePairPush(
 	fixed& outHitSpinB,
 	std::vector<ContactHit>& outHits,
 	uint8_t& outPressureA,
-	uint8_t& outPressureB)
+	uint8_t& outPressureB,
+	CFixedVector2D& outCorrectionA,
+	CFixedVector2D& outCorrectionB)
 {
 	outPushA = CFixedVector2D();
 	outPushB = CFixedVector2D();
@@ -153,6 +165,8 @@ void UnitCollision::ComputePairPush(
 	outHitSpinA = fixed::Zero();
 	outHitSpinB = fixed::Zero();
 	outPressureA = 0;
+	outCorrectionA = CFixedVector2D();
+	outCorrectionB = CFixedVector2D();
 	outPressureB = 0;
 
 	int movingPush = (a.isMoving ? 1 : 0) + (b.isMoving ? 1 : 0);
@@ -336,8 +350,10 @@ void UnitCollision::ComputePairPush(
 	if (rigidContact && offsetLength <= a.collisionShape.radius + b.collisionShape.radius)
 	{
 		// offset is the unit vector from b to a, so a is closing when its velocity relative to b runs
-		// against it.
-		const fixed closing{-(a.velocity - b.velocity).Dot(offset)};
+		// against it. Measured where the bodies touch, not at their centres, so a hull turning into its
+		// neighbour closes on it too.
+		const fixed closing{-(PointVelocity(a.velocity, a.angularVelocity, contactA - a.position) -
+			PointVelocity(b.velocity, b.angularVelocity, contactB - b.position)).Dot(offset)};
 		const fixed totalWeight{a.weight + b.weight};
 
 		// Only an approach the soft push can't turn around. The pushes above are what the two are moved
@@ -373,6 +389,23 @@ void UnitCollision::ComputePairPush(
 		}
 	}
 
+	// Two solid bodies that overlap are moved apart by a share of how deep they overlap, split by weight like the
+	// contact impulse. The soft push is the same however deep the overlap, and the contact impulse only acts on an
+	// approach, so without this a deep overlap that has stopped closing would only be eased out at the soft push's
+	// rate, against whatever keeps driving the bodies in. A displacement for this turn only: carried on as
+	// momentum, a deep overlap would fling the bodies apart.
+	if (rigidContact && solidPair && offsetLength < a.collisionShape.radius + b.collisionShape.radius)
+	{
+		const fixed totalWeight{a.weight + b.weight};
+		const fixed share{fixed::FromInt(1) - PushConfig::DecayFactor(fixed::FromInt(1) - cfg.solidOverlapCorrection, dt)};
+		if (totalWeight > fixed::Zero() && share > fixed::Zero())
+		{
+			const fixed correction{(a.collisionShape.radius + b.collisionShape.radius - offsetLength).Multiply(share)};
+			outCorrectionA = offset.Multiply(correction.Multiply(b.weight / totalWeight));
+			outCorrectionB = -offset.Multiply(correction.Multiply(a.weight / totalWeight));
+		}
+	}
+
 	int addedPressure = std::max(0, (PushConfig::PRESSURE_STATIC_FACTOR +
 		(distanceFactor + entity_pos_t::FromInt(-2) / 3) * PushConfig::PRESSURE_DISTANCE_FACTOR)
 		.Multiply(cfg.pressureStrength).ToInt_RoundToZero());
@@ -390,7 +423,8 @@ void UnitCollision::ComputePushes(
 	std::vector<CFixedVector2D>& outVelocityChanges,
 	std::vector<fixed>& outHitSpins,
 	std::vector<ContactHit>& outHits,
-	std::vector<uint8_t>& outPressures)
+	std::vector<uint8_t>& outPressures,
+	std::vector<CFixedVector2D>& outCorrections)
 {
 	const auto& cfg = PushConfig::GetInstance().GetRuntimeConfig();
 
@@ -403,6 +437,9 @@ void UnitCollision::ComputePushes(
 	outVelocityChanges.assign(units.size(), CFixedVector2D());
 	outHitSpins.assign(units.size(), fixed::Zero());
 	outPressures.assign(units.size(), 0);
+	outCorrections.assign(units.size(), CFixedVector2D());
+	// The largest single overlap correction each unit got this turn, see the end of this function.
+	std::vector<fixed> largestCorrection(units.size(), fixed::Zero());
 	// The largest single contact impulse each unit took this turn, see the end of this function.
 	std::vector<fixed> largestImpulse(units.size(), fixed::Zero());
 
@@ -468,12 +505,12 @@ void UnitCollision::ComputePushes(
 	{
 		const size_t i{std::min(first, second)};
 		const size_t j{std::max(first, second)};
-		CFixedVector2D pushA, pushB, velocityChangeA, velocityChangeB;
+		CFixedVector2D pushA, pushB, velocityChangeA, velocityChangeB, correctionA, correctionB;
 		fixed spinA, spinB, hitSpinA, hitSpinB;
 		uint8_t pressureA, pressureB;
 
 		ComputePairPush(units[i], units[j], dt, cfg, pushA, pushB, spinA, spinB,
-			velocityChangeA, velocityChangeB, hitSpinA, hitSpinB, outHits, pressureA, pressureB);
+			velocityChangeA, velocityChangeB, hitSpinA, hitSpinB, outHits, pressureA, pressureB, correctionA, correctionB);
 
 		outPushes[i] += pushA;
 		outPushes[j] += pushB;
@@ -489,6 +526,16 @@ void UnitCollision::ComputePushes(
 			largestImpulse[i] = std::max(largestImpulse[i], velocityChangeA.Length());
 		if (!velocityChangeB.IsZero())
 			largestImpulse[j] = std::max(largestImpulse[j], velocityChangeB.Length());
+		if (!correctionA.IsZero())
+		{
+			outCorrections[i] += correctionA;
+			largestCorrection[i] = std::max(largestCorrection[i], correctionA.Length());
+		}
+		if (!correctionB.IsZero())
+		{
+			outCorrections[j] += correctionB;
+			largestCorrection[j] = std::max(largestCorrection[j], correctionB.Length());
+		}
 	};
 
 	// Within a tier, every pair once: the pairs within each filled cell, then the pairs between it and the
@@ -559,4 +606,10 @@ void UnitCollision::ComputePushes(
 		outVelocityChanges[i] = outVelocityChanges[i].Multiply(scale);
 		outHitSpins[i] = outHitSpins[i].Multiply(scale);
 	}
+
+	// Likewise the overlap corrections: two neighbours on the same side each want the unit moved out of their own
+	// overlap, and added up they would move it twice as far.
+	for (size_t i = 0; i < units.size(); ++i)
+		if (largestCorrection[i] > fixed::Zero() && outCorrections[i].CompareLength(largestCorrection[i]) > 0)
+			outCorrections[i] = outCorrections[i].Multiply(largestCorrection[i] / outCorrections[i].Length());
 }

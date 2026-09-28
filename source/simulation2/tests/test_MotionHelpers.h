@@ -289,6 +289,38 @@ public:
 		TS_ASSERT_DELTA(left.X.ToDouble(), 4.0, 0.001);
 	}
 
+	void test_ClampCumulativePush()
+	{
+		const CFixedVector2D push{fixed::FromFraction(14, 5), fixed::Zero()};  // 2.8 m/s east
+		const auto along = [&](const CFixedVector2D& carried) {
+			return (carried + MomentumModel::ClampCumulativePush(carried, push)).X.ToDouble();
+		};
+
+		// A single shove from rest is whole.
+		TS_ASSERT_DELTA(along(CFixedVector2D{}), 2.8, 0.01);
+		// Repeated while the momentum it left is still there: topped up to the push's speed, not added on top.
+		TS_ASSERT_DELTA(along(CFixedVector2D{fixed::FromFraction(5, 2), fixed::Zero()}), 2.8, 0.01);
+		// Already faster that way, from a hit: nothing more.
+		TS_ASSERT_DELTA(along(CFixedVector2D{fixed::FromInt(6), fixed::Zero()}), 6.0, 0.01);
+		// Against the momentum: whole, as before.
+		TS_ASSERT_DELTA(along(CFixedVector2D{fixed::FromInt(-5), fixed::Zero()}), -2.2, 0.01);
+
+		// Momentum across the push is left alone.
+		const CFixedVector2D across{fixed::Zero(), fixed::FromInt(4)};
+		const CFixedVector2D result{across + MomentumModel::ClampCumulativePush(across, push)};
+		TS_ASSERT_DELTA(result.X.ToDouble(), 2.8, 0.01);
+		TS_ASSERT_DELTA(result.Y.ToDouble(), 4.0, 0.01);
+
+		// Repeated for many turns with ships' Drifting, the momentum stays at the push's speed instead of building up.
+		CFixedVector2D momentum;
+		for (int turn = 0; turn < 30; ++turn)
+		{
+			momentum = momentum.Multiply(fixed::FromFraction(9, 10));
+			momentum += MomentumModel::ClampCumulativePush(momentum, push);
+		}
+		TS_ASSERT_DELTA(momentum.X.ToDouble(), 2.8, 0.01);
+	}
+
 	void test_CarryExternalInertia()
 	{
 		const CFixedVector2D tiny{fixed::FromFraction(1, 1000), fixed::Zero()};
@@ -895,8 +927,9 @@ public:
 		std::vector<fixed> hitSpins;
 		std::vector<uint8_t> pressures;
 
+		std::vector<CFixedVector2D> corrections;
 		UnitCollision::ComputePushes({a, b}, PushConfig::IMPACT_REFERENCE_TIME, grids, pushes, spins,
-			velocityChanges, hitSpins, hits, pressures);
+			velocityChanges, hitSpins, hits, pressures, corrections);
 	}
 
 	static void PushPair(const UnitCollision::MotionStateCompact& a, const UnitCollision::MotionStateCompact& b,
@@ -1017,8 +1050,9 @@ public:
 		std::vector<fixed> spins, hitSpins;
 		std::vector<UnitCollision::ContactHit> hits;
 		std::vector<uint8_t> pressures;
+		std::vector<CFixedVector2D> corrections;
 		UnitCollision::ComputePushes(units, PushConfig::IMPACT_REFERENCE_TIME, grids, pushes, spins,
-			velocityChanges, hitSpins, hits, pressures);
+			velocityChanges, hitSpins, hits, pressures, corrections);
 		// Footmen, the elephant and the ships each fall in their own tier.
 		TS_ASSERT_EQUALS(grids.tiers.size(), static_cast<size_t>(4));
 		TS_ASSERT(grids.tiers[0].used && grids.tiers[1].used && !grids.tiers[2].used && grids.tiers[3].used);
@@ -1439,9 +1473,107 @@ public:
 		std::vector<fixed> hitSpins;
 		std::vector<uint8_t> pressures;
 
+		std::vector<CFixedVector2D> corrections;
 		UnitCollision::ComputePushes(units, PushConfig::IMPACT_REFERENCE_TIME, grids, pushes, spins,
-			velocityChanges, hitSpins, hits, pressures);
+			velocityChanges, hitSpins, hits, pressures, corrections);
 		return velocityChanges;
+	}
+
+	void test_PointVelocity()
+	{
+		const CFixedVector2D bow{fixed::Zero(), fixed::FromInt(20)};
+		// Turning with a positive angle swings the bow, out along +Z, towards +X: the same way a blow on it towards
+		// +X would spin it (see test_SpinFromVelocityChange).
+		const CFixedVector2D swing{UnitCollision::PointVelocity(CFixedVector2D{}, fixed::FromFraction(1, 2), bow)};
+		TS_ASSERT_DELTA(swing.X.ToDouble(), 10.0, 0.01);
+		TS_ASSERT_DELTA(swing.Y.ToDouble(), 0.0, 0.01);
+		TS_ASSERT_LESS_THAN(fixed::Zero(), UnitCollision::SpinFromVelocityChange(bow, swing, fixed::FromInt(100)));
+		// The centre, and a body not turning, move with the body only.
+		const CFixedVector2D east{fixed::FromInt(3), fixed::Zero()};
+		TS_ASSERT_EQUALS(UnitCollision::PointVelocity(east, fixed::FromFraction(1, 2), CFixedVector2D{}), east);
+		TS_ASSERT_EQUALS(UnitCollision::PointVelocity(east, fixed::Zero(), bow), east);
+	}
+
+	void test_Pushing_contact_impulse_sees_a_turning_hull()
+	{
+		// Two warships (12 x 48) abreast, 11 m apart across, the second one further along: the first one's bow touches
+		// the second one's stern. Neither centre moves.
+		const UnitCollision::CollisionShape ship{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromInt(12), entity_pos_t::FromInt(48))};
+		const auto impulseOn = [&](const fixed turning) {
+			UnitCollision::MotionStateCompact first{MakeUnit(1, CFixedVector2D{fixed::FromInt(100), fixed::FromInt(100)}, ship)};
+			first.angularVelocity = turning;
+			const UnitCollision::MotionStateCompact second{
+				MakeUnit(2, CFixedVector2D{fixed::FromInt(111), fixed::FromInt(136)}, ship)};
+			std::vector<CFixedVector2D> pushes, velocityChanges;
+			std::vector<fixed> spins;
+			PushPair(first, second, pushes, spins, velocityChanges);
+			return velocityChanges[0];
+		};
+		// Swinging its bow into the other ship at half a radian a second, 9 m/s at the bow: stopped.
+		TS_ASSERT_LESS_THAN(impulseOn(fixed::FromFraction(1, 2)).X, fixed::Zero());
+		// Swinging it away, or not turning: nothing to stop.
+		TS_ASSERT(impulseOn(-fixed::FromFraction(1, 2)).IsZero());
+		TS_ASSERT(impulseOn(fixed::Zero()).IsZero());
+	}
+
+	// The overlap corrections every unit of @p units gets in one pass.
+	static std::vector<CFixedVector2D> CorrectionsOf(const std::vector<UnitCollision::MotionStateCompact>& units)
+	{
+		UnitCollision::SpatialGrids grids;
+		std::vector<CFixedVector2D> pushes, velocityChanges, corrections;
+		std::vector<fixed> spins, hitSpins;
+		std::vector<UnitCollision::ContactHit> hits;
+		std::vector<uint8_t> pressures;
+		UnitCollision::ComputePushes(units, PushConfig::IMPACT_REFERENCE_TIME, grids, pushes, spins,
+			velocityChanges, hitSpins, hits, pressures, corrections);
+		return corrections;
+	}
+
+	void test_Pushing_overlapping_solid_bodies_are_moved_apart_by_depth()
+	{
+		// Two elephants (4.5 x 9, radius 2.25) side by side and at rest, their axes 3.5 m apart: 1 m deep in each
+		// other. Nothing is closing, so only the correction can get them out faster than the soft push.
+		const UnitCollision::CollisionShape elephant{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromFraction(9, 2), entity_pos_t::FromInt(9))};
+		const fixed share{PushConfig::GetInstance().GetRuntimeConfig().solidOverlapCorrection};
+		const auto pairAt = [&](const fixed apart) {
+			return CorrectionsOf({
+				MakeUnit(1, CFixedVector2D{fixed::FromInt(100), fixed::FromInt(100)}, elephant, entity_angle_t::Zero(), false),
+				MakeUnit(2, CFixedVector2D{fixed::FromInt(100) + apart, fixed::FromInt(100)}, elephant, entity_angle_t::Zero(), false)});
+		};
+		const std::vector<CFixedVector2D> shallow{pairAt(fixed::FromFraction(7, 2))};
+		// Equal weights: each is moved half of the share of the depth, away from the other.
+		TS_ASSERT_DELTA(shallow[0].X.ToDouble(), -share.ToDouble() / 2, 0.01);
+		TS_ASSERT_DELTA(shallow[1].X.ToDouble(), share.ToDouble() / 2, 0.01);
+		// Twice as deep, twice the correction.
+		const std::vector<CFixedVector2D> deep{pairAt(fixed::FromFraction(5, 2))};
+		TS_ASSERT_DELTA(deep[1].X.ToDouble(), share.ToDouble(), 0.01);
+		// Not overlapping: nothing.
+		TS_ASSERT(pairAt(fixed::FromInt(5)).at(0).IsZero());
+
+		// A ship twenty times heavier gives way twenty times less.
+		UnitCollision::MotionStateCompact heavy{MakeUnit(2, CFixedVector2D{fixed::FromFraction(207, 2), fixed::FromInt(100)},
+			elephant, entity_angle_t::Zero(), false)};
+		heavy.weight = fixed::FromInt(200);
+		const std::vector<CFixedVector2D> uneven{CorrectionsOf({
+			MakeUnit(1, CFixedVector2D{fixed::FromInt(100), fixed::FromInt(100)}, elephant, entity_angle_t::Zero(), false), heavy})};
+		TS_ASSERT_DELTA((uneven[0].Length() / uneven[1].Length()).ToDouble(), 20.0, 0.5);
+
+		// Round bodies are left to the soft push, as crowds are meant to squash.
+		const UnitCollision::CollisionShape round{entity_pos_t::FromInt(2), entity_pos_t::Zero(), false, false};
+		TS_ASSERT(CorrectionsOf({
+			MakeUnit(1, CFixedVector2D{fixed::FromInt(100), fixed::FromInt(100)}, round, entity_angle_t::Zero(), false),
+			MakeUnit(2, CFixedVector2D{fixed::FromInt(103), fixed::FromInt(100)}, round, entity_angle_t::Zero(), false)}).at(0).IsZero());
+
+		// Members of the same formation are neither moved apart nor stopped by each other, even when one
+		// walks into the other.
+		UnitCollision::MotionStateCompact member{MakeUnit(1, CFixedVector2D{fixed::FromInt(100), fixed::FromInt(100)}, elephant,
+			entity_angle_t::Zero(), true, CFixedVector2D{fixed::FromInt(4), fixed::Zero()})};
+		UnitCollision::MotionStateCompact mate{MakeUnit(2, CFixedVector2D{fixed::FromFraction(207, 2), fixed::FromInt(100)}, elephant)};
+		member.controlGroup = mate.controlGroup = 50;
+		TS_ASSERT(CorrectionsOf({member, mate}).at(0).IsZero());
+		TS_ASSERT(PushAll({member, mate}).at(0).IsZero());
 	}
 
 	void test_Pushing_contact_impulses_dont_stack()

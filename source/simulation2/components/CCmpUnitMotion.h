@@ -805,11 +805,29 @@ public:
 	}
 
 	/**
-	 * The velocity a unit carries into this turn: its own momentum, and the push momentum it keeps (see Drifting).
+	 * The push momentum a unit carries into this turn: what it keeps of last turn's (see Drifting).
+	 */
+	CFixedVector2D CarriedPushVelocity(const MotionState& state, const fixed dt) const
+	{
+		return state.externalInertiaVelocity.Multiply(PushConfig::DecayFactor(m_TemplateDrifting, dt));
+	}
+
+	/**
+	 * How fast a unit turns going into this turn, in radians per second: its own turning, and the spin it carries
+	 * from hits and pushes.
+	 */
+	fixed CarriedAngularVelocity(const MotionState& state, const fixed dt) const
+	{
+		return state.angularVelocity + state.impactAngularVelocity +
+			state.pushSpin.Multiply(PushConfig::DecayFactor(m_TemplateDrifting, dt));
+	}
+
+	/**
+	 * The velocity a unit carries into this turn: its own momentum, and the push momentum it keeps.
 	 */
 	CFixedVector2D CarriedVelocity(const MotionState& state, const fixed dt) const
 	{
-		return state.inertiaVelocity + state.externalInertiaVelocity.Multiply(PushConfig::DecayFactor(m_TemplateDrifting, dt));
+		return state.inertiaVelocity + CarriedPushVelocity(state, dt);
 	}
 
 	fixed GetStaggerRecoveryRate() const
@@ -1311,6 +1329,7 @@ void CCmpUnitMotion::PreMove(MotionState& state)
 	state.wasObstructed = false;
 	state.wentStraight = false;
 	state.poppedBlockedCorner = false;
+	state.overlapCorrection = CFixedVector2D{};
 
 	// Determine if this unit needs to be processed this turn
 	// A unit needs update if it's in-world AND (moving OR has a pending move request OR is still rolling/spinning).
@@ -1371,6 +1390,9 @@ void CCmpUnitMotion::Move(MotionState& state, fixed dt)
 		// PerformMove stored everything external applied this turn (push + carried external inertia)
 		// in externalInertiaVelocity, so pathfinding inertia is the remainder.
 		CFixedVector2D ownVelocity{totalVelocity - state.externalInertiaVelocity};
+		// The overlap correction is neither: it is this turn's move out of a body, not momentum.
+		if (!state.overlapCorrection.IsZero())
+			ownVelocity -= state.overlapCorrection.Multiply(fixed::FromInt(1) / dt);
 
 		// A unit with no order has no momentum of its own to gain, only what is left of the last order's
 		// to lose. Without this, a pushed unit whose step was cut short - blocked, or slid along an
@@ -1946,8 +1968,10 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 	// them in it is blocked.
 	const CFixedVector2D ownVelocity{combinedVelocity};
 
-	// Add external forces: carried-over momentum and this turn's pushes
+	// Add external forces: carried-over momentum and this turn's pushes, and the move out of any solid unit we overlap.
 	combinedVelocity = combinedVelocity + externalCarry + externalVelocity;
+	if (dt > fixed::Zero() && !state.overlapCorrection.IsZero())
+		combinedVelocity += state.overlapCorrection.Multiply(fixed::FromInt(1) / dt);
 	speed = combinedVelocity.Length();
 
 	// Everything external applied this turn becomes next turn's external inertia, spin included. Pushes

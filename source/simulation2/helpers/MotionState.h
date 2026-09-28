@@ -113,6 +113,9 @@ struct MotionState
 	// impactAngularVelocity with its own decay.
 	fixed pushSpin{};
 	CFixedVector2D externalVelocity;        // This turn's velocity from queued impulses
+	// How far this turn's move takes the unit out of the solid units it overlaps (see UnitCollision::ComputePushes).
+	// Added to this turn's move only: not momentum, neither its own nor external.
+	CFixedVector2D overlapCorrection;
 
 	// Angular velocity from pathfinding (existing)
 	fixed angularVelocity;

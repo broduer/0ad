@@ -55,6 +55,11 @@
             <data type="decimal"/>
           </element>
         </optional>
+        <optional>
+          <element name="SolidOverlapCorrection">
+            <data type="decimal"/>
+          </element>
+        </optional>
       </interleave>
     </element>
     <element name="PassabilityClasses">

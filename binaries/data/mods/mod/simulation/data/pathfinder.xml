@@ -82,6 +82,9 @@
     <!-- spin it gets: the push eases overlaps apart every turn, and a full spin keeps twisting a unit on -->
     <!-- an order against its own steering. 1 is the physical answer, 0 never turns it. -->
     <SolidPushSpin>0.35</SolidPushSpin>
+    <!-- Two overlapping solid units are moved apart by this share of how deep they overlap every 0.2 s, on -->
+    <!-- top of the push, however they got there. 0 leaves overlaps to the push alone. -->
+    <SolidOverlapCorrection>0.2</SolidOverlapCorrection>
 
   </Pushing>
 
