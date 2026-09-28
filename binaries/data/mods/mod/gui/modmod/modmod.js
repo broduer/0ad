@@ -20,11 +20,7 @@
  */
 import { downloadModsButton } from "gui/modmod/modmodio.js";
 import { regExpComparisonOperator, validateMod } from "gui/modmod/validatemod.js";
-
-/**
- * Mod definitions loaded from the files, including invalid mods.
- */
-let g_Mods = {};
+import { versionSatisfied, getModsAvailableOnline, setModsAvailableOnline, normalizeVersion } from "gui/modio/modio.js";
 
 /**
  * Folder names of all mods that are or can be launched.
@@ -46,13 +42,6 @@ const g_ModsCompatibility = [];
 let g_InstalledMods;
 
 let g_HasIncompatibleMods;
-
-/**
- * Mods listed on mod.io, cached after checkForUpdates() completes.
- * Not populated on this page's initial load, so isModUpdateAvailable()
- * correctly returns false until the player explicitly checks.
- */
-let g_ModsAvailableOnline = [];
 
 /* eslint-disable prefer-const -- Mods should be able to change them */
 let g_FakeMod = {
@@ -86,12 +75,6 @@ export function init(data, hotloadData)
 	Engine.GetGUIObjectByName("enabledModDown").onPress =
 		moveCurrItem.bind(undefined, "modsEnabledList", false);
 
-	// Fix for a stock bug: these three used to be wired via inline XML
-	// <action on="Press">displayModLists();</action> attributes, which
-	// cannot work now that this page loads as an ES module (displayModLists
-	// is module-scoped, not a global XML actions can call). Wired here
-	// instead, using the same Object.assign()/onPress idiom already used
-	// for every other control on this page.
 	Object.assign(Engine.GetGUIObjectByName("modGenericFilter"), {
 		"onPress": displayModLists,
 		"onTextEdit": displayModLists
@@ -115,6 +98,9 @@ export function init(data, hotloadData)
 	if (g_HasIncompatibleMods)
 		Engine.OpenChildPage("page_incompatible_mods.xml", {});
 
+	// Automatically check for updates when opening the mod menu
+	checkForUpdates();
+
 	return new Promise(closePageCallback =>
 	{
 		Engine.GetGUIObjectByName("quitButton").onPress = closePageCallback;
@@ -126,7 +112,6 @@ export function init(data, hotloadData)
 
 function initMods()
 {
-	loadMods();
 	loadEnabledMods();
 	recomputeCompatibility();
 	validateMods();
@@ -138,36 +123,33 @@ function getHotloadData()
 	return { "installedMods": g_InstalledMods };
 }
 
-function loadMods()
-{
-	g_Mods = Engine.GetAvailableMods();
-	deepfreeze(g_Mods);
-}
-
 /**
  * Return fake mod for mods which do not exist
 */
 function getMod(folder)
 {
-	return g_Mods[folder] ? g_Mods[folder] : g_FakeMod;
+	const mods = Engine.GetAvailableMods();
+	return mods[folder] ? mods[folder] : g_FakeMod;
 }
 
 function loadEnabledMods()
 {
+	const mods = Engine.GetAvailableMods();
 	if (g_HasIncompatibleMods)
 		g_ModsEnabled = Engine.GetEnabledMods().concat(Engine.GetIncompatibleMods())
 			.filter(folder => folder != "mod");
 	else
-		g_ModsEnabled = Engine.GetEnabledMods().filter(folder => !!g_Mods[folder]);
-	g_ModsDisabled = Object.keys(g_Mods).filter(folder => g_ModsEnabled.indexOf(folder) == -1);
+		g_ModsEnabled = Engine.GetEnabledMods().filter(folder => !!mods[folder]);
+	g_ModsDisabled = Object.keys(mods).filter(folder => g_ModsEnabled.indexOf(folder) == -1);
 	g_ModsEnabledFiltered = g_ModsEnabled;
 	g_ModsDisabledFiltered = g_ModsDisabled;
 }
 
 function validateMods()
 {
-	for (const folder in g_Mods)
-		validateMod(folder, g_Mods[folder], true);
+	const mods = Engine.GetAvailableMods();
+	for (const folder in mods)
+		validateMod(folder, mods[folder], true);
 }
 
 function initGUIFilters()
@@ -255,28 +237,36 @@ function getModColor(folder, enabled)
 /**
  * @returns {boolean} whether mod.io lists a newer version of the mod
  * installed in `folder` than the one currently on disk. Always false until
- * checkForUpdates() has completed at least once (g_ModsAvailableOnline is
- * empty on page load, by design — this is a checked-on-demand feature, not
- * an automatic one).
+ * checkForUpdates() has completed at least once (getModsAvailableOnline() returns
+ * empty array until then, by design — this is a checked-on-demand feature,
+ * not an automatic one).
  */
 function isModUpdateAvailable(folder)
 {
-	if (!g_ModsAvailableOnline.length)
+	const modsAvailableOnline = getModsAvailableOnline();
+	if (!modsAvailableOnline.length)
 		return false;
 
 	const localMod = getMod(folder);
 	if (!localMod.version)
 		return false;
 
-	const onlineMod = g_ModsAvailableOnline.find(mod => mod.name_id == folder && !mod.invalid);
-	return !!onlineMod && !!onlineMod.version && versionSatisfied(onlineMod.version, ">", localMod.version);
+	const onlineMod = modsAvailableOnline.find(mod => mod.name_id == folder && !mod.invalid);
+	if (!onlineMod || !onlineMod.version)
+		return false;
+
+	// Normalize versions for comparison - treat "2.3" and "2.3.0" as equivalent
+	const normalizedOnline = normalizeVersion(onlineMod.version);
+	const normalizedLocal = normalizeVersion(localMod.version);
+	return versionSatisfied(normalizedOnline, ">", normalizedLocal);
 }
 
 /**
  * Starts a fresh mod.io game-id + mod-list fetch, driven by
  * onModIoUpdateCheckTick() via this page's own onTick, so the "installed
  * mods" list can be recoloured with an "update available" indicator without
- * opening the separate mod.io downloader page.
+ * opening the separate mod.io downloader page. Updates the shared mods list
+ * via setModsAvailableOnline() from modio.js.
  */
 function checkForUpdates()
 {
@@ -296,7 +286,7 @@ function onModIoUpdateCheckTick()
 		Engine.ModIoStartListMods();
 	else if (progressData.status == "listed")
 	{
-		g_ModsAvailableOnline = Engine.ModIoGetMods();
+		setModsAvailableOnline(Engine.ModIoGetMods());
 		finishUpdateCheck(true);
 		return;
 	}
@@ -354,7 +344,8 @@ function colorMod(folder, text, enabled)
 
 function reloadDisabledMods()
 {
-	g_ModsDisabled = Object.keys(g_Mods).filter(folder => g_ModsEnabled.indexOf(folder) == -1);
+	const mods = Engine.GetAvailableMods();
+	g_ModsDisabled = Object.keys(mods).filter(folder => g_ModsEnabled.indexOf(folder) == -1);
 }
 
 function enableMod()
@@ -395,7 +386,8 @@ function disableMod()
 			break;
 		}
 
-	if (g_Mods[disabledMod])
+	const mods = Engine.GetAvailableMods();
+	if (mods[disabledMod])
 		g_ModsDisabled.push(disabledMod);
 
 	// Remove mods that required the removed mod and cascade
@@ -474,7 +466,8 @@ function areDependenciesMet(folder, disabledAction = false)
 	if (disabledAction && !g_ModsCompatibility[folder])
 		return g_ModsCompatibility[folder];
 
-	if (!g_Mods[folder])
+	const mods = Engine.GetAvailableMods();
+	if (!mods[folder])
 		return false;
 
 	for (const dependency of getMod(folder).dependencies)
@@ -488,7 +481,8 @@ function areDependenciesMet(folder, disabledAction = false)
 
 function recomputeCompatibility(disabledAction = false)
 {
-	for (const mod in g_Mods)
+	const mods = Engine.GetAvailableMods();
+	for (const mod in mods)
 		g_ModsCompatibility[mod] = areDependenciesMet(mod, disabledAction);
 }
 
@@ -503,43 +497,6 @@ function isDependencyMet(dependency)
 	return g_ModsEnabled.some(folder =>
 		getMod(folder).name == name &&
 		(!operator || versionSatisfied(getMod(folder).version, operator[0], version)));
-}
-
-/**
- * Compares the given versions using the given operator.
- *       '-' or '_' is ignored. Only numbers are supported.
- * @note "5.3" < "5.3.0"
- */
-function versionSatisfied(version1, operator, version2)
-{
-	const versionList1 = version1.split(/[-_]/)[0].split(/\./g);
-	const versionList2 = version2.split(/[-_]/)[0].split(/\./g);
-
-	const eq = operator.indexOf("=") != -1;
-	const lt = operator.indexOf("<") != -1;
-	const gt = operator.indexOf(">") != -1;
-
-	for (let i = 0; i < Math.min(versionList1.length, versionList2.length); ++i)
-	{
-		const diff = +versionList1[i] - +versionList2[i];
-
-		if (gt && diff > 0 || lt && diff < 0)
-			return true;
-
-		if (gt && diff < 0 || lt && diff > 0 || eq && diff)
-			return false;
-	}
-
-	// common prefix matches
-	const ldiff = versionList1.length - versionList2.length;
-	if (!ldiff)
-		return eq;
-
-	// NB: 2.3 != 2.3.0
-	if (ldiff < 0)
-		return lt;
-
-	return gt;
 }
 
 function sortEnabledMods()

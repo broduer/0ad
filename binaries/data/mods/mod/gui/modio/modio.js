@@ -1,4 +1,14 @@
 let g_ModsAvailableOnline = [];
+
+export function getModsAvailableOnline()
+{
+	return g_ModsAvailableOnline;
+}
+
+export function setModsAvailableOnline(mods)
+{
+	g_ModsAvailableOnline = mods;
+}
 /**
  * Mod definitions loaded from the files, including invalid mods.
  */
@@ -46,7 +56,7 @@ const g_ModIOState = {
 
 		hideDialog();
 		Engine.GetGUIObjectByName("refreshButton").enabled = true;
-		g_ModsAvailableOnline = Engine.ModIoGetMods();
+		setModsAvailableOnline(Engine.ModIoGetMods());
 		g_Mods = Engine.GetAvailableMods();
 		displayMods();
 	},
@@ -72,7 +82,7 @@ const g_ModIOState = {
 	"downloading": progressData =>
 	{
 		// Downloading a mod file
-		updateProgressBar(progressData.progress, g_ModsAvailableOnline[selectedModIndex()].filesize);
+		updateProgressBar(progressData.progress, getModsAvailableOnline()[selectedModIndex()].filesize);
 	},
 	/**
 	 * Error/Failure status indicators.
@@ -208,7 +218,7 @@ function displayMods()
 	const selectedMod = modsAvailableList.list[modsAvailableList.selected];
 	modsAvailableList.selected = -1;
 
-	let displayedMods = clone(g_ModsAvailableOnline);
+	let displayedMods = clone(getModsAvailableOnline());
 	for (let i = 0; i < displayedMods.length; ++i)
 		displayedMods[i].i = i;
 
@@ -227,40 +237,41 @@ function displayMods()
 	const updateAvailable = displayedMods.map(mod => isUpdateAvailable(mod.name_id, mod.version));
 	const dependenciesMet = displayedMods.map(mod => areDependenciesMet(mod.dependencies));
 	const updateIds = displayedMods.map(mod => mod.i);
-	modsAvailableList.list_name = displayedMods.map(mod => colorModIO(mod.name, !mod.invalid, updateAvailable[updateIds.indexOf(mod.i)], isOwnedMod(mod.name_id), dependenciesMet[updateIds.indexOf(mod.i)]));
-	modsAvailableList.list_name_id = displayedMods.map(mod => colorModIO(mod.name_id, !mod.invalid, updateAvailable[updateIds.indexOf(mod.i)], isOwnedMod(mod.name_id), dependenciesMet[updateIds.indexOf(mod.i)]));
-	modsAvailableList.list_version = displayedMods.map(mod => colorModIO(mod.version || "", !mod.invalid, updateAvailable[updateIds.indexOf(mod.i)], isOwnedMod(mod.name_id), dependenciesMet[updateIds.indexOf(mod.i)]));
-	modsAvailableList.list_filesize = displayedMods.map(mod => colorModIO(filesizeToString(mod.filesize), !mod.invalid, updateAvailable[updateIds.indexOf(mod.i)], isOwnedMod(mod.name_id), dependenciesMet[updateIds.indexOf(mod.i)]));
-	modsAvailableList.list_dependencies = displayedMods.map(mod => colorModIO((mod.dependencies || []).join(" "), !mod.invalid, updateAvailable[updateIds.indexOf(mod.i)], isOwnedMod(mod.name_id), dependenciesMet[updateIds.indexOf(mod.i)]));
+	modsAvailableList.list_name = displayedMods.map(mod => colorModIO(mod.name, !mod.invalid, updateAvailable[updateIds.indexOf(mod.i)], isModInstalled(mod.name_id), dependenciesMet[updateIds.indexOf(mod.i)]));
+	modsAvailableList.list_name_id = displayedMods.map(mod => colorModIO(mod.name_id, !mod.invalid, updateAvailable[updateIds.indexOf(mod.i)], isModInstalled(mod.name_id), dependenciesMet[updateIds.indexOf(mod.i)]));
+	modsAvailableList.list_version = displayedMods.map(mod => colorModIO(mod.version || "", !mod.invalid, updateAvailable[updateIds.indexOf(mod.i)], isModInstalled(mod.name_id), dependenciesMet[updateIds.indexOf(mod.i)]));
+	modsAvailableList.list_filesize = displayedMods.map(mod => colorModIO(filesizeToString(mod.filesize), !mod.invalid, updateAvailable[updateIds.indexOf(mod.i)], isModInstalled(mod.name_id), dependenciesMet[updateIds.indexOf(mod.i)]));
+	modsAvailableList.list_dependencies = displayedMods.map(mod => colorModIO((mod.dependencies || []).join(" "), !mod.invalid, updateAvailable[updateIds.indexOf(mod.i)], isModInstalled(mod.name_id), dependenciesMet[updateIds.indexOf(mod.i)]));
 	modsAvailableList.list = displayedMods.map(mod => mod.i);
 	modsAvailableList.selected = modsAvailableList.list.indexOf(selectedMod);
-}
-
-function versionUpdate(version1, version2)
-{
-	let versionList1 = version1.split(/[-_]/)[0].split(/\./g);
-	let versionList2 = version2.split(/[-_]/)[0].split(/\./g);
-
-	for (let i = 0; i < Math.min(versionList1.length, versionList2.length); ++i)
-	{
-		let diff = +versionList1[i] - +versionList2[i];
-		if (diff > 0)
-			return true;
-		if (diff < 0)
-			return false;
-	}
-
-	// common prefix matches
-	let ldiff = versionList1.length - versionList2.length;
-	return ldiff && ldiff >= 0;
 }
 
 function isUpdateAvailable(name, version)
 {
 	const mod = g_Mods[name];
 	if (!!mod && !!mod.version)
-		return versionUpdate(version, mod.version);
+	{
+		// Normalize versions for comparison - treat "2.3" and "2.3.0" as equivalent
+		const normalizedOnline = normalizeVersion(version);
+		const normalizedLocal = normalizeVersion(mod.version);
+		return versionSatisfied(normalizedOnline, ">", normalizedLocal);
+	}
 	return false;
+}
+
+/**
+ * Normalize version string by removing trailing zeros for consistent comparison.
+ * e.g., "2.3.0" -> "2.3", "1.0.0.0" -> "1.0"
+ */
+export function normalizeVersion(version)
+{
+	const parts = version.split('.');
+	// Remove trailing zeros but keep at least one part
+	while (parts.length > 1 && parts[parts.length - 1] === '0')
+	{
+		parts.pop();
+	}
+	return parts.join('.');
 }
 
 function areDependenciesMet(dependencies)
@@ -295,7 +306,7 @@ function isDependencyMet(dependency)
  *       '-' or '_' is ignored. Only numbers are supported.
  * @note "5.3" < "5.3.0"
  */
-function versionSatisfied(version1, operator, version2)
+export function versionSatisfied(version1, operator, version2)
 {
 	let versionList1 = version1.split(/[-_]/)[0].split(/\./g);
 	let versionList2 = version2.split(/[-_]/)[0].split(/\./g);
@@ -327,19 +338,19 @@ function versionSatisfied(version1, operator, version2)
 	return gt;
 }
 
-function isOwnedMod(name)
+function isModInstalled(name)
 {
 	return !!g_Mods && !!g_Mods[name];
 }
 const g_RegExpComparisonOperator = /(<=|>=|<|>|=)/;
-function getModIOColor(valid, update, owned, dependencies)
+function getModIOColor(valid, update, installed, dependencies)
 {
-	return !valid ? "gray" : !dependencies ? "red" : update ? "yellow" : owned ? "green" :  false;
+	return !valid ? "gray" : !dependencies ? "red" : update ? "yellow" : installed ? "green" :  false;
 }
 
-function colorModIO(text, valid, update, owned, dependencies)
+function colorModIO(text, valid, update, installed, dependencies)
 {
-	const color = getModIOColor(valid, update, owned, dependencies);
+	const color = getModIOColor(valid, update, installed, dependencies);
 	return color ? coloredText(text, color) : text;
 }
 
@@ -361,7 +372,7 @@ function updateColorLegend()
 		coloredText(translate("invalid"), "gray") + "   " +
 		coloredText(translate("dependency missing"), "red") + "   " +
 		coloredText(translate("update available"), "yellow") + "   " +
-		coloredText(translate("installed, up to date"), "green") + "   " +
+		coloredText(translate("installed"), "green") + "   " +
 		translate("not installed (white)");
 }
 
@@ -389,7 +400,8 @@ function selectedModIndex()
 
 function isSelectedModInvalid(selected)
 {
-	return selected !== undefined && !!g_ModsAvailableOnline[selected].invalid && g_ModsAvailableOnline[selected].invalid == "true";
+	const modsAvailableOnline = getModsAvailableOnline();
+	return selected !== undefined && !!modsAvailableOnline[selected].invalid && modsAvailableOnline[selected].invalid == "true";
 }
 
 function showModDescription()
@@ -399,27 +411,32 @@ function showModDescription()
 	const isInvalid = isSelectedModInvalid(selected);
 	let warningString = "";
 	let infoString = "";
+	const modsAvailableOnline = getModsAvailableOnline();
 	if (isSelected && !isInvalid) {
-		const mod = g_ModsAvailableOnline[selected];
+		const mod = modsAvailableOnline[selected];
 		const isUpdate = isUpdateAvailable(mod.name_id, mod.version);
 		const isDep = areDependenciesMet(mod.dependencies);
 		if (!isDep) {
-			warningString = coloredText("(Warning: " + "Dependencies might not be met." + ") ", "yellow");
+			warningString = coloredText(translate("(Warning: Dependencies might not be met.)"), "yellow");
 		}
 		if (isUpdate) {
-			infoString  = coloredText("(Info: " + "Update is available" + ") ", "yellow");
+			infoString  = coloredText(translate("(Info: Update is available)"), "yellow");
 		}
 	}
 	Engine.GetGUIObjectByName("downloadButton").enabled = isSelected && !isInvalid;
-	Engine.GetGUIObjectByName("modDescription").caption = isSelected && !isInvalid ? warningString + infoString + g_ModsAvailableOnline[selected].summary : "";
-	Engine.GetGUIObjectByName("modError").caption = isSelected && isInvalid ? sprintf(translate("Invalid mod: %(error)s"), {"error": g_ModsAvailableOnline[selected].error }) : "";
+	Engine.GetGUIObjectByName("modDescription").caption = isSelected && !isInvalid ? sprintf(translate("%(warning)s%(info)s%(summary)s"), {
+		"warning": warningString,
+		"info": infoString,
+		"summary": modsAvailableOnline[selected].summary
+	}) : "";
+	Engine.GetGUIObjectByName("modError").caption = isSelected && isInvalid ? sprintf(translate("Invalid mod: %(error)s"), {"error": modsAvailableOnline[selected].error }) : "";
 }
 
 function cancelModListUpdate(closePageCallback)
 {
 	cancelRequest();
 
-	if (!g_ModsAvailableOnline.length)
+	if (!getModsAvailableOnline().length)
 	{
 		closePageCallback();
 		return;
@@ -452,13 +469,14 @@ async function updateModList(closePageCallback)
 async function downloadMod()
 {
 	const selected = selectedModIndex();
+	const modsAvailableOnline = getModsAvailableOnline();
 
 	if (isSelectedModInvalid(selected))
 		return;
 
 	const promise = progressDialog(
 		sprintf(translate("Downloading “%(modname)s”"), {
-			"modname": g_ModsAvailableOnline[selected].name
+			"modname": modsAvailableOnline[selected].name
 		}),
 		translate("Downloading"),
 		true,
