@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -439,10 +439,7 @@ void CCmpUnitRenderer::RenderSubmit(SceneCollector& collector, const CFrustum& f
 			unit.lastTransformFrame = m_FrameNumber;
 		}
 
-		if (culling && !frustum.IsBoxVisible(unitModel.GetWorldBoundsRec()))
-			continue;
-
-		collector.SubmitRecursive(&unitModel);
+		collector.SubmitCandidate(&unitModel);
 	}
 
 	for (size_t i = 0; i < m_DebugSpheres.size(); ++i)

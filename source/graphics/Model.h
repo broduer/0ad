@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -155,6 +155,8 @@ public:
 	/// the result in m_ObjectBounds. Called by CalcBounds (instead of CalcStaticBounds) if it has been determined that the
 	/// object-space bounds need to take animations into account.
 	void CalcAnimatedObjectBounds(CSkeletonAnimDef* anim,CBoundingBoxAligned& result);
+
+	void RecalculateObjectBoundsIfNeeded();
 
 	// --- SELECTION BOX/BOUNDS ----------------------------------------------------------------------
 

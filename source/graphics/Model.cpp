@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -68,12 +68,10 @@ CModel::~CModel()
 	rtl_FreeAligned(m_BoneMatrices);
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// CalcBound: calculate the world space bounds of this model
-void CModel::CalcBounds()
+void CModel::RecalculateObjectBoundsIfNeeded()
 {
 	// Need to calculate the object bounds first, if that hasn't already been done
-	if (! (m_Anim && m_Anim->m_AnimDef))
+	if (!(m_Anim && m_Anim->m_AnimDef))
 	{
 		if (m_ObjectBounds.IsEmpty())
 			CalcStaticObjectBounds();
@@ -82,9 +80,16 @@ void CModel::CalcBounds()
 	{
 		if (m_Anim->m_ObjectBounds.IsEmpty())
 			CalcAnimatedObjectBounds(m_Anim->m_AnimDef, m_Anim->m_ObjectBounds);
-		ENSURE(! m_Anim->m_ObjectBounds.IsEmpty()); // (if this happens, it'll be recalculating the bounds every time)
+		ENSURE(!m_Anim->m_ObjectBounds.IsEmpty()); // (if this happens, it'll be recalculating the bounds every time)
 		m_ObjectBounds = m_Anim->m_ObjectBounds;
 	}
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// CalcBound: calculate the world space bounds of this model
+void CModel::CalcBounds()
+{
+	RecalculateObjectBoundsIfNeeded();
 
 	// Ensure the transform is set correctly before we use it
 	ValidatePosition();

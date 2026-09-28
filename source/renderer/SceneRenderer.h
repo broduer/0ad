@@ -210,6 +210,7 @@ protected:
 	void Submit(CParticleEmitter* emitter) override;
 	void Submit(SOverlaySphere* overlay) override;
 	void SubmitNonRecursive(CModel* model) override;
+	void SubmitCandidate(CModelAbstract* model) override;
 
 	// patch rendering stuff
 	void RenderPatches(
@@ -251,6 +252,13 @@ protected:
 
 	// enable oblique frustum clipping with the given clip plane
 	void SetObliqueFrustumClipping(CCamera& camera, const CVector4D& clipPlane) const;
+
+	/**
+	 * Pushes tasks which perform ValidatePosition which actualize positions and
+	 * skeletons. Must be called only on the same thread as update and
+	 * simulation.
+	 */
+	void CullModelCandidates(const CFrustum& frustum);
 
 	// Private data that is not needed by inline functions.
 	class Internals;

@@ -44,8 +44,10 @@
 #include "maths/Vector4D.h"
 #include "ps/CStrIntern.h"
 #include "ps/CStrInternStatic.h"
+#include "ps/Future.h"
 #include "ps/Game.h"
 #include "ps/Profile.h"
+#include "ps/TaskManager.h"
 #include "renderer/CPUSkinnedModelRenderer.h"
 #include "renderer/DebugRenderer.h"
 #include "renderer/GPUSkinnedModelRenderer.h"
@@ -67,8 +69,46 @@
 #include "renderer/backend/IDeviceCommandContext.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <cmath>
 #include <optional>
+#include <span>
+
+namespace
+{
+
+void PerformBatchCulling(
+	const CFrustum& frustum,
+	const std::span<CModelAbstract*> candidates,
+	const std::span<std::uint8_t> candidatesVisibility)
+{
+	PROFILE2("PerformBatchCulling");
+	for (std::size_t index{0}; index < candidates.size(); ++index)
+	{
+		CModelAbstract* model{candidates[index]};
+		model->ValidatePosition();
+		if (!frustum.IsBoxVisible(model->GetWorldBoundsRec()))
+			candidatesVisibility[index] = 0;
+	}
+}
+
+void RecalculateObjectBoundsIfNeeded(CModelAbstract* modelAbstract)
+{
+	CModel* model{modelAbstract->ToCModel()};
+	if (model)
+	{
+		for (CModel::Prop& prop : model->GetProps())
+		{
+			// prop.m_Hidden isn't accounted in CModel::RecalculateObjectBoundsIfNeeded
+			// so we need to ignore it as well.
+			RecalculateObjectBoundsIfNeeded(prop.m_Model.get());
+		}
+
+		model->RecalculateObjectBoundsIfNeeded();
+	}
+}
+
+} // anonymous namespace
 
 struct SScreenRect
 {
@@ -130,6 +170,10 @@ public:
 		{
 			std::vector<CModel*> submissions[CSceneRenderer::CULL_MAX];
 		};
+
+		std::vector<CModelAbstract*> candidates[CSceneRenderer::CULL_MAX];
+		std::vector<std::uint8_t> candidatesVisibility[CSceneRenderer::CULL_MAX];
+		std::vector<Future<void>> cullingFutures;
 
 		// Unskinned submissions should be prepared and rendered with
 		// VertexInstancingShader. Skinned - with Vertex*SkinningShader
@@ -1010,8 +1054,13 @@ void CSceneRenderer::EndFrame()
 		m->Model.TransparentSkinned.submissions[cullGroup].clear();
 		m->Model.OpaqueUnskinned.submissions[cullGroup].clear();
 		m->Model.TransparentUnskinned.submissions[cullGroup].clear();
+
+		ENSURE(m->Model.candidates[cullGroup].empty());
+		ENSURE(m->Model.candidatesVisibility[cullGroup].empty());
 	}
 	m->Model.uniqueSkinnedSubmissionsForUpdate.clear();
+
+	ENSURE(m->Model.cullingFutures.empty());
 }
 
 void CSceneRenderer::DisplayFrustum(Renderer::Backend::IDeviceCommandContext& deviceCommandContext)
@@ -1148,6 +1197,14 @@ void CSceneRenderer::SubmitNonRecursive(CModel* model)
 	}
 }
 
+void CSceneRenderer::SubmitCandidate(CModelAbstract* model)
+{
+	// The model must be a root model and must not have parents.
+	ENSURE(!model->m_Parent);
+	m->Model.candidates[m_CurrentCullGroup].emplace_back(model);
+	m->Model.candidatesVisibility[m_CurrentCullGroup].emplace_back(1);
+}
+
 void CSceneRenderer::EnumerateSceneObjects(Scene& scene)
 {
 	m_CurrentScene = &scene;
@@ -1157,6 +1214,8 @@ void CSceneRenderer::EnumerateSceneObjects(Scene& scene)
 	m_CurrentCullGroup = CULL_DEFAULT;
 
 	scene.EnumerateObjects(frustum, this);
+	// Currently we need to wait because shadow pass depends on the main one.
+	CullModelCandidates(frustum);
 
 	m->particleManager.RenderSubmit(*this, frustum);
 
@@ -1181,6 +1240,7 @@ void CSceneRenderer::EnumerateSceneObjects(Scene& scene)
 			m_CurrentCullGroup = CULL_SHADOWS_CASCADE_0 + cascade;
 			const CFrustum shadowFrustum = m->shadow.GetShadowCasterCullFrustum(cascade);
 			scene.EnumerateObjects(shadowFrustum, this);
+			CullModelCandidates(shadowFrustum);
 		}
 	}
 
@@ -1198,6 +1258,7 @@ void CSceneRenderer::EnumerateSceneObjects(Scene& scene)
 				ComputeReflectionCamera(reflectionCamera, m_WaterScissor);
 
 				scene.EnumerateObjects(reflectionCamera.GetFrustum(), this);
+				CullModelCandidates(reflectionCamera.GetFrustum());
 			}
 
 			if (g_RenderingOptions.GetWaterRefraction())
@@ -1208,6 +1269,7 @@ void CSceneRenderer::EnumerateSceneObjects(Scene& scene)
 				ComputeRefractionCamera(refractionCamera, m_WaterScissor);
 
 				scene.EnumerateObjects(refractionCamera.GetFrustum(), this);
+				CullModelCandidates(refractionCamera.GetFrustum());
 			}
 		}
 	}
@@ -1215,6 +1277,56 @@ void CSceneRenderer::EnumerateSceneObjects(Scene& scene)
 		m_WaterScissor = CBoundingBoxAligned{};
 
 	m_CurrentCullGroup = -1;
+}
+
+void CSceneRenderer::CullModelCandidates(const CFrustum& frustum)
+{
+	const std::span<CModelAbstract*> candidates{
+		m->Model.candidates[m_CurrentCullGroup]};
+	const std::span<std::uint8_t> candidatesVisibility{
+		m->Model.candidatesVisibility[m_CurrentCullGroup]};
+
+	// Before running the parallel culling we need to make sure there won't be
+	// data races in max bounds. They're calculated only once for a new
+	// animation. So in general frames the loop should do nothing.
+	for (CModelAbstract* model : candidates)
+		RecalculateObjectBoundsIfNeeded(model);
+
+	// The constant should be big enough to make it worth to push a task.
+	constexpr std::size_t MINIMUM_MODELS_PER_TASK{60};
+	const std::size_t taskCount{std::min(
+		g_TaskManager.GetNumberOfWorkers(),
+		(candidates.size() + MINIMUM_MODELS_PER_TASK - 1) / MINIMUM_MODELS_PER_TASK)};
+	if (taskCount > 1)
+	{
+		const std::size_t batchSize{candidates.size() / taskCount};
+		for (std::size_t batchOffset{0}; batchOffset < candidates.size(); batchOffset += batchSize)
+		{
+			const std::span<CModelAbstract*> taskCandidates{
+				candidates.subspan(batchOffset, std::min(candidates.size() - batchOffset, batchSize))};
+			const std::span<std::uint8_t> taskCandidatesVisibility{
+				candidatesVisibility.subspan(batchOffset, std::min(candidates.size() - batchOffset, batchSize))};
+			m->Model.cullingFutures.emplace_back(g_TaskManager,
+				[&frustum, taskCandidates, taskCandidatesVisibility]()
+				{
+					PerformBatchCulling(frustum, taskCandidates, taskCandidatesVisibility);
+				});
+		}
+	}
+	else
+		PerformBatchCulling(frustum, candidates, candidatesVisibility);
+
+	for (Future<void>& future : m->Model.cullingFutures)
+		future.Get();
+	m->Model.cullingFutures.clear();
+	for (std::size_t index{0}; index < candidates.size(); ++index)
+	{
+		CModelAbstract* model{candidates[index]};
+		if (candidatesVisibility[index])
+			SubmitRecursive(model);
+	}
+	m->Model.candidates[m_CurrentCullGroup].clear();
+	m->Model.candidatesVisibility[m_CurrentCullGroup].clear();
 }
 
 void CSceneRenderer::RenderSceneOverlays(
