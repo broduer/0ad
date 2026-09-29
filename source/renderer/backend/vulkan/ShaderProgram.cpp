@@ -676,6 +676,10 @@ void CShaderProgram::Bind()
 {
 	if (m_MaterialConstantsData)
 		m_MaterialConstantsDataOutdated = true;
+	// Push constants are undefined after a pipeline with other push constant
+	// ranges was bound, so send all of them again.
+	for (const PushConstant& pushConstant : m_PushConstants)
+		m_PushConstantDataMask |= ((1 << (pushConstant.size >> 2)) - 1) << (pushConstant.offset >> 2);
 }
 
 void CShaderProgram::Unbind()
