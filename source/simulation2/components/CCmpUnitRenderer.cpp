@@ -50,6 +50,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -112,6 +113,8 @@ public:
 		 */
 		LosVisibility visibility;
 		bool visibilityDirty;
+		// The Visibility component's flag, read on the first update.
+		std::optional<bool> alwaysVisible;
 
 		/**
 		 * Whether the unit has a valid position. If false, pos0 and pos1
@@ -239,6 +242,7 @@ public:
 		unit->boundsApprox = boundsApprox;
 		unit->inWorld = false;
 		unit->visibilityDirty = true;
+		unit->alwaysVisible.reset();
 		unit->pos0 = unit->pos1 = CVector3D();
 
 		return tag;
@@ -550,8 +554,12 @@ void CCmpUnitRenderer::UpdateVisibility(SUnit& unit) const
 	{
 		// The 'always visible' flag means we should always render the unit
 		// (regardless of whether the LOS system thinks it's visible)
-		CmpPtr<ICmpVisibility> cmpVisibility(unit.entity);
-		if (cmpVisibility && cmpVisibility->GetAlwaysVisible())
+		if (!unit.alwaysVisible)
+		{
+			CmpPtr<ICmpVisibility> cmpVisibility(unit.entity);
+			unit.alwaysVisible = cmpVisibility && cmpVisibility->GetAlwaysVisible();
+		}
+		if (*unit.alwaysVisible)
 			unit.visibility = LosVisibility::VISIBLE;
 		else
 		{
