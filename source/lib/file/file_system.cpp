@@ -146,7 +146,7 @@ Status CreateDirectories(const OsPath& path, mode_t mode, bool breakpoint)
 {
 	try
 	{
-		return CreateDirectoriesImpl(std::filesystem::path(path.string()), ModeTToPerms(mode));
+		return CreateDirectoriesImpl(std::filesystem::absolute(path.string()), ModeTToPerms(mode));
 	}
 	catch (std::filesystem::filesystem_error& err)
 	{

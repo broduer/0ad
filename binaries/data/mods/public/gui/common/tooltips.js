@@ -724,6 +724,17 @@ function getBuildTimeTooltip(entState)
 	return result.join("\n");
 }
 
+function getPackingTooltip(packing, time)
+{
+	return sprintf(translate("%(label)s %(details)s"), {
+		"label": packing ? translate("Pack to Move:") : translate("Unpack to Attack:"),
+		"details": sprintf(translate("%(icon)s\xa0%(second)s"), {
+			"icon": resourceIcon("time"),
+			"second": Math.ceil(time / 1000)
+		})
+	});
+}
+
 /**
  * Multiplies the costs for a template by a given batch size.
  */

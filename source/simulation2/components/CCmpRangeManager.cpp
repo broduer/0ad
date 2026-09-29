@@ -550,7 +550,8 @@ public:
 		Serializer(serialize, "queries", m_Queries, GetSimContext());
 		Serializer(serialize, "entity data", m_EntityData);
 
-		Serializer(serialize, "los reveal all", m_LosRevealWholeMap);
+		Serializer(serialize, "los reveal whole map", m_LosRevealWholeMap);
+		serialize.Bool("los reveal whole map for all", m_LosRevealWholeMapForAll);
 		serialize.Bool("los circular", m_LosCircular);
 		serialize.NumberI32_Unbounded("los verts per side", m_LosVerticesPerSide);
 

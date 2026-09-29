@@ -16,7 +16,7 @@ class CinemaOverlay
 		this.bandbox = Engine.GetGUIObjectByName("bandbox");
 		this.hotkeys = Engine.GetGUIObjectByName("hotkeys");
 
-		this.overlay.onSimulationUpdate = this.onSimulationUpdate.bind(this);
+		registerSimulationUpdateHandler(this.onSimulationUpdate.bind(this));
 		this.overlay.onWindowResized = () =>
 		{
 			this.recalculateBarSizes();

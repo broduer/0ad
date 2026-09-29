@@ -49,7 +49,6 @@ public:
 	static void ClassInit(CComponentManager& componentManager)
 	{
 		componentManager.SubscribeToMessageType(MT_Update);
-		componentManager.SubscribeToMessageType(MT_Deserialized);
 	}
 
 	DEFAULT_COMPONENT_ALLOCATOR(CinemaManager)
@@ -62,8 +61,6 @@ public:
 	void Init(const CParamNode&) override
 	{
 		m_IsPlayingPathQueue = false;
-		m_QueuePlayingElapsedTime = fixed::Zero();
-		m_PathQueueDuration = fixed::Zero();
 		m_ActivePathElapsedTime = fixed::Zero();
 		m_WasMapRevealed = false;
 	}
@@ -75,7 +72,6 @@ public:
 	void Serialize(ISerializer& serializer) override
 	{
 		serializer.Bool("IsPlayingPathQueue", m_IsPlayingPathQueue);
-		serializer.NumberFixed_Unbounded("QueueElapsedTime", m_QueuePlayingElapsedTime);
 		serializer.NumberFixed_Unbounded("CurrentPathElapsedTime", m_ActivePathElapsedTime);
 		serializer.Bool("WasMapRevealed", m_WasMapRevealed);
 
@@ -91,7 +87,6 @@ public:
 	void Deserialize(const CParamNode&, IDeserializer& deserializer) override
 	{
 		deserializer.Bool("IsPlayingPathQueue", m_IsPlayingPathQueue);
-		deserializer.NumberFixed_Unbounded("QueueElapsedTime", m_QueuePlayingElapsedTime);
 		deserializer.NumberFixed_Unbounded("CurrentPathElapsedTime", m_ActivePathElapsedTime);
 		deserializer.Bool("WasMapRevealed", m_WasMapRevealed);
 
@@ -122,21 +117,12 @@ public:
 
 	void HandleMessage(const CMessage& msg, bool /*global*/) override
 	{
-		switch (msg.GetType())
-		{
-		case MT_Deserialized:
-			if (!m_IsPlayingPathQueue)
-				break;
-
-			m_IsPlayingPathQueue = false;
-			StartPlayingQueue();
-			break;
-		case MT_Update:
+		if (msg.GetType() == MT_Update)
 		{
 			const CMessageUpdate &msgData = static_cast<const CMessageUpdate&>(msg);
 			if (!m_IsPlayingPathQueue)
-				break;
-			m_QueuePlayingElapsedTime += msgData.turnLength;
+				return;
+
 			m_ActivePathElapsedTime += msgData.turnLength;
 			if (m_ActivePathElapsedTime >= m_PathQueue.front().GetDuration())
 			{
@@ -145,16 +131,11 @@ public:
 				GetSimContext().GetComponentManager().PostMessage(SYSTEM_ENTITY, msgCinemaPathEnded);
 				m_ActivePathElapsedTime = fixed::Zero();
 
-				if (!m_PathQueue.empty())
+				if (m_PathQueue.empty())
+					StopPlayingQueue();
+				else
 					m_PathQueue.front().Reset();
 			}
-
-			if (m_QueuePlayingElapsedTime >= m_PathQueueDuration)
-				StopPlayingQueue();
-			break;
-		}
-		default:
-			break;
 		}
 	}
 
@@ -205,7 +186,6 @@ public:
 
 		if (m_PathQueue.size() == 1)
 			m_PathQueue.front().Reset();
-		m_PathQueueDuration += m_Paths[name].GetDuration();
 	}
 
 	void ClearQueue() override
@@ -239,14 +219,10 @@ public:
 		if (cmpRangeManager)
 			cmpRangeManager->SetLosRevealWholeMapForAll(m_WasMapRevealed);
 
-		GetSimContext().GetComponentManager().PostMessage(SYSTEM_ENTITY, CMessageCinemaQueueEnded());
-
 		m_ActivePathElapsedTime = fixed::Zero();
-		m_QueuePlayingElapsedTime = fixed::Zero();
-		m_PathQueueDuration = fixed::Zero();
-		for (const CCinemaPath& path : m_PathQueue)
-			m_PathQueueDuration += path.GetDuration();
 		m_IsPlayingPathQueue = false;
+
+		GetSimContext().GetComponentManager().PostMessage(SYSTEM_ENTITY, CMessageCinemaQueueEnded());
 	}
 
 	bool IsPlayingQueue() const override
@@ -257,12 +233,7 @@ public:
 	void UpdateActivePath(const float deltaRealTime, CCamera& camera) override
 	{
 		if (m_IsPlayingPathQueue)
-		{
-			if (m_PathQueue.empty())
-				StopPlayingQueue();
-			else
-				m_PathQueue.front().Play(deltaRealTime * g_Game->GetSimRate(), camera);
-		}
+			m_PathQueue.front().Play(deltaRealTime * g_Game->GetSimRate(), camera);
 	}
 
 	CStrW GetActivePath() const override
@@ -376,16 +347,9 @@ private:
 	bool m_IsPlayingPathQueue;
 	std::map<CStrW, CCinemaPath> m_Paths;
 	std::list<CCinemaPath> m_PathQueue;
-	fixed m_PathQueueDuration;
-
-	// Total time elapsed since starting to play the queue.
-	fixed m_QueuePlayingElapsedTime;
 
 	// Time elapsed since the currently active path first started playing.
 	fixed m_ActivePathElapsedTime;
-
-	// Time elapsed since the
-	fixed m_QueueEndedElapsedTime;
 
 	// Whether the map was revealed before playing the queue.
 	bool m_WasMapRevealed;

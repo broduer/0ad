@@ -211,7 +211,8 @@ async function deleteReplayButtonPressed()
 		error("Could not delete replay!");
 
 	// Refresh replay list
-	init();
+	loadReplays(createReplaySelectionData(""), false);
+	displayReplayList();
 
 	replaySelection.selected = Math.min(selectedIndex, g_ReplaysFiltered.length - 1);
 }

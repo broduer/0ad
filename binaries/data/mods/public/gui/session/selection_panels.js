@@ -438,6 +438,8 @@ g_SelectionPanels.Pack = {
 			if (!state.pack)
 				continue;
 
+			checks.packTime = state.pack.time;
+
 			if (state.pack.progress == 0)
 			{
 				if (state.pack.packed)
@@ -456,7 +458,7 @@ g_SelectionPanels.Pack = {
 			items.push({
 				"packing": false,
 				"packed": false,
-				"tooltip": translate("Pack"),
+				"tooltip": getPackingTooltip(true, checks.packTime),
 				"callback": function() { packUnit(true); }
 			});
 
@@ -464,7 +466,7 @@ g_SelectionPanels.Pack = {
 			items.push({
 				"packing": false,
 				"packed": true,
-				"tooltip": translate("Unpack"),
+				"tooltip": getPackingTooltip(false, checks.packTime),
 				"callback": function() { packUnit(false); }
 			});
 

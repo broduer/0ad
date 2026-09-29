@@ -329,7 +329,8 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 	if (cmpPack)
 		ret.pack = {
 			"packed": cmpPack.IsPacked(),
-			"progress": cmpPack.GetProgress()
+			"progress": cmpPack.GetProgress(),
+			"time": cmpPack.GetPackTime()
 		};
 
 	const cmpPopulation = Engine.QueryInterface(ent, IID_Population);

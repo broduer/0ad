@@ -42,7 +42,9 @@ public:
 
 	bool m_LookAtTarget;
 
-	fixed m_Timescale; // a negative timescale results in backwards play
+	// A value by which the total duration is multiplied, e.g. values less than 1 result in the path
+	// playing faster. Must be greater than 0.
+	fixed m_Timescale;
 
 	// Distortion variables
 	mutable float m_GrowthCount;
