@@ -100,6 +100,12 @@ static const int HOST_SERVICE_TIMEOUT = 50;
  */
 constexpr std::uint32_t NETWORK_BAD_PING = DEFAULT_TURN_LENGTH * COMMAND_DELAY_MP / 2;
 
+/**
+ * Legitimate clients only send commands for turns up to about ready turn + COMMAND_DELAY_MP.
+ * Commands further ahead than MAX_COMMAND_TURN_FACTOR * COMMAND_DELAY_MP are treated as an attack.
+ */
+constexpr std::int32_t MAX_COMMAND_TURN_FACTOR = 5;
+
 CNetServer* g_NetServer = NULL;
 
 static CStr DebugName(CNetServerSession* session)
@@ -1200,6 +1206,19 @@ bool CNetServerWorker::OnSimulationCommand(CNetServerSession* session, CFsmEvent
 	// represent does not exist or does not match the sender's player name
 	if (!cheatsEnabled && (it == server.m_PlayerAssignments.end() || it->second.m_PlayerID != message->m_Player))
 		return true;
+
+	// Prevent high turn attack that will cause OOM.
+	// The command is always dropped; the sender is kicked unless it is the host.
+	const turn_id_t readyTurn = server.m_ServerTurnManager->GetReadyTurn();
+	if (message->m_Turn < 0 ||
+		message->m_Turn > readyTurn + MAX_COMMAND_TURN_FACTOR * static_cast<std::int32_t>(COMMAND_DELAY_MP))
+	{
+		LOGMESSAGERENDER("Net server: %s sent a command for invalid turn %d (ready turn is %d)",
+			utf8_from_wstring(session->GetUserName()), message->m_Turn, readyTurn);
+
+		server.KickPlayer(session->GetUserName(), false);
+		return true;
+	}
 
 	// Send it back to all clients that have finished
 	// the loading screen (and the synchronization when rejoining)
