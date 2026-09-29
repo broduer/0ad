@@ -33,6 +33,29 @@
 
 #include <chrono>
 #include <filesystem>
+#include <version>
+
+namespace
+{
+time_t FileTimeToTimeT(const std::filesystem::file_time_type& fileTime)
+{
+#if defined(_MSVC_STL_VERSION)
+	// clock_cast pulls in icu.dll for utc_clock which is only available since
+	// Windows 10 1903, since casting to system_clock goes via utc_clock with
+	// MSVC do the conversion manually for now.
+	const std::uint64_t ticks{static_cast<std::uint64_t>(fileTime.time_since_epoch().count())};
+	const std::int64_t unixTicks{static_cast<std::int64_t>(ticks) - 116444736000000000LL};
+	return static_cast<time_t>(unixTicks / 10000000LL);
+#elif defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
+	const auto sysTime{std::chrono::clock_cast<std::chrono::system_clock>(fileTime)};
+	return static_cast<time_t>(std::chrono::duration_cast<std::chrono::seconds>(sysTime.time_since_epoch()).count());
+#else
+	// std::chrono::clock_cast missing in clang 14 with libstdc++ 12
+	const auto sysTime{std::filesystem::file_time_type::clock::to_sys(fileTime)};
+	return static_cast<time_t>(std::chrono::duration_cast<std::chrono::seconds>(sysTime.time_since_epoch()).count());
+#endif
+}
+} // namespace
 
 bool DirectoryExists(const OsPath& path)
 {
@@ -55,7 +78,7 @@ Status GetFileInfo(const OsPath& pathname, CFileInfo* pPtrInfo)
 		const std::filesystem::path path{pathname.string()};
 		*pPtrInfo = CFileInfo(path.filename().wstring(),
 			static_cast<std::uint64_t>(std::filesystem::file_size(path)),
-			static_cast<time_t>(std::chrono::duration_cast<std::chrono::seconds>(std::filesystem::last_write_time(path).time_since_epoch()).count()));
+			FileTimeToTimeT(std::filesystem::last_write_time(path)));
 	}
 	catch (std::filesystem::filesystem_error& err)
 	{
@@ -79,7 +102,7 @@ Status GetDirectoryEntries(const OsPath& path, CFileInfos* files, DirectoryNames
 			{
 				files->emplace_back(entry.path().filename().wstring(),
 					static_cast<std::uint64_t>(entry.file_size()),
-					static_cast<time_t>(std::chrono::duration_cast<std::chrono::seconds>(entry.last_write_time().time_since_epoch()).count()));
+					FileTimeToTimeT(entry.last_write_time()));
 			}
 		}
 	}
