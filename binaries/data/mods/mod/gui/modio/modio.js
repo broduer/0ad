@@ -36,6 +36,8 @@ let g_RequestCancelled;
 
 let g_RequestStartTime;
 
+const g_RegExpComparisonOperator = /(<=|>=|<|>|=)/;
+
 const g_ModIOState = {
 	/**
 	 * Finished status indicators
@@ -234,15 +236,29 @@ function displayMods()
 			mod1.filesize - mod2.filesize :
 			String(mod1[modsAvailableList.selected_column]).localeCompare(String(mod2[modsAvailableList.selected_column]))));
 
-	const updateAvailable = displayedMods.map(mod => isUpdateAvailable(mod.name_id, mod.version));
-	const dependenciesMet = displayedMods.map(mod => areDependenciesMet(mod.dependencies));
-	const updateIds = displayedMods.map(mod => mod.i);
-	modsAvailableList.list_name = displayedMods.map(mod => colorModIO(mod.name, !mod.invalid, updateAvailable[updateIds.indexOf(mod.i)], isModInstalled(mod.name_id), dependenciesMet[updateIds.indexOf(mod.i)]));
-	modsAvailableList.list_name_id = displayedMods.map(mod => colorModIO(mod.name_id, !mod.invalid, updateAvailable[updateIds.indexOf(mod.i)], isModInstalled(mod.name_id), dependenciesMet[updateIds.indexOf(mod.i)]));
-	modsAvailableList.list_version = displayedMods.map(mod => colorModIO(mod.version || "", !mod.invalid, updateAvailable[updateIds.indexOf(mod.i)], isModInstalled(mod.name_id), dependenciesMet[updateIds.indexOf(mod.i)]));
-	modsAvailableList.list_filesize = displayedMods.map(mod => colorModIO(filesizeToString(mod.filesize), !mod.invalid, updateAvailable[updateIds.indexOf(mod.i)], isModInstalled(mod.name_id), dependenciesMet[updateIds.indexOf(mod.i)]));
-	modsAvailableList.list_dependencies = displayedMods.map(mod => colorModIO((mod.dependencies || []).join(" "), !mod.invalid, updateAvailable[updateIds.indexOf(mod.i)], isModInstalled(mod.name_id), dependenciesMet[updateIds.indexOf(mod.i)]));
-	modsAvailableList.list = displayedMods.map(mod => mod.i);
+	// Build all list arrays in a single loop for efficiency
+	modsAvailableList.list_name = [];
+	modsAvailableList.list_name_id = [];
+	modsAvailableList.list_version = [];
+	modsAvailableList.list_filesize = [];
+	modsAvailableList.list_dependencies = [];
+	modsAvailableList.list = [];
+
+	for (const mod of displayedMods)
+	{
+		const updateAvailable = isUpdateAvailable(mod.name_id, mod.version);
+		const dependenciesMet = areDependenciesMet(mod.dependencies);
+		const modInstalled = isModInstalled(mod.name_id);
+		const modValid = !mod.invalid;
+
+		modsAvailableList.list_name.push(colorModIO(mod.name, modValid, updateAvailable, modInstalled, dependenciesMet));
+		modsAvailableList.list_name_id.push(colorModIO(mod.name_id, modValid, updateAvailable, modInstalled, dependenciesMet));
+		modsAvailableList.list_version.push(colorModIO(mod.version || "", modValid, updateAvailable, modInstalled, dependenciesMet));
+		modsAvailableList.list_filesize.push(colorModIO(filesizeToString(mod.filesize), modValid, updateAvailable, modInstalled, dependenciesMet));
+		modsAvailableList.list_dependencies.push(colorModIO((mod.dependencies || []).join(" "), modValid, updateAvailable, modInstalled, dependenciesMet));
+		modsAvailableList.list.push(mod.i);
+	}
+
 	modsAvailableList.selected = modsAvailableList.list.indexOf(selectedMod);
 }
 
@@ -342,7 +358,7 @@ function isModInstalled(name)
 {
 	return !!g_Mods && !!g_Mods[name];
 }
-const g_RegExpComparisonOperator = /(<=|>=|<|>|=)/;
+
 function getModIOColor(valid, update, installed, dependencies)
 {
 	return !valid ? "gray" : !dependencies ? "red" : update ? "yellow" : installed ? "green" :  false;
