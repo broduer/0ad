@@ -1855,6 +1855,13 @@ UnitAI.prototype.UnitFsmSpec = {
 
 				"Timer": function(msg)
 				{
+					// A linger shorter than a turn would stop the unit for a turn, starting a flier landing: roam on instead.
+					if (+this.template.FeedTimeMax < Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).GetLatestTurnLength())
+					{
+						this.MoveRandomly(+this.template.RoamDistance);
+						this.StartTimer(randIntInclusive(+this.template.RoamTimeMin, +this.template.RoamTimeMax));
+						return;
+					}
 					this.SetNextState("LINGERING");
 				},
 
