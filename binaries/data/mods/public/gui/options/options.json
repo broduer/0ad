@@ -955,6 +955,12 @@
 				"config": "gui.session.healrange"
 			},
 			{
+				"type": "boolean",
+				"label": "Diplomacy colors: enabled at game start",
+				"tooltip": "Enable diplomacy colors at game start. (It can also be toggled with the hotkey during a game).",
+				"config": "gui.session.diplomacycolors.enable"
+			},
+			{
 				"type": "color",
 				"label": "Diplomacy colors: self",
 				"tooltip": "Color of your units when diplomacy colors are enabled.",

@@ -8,10 +8,10 @@ class DiplomacyColors
 {
 	constructor()
 	{
-		this.enabled = false;
+		this.enabled = Engine.ConfigDB_GetValue("user", "gui.session.diplomacycolors.enable") == "true";
 
 		// The array of displayed player colors (either the diplomacy color or regular color for each player).
-		this.displayedPlayerColors = undefined;
+		this.displayedPlayerColors = [];
 
 		this.diplomacyColorsChangeHandlers = [];
 
