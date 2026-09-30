@@ -110,6 +110,17 @@ constexpr entity_pos_t DIRECT_PATH_RANGE = entity_pos_t::FromInt(24 * Pathfindin
 constexpr entity_pos_t TARGET_UNCERTAINTY_MULTIPLIER = entity_pos_t::FromInt(8 * Pathfinding::NAVCELL_SIZE_INT);
 
 /**
+ * Don't nudge above this pressure threshold. We are in a crowd and nudging wouldn't help but create wiggles.
+ */
+constexpr int NUDGE_PRESSURE_LIMIT = 40;
+
+/**
+ * A unit whose step has been blocked for this many failed movements takes the sideways step whatever the
+ * pressure: sitting by a corner in a pack, with its waypoint in sight past it, nothing else gets it round.
+ */
+constexpr std::uint8_t NUDGE_FAILED_MOVEMENTS = 3;
+
+/**
  * When following a known imperfect path (i.e. a path that won't take us in range of our goal
  * we still recompute a new path every N turn to adapt to moving targets (for example, ships that must pickup
  * units may easily end up in this state, they still need to adjust to moving units).
@@ -2111,9 +2122,10 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 					GetObstructionFilter(specificIgnore), m_Clearance, m_PassClass))
 				return false;
 		}
-		else
+		else if (m_FailedMovements >= NUDGE_FAILED_MOVEMENTS || pushingPressure < NUDGE_PRESSURE_LIMIT)
 		{
 			// Following a path: step sideways around the obstacle, keeping the current waypoint in sight.
+			// Blocked turn after turn, it is taken whatever the pressure (see NUDGE_FAILED_MOVEMENTS).
 			if (ObstructionResolution::TryPerpendicularNudge(pos, originalMovement,
 					PathFollowing::CurrentWaypoint(shortPath, longPath).value_or(CFixedVector2D{}), *cmpPathfinder,
 					GetObstructionFilter(specificIgnore), m_Clearance, m_PassClass))
