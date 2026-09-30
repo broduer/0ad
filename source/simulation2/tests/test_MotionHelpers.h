@@ -1058,6 +1058,7 @@ public:
 		TS_ASSERT(grids.tiers[0].used && grids.tiers[1].used && !grids.tiers[2].used && grids.tiers[3].used);
 
 		std::vector<CFixedVector2D> expected(units.size());
+		std::vector<fixed> largest(units.size());
 		size_t pushingPairs{0};
 		for (size_t i = 0; i < units.size(); ++i)
 			for (size_t j = i + 1; j < units.size(); ++j)
@@ -1067,9 +1068,15 @@ public:
 				PushPair(units[i], units[j], pairPushes, pairSpins);
 				expected[i] += pairPushes[0];
 				expected[j] += pairPushes[1];
+				largest[i] = std::max(largest[i], pairPushes[0].Length());
+				largest[j] = std::max(largest[j], pairPushes[1].Length());
 				if (!pairPushes[0].IsZero())
 					++pushingPairs;
 			}
+		// The ships are solid, so their sum is capped at their largest single push.
+		for (size_t i = 0; i < units.size(); ++i)
+			if (units[i].collisionShape.IsSolid() && largest[i] > fixed::Zero() && expected[i].CompareLength(largest[i]) > 0)
+				expected[i] = expected[i].Multiply(largest[i] / expected[i].Length());
 		// Neighbours along every row push each other, so this is not a test that nothing happens.
 		TS_ASSERT_LESS_THAN(static_cast<size_t>(50), pushingPairs);
 		for (size_t i = 0; i < units.size(); ++i)
@@ -1462,6 +1469,19 @@ public:
 		TS_ASSERT(velocityChanges[0].IsZero());
 	}
 
+	// The soft push each unit of @p units ends up with from one pass.
+	static std::vector<CFixedVector2D> PushesOf(const std::vector<UnitCollision::MotionStateCompact>& units)
+	{
+		std::vector<CFixedVector2D> pushes, velocityChanges, corrections;
+		std::vector<fixed> spins, hitSpins;
+		std::vector<UnitCollision::ContactHit> hits;
+		std::vector<uint8_t> pressures;
+		UnitCollision::SpatialGrids grids;
+		UnitCollision::ComputePushes(units, PushConfig::IMPACT_REFERENCE_TIME, grids, pushes, spins,
+			velocityChanges, hitSpins, hits, pressures, corrections);
+		return pushes;
+	}
+
 	// The contact impulses every unit of @p units takes in one pass.
 	static std::vector<CFixedVector2D> PushAll(const std::vector<UnitCollision::MotionStateCompact>& units)
 	{
@@ -1574,6 +1594,8 @@ public:
 		member.controlGroup = mate.controlGroup = 50;
 		TS_ASSERT(CorrectionsOf({member, mate}).at(0).IsZero());
 		TS_ASSERT(PushAll({member, mate}).at(0).IsZero());
+		// Nor pushed: a solid member keeps to its slot, whoever stands in it.
+		TS_ASSERT(PushesOf({member, mate}).at(0).IsZero());
 	}
 
 	void test_Pushing_contact_impulses_dont_stack()
@@ -1591,6 +1613,32 @@ public:
 		TS_ASSERT_DELTA(velocityChanges[0].Length().ToDouble(), 2.0, 0.05);
 		// Each of the other two still gets its own.
 		TS_ASSERT_DELTA(velocityChanges[1].Length().ToDouble(), 2.0, 0.05);
+	}
+
+	void test_Pushing_solid_pushes_dont_stack()
+	{
+		// A ship (12 x 48) at rest with one other alongside to the east is pushed west by some amount. With two
+		// alongside to the east it is pushed no harder: a solid unit's pushes are capped at its strongest pusher.
+		const UnitCollision::CollisionShape ship{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromInt(12), entity_pos_t::FromInt(48))};
+		const CFixedVector2D here{fixed::FromInt(100), fixed::FromInt(100)};
+		const std::vector<CFixedVector2D> one{PushesOf({
+			MakeUnit(1, here, ship, entity_angle_t::Zero(), false),
+			MakeUnit(2, CFixedVector2D{fixed::FromInt(110), fixed::FromInt(90)}, ship, entity_angle_t::Zero(), false)})};
+		const std::vector<CFixedVector2D> two{PushesOf({
+			MakeUnit(1, here, ship, entity_angle_t::Zero(), false),
+			MakeUnit(2, CFixedVector2D{fixed::FromInt(110), fixed::FromInt(90)}, ship, entity_angle_t::Zero(), false),
+			MakeUnit(3, CFixedVector2D{fixed::FromInt(110), fixed::FromInt(110)}, ship, entity_angle_t::Zero(), false)})};
+		TS_ASSERT_LESS_THAN(one[0].X, fixed::Zero());
+		TS_ASSERT_LESS_THAN(two[0].X, fixed::Zero());
+		TS_ASSERT_DELTA(two[0].Length().ToDouble(), one[0].Length().ToDouble(), 0.01);
+
+		// The pushes are summed before the cap, so one on each side still cancels out.
+		const std::vector<CFixedVector2D> squeezed{PushesOf({
+			MakeUnit(1, here, ship, entity_angle_t::Zero(), false),
+			MakeUnit(2, CFixedVector2D{fixed::FromInt(110), fixed::FromInt(100)}, ship, entity_angle_t::Zero(), false),
+			MakeUnit(3, CFixedVector2D{fixed::FromInt(90), fixed::FromInt(100)}, ship, entity_angle_t::Zero(), false)})};
+		TS_ASSERT(squeezed[0].IsZero());
 	}
 
 	void test_Charge_hits_what_it_runs_into()

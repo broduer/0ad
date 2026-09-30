@@ -442,6 +442,7 @@ void UnitCollision::ComputePushes(
 	std::vector<fixed> largestCorrection(units.size(), fixed::Zero());
 	// The largest single contact impulse each unit took this turn, see the end of this function.
 	std::vector<fixed> largestImpulse(units.size(), fixed::Zero());
+	std::vector<fixed> largestPush(units.size(), fixed::Zero());
 
 	// How far from its centre a body can push: what ComputePairPush allows a pair is the sum of the two.
 	// Each unit goes in the tier for its reach (see SpatialGrids), and the grid spans every unit.
@@ -516,6 +517,10 @@ void UnitCollision::ComputePushes(
 		outPushes[j] += pushB;
 		outSpins[i] += spinA;
 		outSpins[j] += spinB;
+		if (units[i].collisionShape.IsSolid())
+			largestPush[i] = std::max(largestPush[i], pushA.Length());
+		if (units[j].collisionShape.IsSolid())
+			largestPush[j] = std::max(largestPush[j], pushB.Length());
 		outVelocityChanges[i] += velocityChangeA;
 		outVelocityChanges[j] += velocityChangeB;
 		outHitSpins[i] += hitSpinA;
@@ -605,6 +610,19 @@ void UnitCollision::ComputePushes(
 		const fixed scale{largestImpulse[i] / outVelocityChanges[i].Length()};
 		outVelocityChanges[i] = outVelocityChanges[i].Multiply(scale);
 		outHitSpins[i] = outHitSpins[i].Multiply(scale);
+	}
+
+	// A solid unit is only pushed as hard as its strongest pusher: added up, a few neighbours on one side would
+	// drive it through whatever is on the other. A crowd of footmen squashes instead.
+	// The pushes are still summed first, so pushes from opposite sides cancel as before: a squeezed unit isn't
+	// handed one side's push, and the cap only shortens a sum of pushes that all lean the same way.
+	for (size_t i = 0; i < units.size(); ++i)
+	{
+		if (largestPush[i] <= fixed::Zero() || outPushes[i].CompareLength(largestPush[i]) <= 0)
+			continue;
+		const fixed scale{largestPush[i] / outPushes[i].Length()};
+		outPushes[i] = outPushes[i].Multiply(scale);
+		outSpins[i] = outSpins[i].Multiply(scale);
 	}
 
 	// Likewise the overlap corrections: two neighbours on the same side each want the unit moved out of their own
