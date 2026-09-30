@@ -27,9 +27,6 @@ UnitMotionFlying.prototype.Schema =
 	"<element name='BrakingRate'>" +
 		"<ref name='nonNegativeDecimal'/>" +
 	"</element>" +
-	"<element name='TurnRate'>" +
-		"<ref name='nonNegativeDecimal'/>" +
-	"</element>" +
 	"<element name='OvershootTime'>" +
 		"<ref name='nonNegativeDecimal'/>" +
 	"</element>" +
@@ -88,6 +85,7 @@ UnitMotionFlying.prototype.OnUpdate = function(msg)
 	const pos = cmpPosition.GetPosition();
 	const startY = pos.y;
 	const angle = cmpPosition.GetRotation().y;
+	const turnRate = cmpPosition.GetTurnRate();
 	const cmpTerrain = Engine.QueryInterface(SYSTEM_ENTITY, IID_Terrain);
 	const cmpWaterManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_WaterManager);
 	const ground = Math.max(cmpTerrain.GetGroundLevel(pos.x, pos.z), cmpWaterManager.GetWaterLevel(pos.x, pos.z));
@@ -248,7 +246,7 @@ UnitMotionFlying.prototype.OnUpdate = function(msg)
 			delta += 2 * Math.PI;
 		delta -= Math.PI;
 		// Clamp to max rate.
-		const deltaClamped = Math.min(Math.max(delta, -this.template.TurnRate * turnLength), this.template.TurnRate * turnLength);
+		const deltaClamped = Math.min(Math.max(delta, -turnRate * turnLength), turnRate * turnLength);
 		// Calculate new orientation, in a peculiar way in order to make sure the
 		// result gets close to targetAngle (rather than being n*2*pi out).
 		newangle = targetAngle + deltaClamped - delta;
@@ -266,7 +264,7 @@ UnitMotionFlying.prototype.OnUpdate = function(msg)
 	// Full bank, easing off over the last part of the turn so the wings are level as it ends.
 	const maxBank = this.GetMaxBank();
 	const bankRate = this.template.BankRate !== undefined ? +this.template.BankRate : this.DEFAULT_BANK_RATE;
-	const rollOutTurn = this.template.TurnRate * Math.max(turnLength, bankRate > 0 ? maxBank / bankRate : turnLength);
+	const rollOutTurn = turnRate * Math.max(turnLength, bankRate > 0 ? maxBank / bankRate : turnLength);
 	const bankTarget = rollOutTurn > 0 ? maxBank * Math.max(-1, Math.min(1, pendingTurnAngle / rollOutTurn)) : 0;
 	this.roll = this.BankTowards(bankTarget, turnLength);
 

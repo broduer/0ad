@@ -9,7 +9,7 @@
     <Anchor>upright</Anchor>
     <Floating>false</Floating>
     <FloatDepth>0</FloatDepth>
-    <TurnRate>1</TurnRate>
+    <TurnRate>0.5</TurnRate>
   </Position>
   <Selectable>
     <EditorOnly/>
@@ -40,7 +40,6 @@
     <AccelRate>5.0</AccelRate>
     <SlowingRate>5.0</SlowingRate>
     <BrakingRate>5.0</BrakingRate>
-    <TurnRate>0.5</TurnRate>
     <OvershootTime>2.0</OvershootTime>
     <FlyingHeight>40.0</FlyingHeight>
     <ClimbRate>4.0</ClimbRate>
