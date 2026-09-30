@@ -301,6 +301,11 @@ UnitMotionFlying.prototype.SetChargeMove = function()
 	// Ignored.
 };
 
+UnitMotionFlying.prototype.SetPassThrough = function()
+{
+	// Ignored.
+};
+
 UnitMotionFlying.prototype.PossiblyAtDestination = function()
 {
 	return this.reachedTarget;

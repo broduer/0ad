@@ -26,6 +26,7 @@ BEGIN_INTERFACE_WRAPPER(UnitMotion)
 DEFINE_INTERFACE_METHOD("MoveToPointRange", ICmpUnitMotion, MoveToPointRange)
 DEFINE_INTERFACE_METHOD("MoveToTargetRange", ICmpUnitMotion, MoveToTargetRange)
 DEFINE_INTERFACE_METHOD("SetChargeMove", ICmpUnitMotion, SetChargeMove)
+DEFINE_INTERFACE_METHOD("SetPassThrough", ICmpUnitMotion, SetPassThrough)
 DEFINE_INTERFACE_METHOD("MoveToFormationOffset", ICmpUnitMotion, MoveToFormationOffset)
 DEFINE_INTERFACE_METHOD("SetMemberOfFormation", ICmpUnitMotion, SetMemberOfFormation)
 DEFINE_INTERFACE_METHOD("IsTargetRangeReachable", ICmpUnitMotion, IsTargetRangeReachable)
@@ -71,6 +72,11 @@ public:
 	void SetChargeMove() override
 	{
 		m_Script.CallVoid("SetChargeMove");
+	}
+
+	void SetPassThrough() override
+	{
+		m_Script.CallVoid("SetPassThrough");
 	}
 
 	void MoveToFormationOffset(entity_id_t target, entity_pos_t x, entity_pos_t z) override

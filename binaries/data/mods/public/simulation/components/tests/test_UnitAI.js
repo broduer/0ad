@@ -1342,3 +1342,62 @@ function TestGatherFindingNewTargetRespectsQueuedReturnResource()
 TestGatherFindingNewTargetRespectsQueuedReturnResource();
 
 TestAttackGroupBehavior();
+
+/**
+ * A walk followed by another move keeps its speed into it: UnitMotion is told not to brake at the end, and its
+ * early LIKELY_SUCCESS hands over to the next walk.
+ */
+function TestQueuedWalksPassThrough()
+{
+	ResetState();
+
+	const ent = 10;
+	let passThroughs = 0;
+	let moveTarget;
+
+	AddMock(SYSTEM_ENTITY, IID_Timer, {
+		"SetTimeout": () => 1,
+		"SetInterval": () => 1,
+		"CancelTimer": () => {}
+	});
+	AddMock(ent, IID_Position, {
+		"IsInWorld": () => true,
+		"GetPosition": () => new Vector3D(0, 0, 0),
+		"GetPosition2D": () => new Vector2D(0, 0)
+	});
+	AddMock(ent, IID_UnitMotion, {
+		"MoveToPointRange": (x, z) => { moveTarget = { "x": x, "z": z }; return true; },
+		"SetPassThrough": () => { ++passThroughs; },
+		"StopMoving": () => {},
+		"SetSpeedMultiplier": () => {}
+	});
+
+	const unitAI = ConstructComponent(ent, "UnitAI", {
+		"FormationController": "false",
+		"DefaultStance": "aggressive"
+	});
+	unitAI.OnCreate();
+
+	// A walk on its own brakes at its end.
+	unitAI.order = { "type": "Walk", "data": { "x": 10, "z": 0, "force": true } };
+	unitAI.orderQueue = [unitAI.order];
+	unitAI.UnitFsm.Init(unitAI, "INDIVIDUAL.WALKING");
+	TS_ASSERT_EQUALS(passThroughs, 0);
+
+	// Queueing another walk lets it pass through.
+	unitAI.Walk(20, 0, true);
+	TS_ASSERT_EQUALS(passThroughs, 1);
+
+	// The early success finishes the first walk, and the second one starts. Nothing follows it, so it brakes.
+	unitAI.OnMotionUpdate({ "likelySuccess": true });
+	TS_ASSERT_EQUALS(unitAI.GetCurrentState(), "INDIVIDUAL.WALKING");
+	TS_ASSERT_EQUALS(unitAI.order.data.x, 20);
+	TS_ASSERT_UNEVAL_EQUALS(moveTarget, { "x": 20, "z": 0 });
+	TS_ASSERT_EQUALS(passThroughs, 1);
+
+	// Patrols stop at each point, so a queued patrol doesn't let the walk pass through.
+	unitAI.PushOrder("Patrol", { "x": 30, "z": 0, "force": true });
+	TS_ASSERT_EQUALS(passThroughs, 1);
+}
+
+TestQueuedWalksPassThrough();

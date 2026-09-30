@@ -1129,7 +1129,7 @@ UnitAI.prototype.UnitFsmSpec = {
 			{
 				if (msg.veryObstructed && !this.obstructionMitigationAttempted)
 					this.AttemptObstructionMitigation();
-				else if (msg.likelyFailure || this.CheckRange(this.order.data))
+				else if (msg.likelyFailure || msg.likelySuccess || this.CheckRange(this.order.data))
 					this.FinishOrder();
 			},
 			"Timer": function()
@@ -1172,7 +1172,7 @@ UnitAI.prototype.UnitFsmSpec = {
 			{
 				if (msg.veryObstructed && !this.obstructionMitigationAttempted)
 					this.AttemptObstructionMitigation();
-				else if (msg.likelyFailure || this.CheckRange(this.order.data))
+				else if (msg.likelyFailure || msg.likelySuccess || this.CheckRange(this.order.data))
 					this.FinishOrder();
 			},
 		},
@@ -1906,7 +1906,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			{
 				// If it looks like the path is failing, and we are close enough stop anyways.
 				// This avoids pathing for an unreachable goal and reduces lag considerably.
-				if (msg.likelyFailure || msg.obstructed && this.RelaxedMaxRangeCheck(this.order.data, this.DefaultRelaxedMaxRange) ||
+				if (msg.likelyFailure || msg.likelySuccess ||
+				    msg.obstructed && this.RelaxedMaxRangeCheck(this.order.data, this.DefaultRelaxedMaxRange) ||
 					 this.CheckRange(this.order.data))
 					this.FinishOrder();
 			},
@@ -1943,7 +1944,8 @@ UnitAI.prototype.UnitFsmSpec = {
 			{
 				// If it looks like the path is failing, and we are close enough stop anyways.
 				// This avoids pathing for an unreachable goal and reduces lag considerably.
-				if (msg.likelyFailure || msg.obstructed && this.RelaxedMaxRangeCheck(this.order.data, this.DefaultRelaxedMaxRange) ||
+				if (msg.likelyFailure || msg.likelySuccess ||
+				    msg.obstructed && this.RelaxedMaxRangeCheck(this.order.data, this.DefaultRelaxedMaxRange) ||
 					 this.CheckRange(this.order.data))
 					this.FinishOrder();
 			},
@@ -4393,6 +4395,10 @@ UnitAI.prototype.PushOrder = function(type, data)
 			"data": this.order.data
 		});
 	}
+	// The current move is already underway, and nothing told UnitMotion an order now follows.
+	// Later orders don't need this: each move checks the order after it when it starts (see MoveTo).
+	else if (this.orderQueue.length == 2)
+		this.PassThroughIfMoveQueued();
 
 	Engine.PostMessage(this.entity, MT_UnitAIOrderDataChanged, { "to": this.GetOrderData() });
 };
@@ -5130,7 +5136,30 @@ UnitAI.prototype.MoveTo = function(data, iid, type)
 	else if (data.min || data.max)
 		return this.MoveToPointRange(data.x, data.z, data.min || -1, data.max || -1);
 
-	return this.MoveToPoint(data.x, data.z);
+	if (!this.MoveToPoint(data.x, data.z))
+		return false;
+	this.PassThroughIfMoveQueued();
+	return true;
+};
+
+/**
+ * Orders that move the unit to a point, which it can pass through when another one of them follows.
+ */
+UnitAI.prototype.PassThroughOrders = new Set(["Walk", "WalkAndFight"]);
+
+/**
+ * When both the current order and the next one are moves to a point, let the unit keep its speed into the next
+ * one: UnitMotion doesn't brake at the end of the current move, and sends LIKELY_SUCCESS before reaching it.
+ * Called when the move starts (see MoveTo), and when the next order is queued during it (see PushOrder).
+ */
+UnitAI.prototype.PassThroughIfMoveQueued = function()
+{
+	if (this.orderQueue.length < 2 || !this.PassThroughOrders.has(this.order.type) ||
+	    !this.PassThroughOrders.has(this.orderQueue[1].type))
+		return;
+	const cmpUnitMotion = Engine.QueryInterface(this.entity, IID_UnitMotion);
+	if (cmpUnitMotion)
+		cmpUnitMotion.SetPassThrough();
 };
 
 UnitAI.prototype.MoveToPoint = function(x, z)

@@ -68,6 +68,13 @@ public:
 	virtual void SetChargeMove() = 0;
 
 	/**
+	 * Mark the current move as followed by another move, so the unit doesn't brake at its end: once it is within
+	 * its stopping distance of it, it sends MotionUpdate LIKELY_SUCCESS instead, for the next move to take over.
+	 * Doesn't apply to formation offsets. Any new move request clears it.
+	 */
+	virtual void SetPassThrough() = 0;
+
+	/**
 	 * Join a formation, and move towards a given offset relative to the formation controller entity.
 	 * The unit will remain 'in formation' fromthe perspective of UnitMotion
 	 * until SetMemberOfFormation(INVALID_ENTITY) is passed.

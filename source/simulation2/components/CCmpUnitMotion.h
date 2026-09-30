@@ -292,6 +292,9 @@ public:
 		entity_pos_t m_MinRange, m_MaxRange;
 		// Charging an attack target: don't brake on the final leg (see SetChargeMove).
 		bool m_Charge = false;
+		// Another move follows this one: don't brake at the end, tell UnitAI the move is done when the unit would
+		// start braking, so the next move takes over at speed (see SetPassThrough).
+		bool m_PassThrough = false;
 
 		// For readability
 		CFixedVector2D GetOffset() const { return m_Position; };
@@ -465,6 +468,7 @@ public:
 		serialize.NumberFixed_Unbounded("target min range", m_MoveRequest.m_MinRange);
 		serialize.NumberFixed_Unbounded("target max range", m_MoveRequest.m_MaxRange);
 		serialize.Bool("target charge", m_MoveRequest.m_Charge);
+		serialize.Bool("target pass through", m_MoveRequest.m_PassThrough);
 
 		serialize.NumberU32_Unbounded("formation controller", m_FormationController);
 
@@ -734,6 +738,12 @@ public:
 		CmpPtr<ICmpAttack> cmpAttack(GetEntityHandle());
 		if (cmpAttack && cmpAttack->GetChargeMinSpeed() >= fixed::Zero())
 			m_MoveRequest.m_Charge = true;
+	}
+
+	void SetPassThrough() override
+	{
+		if (m_MoveRequest.m_Type == MoveRequest::POINT || m_MoveRequest.m_Type == MoveRequest::ENTITY)
+			m_MoveRequest.m_PassThrough = true;
 	}
 
 	void MoveToFormationOffset(entity_id_t controller, entity_pos_t x, entity_pos_t z) override
@@ -1583,6 +1593,20 @@ void CCmpUnitMotion::PostMove(MotionState& state, fixed dt)
 	// (movement actually blocked), the TestUnitLine look-ahead (units in the way) and poppedBlockedCorner.
 	// A pushed unit keeps its path and steers at the same waypoint from its new position; if the push put
 	// an obstacle in between, the next move is obstructed and that handling takes over.
+
+	// Another move follows this one: once within stopping distance of the end, where the unit would start braking,
+	// let it take over. Reported at the end of the turn, so the next move's path is ready at the start of the next.
+	// Only once: if nothing takes over, the unit brakes as for any other move.
+	if (m_MoveRequest.m_PassThrough)
+	{
+		PathGoal goal;
+		if (ComputeGoal(goal, m_MoveRequest) && (goal.NearestPointOnGoal(state.pos) - state.pos).CompareLength(
+				PathFollowing::StoppingDistance(state.speed, dt, m_TemplateInertia) + StoppingMargin()) <= 0)
+		{
+			m_MoveRequest.m_PassThrough = false;
+			MoveSucceeded();
+		}
+	}
 }
 
 bool CCmpUnitMotion::PossiblyAtDestination() const
@@ -1697,13 +1721,13 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 	const std::optional<CFixedVector2D> currentWaypoint{PathFollowing::CurrentWaypoint(shortPath, longPath)};
 	const CFixedVector2D toWaypoint{currentWaypoint ? *currentWaypoint - pos : CFixedVector2D{}};
 
-	// Charging a melee target on the last leg: keep full speed, so the collision carries the momentum.
-	// Earlier legs still brake for their corners.
+	// Keep full speed on the last leg when charging a melee target, so the collision carries the momentum, or when
+	// another move follows, which takes over before the end (see PostMove). Earlier legs still brake for their corners.
 	// Known limitation: arriving at full speed, a charger can end up out of attack range again - by coasting after
 	// the move ends (Drifting > 0, e.g. ram ships), by stepping over the whole range band in one long turn, or by
 	// the charge knock-back itself separating the units. UnitAI then gets OutOfRange, chases, and charges again.
-	const bool chargingFinalLeg{m_MoveRequest.m_Type == MoveRequest::ENTITY && m_MoveRequest.m_Charge &&
-		hasPathfinding && !PathFollowing::NextWaypoint(shortPath, longPath)};
+	const bool unbrakedFinalLeg{((m_MoveRequest.m_Type == MoveRequest::ENTITY && m_MoveRequest.m_Charge) ||
+		m_MoveRequest.m_PassThrough) && hasPathfinding && !PathFollowing::NextWaypoint(shortPath, longPath)};
 
 	// Where the unit is pointing. Steering and drift correction both work relative to it, and the heading
 	// only changes further down, so the sine and cosine behind it are worth paying for just once.
@@ -1906,7 +1930,7 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 
 			// Brake both for heading error (drifting off the waypoint direction) and for a sharp corner.
 			// Passing a waypoint also lowers alignmentToWaypoint, but the turning-circle pop handles that case.
-			if (distanceToWaypoint < brakingDistance && !chargingFinalLeg)
+			if (distanceToWaypoint < brakingDistance && !unbrakedFinalLeg)
 				proximityBrakeMultiplier = PathFollowing::ProximityBrakeScale(distanceToWaypoint, brakingDistance,
 					unbrakedSpeed, std::min(alignmentToWaypoint, cornerAlignment));
 		}
@@ -1916,7 +1940,7 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 
 	// PREDICTIVE BRAKING: stop where the move ends, as far ahead as inertia takes to stop. That is short of the end
 	// of the path by StoppingMargin(), so the unit is at a crawl when its order ends rather than at speed.
-	if (hasMoveRequest && hasPathfinding && !combinedVelocity.IsZero() && !chargingFinalLeg)
+	if (hasMoveRequest && hasPathfinding && !combinedVelocity.IsZero() && !unbrakedFinalLeg)
 		if (const std::optional<CFixedVector2D> finalWaypoint{PathFollowing::FinalWaypoint(shortPath, longPath)})
 		{
 			const CFixedVector2D toEnd{*finalWaypoint - pos};
