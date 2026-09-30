@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -221,9 +221,11 @@ public:
 	float GetMaxPos() const { return std::max(0.f, m_ScrollRange - m_ScrollSpace); }
 
 	/**
-	 * Scrollbars without height shouldn't be visible
+	 * Whether to draw the scrollbar.
+	 * If the max pos is less than 1px, scrolling might not actually displace the content if the renderer rounds
+	 * positions. Only show it if scrolling is guaranteed to have a visible effect.
 	 */
-	bool IsVisible() const { return GetMaxPos() != 0.f; }
+	bool IsVisible() const { return GetMaxPos() >= 1.0f; }
 
 	/**
 	 * Increase scroll one step
