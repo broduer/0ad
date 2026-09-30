@@ -1128,6 +1128,11 @@ function getAurasTooltip(template)
 				"val": radius,
 				"unit": unitFont(translatePlural("meter", "meters", radius))
 			});
+		else if (auras[auraID].type == "global")
+			tooltip += " " + sprintf(translate("%(label)s %(val)s"), {
+				"label": translateWithContext("aura", "Range:"),
+				"val": unitFont(translateWithContext("aura range", "Global"))
+			});
 		tooltips.push(tooltip);
 	}
 	return tooltips.join("\n");

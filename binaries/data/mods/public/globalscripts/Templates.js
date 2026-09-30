@@ -614,6 +614,7 @@ function GetAuraDataHelper(template)
 		"description": template.auraDescription || null,
 		"modifications": template.modifications,
 		"radius": template.radius || null,
+		"type": template.type,
 	};
 }
 
