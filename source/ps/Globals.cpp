@@ -70,7 +70,11 @@ Input::Reaction GlobalsInputHandler(const SDL_Event& ev)
 			g_mouse_active = true;
 			break;
 		case SDL_WINDOWEVENT_LEAVE:
-			g_mouse_active = false;
+			// While the mouse is grabbed it can't leave the window. On Windows with
+			// DPI scaling, SDL still reports a leave event every time the cursor is
+			// pushed against the edge of the screen, which interrupts edge scrolling.
+			if (!SDL_GetWindowGrab(SDL_GetWindowFromID(ev.window.windowID)))
+				g_mouse_active = false;
 			break;
 		}
 		return Input::Reaction::PASS;
