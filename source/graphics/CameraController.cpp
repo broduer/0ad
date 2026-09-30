@@ -44,6 +44,7 @@
 
 #include <SDL_events.h>
 #include <algorithm>
+#include <cmath>
 #include <numbers>
 #include <functional>
 #include <string>
@@ -203,27 +204,44 @@ void CCameraController::Update(const float deltaRealTime)
 		}
 	}
 
+	// Scroll direction requested by the screen edges and the scroll hotkeys.
+	float scrollRightward = 0.f;
+	float scrollForward = 0.f;
+
 	if (g_mouse_active && m_ViewScrollMouseDetectDistance > 0)
 	{
 		if (g_mouse_x >= g_VideoMode.GetWindowWidth() - m_ViewScrollMouseDetectDistance && g_mouse_x < g_VideoMode.GetWindowWidth())
-			moveRightward += m_ViewScrollSpeed * deltaRealTime;
+			scrollRightward += 1.f;
 		else if (g_mouse_x < m_ViewScrollMouseDetectDistance && g_mouse_x >= 0)
-			moveRightward -= m_ViewScrollSpeed * deltaRealTime;
+			scrollRightward -= 1.f;
 
 		if (g_mouse_y >= g_VideoMode.GetWindowHeight() - m_ViewScrollMouseDetectDistance && g_mouse_y < g_VideoMode.GetWindowHeight())
-			moveForward -= m_ViewScrollSpeed * deltaRealTime;
+			scrollForward -= 1.f;
 		else if (g_mouse_y < m_ViewScrollMouseDetectDistance && g_mouse_y >= 0)
-			moveForward += m_ViewScrollSpeed * deltaRealTime;
+			scrollForward += 1.f;
 	}
 
 	if (HotkeyIsPressed("camera.right"))
-		moveRightward += m_ViewScrollSpeed * deltaRealTime;
+		scrollRightward += 1.f;
 	if (HotkeyIsPressed("camera.left"))
-		moveRightward -= m_ViewScrollSpeed * deltaRealTime;
+		scrollRightward -= 1.f;
 	if (HotkeyIsPressed("camera.up"))
-		moveForward += m_ViewScrollSpeed * deltaRealTime;
+		scrollForward += 1.f;
 	if (HotkeyIsPressed("camera.down"))
-		moveForward -= m_ViewScrollSpeed * deltaRealTime;
+		scrollForward -= 1.f;
+
+	// Scroll at the same speed in every direction: don't add up the edge and the
+	// hotkey of the same direction, and don't scroll faster diagonally.
+	scrollRightward = Clamp(scrollRightward, -1.f, 1.f);
+	scrollForward = Clamp(scrollForward, -1.f, 1.f);
+	const float scrollLength{std::hypot(scrollRightward, scrollForward)};
+	if (scrollLength > 1.f)
+	{
+		scrollRightward /= scrollLength;
+		scrollForward /= scrollLength;
+	}
+	moveRightward += scrollRightward * m_ViewScrollSpeed * deltaRealTime;
+	moveForward += scrollForward * m_ViewScrollSpeed * deltaRealTime;
 
 	if (moveRightward || moveForward)
 	{
