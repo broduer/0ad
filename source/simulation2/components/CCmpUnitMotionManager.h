@@ -60,6 +60,9 @@ public:
 	// The spatial grids of the pushing pass. Only cleared between turns, not reallocated.
 	UnitCollision::SpatialGrids m_PushGrids;
 
+	// The solid contacts of the pushing pass, grouped by unit: each MotionState views its own.
+	std::vector<MomentumModel::Contact> m_Contacts;
+
 	static std::string GetSchema()
 	{
 		return "<a:component type='system'/><empty/>";

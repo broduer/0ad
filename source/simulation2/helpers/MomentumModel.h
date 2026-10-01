@@ -23,6 +23,8 @@
 #include "simulation2/helpers/Position.h"
 
 #include <algorithm>
+#include <span>
+#include <vector>
 
 /**
  * Momentum maths for unit motion: how the velocity a unit wants (from its path) combines with the velocity it
@@ -85,6 +87,55 @@ public:
 	 */
 	static bool CorrectDrift(CFixedVector2D& velocity, const CFixedVector2D& inertiaVelocity,
 		const CFixedVector2D& forwardDir, const fixed driftCorrection, const fixed maxSpeed);
+
+	/**
+	 * A solid body near the unit: the contact's unit normal, pointing away from that body, and the gap left to it.
+	 */
+	struct Contact
+	{
+		CFixedVector2D normal;
+		entity_pos_t gap;
+		// How fast that body is moving away from the unit along the normal, in m/s (zero if it isn't).
+		fixed receding{};
+	};
+
+	/**
+	 * Whether one of @p contacts holds @p velocity back: the unit steers into it faster than SlideAlongContacts
+	 * lets it close the gap, so it is up against that body, not merely near one.
+	 */
+	static bool HeldByContact(const CFixedVector2D& velocity, const std::span<const Contact> contacts, const fixed dt)
+	{
+		if (dt <= fixed::Zero())
+			return false;
+		for (const Contact& contact : contacts)
+			if (-velocity.Dot(contact.normal) > (contact.gap / 2) / dt + contact.receding)
+				return true;
+		return false;
+	}
+
+	/**
+	 * A unit's own velocity against the solid bodies near it: what runs into a contact (against its normal) is
+	 * cut to the speed that closes half its gap this turn, and what runs along it is kept, so the unit eases up
+	 * to a body and slides along it rather than thrusting into it. The allowance falls with the gap and nowhere
+	 * else: held off by a push, the unit settles where the two balance. A fixed speed cap, or a cut at the edge
+	 * of a contact's reach, is a line the push shoves it back over one turn and it steps across the next.
+	 * It is the closing of the gap that is limited, so the speed the other body moves away at is allowed on top:
+	 * units walking the same way don't hold each other back, however close, and a column follows its head
+	 * at the head's pace.
+	 */
+	static CFixedVector2D SlideAlongContacts(CFixedVector2D velocity, const std::span<const Contact> contacts, const fixed dt)
+	{
+		if (dt <= fixed::Zero())
+			return velocity;
+		for (const Contact& contact : contacts)
+		{
+			const fixed into{velocity.Dot(contact.normal)};
+			const fixed allowed{-((contact.gap / 2) / dt + contact.receding)};
+			if (into < allowed)
+				velocity -= contact.normal.Multiply(into - allowed);
+		}
+		return velocity;
+	}
 
 	/**
 	 * A velocity below 0.01 m/s, snapped to exactly zero.

@@ -461,12 +461,29 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 		std::vector<UnitCollision::ContactHit> collisionHits;
 		std::vector<uint8_t> collisionPressures;
 		std::vector<CFixedVector2D> collisionCorrections;
+		std::vector<UnitCollision::Contact> collisionContacts;
 		CmpPtr<ICmpPathfinder> cmpPathfinder(GetSystemEntity());
 		UnitCollision::ComputePushes(compactStates, dt, m_PushGrids, collisionForces,
 			collisionSpins, collisionVelocityChanges, collisionHitSpins, collisionHits, collisionPressures,
-			collisionCorrections, cmpPathfinder ? &cmpPathfinder->GetPassabilityGrid() : nullptr);
+			collisionCorrections, cmpPathfinder ? &cmpPathfinder->GetPassabilityGrid() : nullptr, &collisionContacts);
 		for (size_t i = 0; i < compactStates.size(); ++i)
 			motionStates[i]->overlapCorrection = collisionCorrections[i];
+		// Group the contacts by unit, keeping each unit's in the order the pairs were found.
+		std::stable_sort(collisionContacts.begin(), collisionContacts.end(),
+			[](const UnitCollision::Contact& a, const UnitCollision::Contact& b) { return a.unit < b.unit; });
+		m_Contacts.clear();
+		m_Contacts.reserve(collisionContacts.size());
+		for (const UnitCollision::Contact& contact : collisionContacts)
+			m_Contacts.push_back({contact.normal, contact.gap, contact.receding});
+		for (size_t first{0}; first < collisionContacts.size();)
+		{
+			size_t last{first + 1};
+			while (last < collisionContacts.size() && collisionContacts[last].unit == collisionContacts[first].unit)
+				++last;
+			motionStates[collisionContacts[first].unit]->contacts =
+				std::span<const MomentumModel::Contact>{m_Contacts}.subspan(first, last - first);
+			first = last;
+		}
 
 #if DEBUG_RENDER
 		// The cells the pushing pass searched this turn, each drawn at the height of a unit in it, coloured

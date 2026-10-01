@@ -245,7 +245,8 @@ void UnitCollision::ComputePairPush(
 	uint8_t& outPressureA,
 	uint8_t& outPressureB,
 	CFixedVector2D& outCorrectionA,
-	CFixedVector2D& outCorrectionB)
+	CFixedVector2D& outCorrectionB,
+	Contact* outContact)
 {
 	outPushA = CFixedVector2D();
 	outPushB = CFixedVector2D();
@@ -258,6 +259,8 @@ void UnitCollision::ComputePairPush(
 	outPressureA = 0;
 	outCorrectionA = CFixedVector2D();
 	outCorrectionB = CFixedVector2D();
+	if (outContact)
+		outContact->normal = CFixedVector2D();
 	outPressureB = 0;
 
 	int movingPush = (a.isMoving ? 1 : 0) + (b.isMoving ? 1 : 0);
@@ -361,6 +364,13 @@ void UnitCollision::ComputePairPush(
 		// Normalize
 		offset.X = offset.X / directionLength;
 		offset.Y = offset.Y / directionLength;
+	}
+
+	// Two solid bodies in push range are a contact: their steering closes on it no faster than its gap allows.
+	if (outContact && rigidContact && solidPair)
+	{
+		outContact->normal = offset;
+		outContact->gap = std::max(offsetLength - a.collisionShape.radius - b.collisionShape.radius, entity_pos_t::Zero());
 	}
 
 	// Full force from wherever the spread says, but never later than the bodies actually touching. The
@@ -516,11 +526,14 @@ void UnitCollision::ComputePushes(
 	std::vector<ContactHit>& outHits,
 	std::vector<uint8_t>& outPressures,
 	std::vector<CFixedVector2D>& outCorrections,
-	const Grid<NavcellData>* passability)
+	const Grid<NavcellData>* passability,
+	std::vector<Contact>* outContacts)
 {
 	const auto& cfg = PushConfig::GetInstance().GetRuntimeConfig();
 
 	outHits.clear();
+	if (outContacts)
+		outContacts->clear();
 	if (!cfg.IsEnabled() || units.empty())
 		return;
 
@@ -605,8 +618,19 @@ void UnitCollision::ComputePushes(
 		fixed spinA, spinB, hitSpinA, hitSpinB;
 		uint8_t pressureA, pressureB;
 
+		Contact contact{};
 		ComputePairPush(units[i], units[j], dt, cfg, pushA, pushB, spinA, spinB,
-			velocityChangeA, velocityChangeB, hitSpinA, hitSpinB, outHits, pressureA, pressureB, correctionA, correctionB);
+			velocityChangeA, velocityChangeB, hitSpinA, hitSpinB, outHits, pressureA, pressureB, correctionA, correctionB,
+			outContacts ? &contact : nullptr);
+		if (!contact.normal.IsZero())
+		{
+			// The normal points from j to i: j moves away from i when its velocity runs against it, and i
+			// away from j when its own runs along it.
+			outContacts->push_back({i, contact.normal, contact.gap,
+				std::max(fixed::Zero(), -units[j].velocity.Dot(contact.normal))});
+			outContacts->push_back({j, -contact.normal, contact.gap,
+				std::max(fixed::Zero(), units[i].velocity.Dot(contact.normal))});
+		}
 
 		// A soft push between solid bodies moves a unit only as far as there is room where the push leads. The
 		// push is applied in full on open ground, and scaled down as the ground fills, to DensityPushFloor of it

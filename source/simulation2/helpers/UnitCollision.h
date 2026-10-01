@@ -176,6 +176,19 @@ public:
 	};
 
 	/**
+	 * A solid unit within push range of another solid unit: the unit's index, the contact's unit normal
+	 * pointing away from the other body, and the gap left between them (zero once they touch).
+	 */
+	struct Contact
+	{
+		size_t unit;
+		CFixedVector2D normal;
+		entity_pos_t gap;
+		// How fast the other body is moving away from the unit along the normal, in m/s (zero if it isn't).
+		fixed receding;
+	};
+
+	/**
 	 * One tier of the spatial grids: the units whose reach (see ComputePushes) falls in its band, sorted into
 	 * cells sized for them. Kept by the caller between turns: only the cells filled last turn are cleared,
 	 * and the grid is only resized when its shape changes. The cell (x, z) covers
@@ -274,6 +287,8 @@ public:
 	 * @param outPressures - output pressure increases for each unit
 	 * @param outCorrections - how far each solid unit is moved out of the solid units it overlaps this turn, in
 	 *        metres: a displacement for this turn only, never carried on as momentum (see ComputePairPush).
+	 * @param outContacts - if given, every solid unit touching another solid unit this turn, or about to
+	 *        (see Contact), one entry per unit per contact.
 	 */
 	static void ComputePushes(
 		const std::vector<MotionStateCompact>& units,
@@ -286,7 +301,8 @@ public:
 		std::vector<ContactHit>& outHits,
 		std::vector<uint8_t>& outPressures,
 		std::vector<CFixedVector2D>& outCorrections,
-		const Grid<NavcellData>* passability = nullptr);
+		const Grid<NavcellData>* passability = nullptr,
+		std::vector<Contact>* outContacts = nullptr);
 
 private:
 	/**
@@ -316,7 +332,8 @@ private:
 		uint8_t& outPressureA,
 		uint8_t& outPressureB,
 		CFixedVector2D& outCorrectionA,
-		CFixedVector2D& outCorrectionB);
+		CFixedVector2D& outCorrectionB,
+		Contact* outContact = nullptr);
 };
 
 #endif // INCLUDED_UNITCOLLISION

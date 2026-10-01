@@ -20,8 +20,11 @@
 
 #include "maths/Fixed.h"
 #include "maths/FixedVector2D.h"
+
+#include <span>
 #include "simulation2/system/Entity.h"
 #include "simulation2/helpers/Position.h"  // For entity_angle_t
+#include "simulation2/helpers/MomentumModel.h"
 
 class ICmpPosition;
 class CCmpUnitMotion;
@@ -116,6 +119,10 @@ struct MotionState
 	// How far this turn's move takes the unit out of the solid units it overlaps (see UnitCollision::ComputePushes).
 	// Added to this turn's move only: not momentum, neither its own nor external.
 	CFixedVector2D overlapCorrection;
+	// The solid bodies near this unit this turn (see UnitCollision::Contact): its own steering closes on them no
+	// faster than their gap allows, and slides along them. This turn's only, like overlapCorrection: a view
+	// of the motion manager's list, as this struct must stay trivially copyable for EntityMap.
+	std::span<const MomentumModel::Contact> contacts;
 
 	// Angular velocity from pathfinding (existing)
 	fixed angularVelocity;

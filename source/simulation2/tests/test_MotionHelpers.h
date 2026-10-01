@@ -1694,6 +1694,114 @@ public:
 		TS_ASSERT(squeezed[0].CompareLength(fixed::FromFraction(1, 1000)) < 0);
 	}
 
+	using Contacts = std::vector<MomentumModel::Contact>;
+
+	void test_SlideAlongContacts()
+	{
+		const fixed dt{fixed::FromFraction(1, 5)};
+		const CFixedVector2D east{fixed::FromInt(1), fixed::Zero()};
+		const CFixedVector2D north{fixed::Zero(), fixed::FromInt(1)};
+		const CFixedVector2D velocity{fixed::FromInt(3), fixed::FromInt(4)};
+		const auto contact = [](const CFixedVector2D& normal, const int gapTenths) {
+			return MomentumModel::Contact{normal, entity_pos_t::FromFraction(gapTenths, 10)};
+		};
+
+		// Nothing near: unchanged.
+		TS_ASSERT_EQUALS(MomentumModel::SlideAlongContacts(velocity, Contacts{}, dt), velocity);
+		// A body touching to the east (its normal points west): the eastward part is dropped, the rest kept.
+		TS_ASSERT_EQUALS(MomentumModel::SlideAlongContacts(velocity, Contacts{contact(-east, 0)}, dt),
+			CFixedVector2D(fixed::Zero(), fixed::FromInt(4)));
+		// A gap of 0.4 m to it: the unit may close half of that this turn, 1 m/s, and no more.
+		TS_ASSERT_EQUALS(MomentumModel::SlideAlongContacts(velocity, Contacts{contact(-east, 4)}, dt),
+			CFixedVector2D(fixed::FromInt(1), fixed::FromInt(4)));
+		// A gap of 2 m allows 5 m/s, more than it is doing: unchanged.
+		TS_ASSERT_EQUALS(MomentumModel::SlideAlongContacts(velocity, Contacts{contact(-east, 20)}, dt), velocity);
+		// A body to the west: nothing runs into it.
+		TS_ASSERT_EQUALS(MomentumModel::SlideAlongContacts(velocity, Contacts{contact(east, 0)}, dt), velocity);
+		// Touching one to the east and one to the north: both parts go.
+		TS_ASSERT(MomentumModel::SlideAlongContacts(velocity, Contacts{contact(-east, 0), contact(-north, 0)}, dt).IsZero());
+
+		// A touching body to the east that walks east at 2 m/s itself: the unit may follow it at that pace,
+		// and one walking away as fast as the unit steers doesn't hold it at all.
+		const auto following = [&](const int receding) {
+			return MomentumModel::SlideAlongContacts(velocity,
+				Contacts{MomentumModel::Contact{-east, entity_pos_t::Zero(), fixed::FromInt(receding)}}, dt);
+		};
+		TS_ASSERT_EQUALS(following(2).X, fixed::FromInt(2));
+		TS_ASSERT_EQUALS(following(2).Y, velocity.Y);
+		TS_ASSERT_EQUALS(following(3), velocity);
+		TS_ASSERT(!MomentumModel::HeldByContact(velocity, Contacts{MomentumModel::Contact{-east, entity_pos_t::Zero(), fixed::FromInt(3)}}, dt));
+	}
+
+	void test_HeldByContact()
+	{
+		const fixed dt{fixed::FromFraction(1, 5)};
+		const CFixedVector2D east{fixed::FromInt(1), fixed::Zero()};
+		const CFixedVector2D north{fixed::Zero(), fixed::FromInt(1)};
+		const CFixedVector2D heading{fixed::FromInt(3), fixed::FromInt(4)};
+		const auto contact = [](const CFixedVector2D& normal, const int gapTenths) {
+			return MomentumModel::Contact{normal, entity_pos_t::FromFraction(gapTenths, 10)};
+		};
+		// Steering east at 3 m/s into a touching body to the east (normal west): held. The same body 2 m off
+		// allows 5 m/s this turn, so it isn't holding the unit yet; 1 m off allows 2.5 m/s, and is.
+		TS_ASSERT(MomentumModel::HeldByContact(heading, Contacts{contact(-east, 0)}, dt));
+		TS_ASSERT(!MomentumModel::HeldByContact(heading, Contacts{contact(-east, 20)}, dt));
+		TS_ASSERT(MomentumModel::HeldByContact(heading, Contacts{contact(-east, 10)}, dt));
+		// A body to the west (normal east), or one to the north (normal south) the unit moves away from: not held,
+		// however close.
+		TS_ASSERT(!MomentumModel::HeldByContact(heading, Contacts{contact(east, 0)}, dt));
+		TS_ASSERT(!MomentumModel::HeldByContact(CFixedVector2D{fixed::FromInt(4), fixed::FromInt(-3)}, Contacts{contact(-north, 0)}, dt));
+		TS_ASSERT(!MomentumModel::HeldByContact(heading, Contacts{}, dt));
+	}
+
+	void test_Pushing_reports_solid_contacts()
+	{
+		// Two elephants (4.5 x 9) abreast with their flanks touching are each reported in contact with a gap of
+		// zero and the normal pointing away from the other. A metre apart they are still reported, with that
+		// gap; out of push range not. A footman against an elephant is no contact: only solid bodies slide.
+		const UnitCollision::CollisionShape elephant{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromFraction(9, 2), entity_pos_t::FromInt(9))};
+		const UnitCollision::CollisionShape footman{entity_pos_t::FromFraction(8, 10), entity_pos_t::Zero(), false, false};
+		const CFixedVector2D here{fixed::FromInt(100), fixed::FromInt(100)};
+		const auto contactsOf = [](const std::vector<UnitCollision::MotionStateCompact>& units) {
+			std::vector<CFixedVector2D> pushes, velocityChanges, corrections;
+			std::vector<fixed> spins, hitSpins;
+			std::vector<UnitCollision::ContactHit> hits;
+			std::vector<uint8_t> pressures;
+			std::vector<UnitCollision::Contact> contacts;
+			UnitCollision::SpatialGrids grids;
+			UnitCollision::ComputePushes(units, PushConfig::IMPACT_REFERENCE_TIME, grids, pushes, spins,
+				velocityChanges, hitSpins, hits, pressures, corrections, nullptr, &contacts);
+			return contacts;
+		};
+
+		const std::vector<UnitCollision::Contact> touching{contactsOf({
+			MakeUnit(1, here, elephant),
+			MakeUnit(2, CFixedVector2D{fixed::FromFraction(209, 2), fixed::FromInt(100)}, elephant)})};
+		TS_ASSERT_EQUALS(touching.size(), static_cast<size_t>(2));
+		TS_ASSERT_EQUALS(touching[0].unit, static_cast<size_t>(0));
+		TS_ASSERT_LESS_THAN(touching[0].normal.X, fixed::Zero());
+		TS_ASSERT_EQUALS(touching[0].gap, fixed::Zero());
+		TS_ASSERT_EQUALS(touching[1].unit, static_cast<size_t>(1));
+		TS_ASSERT_LESS_THAN(fixed::Zero(), touching[1].normal.X);
+
+		const std::vector<UnitCollision::Contact> near{contactsOf({MakeUnit(1, here, elephant),
+			MakeUnit(2, CFixedVector2D{fixed::FromFraction(211, 2), fixed::FromInt(100)}, elephant)})};
+		TS_ASSERT_EQUALS(near.size(), static_cast<size_t>(2));
+		TS_ASSERT_DELTA(near[0].gap.ToDouble(), 1.0, 0.01);
+		TS_ASSERT(contactsOf({MakeUnit(1, here, elephant),
+			MakeUnit(2, CFixedVector2D{fixed::FromInt(140), fixed::FromInt(100)}, elephant)}).empty());
+
+		TS_ASSERT(contactsOf({MakeUnit(1, here, elephant),
+			MakeUnit(2, CFixedVector2D{fixed::FromInt(103), fixed::FromInt(100)}, footman)}).empty());
+
+		// Members of the same formation are no contact to each other.
+		UnitCollision::MotionStateCompact member{MakeUnit(1, here, elephant)};
+		UnitCollision::MotionStateCompact mate{MakeUnit(2, CFixedVector2D{fixed::FromFraction(209, 2), fixed::FromInt(100)}, elephant)};
+		member.controlGroup = mate.controlGroup = 50;
+		TS_ASSERT(contactsOf({member, mate}).empty());
+	}
+
 	void test_Pushing_solid_push_needs_room()
 	{
 		// Two elephants (4.5 x 9) side by side on open ground push each other apart in full. With a packed group

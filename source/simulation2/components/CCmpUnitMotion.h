@@ -170,7 +170,8 @@ constexpr int NUDGE_PRESSURE_LIMIT = 40;
 
 /**
  * A unit whose step has been blocked for this many failed movements takes the sideways step whatever the
- * pressure: sitting by a corner in a pack, with its waypoint in sight past it, nothing else gets it round.
+ * pressure and the bodies it is held on: sitting by a corner in a pack, with its waypoint in sight past it,
+ * nothing else gets it round.
  */
 constexpr std::uint8_t NUDGE_FAILED_MOVEMENTS = 3;
 
@@ -1543,6 +1544,7 @@ void CCmpUnitMotion::PreMove(MotionState& state)
 	state.wentStraight = false;
 	state.poppedBlockedCorner = false;
 	state.overlapCorrection = CFixedVector2D{};
+	state.contacts = {};
 
 	// Determine if this unit needs to be processed this turn
 	// A unit needs update if it's in-world AND (moving OR has a pending move request OR is still rolling/spinning).
@@ -2255,6 +2257,13 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 	ImpactEffects::DecaySpin(state, dt);
 	ImpactEffects::IntegrateRoll(state, dt);
 
+	// Against a solid body near it, the unit steers up to the contact and along it, not into it: thrust into
+	// the body would only make the overlap deeper, and the overlap correction only takes part of that back. What
+	// it is pushed by is added below as it is: a shove from behind closes the pair, and the contact impulse
+	// stops that.
+	if (!state.contacts.empty())
+		combinedVelocity = MomentumModel::SlideAlongContacts(combinedVelocity, state.contacts, dt);
+
 	// The unit's own movement, before the external forces below are added: what it falls back on if the step with
 	// them in it is blocked.
 	const CFixedVector2D ownVelocity{combinedVelocity};
@@ -2278,7 +2287,7 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 		const CFixedVector2D pushTotal{externalCarry + externalVelocity};
 		const double opposition{ownVelocity.IsZero() || pushTotal.IsZero() ? 0.0 :
 			-ownVelocity.Dot(pushTotal).ToDouble() / (ownVelocity.Length().ToDouble() * pushTotal.Length().ToDouble())};
-		LOGWARNING("Crowd trace: entity %u move %s: request %s (charge %s), path short %zu / long %zu, pressure %u -> max speed %.2f of %.2f, stagger %.2f, own %.2f m/s (steering asked %.2f), push %.2f m/s (carried %.2f + this turn %.2f), total %.2f, goal %.2f m, opposition %.2f, heading %.2f wants %.2f waypoint %.2f",
+		LOGWARNING("Crowd trace: entity %u move %s: request %s (charge %s), path short %zu / long %zu, pressure %u -> max speed %.2f of %.2f, stagger %.2f, own %.2f m/s (steering asked %.2f), push %.2f m/s (carried %.2f + this turn %.2f), total %.2f, goal %.2f m, opposition %.2f, heading %.2f wants %.2f waypoint %.2f, contacts %zu",
 			GetEntityId(), outcome, request, m_MoveRequest.m_Charge ? "yes" : "no",
 			shortPath.m_Waypoints.size(), longPath.m_Waypoints.size(),
 			static_cast<unsigned>(pushingPressure), maxSpeed.ToDouble(), basicSpeed.ToDouble(), state.stagger.ToDouble(),
@@ -2286,7 +2295,7 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 			pushTotal.Length().ToDouble(), externalCarry.Length().ToDouble(),
 			externalVelocity.Length().ToDouble(), speed.ToDouble(), goalDistance, opposition,
 			angle.ToDouble(), HeadingControl::NormalizeAngle(wantedAngle).ToDouble(),
-			HeadingControl::NormalizeAngle(waypointAngle).ToDouble());
+			HeadingControl::NormalizeAngle(waypointAngle).ToDouble(), state.contacts.size());
 	};
 #else
 	const auto crowdTrace = [](const char*) {};
@@ -2447,10 +2456,14 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 				return false;
 			}
 		}
-		else if (m_FailedMovements >= NUDGE_FAILED_MOVEMENTS || pushingPressure < NUDGE_PRESSURE_LIMIT)
+		else if (m_FailedMovements >= NUDGE_FAILED_MOVEMENTS ||
+			(pushingPressure < NUDGE_PRESSURE_LIMIT && !MomentumModel::HeldByContact(pathfindingVelocity, state.contacts, dt)))
 		{
-			// Following a path: step sideways around the obstacle, keeping the current waypoint in sight.
-			// Blocked turn after turn, it is taken whatever the pressure (see NUDGE_FAILED_MOVEMENTS).
+			// Following a path: step sideways around the obstacle, keeping the current waypoint in sight. Not
+			// around a solid body the unit is held on: it slides along that one (see SlideAlongContacts), and a
+			// sideways hop on top would set the two wobbling. A body beside or behind it, pushing it, is not what
+			// blocks it, and the step around whatever does is still wanted. Blocked turn after turn, it is
+			// taken regardless (see NUDGE_FAILED_MOVEMENTS).
 			if (ObstructionResolution::TryPerpendicularNudge(pos, originalMovement,
 					PathFollowing::CurrentWaypoint(shortPath, longPath).value_or(CFixedVector2D{}), *cmpPathfinder,
 					GetObstructionFilter(specificIgnore), m_Clearance, m_PassClass))
