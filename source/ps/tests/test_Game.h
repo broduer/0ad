@@ -218,7 +218,7 @@ private:
 		{
 			while (game.GetTurnManager()->GetCurrentTurn() < checkpoint)
 			{
-				game.Update(DEFAULT_TURN_LENGTH / 1000.0 / simRate, false);
+				game.Update(DEFAULT_TURN_LENGTH / 1000.0, false);
 				TS_ASSERT_LESS_THAN_EQUALS(game.GetTurnManager()->GetCurrentTurn(), checkpoint);
 			}
 
