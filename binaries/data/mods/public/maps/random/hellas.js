@@ -290,7 +290,6 @@ export function* generateMap(mapSettings)
 	}
 	yield 60;
 
-	g_Map.log("Placing docks");
 	placeDocks(
 		biomes.shoreline.gaia.dock,
 		0,

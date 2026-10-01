@@ -190,7 +190,6 @@ export function* generateMap(mapSettings)
 	}
 	yield 50;
 
-	g_Map.log("Placing docks");
 	const dockTypes = [
 		{ "template": g_Gaia.dock, "count": scaleByMapSize(1, 2) },
 		{ "template": g_Gaia.dockRubble, "count": scaleByMapSize(2, 3) }
