@@ -119,6 +119,52 @@ public:
 		TS_ASSERT(angle <= pi);
 	}
 
+	void test_TurnWithMomentum_holds_the_heading_against_a_spin()
+	{
+		const fixed maxRate{fixed::FromInt(4)};
+		const fixed accel{fixed::FromInt(4)};
+		const fixed dt{fixed::FromFraction(1, 5)};
+		const entity_angle_t target{fixed::FromInt(1)};
+
+		// Facing the target and spun at 1 rad/s: the unit turns against the spin by accel·dt, and is rotated by
+		// what it couldn't cancel, not by the whole spin.
+		entity_angle_t angle{target};
+		fixed angularVelocity{fixed::Zero()};
+		const fixed spin{fixed::FromInt(1)};
+		TS_ASSERT(!HeadingControl::TurnWithMomentum(angle, angularVelocity, target, maxRate, accel, dt, spin));
+		TS_ASSERT_EQUALS(angularVelocity, -accel.Multiply(dt));
+		TS_ASSERT_EQUALS(angle, target + (spin - accel.Multiply(dt)).Multiply(dt));
+
+		// Kept up, the spin is fully held off within a few turns: the unit is back on its heading and reports
+		// aligned only once it no longer rotates.
+		bool aligned{false};
+		for (int turn{0}; turn < 20 && !aligned; ++turn)
+		{
+			aligned = HeadingControl::TurnWithMomentum(angle, angularVelocity, target, maxRate, accel, dt, spin);
+			TS_ASSERT(angularVelocity >= -maxRate);
+		}
+		TS_ASSERT(aligned);
+		TS_ASSERT_EQUALS(angle, target);
+		TS_ASSERT_EQUALS(angularVelocity, -spin);
+
+		// A spin faster than the unit can turn keeps rotating it, while the unit builds up its own turning against
+		// it by accel·dt a turn. (Four turns: after that the target is nearer the other way round, and the unit
+		// rides the spin towards it instead.)
+		angle = target;
+		angularVelocity = fixed::Zero();
+		const fixed fastSpin{fixed::FromInt(6)};
+		for (int turn{0}; turn < 4; ++turn)
+			HeadingControl::TurnWithMomentum(angle, angularVelocity, target, maxRate, accel, dt, fastSpin);
+		TS_ASSERT_EQUALS(angularVelocity, -accel.Multiply(dt) * 4);
+		TS_ASSERT(angle != target);
+
+		// Without a spin, nothing changes: a unit on its heading stays put.
+		angle = target;
+		angularVelocity = fixed::Zero();
+		TS_ASSERT(HeadingControl::TurnWithMomentum(angle, angularVelocity, target, maxRate, accel, dt));
+		TS_ASSERT_EQUALS(angle, target);
+	}
+
 	void test_TurnWithMomentum_accepts_unnormalized_target()
 	{
 		const entity_angle_t pi{entity_angle_t::Pi()};
@@ -358,50 +404,43 @@ public:
 		TS_ASSERT_EQUALS(ship.rollAngle, -fixed::FromFraction(1, 2));
 	}
 
-	void test_IntegrateSpin()
+	void test_DecaySpin()
 	{
 		const fixed dt{fixed::FromFraction(1, 5)};
 		MotionState state{nullptr, nullptr, nullptr};
 		// The default SpinDecay loses 0.15 of the spin every 0.2 s.
 		const fixed keep{fixed::FromInt(1) - fixed::FromFraction(15, 100)};
 
-		// Nothing to do without spin.
+		// Decays by friction, without touching the angle: rotating by the spin is the caller's job.
 		state.angle = fixed::FromInt(1);
-		ImpactEffects::IntegrateSpin(state, dt);
-		TS_ASSERT_EQUALS(state.angle, fixed::FromInt(1));
-
-		// Rotates, wraps through PI, and decays by friction.
-		const entity_angle_t start{entity_angle_t::Pi() - fixed::FromFraction(1, 10)};
-		state.angle = start;
 		state.impactAngularVelocity = fixed::FromInt(1);
-		ImpactEffects::IntegrateSpin(state, dt);
-		TS_ASSERT_EQUALS(state.angle, start + fixed::FromInt(1).Multiply(dt) - entity_angle_t::Pi() * 2);
-		TS_ASSERT(state.angle < fixed::Zero());
+		ImpactEffects::DecaySpin(state, dt);
+		TS_ASSERT_EQUALS(state.angle, fixed::FromInt(1));
 		TS_ASSERT_EQUALS(state.impactAngularVelocity, keep);
 
 		// Down to exactly zero.
 		for (int turn{0}; turn < 100 && ImpactEffects::IsActive(state); ++turn)
-			ImpactEffects::IntegrateSpin(state, dt);
+			ImpactEffects::DecaySpin(state, dt);
 		TS_ASSERT(!ImpactEffects::IsActive(state));
 
 		// An invisible spin stops right away instead of keeping the unit awake: 0.04 rad/s turns under a hundredth of a
 		// radian, then snaps. A visible one keeps going.
 		state.impactAngularVelocity = fixed::FromFraction(4, 100);
-		ImpactEffects::IntegrateSpin(state, dt);
+		ImpactEffects::DecaySpin(state, dt);
 		TS_ASSERT_EQUALS(state.impactAngularVelocity, fixed::Zero());
 		state.impactAngularVelocity = fixed::FromFraction(1, 10);
-		ImpactEffects::IntegrateSpin(state, dt);
+		ImpactEffects::DecaySpin(state, dt);
 		TS_ASSERT_EQUALS(state.impactAngularVelocity, fixed::FromFraction(1, 10).Multiply(keep));
 
 		// The decay is per 0.2 s, not per turn: a 0.4 s turn keeps the share of two 0.2 s turns.
 		state.impactAngularVelocity = fixed::FromInt(1);
-		ImpactEffects::IntegrateSpin(state, fixed::FromFraction(2, 5));
+		ImpactEffects::DecaySpin(state, fixed::FromFraction(2, 5));
 		TS_ASSERT_EQUALS(state.impactAngularVelocity, keep.Multiply(keep));
 
 		// A unit's own SpinDecay replaces the default.
 		state.spinDecay = fixed::FromFraction(1, 2);
 		state.impactAngularVelocity = fixed::FromInt(1);
-		ImpactEffects::IntegrateSpin(state, dt);
+		ImpactEffects::DecaySpin(state, dt);
 		TS_ASSERT_EQUALS(state.impactAngularVelocity, fixed::FromFraction(1, 2));
 	}
 

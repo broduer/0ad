@@ -81,10 +81,15 @@ public:
 	 * Minimum-time turn: the fastest angular speed from which we can still stop on the target, sqrt(2·accel·|angle|), capped
 	 * at maxRate. The signed angular velocity moves toward it by at most accel·dt, which speeds the turn up, slows it down
 	 * before the target and handles reversing. Snaps onto the target only while rotating towards it.
-	 * @return true once aligned (angle set to the target and angular velocity zeroed).
+	 * @param angularVelocity - the unit's own turning, updated in place. It is what the unit controls: capped at maxRate
+	 *	and changed by at most accel·dt.
+	 * @param externalVelocity - a spin the unit is given on top of its own turning, from hits and pushes. The unit is
+	 *	rotated by the two together, and its own turning aims the sum at the target, so it holds its heading against
+	 *	the spin as far as its acceleration allows instead of being turned by it and correcting afterwards.
+	 * @return true once aligned (angle set to the target and no longer rotating).
 	 */
 	static bool TurnWithMomentum(entity_angle_t& angle, fixed& angularVelocity, entity_angle_t targetAngle,
-		const fixed maxRate, const fixed accel, const fixed dt);
+		const fixed maxRate, const fixed accel, const fixed dt, const fixed externalVelocity = fixed::Zero());
 };
 
 #endif // INCLUDED_HEADINGCONTROL

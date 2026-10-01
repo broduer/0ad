@@ -42,7 +42,7 @@ entity_angle_t HeadingControl::PathFacingAngle(const entity_angle_t waypointAngl
 }
 
 bool HeadingControl::TurnWithMomentum(entity_angle_t& angle, fixed& angularVelocity, entity_angle_t targetAngle,
-	const fixed maxRate, const fixed accel, const fixed dt)
+	const fixed maxRate, const fixed accel, const fixed dt, const fixed externalVelocity)
 {
 	// Callers can pass slightly un-normalized targets (e.g. a blended heading past PI), which could otherwise
 	// never compare equal to the normalized angle.
@@ -69,22 +69,26 @@ bool HeadingControl::TurnWithMomentum(entity_angle_t& angle, fixed& angularVeloc
 	const fixed desiredVelocity{capWins ? maxRate :
 		std::min(maxRate, std::max(fixed::Zero(), radicand.Sqrt() - maxStep / 2))};
 
-	// Speed up or slow down towards it, turning the short way round, by at most maxStep per turn. maxRate can drop
-	// between calls (e.g. while staggered), so the result is clamped to it too: a spin faster than that is cut at once.
+	// Speed up or slow down towards it, turning the short way round, by at most maxStep per turn. The unit rotates
+	// at its own turning plus the external spin, so it is the sum that aims for the target: with a spin, the unit
+	// turns against it. Only its own part is capped at maxRate, which can drop between calls (e.g. while
+	// staggered): an own turning faster than that is cut at once, a spin is not.
 	const fixed targetVelocity{angleDiff > fixed::Zero() ? desiredVelocity : -desiredVelocity};
-	angularVelocity = Clamp(angularVelocity + Clamp(targetVelocity - angularVelocity, -maxStep, maxStep), -maxRate, maxRate);
+	angularVelocity = Clamp(angularVelocity + Clamp(targetVelocity - angularVelocity - externalVelocity, -maxStep, maxStep),
+		-maxRate, maxRate);
 
-	// Land on the target and stop if this step would reach or pass it while turning towards it.
-	const fixed rotation{angularVelocity.Multiply(dt)};
+	// Land on the target and stop if this step would reach or pass it while turning towards it. Stopping means
+	// holding the spin off, which lasts until the spin has decayed.
+	const fixed rotation{(angularVelocity + externalVelocity).Multiply(dt)};
 	if (absAngleDiff <= rotation.Absolute() && (rotation > fixed::Zero()) == (angleDiff > fixed::Zero()))
 	{
 		angle = targetAngle;
-		angularVelocity = fixed::Zero();
+		angularVelocity = Clamp(-externalVelocity, -maxRate, maxRate);
 	}
 	else
 		angle = angle + rotation;
 
 	angle = NormalizeAngle(angle);
 
-	return angle == targetAngle && angularVelocity.IsZero();
+	return angle == targetAngle && (angularVelocity + externalVelocity).IsZero();
 }

@@ -53,7 +53,7 @@ fixed UnitCollision::SpinFromVelocityChange(const CFixedVector2D& lever, const C
 
 	// cross(velocityChange, lever), which is -cross(lever, velocityChange): a positive entity angle turns
 	// +Z towards +X (see CFixedVector2D::Rotate), the opposite way round from the usual cross product,
-	// so the sign is flipped here to give a spin that IntegrateSpin can add to the angle as it is.
+	// so the sign is flipped here to give a spin that can be added to the angle as it is.
 	// Both are short relative vectors - the lever is bounded by the body's extent, a few tens of metres
 	// at most, and a velocity change by a few metres per second - so their products stay well inside
 	// what Dot can hold.

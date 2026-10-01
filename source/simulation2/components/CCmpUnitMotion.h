@@ -2191,6 +2191,16 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 	const fixed effectiveTurnRate{turnRate.Multiply(turnReduction)};
 	const fixed effectiveTurnAcceleration{m_TemplateTurnAcceleration.Multiply(turnReduction)};
 
+	// The spin the unit is given this turn on top of its own turning: from hits, and from pushes (what was carried
+	// in plus what this turn's pushes added). The two are kept apart because the push spin follows the push
+	// momentum's decay (Drifting), while the hit spin decays with SpinDecay.
+	const fixed externalSpin{state.impactAngularVelocity + pushSpinCarry + state.impulseSpin};
+	bool holdsHeading{false};
+#if DEBUG_CROWD_TRACE
+	entity_angle_t wantedAngle{angle};
+	entity_angle_t waypointAngle{angle};
+#endif
+
 	if (hasPathfinding && hasMoveRequest)
 	{
 		// Face the waypoint, pulled towards the direction of travel as far as drift correction allows.
@@ -2200,7 +2210,12 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 
 		// Turn with angular momentum, the same rule as every other heading change.
 		HeadingControl::TurnWithMomentum(angle, state.angularVelocity, desiredAngle, effectiveTurnRate,
-			effectiveTurnAcceleration, dt);
+			effectiveTurnAcceleration, dt, externalSpin);
+		holdsHeading = true;
+#if DEBUG_CROWD_TRACE
+		wantedAngle = desiredAngle;
+		waypointAngle = pathDesiredAngle;
+#endif
 	}
 	else if (hasMoveRequest && !hasPathfinding)
 	{
@@ -2211,8 +2226,11 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 		{
 			const CFixedVector2D toTarget{targetPos - pos};
 			if (!toTarget.IsZero())
-				HeadingControl::TurnWithMomentum(angle, state.angularVelocity, atan2_approx(toTarget.X, toTarget.Y), effectiveTurnRate,
-					effectiveTurnAcceleration, dt);
+			{
+				HeadingControl::TurnWithMomentum(angle, state.angularVelocity, atan2_approx(toTarget.X, toTarget.Y),
+					effectiveTurnRate, effectiveTurnAcceleration, dt, externalSpin);
+				holdsHeading = true;
+			}
 		}
 	}
 	else if (!hasMoveRequest && state.hasFaceTarget)
@@ -2220,21 +2238,22 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 		// Keep turning towards a heading set by FaceTowardsPoint (an attack target, or our destination on
 		// arrival) until aligned, with angular momentum. The unit is kept awake meanwhile (see PreMove).
 		if (HeadingControl::TurnWithMomentum(angle, state.angularVelocity, state.faceTargetAngle, effectiveTurnRate,
-				effectiveTurnAcceleration, dt))
+				effectiveTurnAcceleration, dt, externalSpin))
 			state.hasFaceTarget = false;
+		holdsHeading = true;
 	}
 
-	// Impact spin (from charges and other external forces), on top of the unit's own turning, then roll.
-	// NB: angle is state.angle, which IntegrateSpin rotates.
-	ImpactEffects::IntegrateSpin(state, dt);
-	ImpactEffects::IntegrateRoll(state, dt);
+	// No heading to hold: the unit is simply rotated by the external spin. Its own turning is zeroed too, since
+	// nothing applies it any more and the pushing pass would still count it as the unit rotating.
+	if (!holdsHeading)
+	{
+		state.angularVelocity = fixed::Zero();
+		if (!externalSpin.IsZero())
+			state.angle = HeadingControl::WrapAngle(state.angle + externalSpin.Multiply(dt));
+	}
 
-	// Spin from collision pushes: what was carried in plus what this turn's pushes added. Kept apart from
-	// the impact spin above because it follows the push momentum's decay (Drifting) rather than spinDecay,
-	// so a unit whose pushes are one-shot can't be wound up by being pushed every turn.
-	const fixed pushSpinTotal{pushSpinCarry + state.impulseSpin};
-	if (!pushSpinTotal.IsZero())
-		state.angle = HeadingControl::WrapAngle(state.angle + pushSpinTotal.Multiply(dt));
+	ImpactEffects::DecaySpin(state, dt);
+	ImpactEffects::IntegrateRoll(state, dt);
 
 	// The unit's own movement, before the external forces below are added: what it falls back on if the step with
 	// them in it is blocked.
@@ -2259,13 +2278,15 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 		const CFixedVector2D pushTotal{externalCarry + externalVelocity};
 		const double opposition{ownVelocity.IsZero() || pushTotal.IsZero() ? 0.0 :
 			-ownVelocity.Dot(pushTotal).ToDouble() / (ownVelocity.Length().ToDouble() * pushTotal.Length().ToDouble())};
-		LOGWARNING("Crowd trace: entity %u move %s: request %s (charge %s), path short %zu / long %zu, pressure %u -> max speed %.2f of %.2f, stagger %.2f, own %.2f m/s (steering asked %.2f), push %.2f m/s (carried %.2f + this turn %.2f), total %.2f, goal %.2f m, opposition %.2f",
+		LOGWARNING("Crowd trace: entity %u move %s: request %s (charge %s), path short %zu / long %zu, pressure %u -> max speed %.2f of %.2f, stagger %.2f, own %.2f m/s (steering asked %.2f), push %.2f m/s (carried %.2f + this turn %.2f), total %.2f, goal %.2f m, opposition %.2f, heading %.2f wants %.2f waypoint %.2f",
 			GetEntityId(), outcome, request, m_MoveRequest.m_Charge ? "yes" : "no",
 			shortPath.m_Waypoints.size(), longPath.m_Waypoints.size(),
 			static_cast<unsigned>(pushingPressure), maxSpeed.ToDouble(), basicSpeed.ToDouble(), state.stagger.ToDouble(),
 			ownVelocity.Length().ToDouble(), pathfindingVelocity.Length().ToDouble(),
 			pushTotal.Length().ToDouble(), externalCarry.Length().ToDouble(),
-			externalVelocity.Length().ToDouble(), speed.ToDouble(), goalDistance, opposition);
+			externalVelocity.Length().ToDouble(), speed.ToDouble(), goalDistance, opposition,
+			angle.ToDouble(), HeadingControl::NormalizeAngle(wantedAngle).ToDouble(),
+			HeadingControl::NormalizeAngle(waypointAngle).ToDouble());
 	};
 #else
 	const auto crowdTrace = [](const char*) {};

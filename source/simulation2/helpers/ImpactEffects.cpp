@@ -62,12 +62,10 @@ fixed ImpactEffects::RollFromVelocityChange(const MotionState& state, const CFix
 	return roll.Absolute() < config.rollImpulseMin ? fixed::Zero() : roll;
 }
 
-void ImpactEffects::IntegrateSpin(MotionState& state, const fixed dt)
+void ImpactEffects::DecaySpin(MotionState& state, const fixed dt)
 {
 	if (state.impactAngularVelocity.IsZero())
 		return;
-
-	state.angle = HeadingControl::WrapAngle(state.angle + state.impactAngularVelocity.Multiply(dt));
 
 	// The decay is per IMPACT_REFERENCE_TIME, so the spin lasts as long at any turn length.
 	state.impactAngularVelocity = state.impactAngularVelocity.Multiply(PushConfig::DecayFactor(fixed::FromInt(1) - state.spinDecay, dt));

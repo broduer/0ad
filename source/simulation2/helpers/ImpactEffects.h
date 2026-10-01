@@ -70,9 +70,10 @@ public:
 	}
 
 	/**
-	 * One turn of spin: rotate state.angle and decay the spin.
+	 * One turn of decay of the impact spin, down to exactly zero once it is too slow to see. Rotating the unit by
+	 * it is the caller's job: a unit holding a heading turns against it.
 	 */
-	static void IntegrateSpin(MotionState& state, const fixed dt);
+	static void DecaySpin(MotionState& state, const fixed dt);
 
 	/**
 	 * One turn of roll: the spring pulls the roll back towards level, damped, within 1.5 times the max roll angle.
