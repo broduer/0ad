@@ -32,7 +32,8 @@ SmoothingPainter.prototype.paint = function(area)
 	const neighborY = Int32Array.from(neighbors, brushPoint => brushPoint.y);
 	const neighborDistance = Float64Array.from(neighbors, brushPoint => Math.abs(brushPoint.x) + Math.abs(brushPoint.y));
 
-	const vertexSize = g_Map.height.length;
+	const height = g_Map.height;
+	const vertexSize = height.length;
 
 	// Additional complexity to process all 4 vertices of each tile, i.e the last row too
 	const seen = new Uint8Array(vertexSize * vertexSize);
@@ -44,29 +45,30 @@ SmoothingPainter.prototype.paint = function(area)
 		for (const point of area.getPoints())
 			for (const tileVertex of g_TileVertices)
 			{
-				const vertex = Vector2D.add(point, tileVertex);
-				if (!g_Map.validHeight(vertex) || seen[vertex.x * vertexSize + vertex.y])
+				const x = point.x + tileVertex.x;
+				const y = point.y + tileVertex.y;
+				if (x < 0 || y < 0 || x >= vertexSize || y >= vertexSize || seen[x * vertexSize + y])
 					continue;
 
-				seen[vertex.x * vertexSize + vertex.y] = 1;
+				seen[x * vertexSize + y] = 1;
 
 				let sumWeightedHeights = 0;
 				let sumWeights = 0;
 
 				for (let k = 0; k < neighborDistance.length; ++k)
 				{
-					const position = new Vector2D(vertex.x + neighborX[k], vertex.y + neighborY[k]);
-					if (!g_Map.validHeight(position))
+					const xx = x + neighborX[k];
+					const yy = y + neighborY[k];
+					if (xx < 0 || yy < 0 || xx >= vertexSize || yy >= vertexSize)
 						continue;
 
-					sumWeightedHeights += g_Map.getHeight(position) / neighborDistance[k];
+					sumWeightedHeights += height[xx][yy] / neighborDistance[k];
 					sumWeights += 1 / neighborDistance[k];
 				}
 
-				g_Map.setHeight(
-					vertex,
+				height[x][y] =
 					this.strength * sumWeightedHeights / sumWeights +
-					(1 - this.strength) * g_Map.getHeight(vertex));
+					(1 - this.strength) * height[x][y];
 			}
 	}
 };
