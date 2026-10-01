@@ -26,20 +26,23 @@ SmoothingPainter.prototype.paint = function(area)
 	const brushPoints = getPointsInBoundingBox(getBoundingBox(
 		new Array(2).fill(0).map((zero, i) => new Vector2D(1, 1).mult(this.size).mult(i ? 1 : -1))));
 
+	const vertexSize = g_Map.height.length;
+
+	// Additional complexity to process all 4 vertices of each tile, i.e the last row too
+	const seen = new Uint8Array(vertexSize * vertexSize);
+
 	for (let i = 0; i < this.iterations; ++i)
 	{
-		// Additional complexity to process all 4 vertices of each tile, i.e the last row too
-		const vertexSize = g_Map.height.length;
-		const seen = new Array(vertexSize).fill(0).map(zero => new Uint8Array(vertexSize).fill(0));
+		seen.fill(0);
 
 		for (const point of area.getPoints())
 			for (const tileVertex of g_TileVertices)
 			{
 				const vertex = Vector2D.add(point, tileVertex);
-				if (!g_Map.validHeight(vertex) || seen[vertex.x][vertex.y])
+				if (!g_Map.validHeight(vertex) || seen[vertex.x * vertexSize + vertex.y])
 					continue;
 
-				seen[vertex.x][vertex.y] = 1;
+				seen[vertex.x * vertexSize + vertex.y] = 1;
 
 				let sumWeightedHeights = 0;
 				let sumWeights = 0;
