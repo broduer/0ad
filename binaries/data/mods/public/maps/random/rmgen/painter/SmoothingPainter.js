@@ -28,10 +28,9 @@ SmoothingPainter.prototype.paint = function(area)
 
 	for (let i = 0; i < this.iterations; ++i)
 	{
-		const heightmap = clone(g_Map.height);
-
 		// Additional complexity to process all 4 vertices of each tile, i.e the last row too
-		const seen = new Array(heightmap.length).fill(0).map(zero => new Uint8Array(heightmap.length).fill(0));
+		const vertexSize = g_Map.height.length;
+		const seen = new Array(vertexSize).fill(0).map(zero => new Uint8Array(vertexSize).fill(0));
 
 		for (const point of area.getPoints())
 			for (const tileVertex of g_TileVertices)
