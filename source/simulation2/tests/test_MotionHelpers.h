@@ -954,6 +954,7 @@ public:
 		unit.velocity = velocity;
 		unit.charging = false;
 		unit.minChargeSpeed = entity_pos_t::Zero();
+		unit.passClass = 1;
 		return unit;
 	}
 
@@ -1105,6 +1106,17 @@ public:
 				std::vector<CFixedVector2D> pairPushes;
 				std::vector<fixed> pairSpins;
 				PushPair(units[i], units[j], pairPushes, pairSpins);
+				// Between two solid bodies, the pass scales each push by the room where it leads.
+				if (units[i].collisionShape.IsSolid() && units[j].collisionShape.IsSolid())
+					for (const auto& [pushed, pusher, k] : {std::tuple{i, j, 0}, std::tuple{j, i, 1}})
+						if (!pairPushes[k].IsZero())
+						{
+							CFixedVector2D direction{pairPushes[k]};
+							direction.Normalize();
+							pairPushes[k] = pairPushes[k].Multiply(UnitCollision::PushRoom(grids.density, units, pushed, pusher,
+								direction, PushConfig::GetInstance().GetRuntimeConfig().densityPushCoverage,
+								PushConfig::GetInstance().GetRuntimeConfig().densityPushFloor, nullptr));
+						}
 				expected[i] += pairPushes[0];
 				expected[j] += pairPushes[1];
 				largest[i] = std::max(largest[i], pairPushes[0].Length());
@@ -1509,7 +1521,8 @@ public:
 	}
 
 	// The soft push each unit of @p units ends up with from one pass.
-	static std::vector<CFixedVector2D> PushesOf(const std::vector<UnitCollision::MotionStateCompact>& units)
+	static std::vector<CFixedVector2D> PushesOf(const std::vector<UnitCollision::MotionStateCompact>& units,
+		const Grid<NavcellData>* passability = nullptr)
 	{
 		std::vector<CFixedVector2D> pushes, velocityChanges, corrections;
 		std::vector<fixed> spins, hitSpins;
@@ -1517,7 +1530,7 @@ public:
 		std::vector<uint8_t> pressures;
 		UnitCollision::SpatialGrids grids;
 		UnitCollision::ComputePushes(units, PushConfig::IMPACT_REFERENCE_TIME, grids, pushes, spins,
-			velocityChanges, hitSpins, hits, pressures, corrections);
+			velocityChanges, hitSpins, hits, pressures, corrections, passability);
 		return pushes;
 	}
 
@@ -1677,7 +1690,57 @@ public:
 			MakeUnit(1, here, ship, entity_angle_t::Zero(), false),
 			MakeUnit(2, CFixedVector2D{fixed::FromInt(110), fixed::FromInt(100)}, ship, entity_angle_t::Zero(), false),
 			MakeUnit(3, CFixedVector2D{fixed::FromInt(90), fixed::FromInt(100)}, ship, entity_angle_t::Zero(), false)})};
-		TS_ASSERT(squeezed[0].IsZero());
+		// To the rounding of each push's room scaling.
+		TS_ASSERT(squeezed[0].CompareLength(fixed::FromFraction(1, 1000)) < 0);
+	}
+
+	void test_Pushing_solid_push_needs_room()
+	{
+		// Two elephants (4.5 x 9) side by side on open ground push each other apart in full. With a packed group
+		// of elephants on the ground beyond the eastern one, out of its push range but where its push would put
+		// it, the push on it shrinks to the floor (DensityPushFloor): a push there would only be passed along the
+		// group. The western one, with open ground behind it, is pushed as before.
+		const UnitCollision::CollisionShape elephant{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromFraction(9, 2), entity_pos_t::FromInt(9))};
+		// Half a metre apart: within the push range whatever pathfinder.xml says it is.
+		const CFixedVector2D west{fixed::FromInt(101), fixed::FromInt(100)};
+		const CFixedVector2D east{fixed::FromInt(106), fixed::FromInt(100)};
+		const std::vector<CFixedVector2D> open{PushesOf({
+			MakeUnit(1, west, elephant, entity_angle_t::Zero(), false),
+			MakeUnit(2, east, elephant, entity_angle_t::Zero(), false)})};
+		TS_ASSERT_LESS_THAN(open[0].X, fixed::Zero());
+		TS_ASSERT_LESS_THAN(fixed::Zero(), open[1].X);
+		const double floor{PushConfig::GetInstance().GetRuntimeConfig().densityPushFloor.ToDouble()};
+
+		// The density grid starts a cell before the westernmost unit: a footman far out of everyone's way pins
+		// that down, so the group below lands in the cells the eastern one's push looks at.
+		const UnitCollision::CollisionShape footman{entity_pos_t::FromFraction(8, 10), entity_pos_t::Zero(), false, false};
+		std::vector<UnitCollision::MotionStateCompact> units{
+			MakeUnit(1, west, elephant, entity_angle_t::Zero(), false),
+			MakeUnit(2, east, elephant, entity_angle_t::Zero(), false),
+			MakeUnit(3, CFixedVector2D{fixed::FromInt(94), fixed::FromInt(80)}, footman, entity_angle_t::Zero(), false)};
+		for (const int x : {119, 121})
+			for (const int z : {94, 100, 106})
+				units.push_back(MakeUnit(static_cast<entity_id_t>(units.size() + 1),
+					CFixedVector2D{fixed::FromInt(x), fixed::FromInt(z)}, elephant, entity_angle_t::Zero(), false));
+		const std::vector<CFixedVector2D> crowded{PushesOf(units)};
+		TS_ASSERT_DELTA(crowded[1].X.ToDouble(), open[1].X.ToDouble() * floor, 0.001);
+		TS_ASSERT_EQUALS(crowded[0], open[0]);
+
+		// A wall right beyond the eastern one instead, impassable for the elephants' pass class, takes the ground
+		// the same way; one the elephants may stand on (another class's) leaves the push in full.
+		Grid<NavcellData> passability(140, 140);
+		for (int i = 109; i < 140; ++i)
+			for (int j = 0; j < 140; ++j)
+				passability.set(i, j, 1);
+		const std::vector<CFixedVector2D> walled{PushesOf({units[0], units[1], units[2]}, &passability)};
+		TS_ASSERT_DELTA(walled[1].X.ToDouble(), open[1].X.ToDouble() * floor, 0.001);
+		TS_ASSERT_EQUALS(walled[0], open[0]);
+		for (int i = 109; i < 140; ++i)
+			for (int j = 0; j < 140; ++j)
+				passability.set(i, j, 2);
+		const std::vector<CFixedVector2D> passable{PushesOf({units[0], units[1], units[2]}, &passability)};
+		TS_ASSERT_EQUALS(passable[1], open[1]);
 	}
 
 	void test_Charge_hits_what_it_runs_into()

@@ -418,6 +418,7 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			compact.velocity = it->second.cmpUnitMotion->CarriedVelocity(it->second, dt);
 			compact.angularVelocity = it->second.cmpUnitMotion->CarriedAngularVelocity(it->second, dt);
 			compact.clearance = it->second.cmpUnitMotion->GetUnitClearance();
+			compact.passClass = it->second.cmpUnitMotion->GetPassabilityClass();
 			compact.isMoving = it->second.isMoving;
 			compact.ignore = it->second.ignore;
 			compact.controlGroup = it->second.controlGroup;
@@ -460,9 +461,10 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 		std::vector<UnitCollision::ContactHit> collisionHits;
 		std::vector<uint8_t> collisionPressures;
 		std::vector<CFixedVector2D> collisionCorrections;
+		CmpPtr<ICmpPathfinder> cmpPathfinder(GetSystemEntity());
 		UnitCollision::ComputePushes(compactStates, dt, m_PushGrids, collisionForces,
 			collisionSpins, collisionVelocityChanges, collisionHitSpins, collisionHits, collisionPressures,
-			collisionCorrections);
+			collisionCorrections, cmpPathfinder ? &cmpPathfinder->GetPassabilityGrid() : nullptr);
 		for (size_t i = 0; i < compactStates.size(); ++i)
 			motionStates[i]->overlapCorrection = collisionCorrections[i];
 

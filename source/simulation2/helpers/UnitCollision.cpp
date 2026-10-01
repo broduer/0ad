@@ -38,6 +38,92 @@ UnitCollision::CollisionShape UnitCollision::DeriveCollisionShape(
 	return CollisionShape{shortSide / 2, (longSide - shortSide) / 2, footprintWidth > footprintDepth, true};
 }
 
+entity_pos_t UnitCollision::FootprintArea(const CollisionShape& shape)
+{
+	const entity_pos_t width{shape.radius * 2};
+	if (shape.IsCircle())
+		return width.Multiply(width).Multiply(entity_pos_t::FromFraction(11, 14));  // pi/4
+	return width.Multiply(width + shape.halfLength * 2);
+}
+
+void UnitCollision::BuildDensityGrid(const std::vector<MotionStateCompact>& units, const CFixedVector2D& minCorner,
+	const CFixedVector2D& maxCorner, const entity_pos_t cellSize, DensityGrid& grid)
+{
+	grid.cellSize = cellSize;
+	grid.minX = minCorner.X - cellSize;
+	grid.minZ = minCorner.Y - cellSize;
+	grid.width = ((maxCorner.X - grid.minX) / cellSize).ToInt_RoundToZero() + 2;
+	grid.height = ((maxCorner.Y - grid.minZ) / cellSize).ToInt_RoundToZero() + 2;
+	grid.area.assign(static_cast<size_t>(grid.width) * grid.height, entity_pos_t::Zero());
+	grid.cellOf.assign(units.size(), -1);
+	for (size_t i = 0; i < units.size(); ++i)
+	{
+		if (units[i].ignore)
+			continue;
+		const int cellX{Clamp(((units[i].position.X - grid.minX) / cellSize).ToInt_RoundToZero(), 0, grid.width - 1)};
+		const int cellZ{Clamp(((units[i].position.Y - grid.minZ) / cellSize).ToInt_RoundToZero(), 0, grid.height - 1)};
+		grid.cellOf[i] = cellZ * grid.width + cellX;
+		grid.area[grid.cellOf[i]] += FootprintArea(units[i].collisionShape);
+	}
+}
+
+/**
+ * The ground in the density grid cell at (@p cellX, @p cellZ) that @p passClass cannot stand on, in square metres:
+ * its impassable navcells. Beyond the passability grid is beyond the map: all of it.
+ */
+static entity_pos_t ImpassableArea(const UnitCollision::DensityGrid& grid, const int cellX, const int cellZ,
+	const pass_class_t passClass, const Grid<NavcellData>& passability)
+{
+	const int i0{((grid.minX + grid.cellSize * cellX) / Pathfinding::NAVCELL_SIZE).ToInt_RoundToNegInfinity()};
+	const int j0{((grid.minZ + grid.cellSize * cellZ) / Pathfinding::NAVCELL_SIZE).ToInt_RoundToNegInfinity()};
+	const int navcells{(grid.cellSize / Pathfinding::NAVCELL_SIZE).ToInt_RoundToInfinity()};
+	int impassable{0};
+	for (int j = j0; j < j0 + navcells; ++j)
+		for (int i = i0; i < i0 + navcells; ++i)
+			if (i < 0 || j < 0 || i >= passability.width() || j >= passability.height() ||
+				!IS_PASSABLE(passability.get(i, j), passClass))
+				++impassable;
+	return Pathfinding::NAVCELL_SIZE.Multiply(Pathfinding::NAVCELL_SIZE) * impassable;
+}
+
+fixed UnitCollision::PushRoom(const DensityGrid& grid, const std::vector<MotionStateCompact>& units, const size_t pushed,
+	const size_t pusher, const CFixedVector2D& direction, const entity_pos_t fullCoverage, const fixed floor,
+	const Grid<NavcellData>* passability)
+{
+	// The ground the body would move into: a window its own size, just beyond its edge along the push.
+	const entity_pos_t extent{units[pushed].collisionShape.Extent()};
+	const CFixedVector2D probe{units[pushed].position + direction.Multiply(extent + grid.cellSize / 2)};
+	const int cellX{((probe.X - grid.minX) / grid.cellSize).ToInt_RoundToNegInfinity()};
+	const int cellZ{((probe.Y - grid.minZ) / grid.cellSize).ToInt_RoundToNegInfinity()};
+	const int reach{std::max(1, (extent / grid.cellSize).ToInt_RoundToNearest())};
+
+	// The grid spans the units, with a cell to spare: beyond it is open ground as far as they go, but the
+	// passability is sampled there all the same.
+	entity_pos_t area;
+	const auto inWindow = [&](const int cell) {
+		return cell >= 0 && std::abs(cell % grid.width - cellX) <= reach && std::abs(cell / grid.width - cellZ) <= reach;
+	};
+	for (int z = cellZ - reach; z <= cellZ + reach; ++z)
+		for (int x = cellX - reach; x <= cellX + reach; ++x)
+		{
+			if (x >= 0 && z >= 0 && x < grid.width && z < grid.height)
+				area += grid.area[z * grid.width + x];
+			if (passability)
+				area += ImpassableArea(grid, x, z, units[pushed].passClass, *passability);
+		}
+	if (inWindow(grid.cellOf[pushed]))
+		area -= FootprintArea(units[pushed].collisionShape);
+	if (inWindow(grid.cellOf[pusher]))
+		area -= FootprintArea(units[pusher].collisionShape);
+	if (area <= entity_pos_t::Zero())
+		return fixed::FromInt(1);
+
+	const entity_pos_t full{grid.cellSize.Multiply(grid.cellSize).Multiply(fullCoverage) * ((2 * reach + 1) * (2 * reach + 1))};
+	if (area >= full)
+		return floor;
+	return floor + (fixed::FromInt(1) - floor).Multiply(fixed::FromInt(1) - area / full);
+}
+
 entity_pos_t UnitCollision::CollisionShape::InertiaPerMass() const
 {
 	const entity_pos_t extent{Extent()};
@@ -429,7 +515,8 @@ void UnitCollision::ComputePushes(
 	std::vector<fixed>& outHitSpins,
 	std::vector<ContactHit>& outHits,
 	std::vector<uint8_t>& outPressures,
-	std::vector<CFixedVector2D>& outCorrections)
+	std::vector<CFixedVector2D>& outCorrections,
+	const Grid<NavcellData>* passability)
 {
 	const auto& cfg = PushConfig::GetInstance().GetRuntimeConfig();
 
@@ -503,6 +590,9 @@ void UnitCollision::ComputePushes(
 		}
 	for (size_t t = 0; t < grids.tiers.size(); ++t)
 		BuildSpatialGrid(units, tierOf, static_cast<int>(t), minCorner, maxCorner, grids.tiers[t]);
+	const bool pushNeedsRoom{cfg.densityPushCoverage > entity_pos_t::Zero() && cfg.densityCellSize > entity_pos_t::Zero()};
+	if (pushNeedsRoom)
+		BuildDensityGrid(units, minCorner, maxCorner, cfg.densityCellSize, grids.density);
 
 	// Always the lower index as a: fixed-point products round towards minus infinity, so a pair taken
 	// the other way round can come out an ulp different, and every unit's result must not depend on
@@ -517,6 +607,28 @@ void UnitCollision::ComputePushes(
 
 		ComputePairPush(units[i], units[j], dt, cfg, pushA, pushB, spinA, spinB,
 			velocityChangeA, velocityChangeB, hitSpinA, hitSpinB, outHits, pressureA, pressureB, correctionA, correctionB);
+
+		// A soft push between solid bodies moves a unit only as far as there is room where the push leads. The
+		// push is applied in full on open ground, and scaled down as the ground fills, to DensityPushFloor of it
+		// once units and ground the pushed unit cannot stand on cover DensityPushCoverage of it. With others
+		// behind the pushed unit, the push would only be passed on to them: a herd at rest would keep making
+		// space in ripples long after a few more had joined it, until every pair was out of push range. Against
+		// a wall or a tree, it would only press the pushed unit into them.
+		if (pushNeedsRoom && units[i].collisionShape.IsSolid() && units[j].collisionShape.IsSolid())
+		{
+			const auto scaleToRoom = [&](CFixedVector2D& push, fixed& spin, const size_t pushed, const size_t pusher) {
+				if (push.IsZero())
+					return;
+				CFixedVector2D direction{push};
+				direction.Normalize();
+				const fixed room{PushRoom(grids.density, units, pushed, pusher, direction, cfg.densityPushCoverage,
+					cfg.densityPushFloor, passability)};
+				push = push.Multiply(room);
+				spin = spin.Multiply(room);
+			};
+			scaleToRoom(pushA, spinA, i, j);
+			scaleToRoom(pushB, spinB, j, i);
+		}
 #if DEBUG_PAIR_TRACE
 		if ((units[i].collisionShape.IsSolid() || units[j].collisionShape.IsSolid()) &&
 			(pushA.CompareLength(fixed::FromFraction(1, 10)) > 0 || pushB.CompareLength(fixed::FromFraction(1, 10)) > 0 ||

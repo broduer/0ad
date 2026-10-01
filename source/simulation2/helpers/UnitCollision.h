@@ -21,6 +21,7 @@
 #include "maths/Fixed.h"
 #include "maths/FixedVector2D.h"
 #include "simulation2/helpers/Grid.h"
+#include "simulation2/helpers/Pathfinding.h"
 #include "simulation2/helpers/Position.h"
 #include "simulation2/helpers/PushConfig.h"
 #include "simulation2/system/Entity.h"
@@ -152,6 +153,8 @@ public:
 		// always found, and reported with the momentum they exchanged.
 		bool charging;
 		entity_pos_t minChargeSpeed;
+		// What ground the unit can stand on, for the room a push on it has (see PushRoom).
+		pass_class_t passClass;
 
 		void GetSegment(CFixedVector2D& out0, CFixedVector2D& out1) const
 		{
@@ -195,15 +198,62 @@ public:
 	};
 
 	/**
+	 * How much ground the units take up: the footprint area that falls in each cell. A soft push between two solid
+	 * units is scaled by the room where it would put the pushed unit, read from a window of cells the size of its
+	 * body just beyond its edge along the push, leaving the pair itself out and counting ground the pushed unit
+	 * cannot stand on as taken (see PushRoom).
+	 */
+	struct DensityGrid
+	{
+		entity_pos_t minX;
+		entity_pos_t minZ;
+		entity_pos_t cellSize;
+		int width = 0;
+		int height = 0;
+		// Footprint area in each cell, in square metres.
+		std::vector<entity_pos_t> area;
+		// Each unit's cell, or -1 for a unit that is not on the grid.
+		std::vector<int> cellOf;
+	};
+
+	/**
 	 * The spatial grids of the pushing pass, one tier per band of body reach: tier 0 holds bodies reaching
 	 * up to TIER_BASE_REACH, and each tier above doubles that. Infantry and cavalry are tier 0, elephants
 	 * and siege engines tier 1, ships tier 2 or 3. Each tier's cells fit its own members, so a ship never
-	 * widens the cells the infantry are in; see ComputePushes for how the tiers meet.
+	 * widens the cells the infantry are in; see ComputePushes for how the tiers meet. The density grid
+	 * beside them is what the room for a push is read from.
 	 */
 	struct SpatialGrids
 	{
 		std::vector<SpatialGridTier> tiers;
+		DensityGrid density;
 	};
+
+	/**
+	 * The ground a body's footprint takes up, in square metres.
+	 */
+	static entity_pos_t FootprintArea(const CollisionShape& shape);
+
+	/**
+	 * Fill @p grid with every unit's footprint area, in cells of @p cellSize over the box the units span plus a
+	 * cell's margin, so a spot just beyond the last unit still reads as open ground.
+	 */
+	static void BuildDensityGrid(const std::vector<MotionStateCompact>& units, const CFixedVector2D& minCorner,
+		const CFixedVector2D& maxCorner, entity_pos_t cellSize, DensityGrid& grid);
+
+	/**
+	 * How much room a push on @p pushed has, from @p floor (full ground) to 1 (open ground): the share of the ground
+	 * the body would move into that is free of units other than the pair. That ground is a square window of cells
+	 * centred just beyond the body's edge along @p direction (a unit vector), reaching as many cells to each side
+	 * as the body's extent spans, one at least. Ground impassable to @p pushed (in @p passability, when given)
+	 * counts as taken too, so a push towards a wall or a tree counts like a push into a crowd. The ground is full
+	 * once @p fullCoverage of it is taken (footprints may overlap, so the sum can pass 1). Even full ground leaves
+	 * @p floor of the push: without it, bodies in a packed crowd would have only the overlap correction to keep
+	 * them apart, and sink into each other.
+	 */
+	static fixed PushRoom(const DensityGrid& grid, const std::vector<MotionStateCompact>& units, size_t pushed,
+		size_t pusher, const CFixedVector2D& direction, entity_pos_t fullCoverage, fixed floor,
+		const Grid<NavcellData>* passability);
 
 	static constexpr entity_pos_t TIER_BASE_REACH = entity_pos_t::FromInt(4);
 
@@ -235,7 +285,8 @@ public:
 		std::vector<fixed>& outHitSpins,
 		std::vector<ContactHit>& outHits,
 		std::vector<uint8_t>& outPressures,
-		std::vector<CFixedVector2D>& outCorrections);
+		std::vector<CFixedVector2D>& outCorrections,
+		const Grid<NavcellData>* passability = nullptr);
 
 private:
 	/**

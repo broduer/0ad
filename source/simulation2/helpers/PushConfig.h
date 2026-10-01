@@ -100,6 +100,13 @@ public:
 		// The share of how deep two solid units overlap that they are moved apart by every IMPACT_REFERENCE_TIME
 		// (see UnitCollision::ComputePairPush).
 		entity_pos_t solidOverlapCorrection;
+		// A soft push between two solid units is scaled by the room where it leads (see UnitCollision::PushRoom):
+		// the cell size the ground is counted in, in metres (the window read is sized by the pushed body), and
+		// the share of the ground footprints have to cover for it to count as full. Either at zero turns this off.
+		// Full ground still leaves densityPushFloor of the push.
+		entity_pos_t densityCellSize;
+		entity_pos_t densityPushCoverage;
+		fixed densityPushFloor;
 
 		bool IsEnabled() const { return radiusMultiplier != entity_pos_t::Zero(); }
 
@@ -119,6 +126,9 @@ public:
 			solidBrushSpeed = entity_pos_t::FromInt(3);  // m/s
 			solidPushSpin = entity_pos_t::FromFraction(1, 4);
 			solidOverlapCorrection = entity_pos_t::FromFraction(1, 5);
+			densityCellSize = entity_pos_t::FromInt(6);  // meters
+			densityPushCoverage = entity_pos_t::FromFraction(3, 4);
+			densityPushFloor = fixed::FromFraction(3, 10);
 		}
 
 		// Validation helper
@@ -164,6 +174,11 @@ public:
 			if (solidPushSpin < entity_pos_t::Zero())
 				solidPushSpin = entity_pos_t::Zero();
 			solidOverlapCorrection = Clamp(solidOverlapCorrection, entity_pos_t::Zero(), entity_pos_t::FromInt(1));
+			if (densityCellSize < entity_pos_t::FromInt(1))
+				densityCellSize = entity_pos_t::Zero();
+			if (densityPushCoverage < entity_pos_t::Zero())
+				densityPushCoverage = entity_pos_t::Zero();
+			densityPushFloor = Clamp(densityPushFloor, fixed::Zero(), fixed::FromInt(1));
 		}
 	};
 
@@ -280,6 +295,18 @@ public:
 		const CParamNode solidOverlapCorrectionNode = pushingNode.GetChild("SolidOverlapCorrection");
 		if (solidOverlapCorrectionNode.IsOk())
 			m_RuntimeConfig.solidOverlapCorrection = solidOverlapCorrectionNode.ToFixed();
+
+		const CParamNode densityCellSizeNode = pushingNode.GetChild("DensityCellSize");
+		if (densityCellSizeNode.IsOk())
+			m_RuntimeConfig.densityCellSize = densityCellSizeNode.ToFixed();
+
+		const CParamNode densityPushCoverageNode = pushingNode.GetChild("DensityPushCoverage");
+		if (densityPushCoverageNode.IsOk())
+			m_RuntimeConfig.densityPushCoverage = densityPushCoverageNode.ToFixed();
+
+		const CParamNode densityPushFloorNode = pushingNode.GetChild("DensityPushFloor");
+		if (densityPushFloorNode.IsOk())
+			m_RuntimeConfig.densityPushFloor = densityPushFloorNode.ToFixed();
 
 		// Apply validation to all values
 		m_RuntimeConfig.Validate();

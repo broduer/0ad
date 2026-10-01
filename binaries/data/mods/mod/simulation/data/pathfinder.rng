@@ -60,6 +60,21 @@
             <data type="decimal"/>
           </element>
         </optional>
+        <optional>
+          <element name="DensityCellSize">
+            <data type="decimal"/>
+          </element>
+        </optional>
+        <optional>
+          <element name="DensityPushCoverage">
+            <data type="decimal"/>
+          </element>
+        </optional>
+        <optional>
+          <element name="DensityPushFloor">
+            <data type="decimal"/>
+          </element>
+        </optional>
       </interleave>
     </element>
     <element name="PassabilityClasses">

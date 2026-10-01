@@ -85,6 +85,16 @@
     <!-- Two overlapping solid units are moved apart by this share of how deep they overlap every 0.2 s, on -->
     <!-- top of the push, however they got there. 0 leaves overlaps to the push alone. -->
     <SolidOverlapCorrection>0.2</SolidOverlapCorrection>
+    <!-- A push between two solid units only moves one as far as there is room where the push leads: with -->
+    <!-- others behind it, the push would only be passed on, and a herd at rest would keep making space in -->
+    <!-- ripples. The ground read is a window the size of the pushed body just beyond its edge, and counts -->
+    <!-- as full once footprints cover this share of it. Either at 0 pushes in full regardless. Full ground -->
+    <!-- still leaves the floor's share of the push: with none, bodies in a packed crowd sink into each other. -->
+    <DensityPushCoverage>0.6</DensityPushCoverage>
+    <DensityPushFloor>0.15</DensityPushFloor>
+    <!-- Size of the grid cells the ground is counted in (in metres). Smaller than the smallest solid unit, -->
+    <!-- the count could get jumpy: a footprint goes whole into the cell its centre is in. -->
+    <DensityCellSize>6</DensityCellSize>
 
   </Pushing>
 
