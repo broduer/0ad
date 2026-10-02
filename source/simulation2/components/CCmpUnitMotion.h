@@ -284,6 +284,11 @@ public:
 	bool m_DebugOverlayEnabled;
 	std::vector<SOverlayLine> m_DebugOverlayLongPathLines;
 	std::vector<SOverlayLine> m_DebugOverlayShortPathLines;
+	// The outline of a solid unit's collision body (see ICmpPhysicalBody::GetCollisionShape), drawn where the
+	// model is rendered this frame rather than where the simulation has the unit, so it moves with it.
+	SOverlayLine m_DebugOverlayBodyLine;
+	SOverlayLine m_DebugOverlayPushLine;
+	float m_DebugOverlayFrameOffset = 0.f;
 
 	// Template state:
 
@@ -589,6 +594,11 @@ public:
 	{
 		switch (msg.GetType())
 		{
+		case MT_Interpolate:
+		{
+			m_DebugOverlayFrameOffset = static_cast<const CMessageInterpolate&>(msg).offset;
+			break;
+		}
 		case MT_RenderSubmit:
 		{
 			PROFILE("UnitMotion::RenderSubmit");
@@ -650,6 +660,7 @@ public:
 	{
 		bool needRender = m_DebugOverlayEnabled;
 		GetSimContext().GetComponentManager().DynamicSubscriptionNonsync(MT_RenderSubmit, this, needRender);
+		GetSimContext().GetComponentManager().DynamicSubscriptionNonsync(MT_Interpolate, this, needRender);
 	}
 
 	bool IsMoveRequested() const override
@@ -1372,6 +1383,11 @@ private:
 	 * Convert a path into a renderable list of lines
 	 */
 	void RenderPath(const WaypointPath& path, std::vector<SOverlayLine>& lines, CColor color);
+	/**
+	 * Draw the body a solid unit pushes and collides as: its footprint's capsule, where it is and as it faces.
+	 * @return whether there was one to draw.
+	 */
+	bool RenderBody(SOverlayLine& line, CColor color, bool pushRange);
 
 	void RenderSubmit(SceneCollector& collector);
 };
@@ -3158,6 +3174,65 @@ void CCmpUnitMotion::RenderPath(const WaypointPath& path, std::vector<SOverlayLi
 
 }
 
+bool CCmpUnitMotion::RenderBody(SOverlayLine& line, CColor color, const bool pushRange)
+{
+	CmpPtr<ICmpPhysicalBody> cmpPhysicalBody(GetEntityHandle());
+	CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
+	if (!cmpPhysicalBody || !cmpPosition || !cmpPosition->IsInWorld())
+		return false;
+	const UnitCollision::CollisionShape shape{cmpPhysicalBody->GetCollisionShape()};
+	if (!shape.IsSolid())
+		return false;
+
+	const bool floating{cmpPosition->CanFloat()};
+	line.m_Color = color;
+	entity_pos_t drawnRadius{shape.radius};
+	if (pushRange)
+	{
+		// This unit's half of the soft push range against another solid unit (see UnitCollision::ComputePairPush):
+		// the push between two of them starts where their ranges touch. The range is wider when the unit is moving.
+		const auto& cfg{PushConfig::GetInstance().GetRuntimeConfig()};
+		const entity_pos_t extension{m_MoveRequest.m_Type != MoveRequest::NONE ?
+			cfg.solidMovingPushExtension : cfg.solidStaticPushExtension};
+		drawnRadius = shape.radius.Multiply(PushConfig::PUSHING_CORRECTION).Multiply(cfg.radiusMultiplier) + extension / 2;
+	}
+	const float radius{drawnRadius.ToFloat()};
+	float x, z, rotY;
+	cmpPosition->GetInterpolatedPosition2D(m_DebugOverlayFrameOffset, x, z, rotY);
+	if (shape.IsCircle())
+	{
+		SimRender::ConstructCircleOnGround(GetSimContext(), x, z, radius, line, floating);
+		return true;
+	}
+
+	// The capsule: the axis segment, with a half-disc on each end.
+	const float s{sinf(rotY)}, c{cosf(rotY)};
+	const float axisX{shape.alongWidth ? c : s}, axisZ{shape.alongWidth ? -s : c};
+	const float halfLength{shape.halfLength.ToFloat()};
+	const float x0{x - axisX * halfLength}, z0{z - axisZ * halfLength};
+	const float x1{x + axisX * halfLength}, z1{z + axisZ * halfLength};
+	const float axisAngle{atan2f(axisZ, axisX)};
+	std::vector<float> xz;
+	const auto arc = [&](const float cx, const float cz, const float from)
+	{
+		constexpr int STEPS{8};
+		for (int i = 0; i <= STEPS; ++i)
+		{
+			const float angle{from + std::numbers::pi_v<float> * i / STEPS};
+			xz.push_back(cx + radius * cosf(angle));
+			xz.push_back(cz + radius * sinf(angle));
+		}
+	};
+	// Round end1 from its left flank over the nose to its right flank, then end0 from the right flank round
+	// the tail back to the left one.
+	arc(x1, z1, axisAngle - std::numbers::pi_v<float> / 2);
+	arc(x0, z0, axisAngle + std::numbers::pi_v<float> / 2);
+	xz.push_back(xz[0]);
+	xz.push_back(xz[1]);
+	SimRender::ConstructLineOnGround(GetSimContext(), xz, line, floating);
+	return true;
+}
+
 void CCmpUnitMotion::RenderSubmit(SceneCollector& collector)
 {
     if (!m_DebugOverlayEnabled)
@@ -3174,6 +3249,11 @@ void CCmpUnitMotion::RenderSubmit(SceneCollector& collector)
 
 	for (SOverlayLine& line : m_DebugOverlayShortPathLines)
 		collector.Submit(&line);
+
+	if (RenderBody(m_DebugOverlayBodyLine, CColor(1.f, 1.f, 0.f, 1.f), false))
+		collector.Submit(&m_DebugOverlayBodyLine);
+	if (RenderBody(m_DebugOverlayPushLine, CColor(1.f, 0.5f, 0.f, 0.6f), true))
+		collector.Submit(&m_DebugOverlayPushLine);
 }
 
 #endif // INCLUDED_CCMPUNITMOTION
