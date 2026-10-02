@@ -41,7 +41,6 @@
 
 #include <cstddef>
 #include <string>
-#include <utility>
 #include <wx/busyinfo.h>
 #include <wx/chartype.h>
 #include <wx/clipbrd.h>
@@ -49,6 +48,7 @@
 #include <wx/dataobj.h>
 #include <wx/datetime.h>
 #include <wx/debug.h>
+#include <wx/event.h>
 #include <wx/ffile.h>
 #include <wx/filedlg.h>
 #include <wx/filefn.h>
@@ -126,6 +126,7 @@ public:
 
 private:
 
+	wxCommandEvent nullEvent;
 	void SetScrolling(int dir, float speed, bool enable)
 	{
 		POST_MESSAGE(ScrollConstant, (eRenderView::GAME, dir, enable ? speed : 0.0f));
@@ -159,7 +160,6 @@ private:
 
 		return true;
 	}
-
 	void OnKeyDown(wxKeyEvent& evt)
 	{
 		if (m_ScenarioEditor.GetToolManager().GetCurrentTool()->OnKey(evt, ITool::KEY_DOWN))
@@ -169,6 +169,11 @@ private:
 			last_wx_user_activity = g_Timer.GetTime();
 			return;
 		}
+
+		if (wxGetKeyState(WXK_CONTROL) &&
+            evt.GetKeyCode() == 'S') {
+				m_ScenarioEditor.OnSave(nullEvent);
+        }
 
 		if (KeyScroll(evt, true))
 			return;
