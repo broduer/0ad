@@ -32,6 +32,7 @@ GameSettingControls.MapSelection = class MapSelection extends GameSettingControl
 		else
 		{
 			g_GameSettings.map.watch(() => this.render(), ["map"]);
+			g_GameSettings.mapName.watch(() => this.render(), ["value"]);
 			g_GameSettings.map.watch(() => this.updateMapList(), ["type"]);
 			this.gameSettingsController.guiData.mapFilter.watch(() => this.updateMapList(), ["filter"]);
 
@@ -59,7 +60,8 @@ GameSettingControls.MapSelection = class MapSelection extends GameSettingControl
 			return;
 
 		// We can end up with incorrect map selection when dependent settings change.
-		if (this.values.file.indexOf(g_GameSettings.map.map) === -1)
+		// Only the controller corrects it: clients must keep the host's map, even one they don't have.
+		if (g_IsController && this.values.file.indexOf(g_GameSettings.map.map) === -1)
 		{
 			g_GameSettings.map.selectMap(this.values.file[this.values.Default]);
 			return;
@@ -99,7 +101,7 @@ GameSettingControls.MapSelection = class MapSelection extends GameSettingControl
 		g_GameSettings.map.setRandomOptions(this.values.file);
 
 		// Reset the selected map.
-		if (this.values.file.indexOf(g_GameSettings.map.map) === -1)
+		if (g_IsController && this.values.file.indexOf(g_GameSettings.map.map) === -1)
 		{
 			g_GameSettings.map.selectMap(this.values.file[this.values.Default]);
 			this.gameSettingsController.setNetworkInitAttributes();
@@ -108,6 +110,15 @@ GameSettingControls.MapSelection = class MapSelection extends GameSettingControl
 		this.setSelectedValue(g_GameSettings.map.map);
 
 		Engine.ProfileStop();
+	}
+
+	setSelectedValue(map)
+	{
+		super.setSelectedValue(map);
+
+		// A client can be shown a map that isn't in its list, so name it instead of "Unknown".
+		if (this.dropdown.selected == -1 && g_GameSettings.mapName.value)
+			this.label.caption = g_GameSettings.mapName.value;
 	}
 
 	onSelectionChange(itemIdx)

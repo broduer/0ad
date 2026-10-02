@@ -16,8 +16,10 @@ GameSettingControls.PlayerPlacement = class PlayerPlacement extends GameSettingC
 
 	render()
 	{
-		this.setHidden(!g_GameSettings.playerPlacement.value);
-		if (!g_GameSettings.playerPlacement.value)
+		// The patterns are unknown if the host picked a map that isn't installed here.
+		const hidden = !g_GameSettings.playerPlacement.value || !g_GameSettings.playerPlacement.available;
+		this.setHidden(hidden);
+		if (hidden)
 			return;
 
 		const randomItem = clone(this.RandomItem);

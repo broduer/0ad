@@ -22,6 +22,10 @@ class MapCache
 			return undefined;
 		if (!this.cache[mapPath])
 		{
+			// The host can pick a map that isn't installed here.
+			if (!this.checkIfExists(mapType, mapPath))
+				return undefined;
+
 			const mapData = g_Settings.MapTypes.find(type => type.Name == mapType).GetData(mapPath);
 
 			// Remove gaia, TODO: Maps should be consistent
