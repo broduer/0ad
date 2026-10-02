@@ -170,9 +170,15 @@ private:
 			return;
 		}
 
-		if (wxGetKeyState(WXK_CONTROL) &&
-            evt.GetKeyCode() == 'S') {
-				m_ScenarioEditor.OnSave(nullEvent);
+		if (wxGetKeyState(WXK_CONTROL)) {
+			switch (evt.GetKeyCode()) {
+				case 'S':
+					wxGetKeyState(WXK_SHIFT) ? m_ScenarioEditor.OnSaveAs(nullEvent) : m_ScenarioEditor.OnSave(nullEvent);
+					break;
+				case 'O': 
+					m_ScenarioEditor.OnOpen(nullEvent);
+					break;
+			}
         }
 
 		if (KeyScroll(evt, true))
@@ -487,9 +493,9 @@ ScenarioEditor::ScenarioEditor(wxWindow* parent)
 	menuBar->Append(menuFile, _("&File"));
 	{
 		menuFile->Append(ID_New, _("&New..."));
-		menuFile->Append(ID_Open, _("&Open..."));
-		menuFile->Append(ID_Save, _("&Save"));
-		menuFile->Append(ID_SaveAs, _("Save &As..."));
+		menuFile->Append(ID_Open, _("&Open...\tCtrl+O"));
+		menuFile->Append(ID_Save, _("&Save\tCtrl+S"));
+		menuFile->Append(ID_SaveAs, _("Save &As...\tCtrl+Shift+S"));
 		menuFile->AppendSeparator();//-----------
 		menuFile->Append(ID_ImportHeightmap, _("&Import Heightmap..."));
 		menuFile->AppendSeparator();//-----------
