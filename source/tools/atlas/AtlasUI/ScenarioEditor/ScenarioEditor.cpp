@@ -91,6 +91,8 @@ enum TIMER_TYPE
 	TIMER_RENDER
 };
 
+wxCommandEvent NULL_EVENT;
+
 const int TIMER_TOOL_INTERVAL = 16;
 const int TIMER_RENDER_INTERVAL = 16;
 const int TIMER_RENDER_SLOW_INTERVAL = 200;
@@ -125,8 +127,24 @@ public:
 	}
 
 private:
+	bool blockMovement = false;
 
-	wxCommandEvent nullEvent;
+	bool handleBlockMovement(wxKeyEvent& evt) {
+		if (!wxGetKeyState(WXK_CONTROL)) return false;
+		switch (evt.GetKeyCode()) {
+			case 'S':
+				wxGetKeyState(WXK_SHIFT) ? m_ScenarioEditor.OnSaveAs(NULL_EVENT) : m_ScenarioEditor.OnSave(NULL_EVENT);
+				return true;
+			case 'O': 
+				m_ScenarioEditor.OnOpen(NULL_EVENT);
+				return true;
+			case 'N':
+				m_ScenarioEditor.OnNew(NULL_EVENT);
+				return true;
+		}
+		return false;
+	}
+
 	void SetScrolling(int dir, float speed, bool enable)
 	{
 		POST_MESSAGE(ScrollConstant, (eRenderView::GAME, dir, enable ? speed : 0.0f));
@@ -135,18 +153,19 @@ private:
 	bool KeyScroll(wxKeyEvent& evt, bool enable)
 	{
 		static std::array<bool, 6> scrolling{};
-
-		switch (evt.GetKeyCode())
-		{
-		case 'A': case WXK_LEFT:  std::get<0>(scrolling) = enable; break;
-		case 'D': case WXK_RIGHT: std::get<1>(scrolling) = enable; break;
-		case 'W': case WXK_UP:    std::get<2>(scrolling) = enable; break;
-		case 'S': case WXK_DOWN:  std::get<3>(scrolling) = enable; break;
-		case 'Q': case '[':       std::get<4>(scrolling) = enable; break;
-		case 'E': case ']':       std::get<5>(scrolling) = enable; break;
-		// Modifier keys changing speed and therefore requiring update.
-		case WXK_SHIFT: case WXK_CONTROL: break;
-		default: return false;
+		if (!blockMovement) {
+			switch (evt.GetKeyCode())
+			{
+			case 'A': case WXK_LEFT:  std::get<0>(scrolling) = enable; break;
+			case 'D': case WXK_RIGHT: std::get<1>(scrolling) = enable; break;
+			case 'W': case WXK_UP:    std::get<2>(scrolling) = enable; break;
+			case 'S': case WXK_DOWN:  std::get<3>(scrolling) = enable; break;
+			case 'Q': case '[':       std::get<4>(scrolling) = enable; break;
+			case 'E': case ']':       std::get<5>(scrolling) = enable; break;
+			// Modifier keys changing speed and therefore requiring update.
+			case WXK_SHIFT: case WXK_CONTROL: break;
+			default: return false;
+			}
 		}
 
 		float speed = 120.f * ScenarioEditor::GetSpeedModifier();
@@ -170,16 +189,7 @@ private:
 			return;
 		}
 
-		if (wxGetKeyState(WXK_CONTROL)) {
-			switch (evt.GetKeyCode()) {
-				case 'S':
-					wxGetKeyState(WXK_SHIFT) ? m_ScenarioEditor.OnSaveAs(nullEvent) : m_ScenarioEditor.OnSave(nullEvent);
-					break;
-				case 'O': 
-					m_ScenarioEditor.OnOpen(nullEvent);
-					break;
-			}
-        }
+		blockMovement = handleBlockMovement(evt);
 
 		if (KeyScroll(evt, true))
 			return;
