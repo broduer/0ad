@@ -127,7 +127,8 @@ export class SharedScript
 		this.influenceRadius = { "abundant": 36, "sparse": 48 };
 		this.ccInfluenceRadius = { "abundant": 60, "sparse": 120 };
 
-		this.resources = []; // Contains entityIds of all resources in the maps.
+		// The influence of each resource on the resource maps, by entity id, to remove it when the resource is destroyed.
+		this.resources = new Map();
 		this.resourceMaps = {};   // Contains maps showing the density of resources
 		this.ccResourceMaps = {}; // Contains maps showing the density of resources, optimized for CC placement.
 		this.createResourceMaps();
@@ -401,11 +402,13 @@ export class SharedScript
 	 */
 	updateResourceMaps(events)
 	{
-		if (events.Destroy.some(e => this.resources.includes(e.entity)))
+		for (const e of events.Destroy)
 		{
-			this.resources = [];
-			this.resourceMaps = {};
-			this.createResourceMaps();
+			const influence = this.resources.get(e.entity);
+			if (!influence)
+				continue;
+			this.applyResourceInfluence(influence, -1);
+			this.resources.delete(e.entity);
 		}
 
 		for (const e of events.Create)
@@ -418,8 +421,13 @@ export class SharedScript
 	 */
 	addEntityToResourceMap(entity)
 	{
-		this.changeEntityInResourceMapHelper(entity, 1);
-		this.resources.push(entity.id());
+		if (this.resources.has(entity.id()))
+			return;
+		const influence = this.getResourceInfluence(entity);
+		if (!influence)
+			return;
+		this.applyResourceInfluence(influence, 1);
+		this.resources.set(entity.id(), influence);
 	}
 
 	/**
@@ -427,29 +435,49 @@ export class SharedScript
 	 */
 	removeEntityFromResourceMap(entity)
 	{
-		this.changeEntityInResourceMapHelper(entity, -1);
+		const influence = this.resources.get(entity.id());
+		if (!influence)
+			return;
+		this.applyResourceInfluence(influence, -1);
+		this.resources.delete(entity.id());
 	}
 
 	/**
-	 * @param {entity} ent - The entity to add to the resource map.
+	 * @param {entity} ent - A resource.
+	 * @return {Object|undefined} - The influence of the resource on the resource maps, as
+	 *	{ "resource", "x", "y", "strength" }, or undefined if it has none.
 	 */
-	changeEntityInResourceMapHelper(ent, multiplication = 1)
+	getResourceInfluence(ent)
 	{
 		if (!ent)
-			return;
+			return undefined;
 		const entPos = ent.position();
 		if (!entPos)
-			return;
+			return undefined;
 		const resource = ent.resourceSupplyType()?.generic;
 		if (!resource || !this.resourceMaps[resource])
-			return;
-		const cellSize = this.resourceMaps[resource].cellSize;
-		const x = Math.floor(entPos[0] / cellSize);
-		const y = Math.floor(entPos[1] / cellSize);
+			return undefined;
+		const [x, y] = this.resourceMaps[resource].gamePosToMapPos(entPos);
 		const grp = Resources.GetResource(resource).aiAnalysisInfluenceGroup;
-		const strength = multiplication * ent.resourceSupplyMax() / this.normalizationFactor[grp];
-		this.resourceMaps[resource].addInfluence(x, y, this.influenceRadius[grp] / cellSize, strength / 2, "constant");
-		this.resourceMaps[resource].addInfluence(x, y, this.influenceRadius[grp] / cellSize, strength / 2);
-		this.ccResourceMaps[resource].addInfluence(x, y, this.ccInfluenceRadius[grp] / cellSize, strength, "constant");
+		return {
+			"resource": resource,
+			"x": x,
+			"y": y,
+			"strength": ent.resourceSupplyMax() / this.normalizationFactor[grp]
+		};
+	}
+
+	/**
+	 * Add (multiplication 1) or remove (-1) the influence of a resource on the resource maps.
+	 * @param {Object} influence - As returned by getResourceInfluence.
+	 */
+	applyResourceInfluence({ resource, x, y, strength }, multiplication)
+	{
+		const cellSize = this.resourceMaps[resource].cellSize;
+		const grp = Resources.GetResource(resource).aiAnalysisInfluenceGroup;
+		const amount = multiplication * strength;
+		this.resourceMaps[resource].addInfluence(x, y, this.influenceRadius[grp] / cellSize, amount / 2, "constant");
+		this.resourceMaps[resource].addInfluence(x, y, this.influenceRadius[grp] / cellSize, amount / 2);
+		this.ccResourceMaps[resource].addInfluence(x, y, this.ccInfluenceRadius[grp] / cellSize, amount, "constant");
 	}
 }
