@@ -4,4 +4,8 @@
 	<object name="mapPreview" type="image" size="1 1 401 294" tooltip_style="onscreenToolTip"/>
 	<object name="mapInfoName" type="text" size="5 100%-20 100% 100%-1" style="ModernLeftLabelText"/>
 
+	<object name="missingMapButton" type="button" style="ModernButtonRed" size="101 131 301 159" tooltip_style="onscreenToolTip" hidden="true">
+		<translatableAttribute id="caption">Find on mod.io</translatableAttribute>
+	</object>
+
 </object>

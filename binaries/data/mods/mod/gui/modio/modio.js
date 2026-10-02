@@ -154,6 +154,7 @@ export function init(data)
 	Engine.ModIoStartGetGameId();
 
 	Object.assign(Engine.GetGUIObjectByName("modFilter"), {
+		"caption": data?.filter ?? "",
 		"onPress": displayMods,
 		"onTextEdit": displayMods
 	});
