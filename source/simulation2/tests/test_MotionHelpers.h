@@ -1756,6 +1756,10 @@ public:
 		TS_ASSERT(!MomentumModel::HeldByContact(heading, Contacts{contact(-east, 0)}, dt, &MomentumModel::Contact::yield));
 		TS_ASSERT(MomentumModel::HeldByContact(heading, Contacts{MomentumModel::Contact{-east, entity_pos_t::Zero(), fixed::Zero(), true}}, dt,
 			&MomentumModel::Contact::yield));
+		// Likewise for the bodies on an order.
+		TS_ASSERT(!MomentumModel::HeldByContact(heading, Contacts{contact(-east, 0)}, dt, &MomentumModel::Contact::moving));
+		TS_ASSERT(MomentumModel::HeldByContact(heading,
+			Contacts{MomentumModel::Contact{-east, entity_pos_t::Zero(), fixed::Zero(), false, true}}, dt, &MomentumModel::Contact::moving));
 	}
 
 	void test_Pushing_reports_solid_contacts()
@@ -1788,6 +1792,14 @@ public:
 		TS_ASSERT_EQUALS(touching[0].gap, fixed::Zero());
 		TS_ASSERT_EQUALS(touching[1].unit, static_cast<size_t>(1));
 		TS_ASSERT_LESS_THAN(fixed::Zero(), touching[1].normal.X);
+		TS_ASSERT(touching[0].moving && touching[1].moving);
+
+		// Each is told whether the other is on an order.
+		const std::vector<UnitCollision::Contact> oneIdle{contactsOf({
+			MakeUnit(1, here, elephant),
+			MakeUnit(2, CFixedVector2D{fixed::FromFraction(209, 2), fixed::FromInt(100)}, elephant, entity_angle_t::Zero(), false)})};
+		TS_ASSERT_EQUALS(oneIdle.size(), static_cast<size_t>(2));
+		TS_ASSERT(!oneIdle[0].moving && oneIdle[1].moving);
 
 		const std::vector<UnitCollision::Contact> near{contactsOf({MakeUnit(1, here, elephant),
 			MakeUnit(2, CFixedVector2D{fixed::FromFraction(211, 2), fixed::FromInt(100)}, elephant)})};

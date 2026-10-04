@@ -177,8 +177,8 @@ public:
 
 	/**
 	 * A solid unit within push range of another solid unit: the unit's index, the contact's unit normal
-	 * pointing away from the other body, the gap left between them (zero once they touch), and whether the unit
-	 * gives way to the other (see ComputePushes).
+	 * pointing away from the other body, the gap left between them (zero once they touch), whether the unit
+	 * gives way to the other (see ComputePushes), and whether the other is on an order.
 	 */
 	struct Contact
 	{
@@ -188,6 +188,7 @@ public:
 		// How fast the other body is moving away from the unit along the normal, in m/s (zero if it isn't).
 		fixed receding;
 		bool yield;
+		bool moving;
 	};
 
 	/**

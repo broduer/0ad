@@ -125,6 +125,9 @@ struct MotionState
 	std::span<const MomentumModel::Contact> contacts;
 	// Standing still this turn to let a solid unit it is squeezed with go first (see CCmpUnitMotion::PerformMove).
 	bool yielding = false;
+	// Among solid units this turn, one of them at least on an order: a queue, which the unit is given longer to
+	// get through before its move is reported as failed (see QUEUED_FAILED_MOVEMENTS_FACTOR).
+	bool queued = false;
 
 	// Angular velocity from pathfinding (existing)
 	fixed angularVelocity;

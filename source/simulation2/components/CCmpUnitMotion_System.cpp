@@ -474,7 +474,7 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 		m_Contacts.clear();
 		m_Contacts.reserve(collisionContacts.size());
 		for (const UnitCollision::Contact& contact : collisionContacts)
-			m_Contacts.push_back({contact.normal, contact.gap, contact.receding, contact.yield});
+			m_Contacts.push_back({contact.normal, contact.gap, contact.receding, contact.yield, contact.moving});
 		for (size_t first{0}; first < collisionContacts.size();)
 		{
 			size_t last{first + 1};

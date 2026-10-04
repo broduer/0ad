@@ -194,6 +194,14 @@ constexpr std::uint8_t KNOWN_IMPERFECT_PATH_RESET_COUNTDOWN = 12;
 constexpr std::uint8_t MAX_FAILED_MOVEMENTS = 35;
 
 /**
+ * A solid unit held up among other solid units, one of them at least on an order, is in a queue, which moves
+ * when its head does: it gets this many times MAX_FAILED_MOVEMENTS before its move is reported as failed. Solid
+ * units can't slip past each other as others do, and one that gave up in a queue would be left standing in the
+ * way of everyone behind it. Held up alone, or among idle bodies only, it fails as soon as any other unit.
+ */
+constexpr std::uint8_t QUEUED_FAILED_MOVEMENTS_FACTOR = 3;
+
+/**
  * A unit gives way to a solid unit it is squeezed with (see MotionState::yielding) only with this many solid
  * bodies around it at most: in a pack, the one it would give way to is itself held by others, and waiting for
  * it gains nothing.
@@ -1060,12 +1068,13 @@ private:
 
 	/**
 	 * Increment the number of failed movements and notify other components if required.
+	 * A @p queued unit is given longer (see QUEUED_FAILED_MOVEMENTS_FACTOR).
 	 * @returns true if the failure was notified, false otherwise.
 	 */
-	bool IncrementFailedMovementsAndMaybeNotify()
+	bool IncrementFailedMovementsAndMaybeNotify(const bool queued = false)
 	{
 		m_FailedMovements++;
-		if (m_FailedMovements >= MAX_FAILED_MOVEMENTS)
+		if (m_FailedMovements >= (queued ? MAX_FAILED_MOVEMENTS * QUEUED_FAILED_MOVEMENTS_FACTOR : MAX_FAILED_MOVEMENTS))
 		{
 			MoveFailed();
 			m_FailedMovements = 0;
@@ -1153,7 +1162,7 @@ private:
 	 * @param moved - true if the unit still managed to move.
 	 * @returns true if the obstruction required handling, false otherwise.
 	 */
-	bool HandleObstructedMove(bool moved);
+	bool HandleObstructedMove(bool moved, bool queued);
 
 	/**
 	 * Returns true if the target position is valid. False otherwise.
@@ -1553,6 +1562,7 @@ void CCmpUnitMotion::PreMove(MotionState& state)
 	state.overlapCorrection = CFixedVector2D{};
 	state.contacts = {};
 	state.yielding = false;
+	state.queued = false;
 
 	// Determine if this unit needs to be processed this turn
 	// A unit needs update if it's in-world AND (moving OR has a pending move request OR is still rolling/spinning).
@@ -1729,7 +1739,7 @@ void CCmpUnitMotion::PostMove(MotionState& state, fixed dt)
 
 	{
 		POSTMOVE_PROFILE("PostMove_Obstructed");
-		if (state.wasObstructed && HandleObstructedMove(madeProgress))
+		if (state.wasObstructed && HandleObstructedMove(madeProgress, state.queued))
 		{
 			crowdTrace("obstruction handling took over (see the line above)");
 			return;
@@ -2276,6 +2286,8 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 	// Only with few bodies around it (see YIELD_MAX_CONTACTS).
 	state.yielding = state.contacts.size() <= YIELD_MAX_CONTACTS &&
 		MomentumModel::HeldByContact(pathfindingVelocity, state.contacts, dt, &MomentumModel::Contact::yield);
+	state.queued = std::any_of(state.contacts.begin(), state.contacts.end(),
+		[](const MomentumModel::Contact& contact) { return contact.moving; });
 	if (state.yielding)
 		combinedVelocity = CFixedVector2D();
 	else if (!state.contacts.empty())
@@ -2539,7 +2551,7 @@ void CCmpUnitMotion::UpdateMovementState(entity_pos_t speed, entity_pos_t meanSp
 	m_CurrentSpeed = speed;
 }
 
-bool CCmpUnitMotion::HandleObstructedMove(bool moved)
+bool CCmpUnitMotion::HandleObstructedMove(bool moved, const bool queued)
 {
 	CmpPtr<ICmpPosition> cmpPosition(GetEntityHandle());
 	if (!cmpPosition || !cmpPosition->IsInWorld())
@@ -2550,7 +2562,7 @@ bool CCmpUnitMotion::HandleObstructedMove(bool moved)
 	// Also don't increment above the initial MoveObstructed message if we actually manage to move a little.
 	if (!moved || m_FailedMovements < 2)
 	{
-		if (!IncrementFailedMovementsAndMaybeNotify() && m_FailedMovements >= 2)
+		if (!IncrementFailedMovementsAndMaybeNotify(queued) && m_FailedMovements >= 2)
 			MoveObstructed();
 	}
 

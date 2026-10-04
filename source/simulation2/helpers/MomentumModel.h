@@ -90,7 +90,8 @@ public:
 
 	/**
 	 * A solid body near the unit: the contact's unit normal, pointing away from that body, the gap left to it,
-	 * and whether the unit gives way to that body (see UnitCollision::ComputePushes).
+	 * whether the unit gives way to that body (see UnitCollision::ComputePushes), and whether that body is on
+	 * an order.
 	 */
 	struct Contact
 	{
@@ -99,12 +100,13 @@ public:
 		// How fast that body is moving away from the unit along the normal, in m/s (zero if it isn't).
 		fixed receding{};
 		bool yield{false};
+		bool moving{false};
 	};
 
 	/**
 	 * Whether one of @p contacts holds @p velocity back: the unit steers into it faster than SlideAlongContacts
 	 * lets it close the gap, so it is up against that body, not merely near one. With @p only, only the
-	 * bodies it is true of count: those the unit gives way to.
+	 * bodies it is true of count: those the unit gives way to, or those on an order.
 	 */
 	static bool HeldByContact(const CFixedVector2D& velocity, const std::span<const Contact> contacts, const fixed dt,
 		const bool Contact::* const only = nullptr)

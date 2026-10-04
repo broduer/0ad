@@ -669,9 +669,9 @@ void UnitCollision::ComputePushes(
 			// The normal points from j to i: j moves away from i when its velocity runs against it, and i
 			// away from j when its own runs along it.
 			outContacts->push_back({i, contact.normal, contact.gap,
-				std::max(fixed::Zero(), -units[j].velocity.Dot(contact.normal)), yieldA});
+				std::max(fixed::Zero(), -units[j].velocity.Dot(contact.normal)), yieldA, units[j].isMoving});
 			outContacts->push_back({j, -contact.normal, contact.gap,
-				std::max(fixed::Zero(), units[i].velocity.Dot(contact.normal)), squeezed && !yieldA});
+				std::max(fixed::Zero(), units[i].velocity.Dot(contact.normal)), squeezed && !yieldA, units[i].isMoving});
 		}
 #if DEBUG_PAIR_TRACE
 		if ((units[i].collisionShape.IsSolid() || units[j].collisionShape.IsSolid()) &&
