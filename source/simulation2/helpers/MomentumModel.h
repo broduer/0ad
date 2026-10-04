@@ -89,7 +89,8 @@ public:
 		const CFixedVector2D& forwardDir, const fixed driftCorrection, const fixed maxSpeed);
 
 	/**
-	 * A solid body near the unit: the contact's unit normal, pointing away from that body, and the gap left to it.
+	 * A solid body near the unit: the contact's unit normal, pointing away from that body, the gap left to it,
+	 * and whether the unit gives way to that body (see UnitCollision::ComputePushes).
 	 */
 	struct Contact
 	{
@@ -97,18 +98,21 @@ public:
 		entity_pos_t gap;
 		// How fast that body is moving away from the unit along the normal, in m/s (zero if it isn't).
 		fixed receding{};
+		bool yield{false};
 	};
 
 	/**
 	 * Whether one of @p contacts holds @p velocity back: the unit steers into it faster than SlideAlongContacts
-	 * lets it close the gap, so it is up against that body, not merely near one.
+	 * lets it close the gap, so it is up against that body, not merely near one. With @p only, only the
+	 * bodies it is true of count: those the unit gives way to.
 	 */
-	static bool HeldByContact(const CFixedVector2D& velocity, const std::span<const Contact> contacts, const fixed dt)
+	static bool HeldByContact(const CFixedVector2D& velocity, const std::span<const Contact> contacts, const fixed dt,
+		const bool Contact::* const only = nullptr)
 	{
 		if (dt <= fixed::Zero())
 			return false;
 		for (const Contact& contact : contacts)
-			if (-velocity.Dot(contact.normal) > (contact.gap / 2) / dt + contact.receding)
+			if ((!only || contact.*only) && -velocity.Dot(contact.normal) > (contact.gap / 2) / dt + contact.receding)
 				return true;
 		return false;
 	}

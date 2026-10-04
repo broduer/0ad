@@ -123,6 +123,8 @@ struct MotionState
 	// faster than their gap allows, and slides along them. This turn's only, like overlapCorrection: a view
 	// of the motion manager's list, as this struct must stay trivially copyable for EntityMap.
 	std::span<const MomentumModel::Contact> contacts;
+	// Standing still this turn to let a solid unit it is squeezed with go first (see CCmpUnitMotion::PerformMove).
+	bool yielding = false;
 
 	// Angular velocity from pathfinding (existing)
 	fixed angularVelocity;

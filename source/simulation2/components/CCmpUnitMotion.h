@@ -194,6 +194,13 @@ constexpr std::uint8_t KNOWN_IMPERFECT_PATH_RESET_COUNTDOWN = 12;
 constexpr std::uint8_t MAX_FAILED_MOVEMENTS = 35;
 
 /**
+ * A unit gives way to a solid unit it is squeezed with (see MotionState::yielding) only with this many solid
+ * bodies around it at most: in a pack, the one it would give way to is itself held by others, and waiting for
+ * it gains nothing.
+ */
+constexpr size_t YIELD_MAX_CONTACTS = 2;
+
+/**
  * When computing paths but failing to move, we want to occasionally alternate pathfinder systems
  * to avoid getting stuck (the short pathfinder can unstuck the long-range one and vice-versa, depending).
  */
@@ -1545,6 +1552,7 @@ void CCmpUnitMotion::PreMove(MotionState& state)
 	state.poppedBlockedCorner = false;
 	state.overlapCorrection = CFixedVector2D{};
 	state.contacts = {};
+	state.yielding = false;
 
 	// Determine if this unit needs to be processed this turn
 	// A unit needs update if it's in-world AND (moving OR has a pending move request OR is still rolling/spinning).
@@ -1693,15 +1701,16 @@ void CCmpUnitMotion::PostMove(MotionState& state, fixed dt)
 	// its waypoint, never counts as obstructed, and so never reaches the failed-movement handling that would
 	// repath it or eventually tell UnitAI to give up - meanwhile it keeps resetting the counter below, so it
 	// stays that way forever. Hold it to real progress instead.
-	// Two things excuse standing still: turning in place, which is deliberate and takes a high-inertia unit
-	// several turns, and waiting on a path we've asked for and not yet been given. Anything else is stuck -
-	// with no waypoints at all most of all, since nothing will move it until something asks for a path for it.
+	// Three things excuse standing still: turning in place, which is deliberate and takes a high-inertia unit
+	// several turns, waiting on a path we've asked for and not yet been given, and giving way to a solid unit
+	// we are squeezed with. Anything else is stuck - with no waypoints at all most of all, since nothing will
+	// move it until something asks for a path for it.
 	const bool madeProgress{(state.pos - state.initialPos).CompareLength(MinProgressSpeed().Multiply(dt)) >= 0};
 	const bool hasPath{!m_ShortPath.m_Waypoints.empty() || !m_LongPath.m_Waypoints.empty()};
 	const bool awaitingFirstPath{!hasPath && m_ExpectedPathTicket.m_Ticket != 0};
 	const bool turning{(state.angle - state.initialAngle).Absolute() >= MIN_ROTATION_SPEED.Multiply(dt)};
 
-	if (!madeProgress && IsMoveRequested() && !state.wasObstructed && !awaitingFirstPath && !turning)
+	if (!madeProgress && IsMoveRequested() && !state.wasObstructed && !awaitingFirstPath && !turning && !state.yielding)
 		state.wasObstructed = true;
 
 #if DEBUG_CROWD_TRACE
@@ -2261,7 +2270,15 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 	// the body would only make the overlap deeper, and the overlap correction only takes part of that back. What
 	// it is pushed by is added below as it is: a shove from behind closes the pair, and the contact impulse
 	// stops that.
-	if (!state.contacts.empty())
+	// Held by one it gives way to (two units squeezed where neither can be pushed aside, see
+	// UnitCollision::ComputePushes), it stops thrusting altogether: the other goes first, and shoves it aside
+	// on its way. Deliberate, like stopping to turn, so not an obstruction to path around.
+	// Only with few bodies around it (see YIELD_MAX_CONTACTS).
+	state.yielding = state.contacts.size() <= YIELD_MAX_CONTACTS &&
+		MomentumModel::HeldByContact(pathfindingVelocity, state.contacts, dt, &MomentumModel::Contact::yield);
+	if (state.yielding)
+		combinedVelocity = CFixedVector2D();
+	else if (!state.contacts.empty())
 		combinedVelocity = MomentumModel::SlideAlongContacts(combinedVelocity, state.contacts, dt);
 
 	// The unit's own movement, before the external forces below are added: what it falls back on if the step with
@@ -2309,10 +2326,11 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 	state.pushSpin = MomentumModel::CarryPushSpin(pushSpinCarry, state.impulseSpin);
 
 	// Stopping to turn in place is deliberate, not an obstruction: the facing was already rotated above.
+	// So is giving way.
 	if (combinedVelocity.IsZero())
 	{
-		crowdTrace(stoppedToTurn ? "STOPPED TO TURN" : "NO VELOCITY");
-		return hasPathfinding && !stoppedToTurn;
+		crowdTrace(state.yielding ? "YIELDING" : stoppedToTurn ? "STOPPED TO TURN" : "NO VELOCITY");
+		return hasPathfinding && !stoppedToTurn && !state.yielding;
 	}
 
 	CFixedVector2D movement = combinedVelocity.Multiply(dt);
@@ -2488,10 +2506,10 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 			return false;
 		}
 
-		crowdTrace("BLOCKED, did not move");
+		crowdTrace(state.yielding ? "BLOCKED while yielding" : "BLOCKED, did not move");
 		// Units that weren't asked to move (e.g. idle units being pushed into a wall)
-		// shouldn't trigger obstruction handling.
-		return hasMoveRequest;
+		// shouldn't trigger obstruction handling. Nor one giving way, shoved against a wall meanwhile.
+		return hasMoveRequest && !state.yielding;
 	}
 }
 

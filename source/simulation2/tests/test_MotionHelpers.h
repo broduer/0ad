@@ -1752,6 +1752,10 @@ public:
 		TS_ASSERT(!MomentumModel::HeldByContact(heading, Contacts{contact(east, 0)}, dt));
 		TS_ASSERT(!MomentumModel::HeldByContact(CFixedVector2D{fixed::FromInt(4), fixed::FromInt(-3)}, Contacts{contact(-north, 0)}, dt));
 		TS_ASSERT(!MomentumModel::HeldByContact(heading, Contacts{}, dt));
+		// Asked only about the bodies the unit gives way to, the same touching body holds it only when it is one.
+		TS_ASSERT(!MomentumModel::HeldByContact(heading, Contacts{contact(-east, 0)}, dt, &MomentumModel::Contact::yield));
+		TS_ASSERT(MomentumModel::HeldByContact(heading, Contacts{MomentumModel::Contact{-east, entity_pos_t::Zero(), fixed::Zero(), true}}, dt,
+			&MomentumModel::Contact::yield));
 	}
 
 	void test_Pushing_reports_solid_contacts()
@@ -1849,6 +1853,69 @@ public:
 				passability.set(i, j, 2);
 		const std::vector<CFixedVector2D> passable{PushesOf({units[0], units[1], units[2]}, &passability)};
 		TS_ASSERT_EQUALS(passable[1], open[1]);
+	}
+
+	void test_Pushing_squeezed_pair_yields()
+	{
+		// Two elephants (4.5 x 9) on an order, abreast and half a metre apart. On open ground their pushes
+		// part them and neither gives way. Between two walls, neither can be pushed aside: exactly one gives
+		// way, and with as little room on both sides it is the higher entity. With the wall on one side
+		// only, the push towards the open side has its room, and again neither does. Nor does a unit give way
+		// to one without an order, nor when it is other elephants that take the room on both sides: that is
+		// a crowd, not a gap.
+		const UnitCollision::CollisionShape elephant{
+			UnitCollision::DeriveCollisionShape(entity_pos_t::FromFraction(9, 2), entity_pos_t::FromInt(9))};
+		const UnitCollision::CollisionShape footman{entity_pos_t::FromFraction(8, 10), entity_pos_t::Zero(), false, false};
+		const CFixedVector2D west{fixed::FromInt(101), fixed::FromInt(100)};
+		const CFixedVector2D east{fixed::FromInt(106), fixed::FromInt(100)};
+		// A footman far out of everyone's way pins down where the density grid starts.
+		const CFixedVector2D corner{fixed::FromInt(94), fixed::FromInt(80)};
+		const auto contactsOf = [&](const bool eastMoving, const Grid<NavcellData>* passability, const bool crowded = false) {
+			std::vector<CFixedVector2D> pushes, velocityChanges, corrections;
+			std::vector<fixed> spins, hitSpins;
+			std::vector<UnitCollision::ContactHit> hits;
+			std::vector<uint8_t> pressures;
+			std::vector<UnitCollision::Contact> contacts;
+			UnitCollision::SpatialGrids grids;
+			std::vector<UnitCollision::MotionStateCompact> units{
+				MakeUnit(1, west, elephant), MakeUnit(2, east, elephant, entity_angle_t::Zero(), eastMoving),
+				MakeUnit(3, corner, footman, entity_angle_t::Zero(), false)};
+			if (crowded)
+				for (const int x : {85, 87, 115, 117})
+					for (const int z : {94, 100, 106})
+						units.push_back(MakeUnit(static_cast<entity_id_t>(units.size() + 1),
+							CFixedVector2D{fixed::FromInt(x), fixed::FromInt(z)}, elephant, entity_angle_t::Zero(), false));
+			UnitCollision::ComputePushes(units, PushConfig::IMPACT_REFERENCE_TIME, grids, pushes, spins,
+				velocityChanges, hitSpins, hits, pressures, corrections, passability, &contacts);
+			return contacts;
+		};
+
+		const std::vector<UnitCollision::Contact> open{contactsOf(true, nullptr)};
+		TS_ASSERT_EQUALS(open.size(), static_cast<size_t>(2));
+		TS_ASSERT(!open[0].yield && !open[1].yield);
+
+		Grid<NavcellData> passability(140, 140);
+		const auto wall = [&](const int from, const int to) {
+			for (int i = from; i < to; ++i)
+				for (int j = 0; j < 140; ++j)
+					passability.set(i, j, 1);
+		};
+		wall(109, 140);
+		const std::vector<UnitCollision::Contact> oneWall{contactsOf(true, &passability)};
+		TS_ASSERT(!oneWall[0].yield && !oneWall[1].yield);
+
+		wall(0, 98);
+		const std::vector<UnitCollision::Contact> squeezed{contactsOf(true, &passability)};
+		TS_ASSERT_EQUALS(squeezed.size(), static_cast<size_t>(2));
+		TS_ASSERT(!squeezed[0].yield);
+		TS_ASSERT(squeezed[1].yield);
+
+		const std::vector<UnitCollision::Contact> idle{contactsOf(false, &passability)};
+		TS_ASSERT(!idle.empty());
+		TS_ASSERT(!idle[0].yield && !idle[1].yield);
+
+		for (const UnitCollision::Contact& contact : contactsOf(true, nullptr, true))
+			TS_ASSERT(!contact.yield);
 	}
 
 	void test_Charge_hits_what_it_runs_into()

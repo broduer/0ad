@@ -177,7 +177,8 @@ public:
 
 	/**
 	 * A solid unit within push range of another solid unit: the unit's index, the contact's unit normal
-	 * pointing away from the other body, and the gap left between them (zero once they touch).
+	 * pointing away from the other body, the gap left between them (zero once they touch), and whether the unit
+	 * gives way to the other (see ComputePushes).
 	 */
 	struct Contact
 	{
@@ -186,6 +187,7 @@ public:
 		entity_pos_t gap;
 		// How fast the other body is moving away from the unit along the normal, in m/s (zero if it isn't).
 		fixed receding;
+		bool yield;
 	};
 
 	/**
@@ -262,11 +264,12 @@ public:
 	 * counts as taken too, so a push towards a wall or a tree counts like a push into a crowd. The ground is full
 	 * once @p fullCoverage of it is taken (footprints may overlap, so the sum can pass 1). Even full ground leaves
 	 * @p floor of the push: without it, bodies in a packed crowd would have only the overlap correction to keep
-	 * them apart, and sink into each other.
+	 * them apart, and sink into each other. @p outStaticRoom, when given, receives the room there would be with
+	 * the impassable ground alone.
 	 */
 	static fixed PushRoom(const DensityGrid& grid, const std::vector<MotionStateCompact>& units, size_t pushed,
 		size_t pusher, const CFixedVector2D& direction, entity_pos_t fullCoverage, fixed floor,
-		const Grid<NavcellData>* passability);
+		const Grid<NavcellData>* passability, fixed* outStaticRoom = nullptr);
 
 	static constexpr entity_pos_t TIER_BASE_REACH = entity_pos_t::FromInt(4);
 

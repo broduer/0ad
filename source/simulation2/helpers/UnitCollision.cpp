@@ -88,7 +88,7 @@ static entity_pos_t ImpassableArea(const UnitCollision::DensityGrid& grid, const
 
 fixed UnitCollision::PushRoom(const DensityGrid& grid, const std::vector<MotionStateCompact>& units, const size_t pushed,
 	const size_t pusher, const CFixedVector2D& direction, const entity_pos_t fullCoverage, const fixed floor,
-	const Grid<NavcellData>* passability)
+	const Grid<NavcellData>* passability, fixed* outStaticRoom)
 {
 	// The ground the body would move into: a window its own size, just beyond its edge along the push.
 	const entity_pos_t extent{units[pushed].collisionShape.Extent()};
@@ -99,7 +99,7 @@ fixed UnitCollision::PushRoom(const DensityGrid& grid, const std::vector<MotionS
 
 	// The grid spans the units, with a cell to spare: beyond it is open ground as far as they go, but the
 	// passability is sampled there all the same.
-	entity_pos_t area;
+	entity_pos_t area, impassable;
 	const auto inWindow = [&](const int cell) {
 		return cell >= 0 && std::abs(cell % grid.width - cellX) <= reach && std::abs(cell / grid.width - cellZ) <= reach;
 	};
@@ -109,19 +109,24 @@ fixed UnitCollision::PushRoom(const DensityGrid& grid, const std::vector<MotionS
 			if (x >= 0 && z >= 0 && x < grid.width && z < grid.height)
 				area += grid.area[z * grid.width + x];
 			if (passability)
-				area += ImpassableArea(grid, x, z, units[pushed].passClass, *passability);
+				impassable += ImpassableArea(grid, x, z, units[pushed].passClass, *passability);
 		}
 	if (inWindow(grid.cellOf[pushed]))
 		area -= FootprintArea(units[pushed].collisionShape);
 	if (inWindow(grid.cellOf[pusher]))
 		area -= FootprintArea(units[pusher].collisionShape);
-	if (area <= entity_pos_t::Zero())
-		return fixed::FromInt(1);
 
 	const entity_pos_t full{grid.cellSize.Multiply(grid.cellSize).Multiply(fullCoverage) * ((2 * reach + 1) * (2 * reach + 1))};
-	if (area >= full)
-		return floor;
-	return floor + (fixed::FromInt(1) - floor).Multiply(fixed::FromInt(1) - area / full);
+	const auto roomLeft = [&](const entity_pos_t taken) {
+		if (taken <= entity_pos_t::Zero())
+			return fixed::FromInt(1);
+		if (taken >= full)
+			return floor;
+		return floor + (fixed::FromInt(1) - floor).Multiply(fixed::FromInt(1) - taken / full);
+	};
+	if (outStaticRoom)
+		*outStaticRoom = roomLeft(impassable);
+	return roomLeft(area + impassable);
 }
 
 entity_pos_t UnitCollision::CollisionShape::InertiaPerMass() const
@@ -622,36 +627,51 @@ void UnitCollision::ComputePushes(
 		ComputePairPush(units[i], units[j], dt, cfg, pushA, pushB, spinA, spinB,
 			velocityChangeA, velocityChangeB, hitSpinA, hitSpinB, outHits, pressureA, pressureB, correctionA, correctionB,
 			outContacts ? &contact : nullptr);
-		if (!contact.normal.IsZero())
-		{
-			// The normal points from j to i: j moves away from i when its velocity runs against it, and i
-			// away from j when its own runs along it.
-			outContacts->push_back({i, contact.normal, contact.gap,
-				std::max(fixed::Zero(), -units[j].velocity.Dot(contact.normal))});
-			outContacts->push_back({j, -contact.normal, contact.gap,
-				std::max(fixed::Zero(), units[i].velocity.Dot(contact.normal))});
-		}
-
 		// A soft push between solid bodies moves a unit only as far as there is room where the push leads. The
 		// push is applied in full on open ground, and scaled down as the ground fills, to DensityPushFloor of it
 		// once units and ground the pushed unit cannot stand on cover DensityPushCoverage of it. With others
 		// behind the pushed unit, the push would only be passed on to them: a herd at rest would keep making
 		// space in ripples long after a few more had joined it, until every pair was out of push range. Against
 		// a wall or a tree, it would only press the pushed unit into them.
+		fixed roomA{fixed::FromInt(1)};
+		fixed roomB{fixed::FromInt(1)};
+		fixed staticRoomA{fixed::FromInt(1)};
+		fixed staticRoomB{fixed::FromInt(1)};
 		if (pushNeedsRoom && units[i].collisionShape.IsSolid() && units[j].collisionShape.IsSolid())
 		{
-			const auto scaleToRoom = [&](CFixedVector2D& push, fixed& spin, const size_t pushed, const size_t pusher) {
+			const auto scaleToRoom = [&](CFixedVector2D& push, fixed& spin, const size_t pushed, const size_t pusher,
+				fixed& staticRoom) {
 				if (push.IsZero())
-					return;
+					return fixed::FromInt(1);
 				CFixedVector2D direction{push};
 				direction.Normalize();
 				const fixed room{PushRoom(grids.density, units, pushed, pusher, direction, cfg.densityPushCoverage,
-					cfg.densityPushFloor, passability)};
+					cfg.densityPushFloor, passability, &staticRoom)};
 				push = push.Multiply(room);
 				spin = spin.Multiply(room);
+				return room;
 			};
-			scaleToRoom(pushA, spinA, i, j);
-			scaleToRoom(pushB, spinB, j, i);
+			roomA = scaleToRoom(pushA, spinA, i, j, staticRoomA);
+			roomB = scaleToRoom(pushB, spinB, j, i, staticRoomB);
+		}
+
+		if (!contact.normal.IsZero())
+		{
+			// Two units on an order, neither with room to be pushed aside, and one of them for the ground it
+			// cannot stand on alone, are squeezed: at a gap for one, each holds the other out of it. The one
+			// with more room behind it gives way (the higher entity when they have as much), which leaves the
+			// way to the one that can be moved the least: the one already in the gap, with a wall on either
+			// side. Without a wall in it, a pair short of room is only two units in a crowd, where everyone is.
+			const fixed squeezedRoom{(cfg.densityPushFloor + fixed::FromInt(1)) / 2};
+			const bool squeezed{units[i].isMoving && units[j].isMoving && roomA < squeezedRoom && roomB < squeezedRoom &&
+				(staticRoomA < squeezedRoom || staticRoomB < squeezedRoom)};
+			const bool yieldA{squeezed && (roomA > roomB || (roomA == roomB && units[i].entity > units[j].entity))};
+			// The normal points from j to i: j moves away from i when its velocity runs against it, and i
+			// away from j when its own runs along it.
+			outContacts->push_back({i, contact.normal, contact.gap,
+				std::max(fixed::Zero(), -units[j].velocity.Dot(contact.normal)), yieldA});
+			outContacts->push_back({j, -contact.normal, contact.gap,
+				std::max(fixed::Zero(), units[i].velocity.Dot(contact.normal)), squeezed && !yieldA});
 		}
 #if DEBUG_PAIR_TRACE
 		if ((units[i].collisionShape.IsSolid() || units[j].collisionShape.IsSolid()) &&
