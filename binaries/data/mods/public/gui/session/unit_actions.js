@@ -208,6 +208,10 @@ var g_UnitActions =
 		{
 			"execute": function(position, action, selection, queued, pushFront)
 			{
+				// if there is no target (to display cursor), don't try to attack.
+				if (!action.target)
+					return true;
+
 				Engine.PostNetworkCommand({
 					"type": "attack",
 					"entities": selection,
@@ -246,6 +250,12 @@ var g_UnitActions =
 			"actionCheck": function(target, selection)
 			{
 				const actionInfo = getActionInfo("attack", target, selection);
+
+				// if force-attack hotkey is used without a target, display the cursor.
+				if (Engine.HotkeyIsPressed("session.attack") && !target)
+				{
+					actionInfo.possible = true;
+				}
 				return actionInfo.possible && {
 					"type": "attack",
 					"cursor": "action-attack",
