@@ -30,9 +30,12 @@ class OutOfSyncNetwork extends SessionMessageBox
 			sprintf(translateWithContext("Out-Of-Sync", "Replay saved to %(filepath)s"), {
 				"filepath": escapeText(msg.path_replay)
 			}),
-			sprintf(translateWithContext("Out-Of-Sync", "Dumping current state to %(filepath)s"), {
-				"filepath": escapeText(msg.path_oos_dump)
-			})
+			msg.dumpPending ?
+				sprintf(translateWithContext("Out-Of-Sync", "Diagnostic dump for turn %(turn)s (if reached): %(filepath)s"), {
+					"turn": msg.dumpTurn,
+					"filepath": escapeText(msg.path_oos_dump)
+				}) :
+				translateWithContext("Out-Of-Sync", "No diagnostic dump was scheduled.")
 		];
 
 		this.Caption = txt.join("\n");

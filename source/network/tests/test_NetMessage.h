@@ -24,6 +24,8 @@
 #include "scriptinterface/Request.h"
 
 #include <cstddef>
+#include <memory>
+#include <vector>
 #include <js/RootingAPI.h>
 #include <js/TypeDecls.h>
 #include <js/Value.h>
@@ -53,4 +55,33 @@ public:
 		delete msg2;
 		delete[] buf;
 	}
+	void test_sync_error_turns()
+	{
+		Script::Interface script("Test", "Test", g_ScriptContext);
+		CSyncErrorMessage message;
+		message.m_Turn = 2;
+		message.m_DumpTurn = 6;
+		message.m_HashExpected = "expected";
+		CSyncErrorMessage::S_m_PlayerNames player;
+		player.m_Name = L"player";
+		message.m_PlayerNames.push_back(player);
+		const size_t length = message.GetSerializedLength();
+		std::vector<std::uint8_t> bytes(length + 1, '!');
+		TS_ASSERT_EQUALS(message.Serialize(bytes.data()), bytes.data() + length);
+		TS_ASSERT_EQUALS(bytes[length], '!');
+		std::unique_ptr<CNetMessage> decoded(CNetMessageFactory::CreateMessage(bytes.data(), length, script));
+		if (!decoded || decoded->GetType() != NMT_SYNC_ERROR)
+		{
+			TS_FAIL("sync error message could not be decoded");
+			return;
+		}
+		const auto& result = static_cast<const CSyncErrorMessage&>(*decoded);
+		TS_ASSERT_EQUALS(result.m_Turn, 2);
+		TS_ASSERT_EQUALS(result.m_DumpTurn, 6);
+		TS_ASSERT_EQUALS(result.m_HashExpected, message.m_HashExpected);
+		TS_ASSERT_EQUALS(result.m_PlayerNames.size(), 1);
+		if (!result.m_PlayerNames.empty())
+			TS_ASSERT_EQUALS(result.m_PlayerNames[0].m_Name, L"player");
+	}
+
 };

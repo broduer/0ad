@@ -348,6 +348,9 @@ void CNetClient::SetAndOwnSession(CNetClientSession* session)
 
 void CNetClient::DestroyConnection()
 {
+	if (m_ClientTurnManager)
+		m_ClientTurnManager->CancelOosDump();
+
 	if (m_Session)
 		m_Session->Shutdown();
 
@@ -1089,7 +1092,7 @@ bool CNetClient::OnInGame(CNetClient* client, CFsmEvent<CNetMessage*>* event)
 		else if (message->GetType() == NMT_SYNC_ERROR)
 		{
 			CSyncErrorMessage* syncMessage = static_cast<CSyncErrorMessage*> (message);
-			client->m_ClientTurnManager->OnSyncError(syncMessage->m_Turn, syncMessage->m_HashExpected, syncMessage->m_PlayerNames);
+			client->m_ClientTurnManager->OnSyncError(syncMessage->m_Turn, syncMessage->m_DumpTurn, syncMessage->m_HashExpected, syncMessage->m_PlayerNames);
 		}
 		else if (message->GetType() == NMT_END_COMMAND_BATCH)
 		{

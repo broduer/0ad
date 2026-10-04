@@ -167,6 +167,9 @@ void CNetServerTurnManager::NotifyFinishedClientUpdate(CNetServerSession& sessio
 		{
 			CSyncErrorMessage msg;
 			msg.m_Turn = clientStateHash.first;
+			// The reliable channel delivers this announcement before any later
+			// command batch can authorize D.
+			msg.m_DumpTurn = m_ReadyTurn + 1;
 			msg.m_HashExpected = expected;
 			for (const CStrW& oosPlayername : OOSPlayerNames)
 			{

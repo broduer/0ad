@@ -27,7 +27,7 @@
 
 #define PS_PROTOCOL_MAGIC                         0x5073013f	// 'P', 's', 0x01, '?'
 #define PS_PROTOCOL_MAGIC_RESPONSE                0x50630121	// 'P', 'c', 0x01, '!'
-#define PS_PROTOCOL_VERSION                       0x0101001A	// Arbitrary protocol
+#define PS_PROTOCOL_VERSION                       0x0101001B	// Arbitrary protocol
 #define PS_DEFAULT_PORT                           0x5073		// 'P', 's'
 
 // Set when lobby authentication is required. Used in the SrvHandshakeResponseMessage.
@@ -254,6 +254,7 @@ END_NMT_CLASS()
 
 START_NMT_CLASS_(SyncError, NMT_SYNC_ERROR)
 	NMT_FIELD_INT(m_Turn, std::int32_t, 4)
+	NMT_FIELD_INT(m_DumpTurn, std::int32_t, 4)
 	NMT_FIELD(CStr, m_HashExpected)
 	NMT_START_ARRAY(m_PlayerNames)
 		NMT_FIELD(CStrW, m_Name)

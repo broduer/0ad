@@ -24,6 +24,7 @@
 #include "simulation2/system/TurnManager.h"
 
 #include <js/TypeDecls.h>
+#include <optional>
 #include <vector>
 
 class CNetClient;
@@ -47,13 +48,23 @@ public:
 	 * Notify the server that all commands are sent to prepare the connection for termination.
 	 */
 	void OnDestroyConnection();
+	void CancelOosDump();
 
-	void OnSyncError(turn_id_t turn, const CStr& expectedHash, const std::vector<CSyncErrorMessage::S_m_PlayerNames>& playerNames);
+	void OnSyncError(turn_id_t turn, turn_id_t dumpTurn, const CStr& expectedHash, const std::vector<CSyncErrorMessage::S_m_PlayerNames>& playerNames);
 
 private:
 	void NotifyFinishedOwnCommands(turn_id_t turn) override;
 
 	void NotifyFinishedUpdate(turn_id_t turn, const UpdateCallback& sendEventToAll) override;
+
+	void DumpOosState();
+
+	struct PendingOosDump
+	{
+		turn_id_t oosTurn;
+		turn_id_t dumpTurn;
+	};
+	std::optional<PendingOosDump> m_PendingOosDump;
 
 	CNetClient& m_NetClient;
 };
