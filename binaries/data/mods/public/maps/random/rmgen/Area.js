@@ -38,6 +38,9 @@ Area.prototype.getClosestPointTo = function(position)
 		const currentDistance = point.distanceToSquared(position);
 		if (currentDistance < shortestDistance)
 		{
+			if (currentDistance === 0)
+				return point;
+
 			shortestDistance = currentDistance;
 			closestPoint = point;
 		}
