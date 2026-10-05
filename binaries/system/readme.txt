@@ -13,13 +13,13 @@ Autostart:
 -autostart-aidiff=PLAYER:DIFF   sets the DIFFiculty of PLAYER's AI (default 3, 0: sandbox, 5: very hard)
 -autostart-aiseed=AISEED        sets the seed used for the AI random generator (default 0, use -1 for random)
 -autostart-player=NUMBER        sets the playerID in non-networked games (default 1, use -1 for observer)
--autostart-civ=PLAYER:CIV       sets PLAYER's civilisation to CIV (skirmish and random maps only). Use random for a random civ.
--autostart-team=PLAYER:TEAM     sets the team for PLAYER (e.g. 2:2).
+-autostart-civ=PLAYER:CIV       sets PLAYER's civilisation to CIV (skirmish and random maps only). Use random for a random civ
+-autostart-team=PLAYER:TEAM     sets the team for PLAYER (e.g. 2:2)
 -autostart-ceasefire=NUM        sets a ceasefire duration NUM (default 0 minutes)
 -autostart-nonvisual            disable any graphics and sounds
 -autostart-visibility=TYPE      sets the map visibility (explored, hidden, revealed, allied, allied-explored)
 -autostart-speed=SPEED          sets the sim rate speed (default 1, max 2 in normal mode, 20 in observer mode)
--autostart-victory=SCRIPTNAME   sets the victory conditions with SCRIPTNAME located in simulation/data/settings/victory_conditions/ (default conquest). When the only given SCRIPTNAME is "endless", no victory conditions will apply.
+-autostart-victory=SCRIPTNAME   sets the victory conditions with SCRIPTNAME located in simulation/data/settings/victory_conditions/ (default conquest). When the only given SCRIPTNAME is "endless", no victory conditions will apply
 -autostart-wonderduration=NUM   sets the victory duration NUM for wonder victory condition (default 10 minutes)
 -autostart-relicduration=NUM    sets the victory duration NUM for relic victory condition (default 10 minutes)
 -autostart-reliccount=NUM       sets the number of relics for relic victory condition (default 2 relics)
@@ -30,7 +30,7 @@ Multiplayer:
 -autostart-host                 sets multiplayer host mode
 -autostart-host-players=NUMBER  sets NUMBER of human players for multiplayer game (default 2)
 -autostart-client=IP            sets multiplayer client to join host at given IP address
- Random maps only:
+Random maps only:
 -autostart-size=TILES           sets random map size in TILES (default 192)
 -autostart-players=NUMBER       sets NUMBER of players on random map (default 2)
 -autostart-placement=PLACEMENT  sets the placement type for a random map
@@ -82,14 +82,14 @@ Advanced / diagnostic:
                     game's log folder. NOTE: game will run much slower with this option!
 -rejointest=N       simulates a rejoin and checks simulation state each turn for serialization
                     errors; this is similar to a serialization test but much faster and
-                    less complete. It should be enough for debugging most rejoin OOSes.
+                    less complete. It should be enough for debugging most rejoin OOSes
 -unique-logs        adds unix timestamp and process id to the filename of mainlog.html, interestinglog.html
-                    and oos_dump.txt to prevent these files from becoming overwritten by another pyrogenesis process.
--hashtest-full=X    whether to enable computation of full hashes in replaymode (default true). Can be disabled to improve performance.
--hashtest-quick=X   whether to enable computation of quick hashes in replaymode (default false). Can be enabled for debugging purposes.
+                    and oos_dump.txt to prevent these files from becoming overwritten by another pyrogenesis process
+-hashtest-full=X    whether to enable computation of full hashes in replaymode (default true). Can be disabled to improve performance
+-hashtest-quick=X   whether to enable computation of quick hashes in replaymode (default false). Can be enabled for debugging purposes
 
 -fixed-frame-frequency=F fixes the frame time. With that flags it equals to 1/F. For example,
-                         if F=60 it means the game behaves like it's always running with 60 FPS.
+                         if F=60 it means the game behaves like it's always running with 60 FPS
 
 Archive builder:
 -archivebuild=PATH            system PATH of the base directory containing mod data to be archived/precached
