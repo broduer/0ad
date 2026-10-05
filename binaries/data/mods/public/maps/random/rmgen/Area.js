@@ -25,14 +25,16 @@ Area.prototype.contains = function(point)
 
 Area.prototype.getClosestPointTo = function(position)
 {
-	if (!this.points.length)
+	const points = this.points;
+	if (!points.length)
 		return undefined;
 
-	let closestPoint = this.points[0];
+	let closestPoint = points[0];
 	let shortestDistance = Infinity;
 
-	for (const point of this.points)
+	for (let i = 0; i < points.length; ++i)
 	{
+		const point = points[i];
 		const currentDistance = point.distanceToSquared(position);
 		if (currentDistance < shortestDistance)
 		{
