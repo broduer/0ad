@@ -741,6 +741,7 @@ void CComponentManager::AddSystemComponents(bool skipScriptedComponents, bool sk
 	AddComponent(m_SystemEntity, CID_UnitMotionManager, noParam);
 	AddComponent(m_SystemEntity, CID_UnitRenderer, noParam);
 	AddComponent(m_SystemEntity, CID_WaterManager, noParam);
+	AddComponent(m_SystemEntity, CID_ImpulseQueue, noParam);
 
 	// Add scripted system components:
 	if (!skipScriptedComponents)

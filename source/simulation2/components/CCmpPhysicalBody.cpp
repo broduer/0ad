@@ -20,8 +20,10 @@
 #include "ICmpPhysicalBody.h"
 
 #include "simulation2/helpers/Position.h"
+#include "simulation2/helpers/PushConfig.h"
 #include "simulation2/system/Component.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <string>
 
@@ -95,7 +97,12 @@ public:
 
 	void SetPressure(uint8_t pressure) override
 	{
-		m_Pressure = pressure;
+		m_Pressure = std::min<uint8_t>(PushConfig::MAX_PRESSURE, pressure);
+	}
+
+	void AddPressure(uint8_t pressure) override
+	{
+		m_Pressure = static_cast<uint8_t>(std::min<int>(PushConfig::MAX_PRESSURE, m_Pressure + pressure));
 	}
 };
 

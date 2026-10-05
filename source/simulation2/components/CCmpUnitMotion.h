@@ -43,6 +43,8 @@
 #include "simulation2/helpers/Pathfinding.h"
 #include "simulation2/helpers/Position.h"
 #include "simulation2/helpers/Render.h"
+#include "simulation2/helpers/PushConfig.h"
+#include "simulation2/helpers/MotionState.h"
 #include "simulation2/serialization/SerializeTemplates.h"
 #include "simulation2/serialization/SerializedPathfinder.h"
 #include "simulation2/serialization/SerializedTypes.h"
@@ -780,9 +782,9 @@ private:
 	 */
 	void OnTurnStart();
 
-	void PreMove(CCmpUnitMotionManager::MotionState& state);
-	void Move(CCmpUnitMotionManager::MotionState& state, fixed dt);
-	void PostMove(CCmpUnitMotionManager::MotionState& state, fixed dt);
+	void PreMove(MotionState& state);
+	void Move(MotionState& state, fixed dt);
+	void PostMove(MotionState& state, fixed dt);
 
 	bool PossiblyAtDestination() const override;
 
@@ -1055,7 +1057,7 @@ void CCmpUnitMotion::OnTurnStart()
 	}
 }
 
-void CCmpUnitMotion::PreMove(CCmpUnitMotionManager::MotionState& state)
+void CCmpUnitMotion::PreMove(MotionState& state)
 {
 	const bool pushingEnabled{state.cmpPhysicalBody && state.cmpPhysicalBody->IsPushingEnabled()};
 	state.ignore = !pushingEnabled || !m_BlockMovement;
@@ -1080,7 +1082,7 @@ void CCmpUnitMotion::PreMove(CCmpUnitMotionManager::MotionState& state)
 		cmpObstruction->SetMovingFlag(state.isMoving);
 }
 
-void CCmpUnitMotion::Move(CCmpUnitMotionManager::MotionState& state, fixed dt)
+void CCmpUnitMotion::Move(MotionState& state, fixed dt)
 {
 	PROFILE("Move");
 
@@ -1093,7 +1095,7 @@ void CCmpUnitMotion::Move(CCmpUnitMotionManager::MotionState& state, fixed dt)
 		state.cmpPhysicalBody ? state.cmpPhysicalBody->GetPressure() : 0);
 }
 
-void CCmpUnitMotion::PostMove(CCmpUnitMotionManager::MotionState& state, fixed dt)
+void CCmpUnitMotion::PostMove(MotionState& state, fixed dt)
 {
 	// Update our speed over this turn so that the visual actor shows the correct animation.
 	if (state.pos == state.initialPos)
@@ -1232,7 +1234,7 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate, WaypointPath& 
 
 		// Lower speed up to a floor to prevent units from getting stopped.
 		// This helped pushing particularly for fast units, since they'll end up slowing down.
-		constexpr int maxPressure = CCmpUnitMotionManager::MAX_PRESSURE - pressureMinThreshold - 80;
+		constexpr int maxPressure = PushConfig::MAX_PRESSURE - pressureMinThreshold - 80;
 		constexpr entity_pos_t floorSpeed = entity_pos_t::FromFraction(3, 2);
 		static_assert(maxPressure > 0);
 

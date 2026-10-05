@@ -25,7 +25,7 @@
 
 /**
  * A unit's physical body: its weight, whether it takes part in pushing, and how crowded it is
- * (pressure). The pushing itself is computed by the motion manager.
+ * (pressure). The pushing itself is computed by UnitCollision and the motion manager.
  */
 class ICmpPhysicalBody : public IComponent
 {
@@ -50,6 +50,11 @@ public:
 	virtual uint8_t GetPressure() const = 0;
 
 	virtual void SetPressure(uint8_t pressure) = 0;
+
+	/**
+	 * Add to the pressure, up to its maximum.
+	 */
+	virtual void AddPressure(uint8_t pressure) = 0;
 
 	DECLARE_INTERFACE_TYPE(PhysicalBody)
 };

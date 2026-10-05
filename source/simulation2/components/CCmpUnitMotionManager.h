@@ -21,19 +21,24 @@
 #include "maths/Fixed.h"
 #include "maths/FixedVector2D.h"
 #include "simulation2/components/ICmpUnitMotionManager.h"
+#include "simulation2/components/ICmpPhysicalBody.h"
+#include "simulation2/components/ICmpPathfinder.h"
 #include "simulation2/helpers/Grid.h"
 #include "simulation2/helpers/Position.h"
+#include "simulation2/helpers/PushConfig.h"
 #include "simulation2/system/Component.h"
 #include "simulation2/system/Entity.h"
 #include "simulation2/system/EntityMap.h"
+#include "simulation2/helpers/MotionState.h"
 
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 class CCmpUnitMotion;
-class ICmpPhysicalBody;
 class ICmpPosition;
+class ICmpPhysicalBody;
 
 class CCmpUnitMotionManager final : public ICmpUnitMotionManager
 {
@@ -42,78 +47,6 @@ public:
 
 	DEFAULT_COMPONENT_ALLOCATOR(UnitMotionManager)
 
-	/**
-	 * Maximum value for pushing pressure.
-	 */
-	static constexpr int MAX_PRESSURE = 255;
-
-	// Persisted state for each unit.
-	struct MotionState
-	{
-		MotionState(ICmpPosition* cmpPos, CCmpUnitMotion* cmpMotion, ICmpPhysicalBody* cmpBody);
-
-		// Component references - these must be kept alive for the duration of motion.
-		// NB: this is generally a super dangerous thing to do,
-		// but the tight coupling with CCmpUnitMotion makes it workable.
-		// NB: this assumes that components do _not_ move in memory,
-		// which is currently a fair assumption but might change in the future.
-		ICmpPosition* cmpPosition;
-		CCmpUnitMotion* cmpUnitMotion;
-		// Null for an entity without a physical body, which takes no part in pushing.
-		ICmpPhysicalBody* cmpPhysicalBody;
-
-		// Position before units start moving
-		CFixedVector2D initialPos;
-		// Transient position during the movement.
-		CFixedVector2D pos;
-
-		// Accumulated "pushing" from nearby units.
-		CFixedVector2D push;
-
-		fixed speed;
-
-		fixed initialAngle;
-		fixed angle;
-
-		// Used for formations - units with the same control group won't push at a distance.
-		// (this is required because formations may be tight and large units may end up never settling.
-		entity_id_t controlGroup = INVALID_ENTITY;
-
-		// Meta-flag -> this entity won't push nor be pushed.
-		// (used for entities that have their obstruction disabled).
-		bool ignore = false;
-
-		// If true, the entity needs to be handled during movement.
-		bool needUpdate = false;
-
-		bool wentStraight = false;
-		bool wasObstructed = false;
-
-		// Clone of the obstruction manager flag for efficiency
-		bool isMoving = false;
-	};
-
-	// "Template" state, not serialized (cannot be changed mid-game).
-
-	// The maximal distance at which units push each other is the combined unit clearances, multipled by this factor,
-	// itself pre-multiplied by the circle-square correction factor.
-	entity_pos_t m_PushingRadiusMultiplier;
-	// Additive modifiers to the maximum pushing distance for moving units and idle units respectively.
-	entity_pos_t m_MovingPushExtension;
-	entity_pos_t m_StaticPushExtension;
-	// Multiplier for the pushing 'spread'.
-	// This should be understand as the % of the maximum distance where pushing will be "in full force".
-	entity_pos_t m_MovingPushingSpread;
-	entity_pos_t m_StaticPushingSpread;
-
-	// Pushing forces below this value are ignored - this prevents units moving forever by very small increments.
-	entity_pos_t m_MinimalPushing;
-
-	// Multiplier for pushing pressure strength.
-	entity_pos_t m_PushingPressureStrength;
-	// Per-turn reduction in pushing pressure.
-	entity_pos_t m_PushingPressureDecay;
-
 	// These vectors are reconstructed on deserialization.
 
 	EntityMap<MotionState> m_Units;
@@ -121,8 +54,12 @@ public:
 
 	// Turn-local state below, not serialised.
 
-	Grid<std::vector<EntityMap<MotionState>::iterator>> m_MovingUnits;
 	bool m_ComputingMotion;
+
+	// Spatial grid for UnitCollision, and the cells it filled last turn. Kept between turns so its cells
+	// are only cleared; it is reallocated when the area the units cover changes size.
+	Grid<std::vector<size_t>> m_PushGrid;
+	std::vector<std::pair<int, int>> m_PushGridFilledCells;
 
 	static std::string GetSchema()
 	{
@@ -150,19 +87,27 @@ public:
 
 	bool IsPushingActivated() const override
 	{
-		return m_PushingRadiusMultiplier != entity_pos_t::Zero();
+		return PushConfig::GetInstance().IsEnabled();
 	}
 
 private:
 	void OnDeserialized();
-	void ResetSubdivisions();
 	void OnTurnStart();
 
 	void MoveUnits(fixed dt);
 	void MoveFormations(fixed dt);
 	void Move(EntityMap<MotionState>& ents, fixed dt);
 
-	void Push(EntityMap<MotionState>::value_type& a, EntityMap<MotionState>::value_type& b, fixed dt);
+	/**
+	 * Move a unit by the push it received this turn, unless that crosses an obstruction.
+	 */
+	void ApplyPush(MotionState& state, CmpPtr<ICmpPathfinder> cmpPathfinder);
+
+	// Debug rendering, only defined when DEBUG_RENDER is enabled in CCmpUnitMotion_System.cpp.
+	void RenderForceVector(const MotionState& state,
+						const CFixedVector2D& force,
+						bool wasObstructed);
+	void ClearDebugData();
 };
 
 REGISTER_COMPONENT_TYPE(UnitMotionManager)

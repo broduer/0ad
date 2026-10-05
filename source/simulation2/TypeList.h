@@ -103,6 +103,9 @@ COMPONENT(FoggingScripted)
 INTERFACE(Footprint)
 COMPONENT(Footprint)
 
+INTERFACE(ImpulseQueue)
+COMPONENT(ImpulseQueue)
+
 INTERFACE(GarrisonHolder)
 COMPONENT(GarrisonHolderScripted)
 
