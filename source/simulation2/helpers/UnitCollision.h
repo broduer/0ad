@@ -71,19 +71,14 @@ public:
 
 private:
 	/**
-	 * Sort the units into cells of gridSize metres. The grid and filledCells are kept between turns by the caller:
-	 * only the cells filled last turn are cleared, and the grid is only resized when its shape changes.
+	 * Sort the units into cells of gridSize metres, skipping ignored ones. The grid and filledCells are kept
+	 * between turns by the caller: only the cells filled last turn are cleared, and the grid is only resized
+	 * when its shape changes. filledCells lists the cells holding at least one unit, in the order they were
+	 * first filled.
 	 */
 	static void BuildSpatialGrid(const std::vector<MotionStateCompact>& units, int gridSize,
 								  Grid<std::vector<size_t>>& spatialGrid, std::vector<std::pair<int, int>>& filledCells,
-								  entity_pos_t& gridMinX, entity_pos_t& gridMinZ,
-								  entity_pos_t& gridCellSize, int& gridWidth, int& gridHeight);
-
-	static void GetNeighbors(size_t unitIdx, const std::vector<MotionStateCompact>& units,
-							  const Grid<std::vector<size_t>>& spatialGrid,
-							  const entity_pos_t& gridMinX, const entity_pos_t& gridMinZ,
-							  const entity_pos_t& gridCellSize, int gridWidth, int gridHeight,
-							  std::vector<size_t>& neighbors);
+								  int& gridWidth, int& gridHeight);
 
 	static void ComputePairPush(
 		const MotionStateCompact& a,

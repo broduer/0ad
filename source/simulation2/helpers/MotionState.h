@@ -23,6 +23,9 @@
 #include "simulation2/system/Entity.h"
 #include "simulation2/helpers/Position.h"  // For entity_angle_t
 
+#include <optional>
+
+class ICmpObstruction;
 class ICmpPosition;
 class CCmpUnitMotion;
 class ICmpPhysicalBody;
@@ -46,10 +49,13 @@ struct MotionState
 		CCmpUnitMotion* cmpMotion,
 		ICmpPhysicalBody* cmpPhysicalBody);
 
-	// Component references - these must be kept alive for the duration of motion.
+	// Component references, set by the manager when the unit registers and after deserialization.
+	// These must be kept alive for the duration of motion.
 	ICmpPosition* cmpPosition;
 	CCmpUnitMotion* cmpUnitMotion;
+	// Null for an entity without that component.
 	ICmpPhysicalBody* cmpPhysicalBody;
+	ICmpObstruction* cmpObstruction = nullptr;
 	// Position before units start moving
 	CFixedVector2D initialPos;
 	// Transient position during the movement.
@@ -75,6 +81,9 @@ struct MotionState
 	bool wasObstructed = false;
 	// Clone of the obstruction manager flag for efficiency
 	bool isMoving = false;
+	// The value of isMoving last passed to the Obstruction component, which is only told when it changes.
+	// Empty until it has been told once, which includes after deserialization.
+	std::optional<bool> movingFlag;
 	// What this turn's queued impulses (collision pushes) add up to, accumulated as they are
 	// consumed and applied further down the same update. Transient, so not serialized: the queue is drained every turn.
 	CFixedVector2D impulseForce;

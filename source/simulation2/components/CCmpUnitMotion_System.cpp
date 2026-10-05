@@ -28,6 +28,7 @@
 #include "ps/Profiler2.h"
 #include "simulation2/MessageTypes.h"
 #include "simulation2/components/CCmpUnitMotionManager.h"
+#include "simulation2/components/ICmpObstruction.h"
 #include "simulation2/components/ICmpObstructionManager.h"
 #include "simulation2/components/ICmpPathfinder.h"
 #include "simulation2/components/ICmpPosition.h"
@@ -207,12 +208,14 @@ void CCmpUnitMotionManager::OnDeserialized()
 		// (and to ensure that they pass a CCmpUnitMotion pointer when registering).
 		it->second.cmpUnitMotion = static_cast<CCmpUnitMotion*>(static_cast<ICmpUnitMotion*>(QueryInterface(GetSimContext(), it->first, IID_UnitMotion)));
 		it->second.cmpPhysicalBody = static_cast<ICmpPhysicalBody*>(QueryInterface(GetSimContext(), it->first, IID_PhysicalBody));
+		it->second.cmpObstruction = static_cast<ICmpObstruction*>(QueryInterface(GetSimContext(), it->first, IID_Obstruction));
 	}
 	for (EntityMap<MotionState>::iterator it = m_FormationControllers.begin(); it != m_FormationControllers.end(); ++it)
 	{
 		it->second.cmpPosition = static_cast<ICmpPosition*>(QueryInterface(GetSimContext(), it->first, IID_Position));
 		it->second.cmpUnitMotion = static_cast<CCmpUnitMotion*>(static_cast<ICmpUnitMotion*>(QueryInterface(GetSimContext(), it->first, IID_UnitMotion)));
 		it->second.cmpPhysicalBody = static_cast<ICmpPhysicalBody*>(QueryInterface(GetSimContext(), it->first, IID_PhysicalBody));
+		it->second.cmpObstruction = static_cast<ICmpObstruction*>(QueryInterface(GetSimContext(), it->first, IID_Obstruction));
 	}
 }
 
@@ -220,6 +223,7 @@ void CCmpUnitMotionManager::Register(CCmpUnitMotion* component, entity_id_t ent,
 {
 	MotionState state(static_cast<ICmpPosition*>(QueryInterface(GetSimContext(), ent, IID_Position)), component,
 		static_cast<ICmpPhysicalBody*>(QueryInterface(GetSimContext(), ent, IID_PhysicalBody)));
+	state.cmpObstruction = static_cast<ICmpObstruction*>(QueryInterface(GetSimContext(), ent, IID_Obstruction));
 
 	if (!formationController)
 		m_Units.insert(ent, state);
@@ -280,6 +284,8 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 	// Reset each unit's motion state and collect it for collision pushing.
 	std::vector<UnitCollision::MotionStateCompact> compactStates;
 	std::vector<MotionState*> motionStates;
+	compactStates.reserve(ents.size());
+	motionStates.reserve(ents.size());
 
 	{
 		PROFILE2("MotionMgr_PreMove");

@@ -1077,9 +1077,12 @@ void CCmpUnitMotion::PreMove(MotionState& state)
 	// Update moving flag, this is an internal construct used for pushing,
 	// so it does not really reflect whether the unit is actually moving or not.
 	state.isMoving = pushingEnabled && m_MoveRequest.m_Type != MoveRequest::NONE;
-	CmpPtr<ICmpObstruction> cmpObstruction(GetEntityHandle());
-	if (cmpObstruction)
-		cmpObstruction->SetMovingFlag(state.isMoving);
+	// Update the obstruction shape's moving flag, used for collision filtering, when it changes.
+	if (state.cmpObstruction && state.movingFlag != state.isMoving)
+	{
+		state.cmpObstruction->SetMovingFlag(state.isMoving);
+		state.movingFlag = state.isMoving;
+	}
 }
 
 void CCmpUnitMotion::Move(MotionState& state, fixed dt)
