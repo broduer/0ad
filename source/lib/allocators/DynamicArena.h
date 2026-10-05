@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -128,7 +128,7 @@ public:
 
 	void* allocate(size_t n, size_t alignment)
 	{
-		// Safely handle zero-sized allocations (happens with GCC STL - see ticket #909).
+		// Safely handle zero-sized allocations (happens with GCC STL - see Issue #909).
 		if (n == 0)
 			n = 1;
 

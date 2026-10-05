@@ -65,7 +65,7 @@ Here are the Release Blocking issues currently delaying the release:
 Before moving on with Full Freeze, make sure that:
 
 - [ ] At least 10 days have passed since the string freeze announcement
-- [ ] Only this ticket remains in the Milestone
+- [ ] Only this Issue remains in the Milestone
 - [ ] All previous checkboxes are ticked
 
 ---

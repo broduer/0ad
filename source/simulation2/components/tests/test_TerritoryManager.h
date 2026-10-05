@@ -256,7 +256,7 @@ public:
 
 	void test_nested_boundaries1()
 	{
-		// test case from ticket #918; contains single-tile territories with double borders
+		// test case from Issue #918; contains single-tile territories with double borders
 		Grid<std::uint8_t> grid1 = GetGrid("--------"
 		                         "-111111-"
 								 "-1-1213-"
