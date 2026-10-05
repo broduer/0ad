@@ -22,11 +22,13 @@
 #include "ps/CStr.h"
 #include "simulation2/helpers/SimulationCommand.h"
 
+#include <functional>
 #include <map>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+class CNetMessage;
 class CNetServerSession;
 class CNetServerWorker;
 
@@ -74,6 +76,12 @@ public:
 	std::uint32_t GetSavedTurnLength(turn_id_t turn);
 
 private:
+	friend class TestNetServerTurnManager;
+
+	using Broadcast = std::function<void(const CNetMessage*)>;
+	explicit CNetServerTurnManager(Broadcast broadcast);
+
+	void RecordClientUpdate(int client, const CStrW& playername, turn_id_t turn, const CStr& hash);
 	void CheckClientsReady();
 
 	struct Client
@@ -104,7 +112,7 @@ private:
 	// Turn lengths for all previously executed turns
 	std::vector<std::uint32_t> m_SavedTurnLengths;
 
-	CNetServerWorker& m_NetServer;
+	Broadcast m_Broadcast;
 };
 
 #endif // INCLUDED_NETSERVERTURNMANAGER

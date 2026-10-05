@@ -258,6 +258,8 @@ public:
 	 */
 	void HandleGetServerDataFailed(const CStr& error);
 private:
+	friend class TestNetClientTurnManager;
+
 	struct PrivateTag {};
 	CNetClient(PrivateTag, CGame* game, std::string serverAddressOrHostname,
 		std::uint16_t serverPont, const CStrW& username = L"anonymous", const CStr& hostJID = {},

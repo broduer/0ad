@@ -41,7 +41,13 @@
 #endif
 
 CNetServerTurnManager::CNetServerTurnManager(CNetServerWorker& server)
-	: m_NetServer(server), m_ReadyTurn(COMMAND_DELAY_MP - 1), m_TurnLength(DEFAULT_TURN_LENGTH)
+	: CNetServerTurnManager([&server](const CNetMessage* message)
+		{ server.Multicast(message, { NSS_INGAME }); })
+{
+}
+
+CNetServerTurnManager::CNetServerTurnManager(Broadcast broadcast)
+	: m_ReadyTurn(COMMAND_DELAY_MP - 1), m_TurnLength(DEFAULT_TURN_LENGTH), m_Broadcast(std::move(broadcast))
 {
 	// Turn 0 is not actually executed, store a dummy value.
 	m_SavedTurnLengths.push_back(0);
@@ -102,7 +108,7 @@ void CNetServerTurnManager::CheckClientsReady()
 	CEndCommandBatchMessage msg;
 	msg.m_TurnLength = m_TurnLength;
 	msg.m_Turn = m_ReadyTurn;
-	m_NetServer.Multicast(&msg, { NSS_INGAME });
+	m_Broadcast(&msg);
 
 	ENSURE(std::cmp_equal(m_SavedTurnLengths.size(), m_ReadyTurn));
 	m_SavedTurnLengths.push_back(m_TurnLength);
@@ -124,6 +130,11 @@ void CNetServerTurnManager::NotifyFinishedClientUpdate(CNetServerSession& sessio
 		return;
 	}
 
+	RecordClientUpdate(client, playername, turn, hash);
+}
+
+void CNetServerTurnManager::RecordClientUpdate(int client, const CStrW& playername, turn_id_t turn, const CStr& hash)
+{
 	m_ClientsData[client].simulatedTurn = turn;
 
 	// Check for OOS only if in sync
@@ -177,7 +188,7 @@ void CNetServerTurnManager::NotifyFinishedClientUpdate(CNetServerSession& sessio
 				h.m_Name = oosPlayername;
 				msg.m_PlayerNames.push_back(h);
 			}
-			m_NetServer.Multicast(&msg, { NSS_INGAME });
+			m_Broadcast(&msg);
 			break;
 		}
 	}
