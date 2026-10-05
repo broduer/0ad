@@ -69,8 +69,10 @@
     <PassabilityClass>large</PassabilityClass>
     <WalkSpeed op="mul">0.6</WalkSpeed>
     <Acceleration op="mul">0.3</Acceleration>
-    <Weight op="mul">5.0</Weight>
   </UnitMotion>
+  <PhysicalBody>
+    <Weight op="mul">5.0</Weight>
+  </PhysicalBody>
   <Vision>
     <Range>50</Range>
   </Vision>

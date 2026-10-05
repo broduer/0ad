@@ -70,8 +70,10 @@
   <UnitMotion>
     <PassabilityClass>large</PassabilityClass>
     <WalkSpeed>5.0</WalkSpeed>
-    <Weight op="mul">5</Weight>
   </UnitMotion>
+  <PhysicalBody>
+    <Weight op="mul">5</Weight>
+  </PhysicalBody>
   <Vision>
     <Range>30</Range>
   </Vision>

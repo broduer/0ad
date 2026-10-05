@@ -127,8 +127,10 @@
     <RunMultiplier>1.67</RunMultiplier>
     <InstantTurnAngle>1.5</InstantTurnAngle>
     <Acceleration>35</Acceleration>
-    <Weight>10</Weight>
   </UnitMotion>
+  <PhysicalBody>
+    <Weight>10</Weight>
+  </PhysicalBody>
   <Visibility>
     <RetainInFog>false</RetainInFog>
     <AlwaysVisible>false</AlwaysVisible>

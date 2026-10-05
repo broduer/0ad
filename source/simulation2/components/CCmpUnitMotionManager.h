@@ -1,4 +1,4 @@
-/* Copyright (C) 2025 Wildfire Games.
+/* Copyright (C) 2026 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -32,6 +32,7 @@
 #include <vector>
 
 class CCmpUnitMotion;
+class ICmpPhysicalBody;
 class ICmpPosition;
 
 class CCmpUnitMotionManager final : public ICmpUnitMotionManager
@@ -49,7 +50,7 @@ public:
 	// Persisted state for each unit.
 	struct MotionState
 	{
-		MotionState(ICmpPosition* cmpPos, CCmpUnitMotion* cmpMotion);
+		MotionState(ICmpPosition* cmpPos, CCmpUnitMotion* cmpMotion, ICmpPhysicalBody* cmpBody);
 
 		// Component references - these must be kept alive for the duration of motion.
 		// NB: this is generally a super dangerous thing to do,
@@ -58,6 +59,8 @@ public:
 		// which is currently a fair assumption but might change in the future.
 		ICmpPosition* cmpPosition;
 		CCmpUnitMotion* cmpUnitMotion;
+		// Null for an entity without a physical body, which takes no part in pushing.
+		ICmpPhysicalBody* cmpPhysicalBody;
 
 		// Position before units start moving
 		CFixedVector2D initialPos;
@@ -75,11 +78,6 @@ public:
 		// Used for formations - units with the same control group won't push at a distance.
 		// (this is required because formations may be tight and large units may end up never settling.
 		entity_id_t controlGroup = INVALID_ENTITY;
-
-		// This is a ad-hoc counter to store under how much pushing 'pressure' an entity is.
-		// More pressure will slow the unit down and make it harder to push,
-		// which effectively bogs down groups of colliding units.
-		uint8_t pushingPressure = 0;
 
 		// Meta-flag -> this entity won't push nor be pushed.
 		// (used for entities that have their obstruction disabled).

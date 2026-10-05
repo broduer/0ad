@@ -30,6 +30,7 @@
 #include "simulation2/components/CCmpUnitMotionManager.h"
 #include "simulation2/components/ICmpObstructionManager.h"
 #include "simulation2/components/ICmpPathfinder.h"
+#include "simulation2/components/ICmpPhysicalBody.h"
 #include "simulation2/components/ICmpPosition.h"
 #include "simulation2/components/ICmpTerrain.h"
 #include "simulation2/components/ICmpUnitMotion.h"
@@ -133,10 +134,10 @@ struct SDebugData {
 } debugDataMotionMgr;
 #endif
 
-CCmpUnitMotionManager::MotionState::MotionState(ICmpPosition* cmpPos, CCmpUnitMotion* cmpMotion)
-	: cmpPosition(cmpPos), cmpUnitMotion(cmpMotion)
+CCmpUnitMotionManager::MotionState::MotionState(ICmpPosition* cmpPos, CCmpUnitMotion* cmpMotion, ICmpPhysicalBody* cmpBody)
+	: cmpPosition(cmpPos), cmpUnitMotion(cmpMotion), cmpPhysicalBody(cmpBody)
 {
-	static_assert(MAX_PRESSURE <= std::numeric_limits<decltype(pushingPressure)>::max(), "MAX_PRESSURE is higher than the maximum value of the underlying type.");
+	static_assert(MAX_PRESSURE <= std::numeric_limits<std::uint8_t>::max(), "MAX_PRESSURE is higher than the maximum value of the underlying type.");
 }
 
 void CCmpUnitMotionManager::ClassInit(CComponentManager& componentManager)
@@ -295,17 +296,6 @@ void CCmpUnitMotionManager::Init(const CParamNode&)
 }
 
 template<>
-struct SerializeHelper<CCmpUnitMotionManager::MotionState>
-{
-	template<typename S>
-	void operator()(S& serialize, const char* /*name*/,
-		Serialize::qualify<S, CCmpUnitMotionManager::MotionState> value)
-	{
-		Serializer(serialize, "pushing pressure", value.pushingPressure);
-	}
-};
-
-template<>
 struct SerializeHelper<EntityMap<CCmpUnitMotionManager::MotionState>>
 {
 	void operator()(ISerializer& serialize, const char* /*name*/,
@@ -314,10 +304,7 @@ struct SerializeHelper<EntityMap<CCmpUnitMotionManager::MotionState>>
 		// Serialize manually, we don't have a default-constructor for deserialization.
 		Serializer(serialize, "size", static_cast<std::uint32_t>(value.size()));
 		for (EntityMap<CCmpUnitMotionManager::MotionState>::iterator it = value.begin(); it != value.end(); ++it)
-		{
 			Serializer(serialize, "ent id", it->first);
-			Serializer(serialize, "state", it->second);
-		}
 	}
 
 	void operator()(IDeserializer& deserialize, const char* /*name*/,
@@ -330,8 +317,7 @@ struct SerializeHelper<EntityMap<CCmpUnitMotionManager::MotionState>>
 			entity_id_t ent = INVALID_ENTITY;
 			Serializer(deserialize, "ent id", ent);
 			// Insert an invalid motion state, will be cleared up in MT_Deserialized.
-			CCmpUnitMotionManager::MotionState state(nullptr, nullptr);
-			Serializer(deserialize, "state", state);
+			CCmpUnitMotionManager::MotionState state(nullptr, nullptr, nullptr);
 			value.insert(ent, state);
 		}
 	}
@@ -368,11 +354,13 @@ void CCmpUnitMotionManager::OnDeserialized()
 		// We can know for a fact that these are CCmpUnitMotion because those are the ones registering with us
 		// (and to ensure that they pass a CCmpUnitMotion pointer when registering).
 		it->second.cmpUnitMotion = static_cast<CCmpUnitMotion*>(static_cast<ICmpUnitMotion*>(QueryInterface(GetSimContext(), it->first, IID_UnitMotion)));
+		it->second.cmpPhysicalBody = static_cast<ICmpPhysicalBody*>(QueryInterface(GetSimContext(), it->first, IID_PhysicalBody));
 	}
 	for (EntityMap<MotionState>::iterator it = m_FormationControllers.begin(); it != m_FormationControllers.end(); ++it)
 	{
 		it->second.cmpPosition = static_cast<ICmpPosition*>(QueryInterface(GetSimContext(), it->first, IID_Position));
 		it->second.cmpUnitMotion = static_cast<CCmpUnitMotion*>(static_cast<ICmpUnitMotion*>(QueryInterface(GetSimContext(), it->first, IID_UnitMotion)));
+		it->second.cmpPhysicalBody = static_cast<ICmpPhysicalBody*>(QueryInterface(GetSimContext(), it->first, IID_PhysicalBody));
 	}
 }
 
@@ -389,7 +377,8 @@ void CCmpUnitMotionManager::ResetSubdivisions()
 
 void CCmpUnitMotionManager::Register(CCmpUnitMotion* component, entity_id_t ent, bool formationController)
 {
-	MotionState state(static_cast<ICmpPosition*>(QueryInterface(GetSimContext(), ent, IID_Position)), component);
+	MotionState state(static_cast<ICmpPosition*>(QueryInterface(GetSimContext(), ent, IID_Position)), component,
+		static_cast<ICmpPhysicalBody*>(QueryInterface(GetSimContext(), ent, IID_PhysicalBody)));
 	if (!formationController)
 		m_Units.insert(ent, state);
 	else
@@ -496,7 +485,9 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			if (it->second.needUpdate)
 				it->second.cmpUnitMotion->Move(it->second, dt);
 			// Decay pressure after moving so we can get the full 0-MAX_PRESSURE range of values.
-			it->second.pushingPressure = (m_PushingPressureDecay * it->second.pushingPressure).ToInt_RoundToZero();
+			if (it->second.cmpPhysicalBody)
+				it->second.cmpPhysicalBody->SetPressure(
+					(m_PushingPressureDecay * it->second.cmpPhysicalBody->GetPressure()).ToInt_RoundToZero());
 		}
 	}
 
@@ -532,7 +523,7 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 					sph.m_Center = CVector3D(it->second.pos.X.ToDouble(), it->second.cmpPosition->GetHeightFixed().ToDouble() + 13.f, it->second.pos.Y.ToDouble());
 					sph.m_Radius = it->second.cmpUnitMotion->m_Clearance.Multiply(PUSHING_CORRECTION).ToDouble();
 					// Color the sphere: the redder, the more 'bogged down' it is.
-					sph.m_Color = CColor(it->second.pushingPressure / static_cast<float>(MAX_PRESSURE), 0, 0, 1);
+					sph.m_Color = CColor(it->second.cmpPhysicalBody->GetPressure() / static_cast<float>(MAX_PRESSURE), 0, 0, 1);
 					debugDataMotionMgr.m_Spheres.push_back(sph);
 				}
 				/* Show the pushing sphere, kinda unreadable.
@@ -541,7 +532,7 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 					sph.m_Center = CVector3D(it->second.pos.X.ToDouble(), it->second.cmpPosition->GetHeightFixed().ToDouble() + 13.f, it->second.pos.Y.ToDouble());
 					sph.m_Radius = (it->second.cmpUnitMotion->m_Clearance.Multiply(PUSHING_CORRECTION).Multiply(m_PushingRadiusMultiplier) + (it->second.isMoving ? m_StaticPushExtension : m_MovingPushExtension)).ToDouble();
 					// Color the sphere: the redder, the more 'bogged down' it is.
-					sph.m_Color = CColor(it->second.pushingPressure / static_cast<float>(MAX_PRESSURE), 0, 0, 0.1);
+					sph.m_Color = CColor(it->second.cmpPhysicalBody->GetPressure() / static_cast<float>(MAX_PRESSURE), 0, 0, 0.1);
 					debugDataMotionMgr.m_Spheres.push_back(sph);
 				}*/
 				// Show the travel over this turn.
@@ -606,11 +597,13 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 				// away from where we'd like to go (measured by a low dot product)
 				// then mark the unit as obstructed, but push anyways.
 				// (this helps units stop earlier in many situations in a realistic-ish manner).
+				// A unit that isn't ignored takes part in pushing, so it has a physical body.
+				ICmpPhysicalBody& body = *it->second.cmpPhysicalBody;
 				if (it->second.pos != it->second.initialPos
-					&& (it->second.pos - it->second.initialPos).Dot(it->second.pos + it->second.push - it->second.initialPos)  < entity_pos_t::FromInt(1)/2 && it->second.pushingPressure > 30)
+					&& (it->second.pos - it->second.initialPos).Dot(it->second.pos + it->second.push - it->second.initialPos)  < entity_pos_t::FromInt(1)/2 && body.GetPressure() > 30)
 				{
 					it->second.wasObstructed = true;
-					it->second.pushingPressure = std::max<uint8_t>(MIN_PRESSURE_IF_OBSTRUCTED, it->second.pushingPressure);
+					body.SetPressure(std::max<uint8_t>(MIN_PRESSURE_IF_OBSTRUCTED, body.GetPressure()));
 					// Push anyways.
 				}
 #if DEBUG_RENDER
@@ -622,7 +615,7 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 #endif
 				// Dampen the pushing by the current pushing pressure
 				// (but prevent full dampening so that clumped units still get unclumped).
-				it->second.push = it->second.push * (MAX_PRESSURE - std::min<uint8_t>(MAX_PUSH_DAMPING_PRESSURE, it->second.pushingPressure)) / MAX_PRESSURE;
+				it->second.push = it->second.push * (MAX_PRESSURE - std::min<uint8_t>(MAX_PUSH_DAMPING_PRESSURE, body.GetPressure())) / MAX_PRESSURE;
 
 				// Prevent pushed units from crossing uncrossable boundaries
 				// (we can assume that normal movement didn't push units into impassable terrain).
@@ -777,8 +770,8 @@ void CCmpUnitMotionManager::Push(EntityMap<MotionState>::value_type& a, EntityMa
 	CFixedVector2D pushingDir = offset.Multiply(distanceFactor);
 
 	// These cannot be zero, checked in the schema.
-	entity_pos_t aWeight = a.second.cmpUnitMotion->GetWeight();
-	entity_pos_t bWeight = b.second.cmpUnitMotion->GetWeight();
+	entity_pos_t aWeight = a.second.cmpPhysicalBody->GetWeight();
+	entity_pos_t bWeight = b.second.cmpPhysicalBody->GetWeight();
 
 	// Final corrections:
 	// - divide by an arbitrary constant to avoid pushing too much.
@@ -791,8 +784,8 @@ void CCmpUnitMotionManager::Push(EntityMap<MotionState>::value_type& a, EntityMa
 	// Use a constant factor to get a more general slowdown in crowded area.
 	// The distance factor heavily dampens units that are overlapping.
 	int addedPressure = std::max(0, (PRESSURE_STATIC_FACTOR + (distanceFactor + entity_pos_t::FromInt(-2)/3) * PRESSURE_DISTANCE_FACTOR).Multiply(m_PushingPressureStrength).ToInt_RoundToZero());
-	a.second.pushingPressure = std::min(MAX_PRESSURE, a.second.pushingPressure + addedPressure);
-	b.second.pushingPressure = std::min(MAX_PRESSURE, b.second.pushingPressure + addedPressure);
+	a.second.cmpPhysicalBody->SetPressure(std::min(MAX_PRESSURE, a.second.cmpPhysicalBody->GetPressure() + addedPressure));
+	b.second.cmpPhysicalBody->SetPressure(std::min(MAX_PRESSURE, b.second.cmpPhysicalBody->GetPressure() + addedPressure));
 
 #if DEBUG_RENDER
 	// Make the lines thicker if the force is stronger.
