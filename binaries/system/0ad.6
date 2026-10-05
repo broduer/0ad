@@ -1,0 +1,280 @@
+.TH 0AD 6 "2026-10-05" "0\~A.D." "Games Manual"
+.SH NAME
+0ad \- A real-time strategy game of ancient warfare
+.SH SYNOPSIS
+.B 0ad
+.RI [ options ]
+.RI [ PATHS " ...]"
+.SH DESCRIPTION
+0\~A.D. is a free, open-source, cross-platform real-time strategy game
+of ancient warfare. As the military leader of an ancient civilisation,
+you must gather the resources you need to raise a military force
+capable of dominating your enemies.
+.SH OPTIONS
+.SS Basic gameplay
+.TP
+.B \-autostart=...
+Load a map instead of showing main menu (see below).
+.TP
+.B \-editor
+Launch the Atlas scenario editor.
+.TP
+.B \-mod=NAME
+Start the game using NAME mod.
+.TP
+.B \-quickstart
+Load faster (disables audio and some system info logging).
+.SS Autostart
+.TP
+.B \-autostart=\(dqTYPEDIR/MAPNAME\(dq
+Enable autostart and set MAPNAME; TYPEDIR is skirmishes, scenarios, or random.
+.TP
+.B \-autostart\-seed=SEED
+Set randomization seed value (default 0, use \-1 for random).
+.TP
+.B \-autostart\-ai=PLAYER:AI
+Set the AI for PLAYER (e.g. 2:petra).
+.TP
+.B \-autostart\-aidiff=PLAYER:DIFF
+Set the difficulty of PLAYER's AI (default 3, 0: sandbox, 5: very hard).
+.TP
+.B \-autostart\-aiseed=AISEED
+Set the seed used for the AI random generator (default 0, use \-1 for random).
+.TP
+.B \-autostart\-player=NUMBER
+Set the playerID in non-networked games (default 1, use \-1 for observer).
+.TP
+.B \-autostart\-civ=PLAYER:CIV
+Set PLAYER's civilisation to CIV (skirmish and random maps only).
+Use random for a random civ.
+.TP
+.B \-autostart\-team=PLAYER:TEAM
+Set the team for PLAYER (e.g. 2:2).
+.TP
+.B \-autostart\-ceasefire=NUM
+Set a ceasefire duration NUM (default 0 minutes).
+.TP
+.B \-autostart\-nonvisual
+Disable any graphics and sounds.
+.TP
+.B \-autostart\-visibility=TYPE
+Set the map visibility (explored, hidden, revealed, allied, allied\-explored).
+.TP
+.B \-autostart\-speed=SPEED
+Set the sim rate speed (default 1, max 2 in normal mode, 20 in observer mode).
+.TP
+.B \-autostart\-victory=SCRIPTNAME
+Set the victory conditions with SCRIPTNAME located in
+simulation/data/settings/victory_conditions/ (default conquest).
+When the only given SCRIPTNAME is "endless", no victory conditions will apply.
+.TP
+.B \-autostart\-wonderduration=NUM
+Set the victory duration NUM for wonder victory condition (default 10 minutes).
+.TP
+.B \-autostart\-relicduration=NUM
+Set the victory duration NUM for relic victory condition (default 10 minutes).
+.TP
+.B \-autostart\-reliccount=NUM
+Set the number of relics for relic victory condition (default 2 relics).
+.TP
+.B \-autostart\-revealed=BOOL
+Set whether the map should be revealed.
+.TP
+.B \-autostart\-disable\-replay
+Disable saving of replays.
+.SS Multiplayer
+.TP
+.B \-autostart\-playername=NAME
+Set local player NAME (default 'anonymous').
+.TP
+.B \-autostart\-host
+Set multiplayer host mode.
+.TP
+.B \-autostart\-host\-players=NUMBER
+Set NUMBER of human players for multiplayer game (default 2).
+.TP
+.B \-autostart\-client=IP
+Set multiplayer client to join host at given IP address.
+.SS Random maps only
+.TP
+.B \-autostart\-size=TILES
+Set random map size in TILES (default 192).
+.TP
+.B \-autostart\-players=NUMBER
+Set NUMBER of players on random map (default 2).
+.TP
+.B \-autostart\-placement=PLACEMENT
+Set the placement type for a random map.
+.TP
+.B \-autostart\-biome=BIOME
+Set the biome for a random map.
+.SS RL client
+.TP
+.B \-rl\-interface
+Run the RL interface (see source/tools/rlclient).
+.SS Configuration
+.TP
+.B \-conf=KEY:VALUE
+Set a config value.
+.TP
+.B \-nosound
+Disable audio.
+.TP
+.B \-shadows
+Enable shadows.
+.TP
+.B \-vsync
+Enable VSync, i.e. lock FPS to monitor refresh rate.
+.TP
+.B \-xres=N
+Set screen X resolution to 'N'.
+.TP
+.B \-yres=N
+Set screen Y resolution to 'N'.
+.SS Installing mods
+.TP
+.B PATHS
+Install mods located at PATHS.
+For instance:
+.B 0ad mod1.pyromod mod2.zip
+.SS Advanced / diagnostic
+.TP
+.B \-version
+Print the version of the engine and exit.
+.TP
+.B \-dumpSchema
+Create a file entity.rng in the working directory, containing
+complete entity XML schema, used by various analysis tools.
+.TP
+.B \-entgraph
+(disabled)
+.TP
+.B \-listfiles
+(disabled)
+.TP
+.B \-profile=NAME
+(disabled)
+.TP
+.B \-replay=PATH
+Non-visual replay of a previous game, used for analysis purposes.
+PATH is system path to commands.txt containing simulation log.
+.TP
+.B \-replay\-visual=PATH
+Visual replay of a previous game, used for analysis purposes.
+PATH is system path to commands.txt containing simulation log.
+.TP
+.B \-writableRoot
+Store runtime game data in root data directory (only use if you
+have write permissions on that directory).
+.TP
+.B \-ooslog
+Dump simulation state in binary and ASCII representations each turn,
+files created in sim_log within the game's log folder.
+NOTE: game will run much slower with this option!
+.TP
+.B \-serializationtest=N
+Check simulation state for serialization errors starting at turn N;
+on test failure, error is displayed and logs created in oos_log within
+the game's log folder.
+NOTE: game will run much slower with this option!
+.TP
+.B \-rejointest=N
+Simulate a rejoin and check simulation state each turn for serialization
+errors; this is similar to a serialization test but much faster and
+less complete. It should be enough for debugging most rejoin OOSes.
+.TP
+.B \-unique\-logs
+Add unix timestamp and process id to the filename of mainlog.html,
+interestinglog.html and oos_dump.txt to prevent these files from
+becoming overwritten by another pyrogenesis process.
+.TP
+.B \-hashtest\-full=X
+Whether to enable computation of full hashes in replaymode (default true).
+Can be disabled to improve performance.
+.TP
+.B \-hashtest\-quick=X
+Whether to enable computation of quick hashes in replaymode (default false).
+Can be enabled for debugging purposes.
+.TP
+.B \-fixed\-frame\-frequency=F
+Fix the frame time. With this flag it equals to 1/F.
+For example, if F=60 it means the game behaves like it's always
+running with 60 FPS.
+.SS Archive builder
+.TP
+.B \-archivebuild=PATH
+System PATH of the base directory containing mod data to be
+archived/precached.
+Specify all mods it depends on with
+.BR \-mod= NAME .
+.TP
+.B \-archivebuild\-output=PATH
+System PATH to output of the resulting .zip archive (use with
+.BR \-archivebuild ).
+.TP
+.B \-archivebuild\-compress
+Enable deflate compression in the .zip (no zip compression by
+default since it hurts compression of release packages).
+.SH EXAMPLES
+1) "Bob" will host a 2 player game on the Arcadia map:
+.PP
+.RS
+.nf
+0ad \-autostart="scenarios/arcadia" \-autostart\-host \e
+    \-autostart\-host\-players=2 \-autostart\-playername="Bob"
+.fi
+.RE
+.PP
+"Alice" joins the match as player 2:
+.PP
+.RS
+.nf
+0ad \-autostart\-client=127.0.0.1 \-autostart\-playername="Alice"
+.fi
+.RE
+.PP
+The players use the developer overlay to control players.
+.PP
+2) Load Alpine Lakes random map with random seed, 2 players (Athens and
+Britons), and player 2 is PetraBot:
+.PP
+.RS
+.nf
+0ad \-autostart="random/alpine_lakes" \-autostart\-seed=\-1 \e
+    \-autostart\-players=2 \-autostart\-civ=1:athen \-autostart\-civ=2:brit \e
+    \-autostart\-ai=2:petra
+.fi
+.RE
+.PP
+3) Observe the PetraBot on a triggerscript map:
+.PP
+.RS
+.nf
+0ad \-autostart="random/jebel_barkal" \-autostart\-seed=\-1 \e
+    \-autostart\-players=2 \-autostart\-civ=1:athen \-autostart\-civ=2:brit \e
+    \-autostart\-ai=1:petra \-autostart\-ai=2:petra \-autostart\-player=\-1
+.fi
+.RE
+.SH FILES
+.TP
+.B ~/.config/0ad/config/local.cfg
+User specific settings. You may put in this file any user specific
+settings using the same syntax of the default settings file.
+.PP
+0\~A.D. also uses the
+.BR ~/.cache/0ad/ ,
+.B ~/.config/0ad/
+and
+.B \%~/.local/share/0ad/
+directories for other user specific files, such as texture cache,
+screenshots and saved games.
+.SH SEE ALSO
+.TP
+.B https://play0ad.com/
+0\~A.D. main web site.
+.TP
+.B https://gitea.wildfiregames.com/0ad/0ad
+0\~A.D. development repository, issue tracker and wiki.
+.SH AUTHORS
+0\~A.D. was written by Wildfire Games,
+an international group of volunteer game developers.

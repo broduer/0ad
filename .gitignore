@@ -1,6 +1,7 @@
 # Built and prebuilt binaries
 binaries/system/*
 !binaries/system/*.bat
+!binaries/system/0ad.6
 !binaries/system/readme.txt
 
 # Workspaces
