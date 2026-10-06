@@ -44,14 +44,12 @@
 #include "simulation2/system/Entity.h"
 #include "simulation2/system/TurnManager.h"
 
-#include <algorithm>
 #include <array>
 #include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <utility>
-#include <vector>
 
 namespace
 {
@@ -106,9 +104,10 @@ class TestGame : public CxxTest::TestSuite
 		turn_id_t turn;
 		std::string hash;
 		std::string serializedState;
-		size_t unitMotionEntityCount;
 		bool cinemaPlaying;
 		fixed cinemaElapsedTime;
+
+		bool operator==(const SimulationState&) const = default;
 	};
 
 	std::unique_ptr<CConfigDB> m_ConfigDB;
@@ -147,31 +146,16 @@ public:
 
 	void test_simulation_state_is_independent_of_sim_rate()
 	{
-		const std::vector<SimulationState> stateAtHalfSpeed = RunSimulation(0.5f);
-		const std::vector<SimulationState> stateAtNormalSpeed = RunSimulation(1.0f);
-		const std::vector<SimulationState> stateAtDoubleSpeed = RunSimulation(2.0f);
+		const auto stateAtHalfSpeed = RunSimulation(0.5f);
+		const auto stateAtNormalSpeed = RunSimulation(1.0f);
+		const auto stateAtDoubleSpeed = RunSimulation(2.0f);
 
-		AssertSimulationStatesEqual(stateAtHalfSpeed, stateAtNormalSpeed);
-		AssertSimulationStatesEqual(stateAtNormalSpeed, stateAtDoubleSpeed);
+		TS_ASSERT_EQUALS(stateAtHalfSpeed, stateAtNormalSpeed);
+		TS_ASSERT_EQUALS(stateAtNormalSpeed, stateAtDoubleSpeed);
 	}
 
 private:
-	void AssertSimulationStatesEqual(
-		const std::vector<SimulationState>& first, const std::vector<SimulationState>& second)
-	{
-		TS_ASSERT_EQUALS(first.size(), second.size());
-		for (size_t i = 0; i < std::min(first.size(), second.size()); ++i)
-		{
-			TS_ASSERT_EQUALS(first[i].turn, second[i].turn);
-			TS_ASSERT_EQUALS(first[i].hash, second[i].hash);
-			TS_ASSERT_EQUALS(first[i].serializedState, second[i].serializedState);
-			TS_ASSERT_EQUALS(first[i].unitMotionEntityCount, second[i].unitMotionEntityCount);
-			TS_ASSERT_EQUALS(first[i].cinemaPlaying, second[i].cinemaPlaying);
-			TS_ASSERT_EQUALS(first[i].cinemaElapsedTime, second[i].cinemaElapsedTime);
-		}
-	}
-
-	std::vector<SimulationState> RunSimulation(float simRate)
+	std::array<SimulationState, 3> RunSimulation(float simRate)
 	{
 		CGame game(false);
 		ScopedGlobal<CGame*> scopedGame(g_Game, &game);
@@ -211,11 +195,11 @@ private:
 
 		game.SetSimRate(simRate);
 		constexpr std::array<turn_id_t, 3> checkpoints{20, 40, 60};
-		std::vector<SimulationState> states;
-		states.reserve(checkpoints.size());
+		std::array<SimulationState, checkpoints.size()> states{};
 
-		for (const turn_id_t checkpoint : checkpoints)
+		for (size_t i = 0; i < checkpoints.size(); ++i)
 		{
+			const turn_id_t checkpoint = checkpoints[i];
 			while (game.GetTurnManager()->GetCurrentTurn() < checkpoint)
 			{
 				game.Update(DEFAULT_TURN_LENGTH / 1000.0, false);
@@ -224,20 +208,20 @@ private:
 
 			TS_ASSERT_EQUALS(game.GetTurnManager()->GetCurrentTurn(), checkpoint);
 
-			SimulationState state;
+			if (i == 0)
+				TS_ASSERT_LESS_THAN(initialUnitMotionEntityCount,
+					game.GetSimulation2()->GetEntitiesWithInterface(IID_UnitMotion).size());
+
+			SimulationState& state = states[i];
 			state.turn = game.GetTurnManager()->GetCurrentTurn();
 			TS_ASSERT(game.GetSimulation2()->ComputeStateHash(state.hash, false));
 			std::stringstream serializedState;
 			TS_ASSERT(game.GetSimulation2()->SerializeState(serializedState));
 			state.serializedState = serializedState.str();
-			state.unitMotionEntityCount =
-				game.GetSimulation2()->GetEntitiesWithInterface(IID_UnitMotion).size();
 			state.cinemaPlaying = cinema->IsPlayingQueue();
 			state.cinemaElapsedTime = cinema->GetActivePathElapsedTime();
-			states.push_back(std::move(state));
 		}
 
-		TS_ASSERT_LESS_THAN(initialUnitMotionEntityCount, states.front().unitMotionEntityCount);
 		TS_ASSERT(states[0].cinemaPlaying);
 		TS_ASSERT(states[1].cinemaPlaying);
 		TS_ASSERT(!states[2].cinemaPlaying);
