@@ -1204,6 +1204,7 @@ echo "Building Molten VK..."
 
 		(
 			cd "$LIB_DIRECTORY"
+			patch -Np0 -i ../../../macos-patches/05-fix-moltenvk-deployment-target.diff || die
 			# dont use --parallel-build, it breaks the build since it calls kill.
 			MACOSX_DEPLOYMENT_TARGET="$MIN_OSX_VERSION" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" ./fetchDependencies --macos || die
 
