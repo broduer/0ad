@@ -341,7 +341,9 @@ void CCmpUnitMotionManager::Move(EntityMap<MotionState>& ents, fixed dt)
 			UnitCollision::MotionStateCompact compact;
 			compact.entity = it->first;
 			compact.position = it->second.pos;
-			compact.predictedPosition = it->second.pos + (it->second.pos - it->second.cmpPosition->GetPreviousPosition2D());
+			// Where the unit's momentum carries it this turn. Its steering for the turn isn't known yet (Move runs after
+			// the pushes), so only the momentum counts: a unit standing still is predicted in place.
+			compact.predictedPosition = it->second.pos + it->second.cmpUnitMotion->CarriedVelocity(it->second, dt).Multiply(dt);
 			compact.clearance = it->second.cmpUnitMotion->GetUnitClearance();
 			compact.isMoving = it->second.isMoving;
 			compact.ignore = it->second.ignore;

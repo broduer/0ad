@@ -748,6 +748,22 @@ public:
 	}
 
 	/**
+	 * The push momentum a unit carries into this turn: the MomentumKeep() share of last turn's.
+	 */
+	CFixedVector2D CarriedPushVelocity(const MotionState& state, const fixed dt) const
+	{
+		return state.externalInertiaVelocity.Multiply(PushConfig::DecayFactor(MomentumKeep(), dt));
+	}
+
+	/**
+	 * The momentum a unit carries into this turn, its own and from pushes: where it goes before it steers.
+	 */
+	CFixedVector2D CarriedVelocity(const MotionState& state, const fixed dt) const
+	{
+		return state.inertiaVelocity + CarriedPushVelocity(state, dt);
+	}
+
+	/**
 	 * The speed left after coasting for dt with no order: the MomentumKeep() share, but never more than braking at
 	 * the constant deceleration arrivals use (see PathFollowing::PredictiveBrakeFactor), so the glide ends.
 	 */
@@ -1591,7 +1607,7 @@ bool CCmpUnitMotion::PerformMove(fixed dt, const fixed& turnRate,
 
 	// External inertia (from past pushes) carries over and decays like the unit's own momentum,
 	// whether or not the unit is actively moving.
-	const CFixedVector2D externalCarry{state.externalInertiaVelocity.Multiply(PushConfig::DecayFactor(MomentumKeep(), dt))};
+	const CFixedVector2D externalCarry{CarriedPushVelocity(state, dt)};
 
 	// combinedVelocity is our own movement until the external forces are added at the end: the unit steers and brakes
 	// what it controls, but can't steer or brake against being pushed.
