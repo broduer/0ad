@@ -36,8 +36,8 @@
   <ResourceGatherer disable=""/>
   <UnitMotion>
     <WalkSpeed op="mul_round">1.1</WalkSpeed>
+    <Inertia>2</Inertia>
     <PassabilityClass>large</PassabilityClass>
-    <Acceleration op="mul">0.5</Acceleration>
   </UnitMotion>
   <PhysicalBody>
     <Weight op="mul">3.0</Weight>

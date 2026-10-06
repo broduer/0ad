@@ -68,8 +68,7 @@
     <FormationController>true</FormationController>
     <WalkSpeed>1</WalkSpeed>
     <RunMultiplier>100</RunMultiplier> <!-- = Max formation speed -->
-    <InstantTurnAngle>1.5</InstantTurnAngle>
-    <Acceleration>100</Acceleration> <!-- Unused -->
+    <TurnAcceleration>10</TurnAcceleration>
     <PassabilityClass>large</PassabilityClass>
   </UnitMotion>
   <VisualActor>

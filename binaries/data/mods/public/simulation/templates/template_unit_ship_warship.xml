@@ -41,7 +41,6 @@
   </Selectable>
   <UnitMotion>
     <WalkSpeed>10</WalkSpeed>
-    <Acceleration op="mul">1.8</Acceleration>
   </UnitMotion>
   <Vision>
     <Range>80</Range>

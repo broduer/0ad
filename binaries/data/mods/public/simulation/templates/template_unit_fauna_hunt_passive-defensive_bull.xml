@@ -13,6 +13,5 @@
     <PassabilityClass>large</PassabilityClass>
     <WalkSpeed op="mul">0.4</WalkSpeed>
     <RunMultiplier>2.0</RunMultiplier>
-    <Acceleration op="mul">0.4</Acceleration>
   </UnitMotion>
 </Entity>

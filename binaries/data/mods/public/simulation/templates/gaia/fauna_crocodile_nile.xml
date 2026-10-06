@@ -50,7 +50,6 @@
   </StatusBars>
   <UnitMotion>
     <WalkSpeed op="mul">0.3</WalkSpeed>
-    <Acceleration op="mul">0.3</Acceleration>
   </UnitMotion>
   <VisualActor>
     <Actor>fauna/crocodile.xml</Actor>

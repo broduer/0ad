@@ -83,6 +83,9 @@
       <metal>10</metal>
     </Capacities>
   </ResourceGatherer>
+  <UnitMotion>
+    <Cornering>0.4</Cornering>
+  </UnitMotion>
   <Sound>
     <SoundGroups>
       <attack_slaughter>attack/weapon/knife_attack.xml</attack_slaughter>

@@ -65,6 +65,9 @@
   <UnitMotion>
     <WalkSpeed op="mul">2</WalkSpeed>
     <RunMultiplier>1.4</RunMultiplier>
+    <Cornering>0.7</Cornering>
+    <Inertia>1.0</Inertia>
+    <DriftCorrection>0.5</DriftCorrection>
   </UnitMotion>
   <Vision>
     <Range>80</Range>

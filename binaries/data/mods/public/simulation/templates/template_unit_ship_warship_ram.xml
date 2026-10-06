@@ -86,6 +86,5 @@
   </StatusBars>
   <UnitMotion>
     <WalkSpeed op="mul">1.6</WalkSpeed>
-    <Acceleration op="mul">1.25</Acceleration>
   </UnitMotion>
 </Entity>

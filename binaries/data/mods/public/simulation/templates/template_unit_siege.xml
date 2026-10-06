@@ -70,8 +70,9 @@
   <UnitMotion>
     <PassabilityClass>large</PassabilityClass>
     <RunMultiplier>1</RunMultiplier>
-    <InstantTurnAngle>0.75</InstantTurnAngle>
-    <Acceleration op="mul">0.15</Acceleration>
+    <TurnAcceleration>1</TurnAcceleration>
+    <Cornering>0</Cornering>
+    <Inertia>6</Inertia>
   </UnitMotion>
   <PhysicalBody>
     <Weight op="mul">5.0</Weight>

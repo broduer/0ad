@@ -68,7 +68,10 @@
   <UnitMotion>
     <PassabilityClass>large</PassabilityClass>
     <WalkSpeed op="mul">0.6</WalkSpeed>
-    <Acceleration op="mul">0.3</Acceleration>
+    <Inertia>4</Inertia>
+    <DriftCorrection>0.85</DriftCorrection>
+    <Cornering>0.15</Cornering>
+    <TurnAcceleration>2</TurnAcceleration>
   </UnitMotion>
   <PhysicalBody>
     <Weight op="mul">5.0</Weight>
