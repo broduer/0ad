@@ -41,6 +41,30 @@ Looter.prototype.Collect = function(targetEntity)
 	var cmpStatisticsTracker = QueryOwnerInterface(this.entity, IID_StatisticsTracker);
 	if (cmpStatisticsTracker)
 		cmpStatisticsTracker.IncreaseLootCollectedCounter(resources);
+
+	if (cmpPlayer && cmpTrader)
+		this.NotifyTradeGoodsIntercepted(targetEntity, cmpPlayer.GetPlayerID(), cmpTrader.GetGoods());
+};
+
+/**
+ * Notify that the goods carried by a trader were intercepted.
+ */
+Looter.prototype.NotifyTradeGoodsIntercepted = function(targetEntity, looterOwner, goods)
+{
+	const amounts = calculateCarriedResources(undefined, goods);
+	if (!goods?.type || !amounts[goods.type])
+		return;
+
+	const cmpVictimOwnership = Engine.QueryInterface(targetEntity, IID_Ownership);
+	if (!cmpVictimOwnership)
+		return;
+
+	Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface)?.PushNotification({
+		"type": "trade-intercepted",
+		"players": [looterOwner],
+		"victim": cmpVictimOwnership.GetOwner(),
+		"amounts": amounts
+	});
 };
 
 Engine.RegisterComponentType(IID_Looter, "Looter", Looter);

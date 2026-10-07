@@ -176,6 +176,31 @@ ChatMessageFormatSimulation.tribute = class
 	}
 };
 
+/**
+ * Show trade goods intercepted from a trader to both involved players and to observers.
+ */
+ChatMessageFormatSimulation["trade-intercepted"] = class
+{
+	parse(msg)
+	{
+		let message = "";
+		if (msg.looter == Engine.GetPlayerID())
+			message = translate("You have intercepted %(amounts)s from a trader of %(player2)s.");
+		else if (msg.victim == Engine.GetPlayerID())
+			message = translate("%(player)s has intercepted %(amounts)s from one of your traders.");
+		else if (g_IsObserver)
+			message = translate("%(player)s has intercepted %(amounts)s from a trader of %(player2)s.");
+
+		return {
+			"text": sprintf(message, {
+				"player": colorizePlayernameByID(msg.looter),
+				"player2": colorizePlayernameByID(msg.victim),
+				"amounts": getLocalizedResourceAmounts(msg.amounts)
+			})
+		};
+	}
+};
+
 ChatMessageFormatSimulation.flare = class
 {
 	// We don't need to check whether the player is supposed to see the flare as this function is only ever called in that case.

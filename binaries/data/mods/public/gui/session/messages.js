@@ -185,6 +185,15 @@ var g_NotificationsTypes =
 				"resourceGained": notification.resourceGained
 			});
 		},
+		"trade-intercepted": function(notification, player)
+		{
+			addChatMessage({
+				"type": "trade-intercepted",
+				"looter": player,
+				"victim": notification.victim,
+				"amounts": notification.amounts
+			});
+		},
 		"spy-response": function(notification, player)
 		{
 			g_DiplomacyDialog.onSpyResponse(notification, player);
