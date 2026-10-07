@@ -222,9 +222,9 @@ private:
 			state.cinemaElapsedTime = cinema->GetActivePathElapsedTime();
 		}
 
-		TS_ASSERT(states[0].cinemaPlaying);
-		TS_ASSERT(states[1].cinemaPlaying);
-		TS_ASSERT(!states[2].cinemaPlaying);
+		TS_ASSERT(std::get<0>(states).cinemaPlaying);
+		TS_ASSERT(std::get<1>(states).cinemaPlaying);
+		TS_ASSERT(!std::get<2>(states).cinemaPlaying);
 
 		return states;
 	}
