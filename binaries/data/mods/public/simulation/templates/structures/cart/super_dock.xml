@@ -2,7 +2,7 @@
 <Entity parent="template_structure_special">
   <Auras datatype="tokens">
     structures/cart_super_dock_repair
-    structures/dock_repair
+    structures/cart_super_dock_range_repair
   </Auras>
   <BuildRestrictions>
     <Territory>own ally neutral</Territory>
