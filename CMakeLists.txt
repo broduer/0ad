@@ -150,6 +150,7 @@ endif()
 
 # Include the BuildFlags target only once after all setup is finished
 include(0ad-BuildFlags)
+include(packaging/packaging.cmake)
 
 # +++++++++++++++++++++ Include library setups ++++++++++++++++++++
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -176,3 +177,38 @@ endif()
 if(build-docs)
 	add_subdirectory(${CMAKE_SOURCE_DIR}/docs/doxygen)
 endif()
+
+# +++++++++++++++++++ Install section +++++++++++++++++++++++++++++++++++++++++
+include(GNUInstallDirs)
+# 0ad Resources
+install(
+	FILES
+		${CMAKE_SOURCE_DIR}/build/resources/0ad.desktop
+	DESTINATION
+		${CMAKE_INSTALL_DATADIR}/applications
+	COMPONENT	resources
+)
+
+install(
+	FILES
+		${CMAKE_SOURCE_DIR}/build/resources/0ad.appdata.xml
+	DESTINATION
+		${CMAKE_INSTALL_DATADIR}/metainfo
+	COMPONENT	resources
+)
+
+install(
+	PROGRAMS
+		${CMAKE_SOURCE_DIR}/build/resources/0ad.sh
+	DESTINATION
+		${CMAKE_INSTALL_BINDIR}
+	COMPONENT	resources
+)
+
+install(
+	FILES
+		${CMAKE_SOURCE_DIR}/build/resources/0ad.png
+	DESTINATION
+		${CMAKE_INSTALL_DATADIR}/icons/hicolor/128x128/apps
+	COMPONENT	resources
+)

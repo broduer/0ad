@@ -67,3 +67,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 		XCODE_ATTRIBUTE_ARCHS ${MACOS_ARCH}
 	)
 endif()
+
+# +++++++++++++++++++ Install section +++++++++++++++++++++++++++++++++++++++++
+include(GNUInstallDirs)
+
+install(TARGETS ${PROJECT_NAME}
+		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/0ad
+)

@@ -3,6 +3,9 @@ binaries/system/*
 !binaries/system/*.bat
 !binaries/system/readme.txt
 
+# Packagingfolder
+_packages/
+
 # Workspaces
 build/workspaces/*
 !build/workspaces/clean-workspaces.sh

@@ -302,3 +302,10 @@ set_target_properties(${PROJECT_NAME}
 )
 
 add_dependencies(${PROJECT_NAME} Collada)
+
+# +++++++++++++++++++ Install section +++++++++++++++++++++++++++++++++++++++++
+include(GNUInstallDirs)
+
+install(TARGETS ${PROJECT_NAME}
+		RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)

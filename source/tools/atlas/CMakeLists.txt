@@ -65,6 +65,7 @@ set_target_properties(AtlasUI
 set_target_properties(ActorEditor
 	PROPERTIES
 		RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/binaries/system
+		BUILD_WITH_INSTALL_RPATH TRUE
 )
 
 # +++++++++++++++++++++ AtlasObject ++++++++++++++++++++++++
@@ -143,20 +144,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	)
 endif()
 
-# get_target_property(win32 ActorEditor WIN32_EXECUTABLE)
-# get_target_property(macos ActorEditor MACOSX_BUNDLE)
-# file(GENERATE OUTPUT debugexpr.txt CONTENT "${win32} ${macos}" TARGET ActorEditor)
-# include(CMakePrintHelpers)
-# cmake_print_properties(TARGETS AtlasUI
-#	 PROPERTIES
-#		 # INCLUDE_DIRECTORIES
-#		 # LINK_LIBRARIES
-#		 # COMPILE_OPTIONS
-#		 # COMPILE_DEFINITIONS
-#		 # WIN32_EXECUTABLE
-#		 # MACOSX_BUNDLE
-#		 # IMPORTED_LOCATION
-#		 # INTERFACE_INCLUDE_DIRECTORIES
-#		 # CXX_EXTENSIONS
-#		 # CXX_STANDARD_REQUIRED
-# )
+# +++++++++++++++++++ Install section +++++++++++++++++++++++++++++++++++++++++
+include(GNUInstallDirs)
+
+install(TARGETS AtlasUI
+		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/0ad
+)
+
+install(TARGETS ActorEditor
+		RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)

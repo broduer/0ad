@@ -47,9 +47,10 @@ if(NOT with-system-nvtt)
 endif()
 
 FetchContent_Declare(spirv-reflect
-	URL			https://github.com/KhronosGroup/SPIRV-Reflect/archive/refs/tags/vulkan-sdk-1.3.290.0.tar.gz
-	URL_HASH	SHA512=5de92dbd04424fb09f6c2a4c890572b2789017b737822d5bc8ab713aeede0796cdcc7ffe74e3ffe25cdd4c626e94bd60757e1cc625ede02b8fe3994b07588b44
+	URL			https://github.com/KhronosGroup/SPIRV-Reflect/archive/refs/tags/vulkan-sdk-1.4.363.0.tar.gz
+	URL_HASH	SHA512=93BBD834585C027BD9798FE24271CF1225B670F33EB6772F729C0B7ABE0B0BE8BF08B9D02604F88DB7F033C138E62560A986354DD1C48B77451FF77F01A7FDAF
 )
+set(SPIRV_REFLECT_INSTALL OFF)
 FetchContent_MakeAvailable(spirv-reflect)
 
 # +++++++++++++++++++++ External Projects ++++++++++++++++++++
