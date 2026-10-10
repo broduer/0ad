@@ -294,18 +294,6 @@ function placeDocks(template, playerID, count, tileClassWater, tileClassDock, he
 		undefined,
 		stayClasses(tileClassWater, 20));
 
-	g_Map.log("Marking land area");
-	const areaLand = createArea(
-		new MapBoundsPlacer(),
-		undefined,
-		avoidClasses(tileClassWater, 0));
-
-	g_Map.log("Marking water area");
-	const areaWater = createArea(
-		new MapBoundsPlacer(),
-		undefined,
-		stayClasses(tileClassWater, 0));
-
 	if (!areaSearchEnd || !areaSearchEnd.getPoints().length)
 		return;
 
