@@ -353,6 +353,7 @@ function placeDocks(template, playerID, count, tileClassWater, tileClassDock, he
 
 	// TODO: computing the exact intersection with the waterplane would both not require us to pass reasonable heights and be more precise
 	const constraint = new AndConstraint(constraints);
+	const waterConstraint = stayClasses(tileClassWater, 0);
 	g_Map.log("Placing docks");
 	for (let i = 0; i < count; ++i)
 		for (let tries = 0; tries < retryFactor; ++tries)
@@ -368,7 +369,7 @@ function placeDocks(template, playerID, count, tileClassWater, tileClassDock, he
 			if (!g_Map.inMapBounds(positionDock) || !constraint.allows(positionDock))
 				continue;
 
-			const angle = positionDock.angleTo(Vector2D.average(new DiskPlacer(8, positionDock).place(stayClasses(tileClassWater, 0))));
+			const angle = positionDock.angleTo(Vector2D.average(new DiskPlacer(8, positionDock).place(waterConstraint)));
 
 			g_Map.placeEntityPassable(template, playerID, positionDock, -angle + Math.PI / 2);
 			tileClassDock.add(positionDock);
