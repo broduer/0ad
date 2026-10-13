@@ -263,6 +263,53 @@ function createDecoration(objects, counts, constraint)
 }
 
 /**
+ * Returns the points of the given list that have at least one 4-neighbour outside of the list.
+ * The closest point of a set to a point outside of it always lies on the set's boundary,
+ * since a point with all four neighbours in the set always has a strictly closer neighbour.
+ *
+ * @param {Vector2D[]} points - Integer tile positions within the map.
+ * @param {number} mapSize - The side length of the map in tiles.
+ * @returns {Vector2D[]}
+ */
+function getBoundaryPoints(points, mapSize)
+{
+	const inSet = new Uint8Array(mapSize * mapSize);
+	for (const p of points)
+		inSet[p.x * mapSize + p.y] = 1;
+
+	const contains = (x, y) => x >= 0 && y >= 0 && x < mapSize && y < mapSize && inSet[x * mapSize + y] === 1;
+
+	return points.filter(p =>
+		!contains(p.x - 1, p.y) || !contains(p.x + 1, p.y) ||
+		!contains(p.x, p.y - 1) || !contains(p.x, p.y + 1));
+}
+
+/**
+ * Returns a copy of the point of the given list that is closest to the given position.
+ *
+ * @param {Vector2D[]} points - Must not be empty.
+ * @param {Vector2D} position
+ * @returns {Vector2D}
+ */
+function getClosestPointInList(points, position)
+{
+	let best;
+	let bestDistSquared = Infinity;
+	for (const p of points)
+	{
+		const dx = p.x - position.x;
+		const dy = p.y - position.y;
+		const distSquared = dx * dx + dy * dy;
+		if (distSquared < bestDistSquared)
+		{
+			bestDistSquared = distSquared;
+			best = p;
+		}
+	}
+	return best.clone();
+}
+
+/**
  * Places docks in situations where the location of land and water is not known in advance.
  * Do determine the position, it picks a random point on the land, find the closest, significantly large body of water,
  * then places the dock at the first point close to that body of water within the given heightrange.
@@ -288,7 +335,8 @@ function placeDocks(template, playerID, count, tileClassWater, tileClassDock, he
 		undefined,
 		stayClasses(tileClassWater, 20));
 
-	if (!areaSearchEnd || !areaSearchEnd.getPoints().length)
+	const endPoints = areaSearchEnd?.getPoints();
+	if (!endPoints?.length)
 		return;
 
 	g_Map.log("Marking dock search start area");
@@ -301,6 +349,8 @@ function placeDocks(template, playerID, count, tileClassWater, tileClassDock, he
 	if (!startPoints?.length)
 		return;
 
+	const boundaryPoints = getBoundaryPoints(endPoints, g_Map.getSize());
+
 	// TODO: computing the exact intersection with the waterplane would both not require us to pass reasonable heights and be more precise
 	const constraint = new AndConstraint(constraints);
 	g_Map.log("Placing docks");
@@ -308,7 +358,7 @@ function placeDocks(template, playerID, count, tileClassWater, tileClassDock, he
 		for (let tries = 0; tries < retryFactor; ++tries)
 		{
 			const positionLand = pickRandom(startPoints);
-			const positionWaterLarge = areaSearchEnd.getClosestPointTo(positionLand);
+			const positionWaterLarge = getClosestPointInList(boundaryPoints, positionLand);
 			const positionDock = findLocationInDirectionBasedOnHeight(positionWaterLarge, positionLand, heightMin, heightMax, offset);
 			if (!positionDock)
 				continue;
