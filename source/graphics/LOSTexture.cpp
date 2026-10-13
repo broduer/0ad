@@ -132,9 +132,15 @@ Renderer::Backend::ITexture* CLOSTexture::GetTextureSmooth()
 
 void CLOSTexture::InterpolateLOS(Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
 {
-	if (m_Dirty)
+    const bool smoothLOSEnabled{CRenderer::IsInitialised() && g_RenderingOptions.GetSmoothLOS()};
+	// Check if smooth LOS has just been enabled. If so, while it was disabled, m_SmoothTextures weren't updated, so
+	// they contain outdated LOS data or none at all yet. Therefore, in that case upload the current LOS data to them to
+	// prevent any fading.
+    const bool shouldUpdateSmoothTextures{smoothLOSEnabled && !m_WasSmoothLOSEnabled};
+    m_WasSmoothLOSEnabled = smoothLOSEnabled;
+	if (m_Dirty || shouldUpdateSmoothTextures)
 	{
-		RecomputeTexture(deviceCommandContext);
+		RecomputeTexture(deviceCommandContext, shouldUpdateSmoothTextures);
 		// We need to subtract the frame time because without it we have the
 		// same output images for the current and previous frames.
 		m_LastTextureRecomputeTime = timer_Time() - g_Renderer.GetTimeManager().GetFrameDelta();
@@ -142,7 +148,7 @@ void CLOSTexture::InterpolateLOS(Renderer::Backend::IDeviceCommandContext* devic
 		m_Dirty = false;
 	}
 
-	if (CRenderer::IsInitialised() && !g_RenderingOptions.GetSmoothLOS())
+	if (!smoothLOSEnabled)
 		return;
 
 	GPU_SCOPED_LABEL(deviceCommandContext, "Render LOS texture");
@@ -331,7 +337,7 @@ void CLOSTexture::ConstructTexture(Renderer::Backend::IDeviceCommandContext* dev
 	}
 }
 
-void CLOSTexture::RecomputeTexture(Renderer::Backend::IDeviceCommandContext* deviceCommandContext)
+void CLOSTexture::RecomputeTexture(Renderer::Backend::IDeviceCommandContext* deviceCommandContext, bool shouldUpdateSmoothTextures)
 {
 	// If the map was resized, delete and regenerate the texture
 	if (m_Texture)
@@ -380,7 +386,7 @@ void CLOSTexture::RecomputeTexture(Renderer::Backend::IDeviceCommandContext* dev
 		}
 	}
 
-	if (recreated)
+	if (recreated || shouldUpdateSmoothTextures)
 	{
 		deviceCommandContext->UploadTextureRegion(
 			m_SmoothTextures[0].get(), m_TextureFormat, losData.get(),

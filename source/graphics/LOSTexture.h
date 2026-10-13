@@ -79,7 +79,7 @@ public:
 private:
 	void DeleteTexture();
 	void ConstructTexture(Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
-	void RecomputeTexture(Renderer::Backend::IDeviceCommandContext* deviceCommandContext);
+	void RecomputeTexture(Renderer::Backend::IDeviceCommandContext* deviceCommandContext, bool shouldUpdateSmoothTextures);
 
 	size_t GetBitmapSize(size_t w, size_t h, size_t* pitch);
 	void GenerateBitmap(const CLosQuerier& los, std::uint8_t* losData, size_t w, size_t h, size_t pitch);
@@ -87,6 +87,8 @@ private:
 	CSimulation2& m_Simulation;
 
 	bool m_Dirty = true;
+	// Whether smooth LOS was enabled last frame and m_SmoothTextures are therefore up-to-date.
+	bool m_WasSmoothLOSEnabled = false;
 
 	// We need to choose the smallest format. We always use the red channel but
 	// R8_UNORM might be unavailable on some platforms. So we fallback to
