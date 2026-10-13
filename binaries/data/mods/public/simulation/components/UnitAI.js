@@ -5283,13 +5283,13 @@ UnitAI.prototype.MoveFormationToTargetAttackRange = function(target)
  * Requests the formation component to update member positions.
  * Called by formation controller when formation needs reorganization.
  */
-UnitAI.prototype.RequestFormationUpdate = function(moveCenter = false, force = false, formationType = "default", idleOnly = false)
+UnitAI.prototype.RequestFormationUpdate = function(jumpCenter = false, force = false, formationType = "default", idleOnly = false)
 {
 	const cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
 	if (!cmpFormation)
 		return;
 
-	cmpFormation.UpdateFormation(moveCenter, force, formationType, idleOnly);
+	cmpFormation.UpdateFormation(jumpCenter, force, formationType, idleOnly);
 };
 
 /**

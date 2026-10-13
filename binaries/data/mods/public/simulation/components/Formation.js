@@ -492,7 +492,7 @@ Formation.prototype.Disband = function()
 
 /**
  * Set all members to form up into the formation shape.
- * @param {boolean} moveCenter - The formation center will be reinitialized
+ * @param {boolean} jumpCenter - The formation center will be reinitialized
  * to the center of the units.
  * @param {boolean} force - All individual orders of the formation units are replaced,
  * otherwise the order to walk into formation is just pushed to the front.
@@ -500,7 +500,7 @@ Formation.prototype.Disband = function()
  * @param {boolean} idleOnly - Only send confirmed idle members to their offset,
  * busy members (fighting, gathering, etc.) keep their current orders.
  */
-Formation.prototype.ArrangeFormation = function(moveCenter, force, variant = this.lastOrderVariant, idleOnly = false)
+Formation.prototype.ArrangeFormation = function(jumpCenter, force, variant = this.lastOrderVariant, idleOnly = false)
 {
 	if (!this.members.length)
 		return;
@@ -520,7 +520,7 @@ Formation.prototype.ArrangeFormation = function(moveCenter, force, variant = thi
 	const cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
 
 	// Reposition the formation if we're told to or if we don't already have a position.
-	if (cmpPosition && (moveCenter || !cmpPosition.IsInWorld()))
+	if (cmpPosition && (jumpCenter || !cmpPosition.IsInWorld()))
 	{
 		const targetPosition = cmpFormationUnitAI.GetTargetPositions()[0];
 
@@ -1136,16 +1136,16 @@ Formation.prototype.LoadFormation = function(newTemplate)
  * Updates formation members' positions based on current state.
  * Moves members into appropriate formation type if rearrangement is allowed.
  *
- * @param {boolean} moveCenter - Whether to move the formation center
+ * @param {boolean} jumpCenter - Whether to jump the formation center to the members' center
  * @param {boolean} force - Force rearrangement regardless of state
  * @param {string} formationType - Formation variant to be passed as order parameter.
  * @param {boolean} idleOnly - Only send confirmed idle members to their offset.
  */
-Formation.prototype.UpdateFormation = function(moveCenter = false, force = false, formationType = "default", idleOnly = false)
+Formation.prototype.UpdateFormation = function(jumpCenter = false, force = false, formationType = "default", idleOnly = false)
 {
 	// Move members into appropriate formation type
 	if (this.IsRearrangementAllowed() || force)
-		this.ArrangeFormation(moveCenter, force, formationType, idleOnly);
+		this.ArrangeFormation(jumpCenter, force, formationType, idleOnly);
 };
 
 /**
