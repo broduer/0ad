@@ -282,12 +282,6 @@ function placeDocks(template, playerID, count, tileClassWater, tileClassDock, he
 {
 	const mapCenter = g_Map.getCenter();
 
-	g_Map.log("Marking dock search start area");
-	const areaSearchStart = createArea(
-		new DiskPlacer(fractionToTiles(0.5) - 10, mapCenter),
-		undefined,
-		avoidClasses(tileClassWater, 6));
-
 	g_Map.log("Marking dock search end area");
 	const areaSearchEnd = createArea(
 		new DiskPlacer(fractionToTiles(0.5) - 10, mapCenter),
@@ -297,13 +291,23 @@ function placeDocks(template, playerID, count, tileClassWater, tileClassDock, he
 	if (!areaSearchEnd || !areaSearchEnd.getPoints().length)
 		return;
 
+	g_Map.log("Marking dock search start area");
+	const areaSearchStart = createArea(
+		new DiskPlacer(fractionToTiles(0.5) - 10, mapCenter),
+		undefined,
+		avoidClasses(tileClassWater, 6));
+
+	const startPoints = areaSearchStart?.getPoints();
+	if (!startPoints?.length)
+		return;
+
 	// TODO: computing the exact intersection with the waterplane would both not require us to pass reasonable heights and be more precise
 	const constraint = new AndConstraint(constraints);
 	g_Map.log("Placing docks");
 	for (let i = 0; i < count; ++i)
 		for (let tries = 0; tries < retryFactor; ++tries)
 		{
-			const positionLand = pickRandom(areaSearchStart.getPoints());
+			const positionLand = pickRandom(startPoints);
 			const positionWaterLarge = areaSearchEnd.getClosestPointTo(positionLand);
 			const positionDock = findLocationInDirectionBasedOnHeight(positionWaterLarge, positionLand, heightMin, heightMax, offset);
 			if (!positionDock)
