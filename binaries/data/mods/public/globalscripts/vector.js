@@ -407,12 +407,16 @@ Vector3D.prototype.distanceTo = function(v)
 
 Vector3D.prototype.horizDistanceToSquared = function(v)
 {
-	return Math.euclidDistance2DSquared(this.x, this.z, v.x, v.z);
+	const dx = this.x - v.x;
+	const dz = this.z - v.z;
+	return dx * dx + dz * dz;
 };
 
 Vector3D.prototype.horizDistanceTo = function(v)
 {
-	return Math.sqrt(this.horizDistanceToSquared(v));
+	const dx = this.x - v.x;
+	const dz = this.z - v.z;
+	return Math.sqrt(dx * dx + dz * dz);
 };
 
 /**
