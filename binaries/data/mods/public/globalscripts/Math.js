@@ -319,7 +319,8 @@ Math.euclidDistance2DSquared = function(x1, y1, x2, y2)
  */
 Math.euclidDistance2D = function(x1, y1, x2, y2)
 {
-	return Math.sqrt(Math.euclidDistance2DSquared(x1, y1, x2, y2));
+	const dx = x2 - x1, dy = y2 - y1;
+	return Math.sqrt(dx * dx + dy * dy);
 };
 
 Math.euclidDistance3DSquared = function(x1, y1, z1, x2, y2, z2)
@@ -330,7 +331,8 @@ Math.euclidDistance3DSquared = function(x1, y1, z1, x2, y2, z2)
 
 Math.euclidDistance3D = function(x1, y1, z1, x2, y2, z2)
 {
-	return Math.sqrt(Math.euclidDistance3DSquared(x1, y1, z1, x2, y2, z2));
+	const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
+	return Math.sqrt(dx * dx + dy * dy + dz * dz);
 };
 
 /**
