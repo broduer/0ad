@@ -38,9 +38,6 @@ class StructreePage extends ReferencePage
 	{
 		this.closePageCallback({
 			"page": "page_structree.xml",
-			"args": {
-				"civ": this.activeCiv
-			}
 		});
 	}
 

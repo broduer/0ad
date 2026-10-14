@@ -8,9 +8,6 @@ class CivIcon
 	{
 		this.dialogSelection = {
 			"page": "page_structree.xml",
-			"args": {
-				"civ": undefined
-			}
 		};
 
 		this.civIcon = Engine.GetGUIObjectByName("civIcon");
@@ -39,7 +36,7 @@ class CivIcon
 			{
 				// If an Observer triggers `openPage()` via hotkey, g_ViewedPlayer could be -1 or 0
 				// (depending on whether they're "viewing" no-one or gaia respectively)
-				"civ": this.dialogSelection.args.civ ?? g_Players[Math.max(g_ViewedPlayer, 1)].civ
+				"civ": g_Players[Math.max(g_ViewedPlayer, 1)].civ
 
 				// TODO add info about researched techs and unlocked entities
 			});

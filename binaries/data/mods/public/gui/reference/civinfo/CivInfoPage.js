@@ -37,9 +37,6 @@ class CivInfoPage extends ReferencePage
 	{
 		this.closePageCallback({
 			"page": "page_civinfo.xml",
-			"args": {
-				"civ": this.activeCiv
-			}
 		});
 	}
 
