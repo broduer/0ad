@@ -1,5 +1,8 @@
 {
 	"genericName": "Ostracism",
+	"specificName": {
+		"athen": "Ostrakismos"
+	},
 	"description": "In ancient Athens, ostracism was the process by which any citizen, including political leaders, could be expelled from the city-state for 10 years.",
 	"cost": {
 		"food": 300,
@@ -16,8 +19,16 @@
 	"researchTime": 60,
 	"tooltip": "Citizen soldiers +5% health, but Heroes −40% health.",
 	"modifications": [
-		{ "value": "Health/Max", "multiply": 1.05, "affects": "CitizenSoldier" },
-		{ "value": "Health/Max", "multiply": 0.6, "affects": "Hero" }
+		{
+			"value": "Health/Max",
+			"multiply": 1.05,
+			"affects": "CitizenSoldier"
+		},
+		{
+			"value": "Health/Max",
+			"multiply": 0.6,
+			"affects": "Hero"
+		}
 	],
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }

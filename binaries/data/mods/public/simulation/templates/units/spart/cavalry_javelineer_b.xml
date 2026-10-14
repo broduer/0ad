@@ -4,8 +4,8 @@
     <Civ>spart</Civ>
     <Lang>greek</Lang>
     <SelectionGroupName>units/spart/cavalry_javelineer_b</SelectionGroupName>
-    <GenericName>Perioikoi Cavalryman</GenericName>
-    <SpecificName>Pródromos Perioïkós</SpecificName>
+    <GenericName>Perioikos Cavalryman</GenericName>
+    <SpecificName>Prodromos Perioikos</SpecificName>
     <Icon>units/spart/cavalry_javelinist.png</Icon>
   </Identity>
   <Promotion>

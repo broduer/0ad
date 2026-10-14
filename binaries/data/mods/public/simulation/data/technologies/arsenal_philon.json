@@ -1,6 +1,9 @@
 {
 	"supersedes": "dock_efficiency",
 	"genericName": "Arsenal of Philon",
+	"specificName": {
+		"athen": "Skeuothēkē Philōnos"
+	},
 	"description": "The arsenal was mainly used as a warehouse for materials and instruments for the equipment of warships.",
 	"cost": {
 		"wood": 300,
@@ -8,8 +11,8 @@
 	},
 	"requirements": {
 		"all": [
-			{"tech": "phase_city"},
-			{"civ": "athen"}
+			{ "tech": "phase_city" },
+			{ "civ": "athen" }
 		]
 	},
 	"requirementsTooltip": "Unlocked in City Phase. Requires “Shipwrights.”",
@@ -17,8 +20,11 @@
 	"researchTime": 40,
 	"tooltip": "Warships +1 health/second self-repair rate.",
 	"modifications": [
-		{ "value": "Health/RegenRate", "add": 1}
+		{
+			"value": "Health/RegenRate",
+			"add": 1
+		}
 	],
-	"affects": ["Warship"],
+	"affects": [ "Warship" ],
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }
