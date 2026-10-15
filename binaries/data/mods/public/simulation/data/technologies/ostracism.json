@@ -19,16 +19,8 @@
 	"researchTime": 60,
 	"tooltip": "Citizen soldiers +5% health, but Heroes −40% health.",
 	"modifications": [
-		{
-			"value": "Health/Max",
-			"multiply": 1.05,
-			"affects": "CitizenSoldier"
-		},
-		{
-			"value": "Health/Max",
-			"multiply": 0.6,
-			"affects": "Hero"
-		}
+		{	"value": "Health/Max", "multiply": 1.05, "affects": "CitizenSoldier" },
+		{	"value": "Health/Max", "multiply": 0.6,	"affects": "Hero"	}
 	],
 	"soundComplete": "interface/alarm/alarm_upgradearmory.xml"
 }
