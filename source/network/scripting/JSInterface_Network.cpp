@@ -113,9 +113,10 @@ void StartNetworkHost(const CStrW& playerName, const std::uint16_t serverPort, c
 
 	// Generate a secret to identify the host client.
 
-	g_Game = new CGame(storeReplay);
-	g_NetClient = new CNetClient(g_Game, "127.0.0.1", serverPort, playerName, hostJID, hashedPassword,
-		secret);
+	auto tempGame = std::make_unique<CGame>(storeReplay);
+	g_NetClient = new CNetClient(tempGame.get(), "127.0.0.1", serverPort, playerName, hostJID,
+		hashedPassword, secret);
+	g_Game = tempGame.release();
 }
 
 void StartNetworkJoin(const CStrW& playerName, const CStr& serverAddress, std::uint16_t serverPort,
@@ -125,8 +126,9 @@ void StartNetworkJoin(const CStrW& playerName, const CStr& serverAddress, std::u
 	ENSURE(!g_NetServer);
 	ENSURE(!g_Game);
 
-	g_Game = new CGame(storeReplay);
-	g_NetClient = new CNetClient(g_Game, serverAddress, serverPort, playerName);
+	auto tempGame = std::make_unique<CGame>(storeReplay);
+	g_NetClient = new CNetClient(tempGame.get(), serverAddress, serverPort, playerName);
+	g_Game = tempGame.release();
 }
 
 #if CONFIG2_LOBBY
@@ -143,8 +145,9 @@ void StartNetworkJoinLobby(const CStrW& playerName, const CStr& hostJID, const C
 	ENSURE(!g_Game);
 
 	CStr hashedPass = HashCryptographically(password, hostJID + password + PS_SERIALIZATION_VERSION);
-	g_Game = new CGame(true);
-	g_NetClient = new CNetClient(g_Game, playerName, hostJID, hashedPass, *g_XmppClient);
+	auto tempGame = std::make_unique<CGame>(true);
+	g_NetClient = new CNetClient(tempGame.get(), playerName, hostJID, hashedPass, *g_XmppClient);
+	g_Game = tempGame.release();
 }
 #endif // CONFIG2_LOBBY
 
