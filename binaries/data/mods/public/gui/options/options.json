@@ -111,6 +111,7 @@
 				"type": "slider",
 				"label": "FPS throttling in menus",
 				"tooltip": "To save CPU workload, throttle render frequency in all menus. Set to maximum to disable throttling.",
+				"dependencies": [{ "config": "vsync", "op": "!=", "value": "true" }],
 				"config": "adaptivefps.menu",
 				"min": 20,
 				"max": 360
@@ -119,6 +120,7 @@
 				"type": "slider",
 				"label": "FPS throttling in games",
 				"tooltip": "To save CPU workload, throttle render frequency in running games. Set to maximum to disable throttling.",
+				"dependencies": [{ "config": "vsync", "op": "!=", "value": "true" }],
 				"config": "adaptivefps.session",
 				"min": 20,
 				"max": 360
