@@ -5474,10 +5474,11 @@ UnitAI.prototype.GetBestAttackAgainst = function(target, allowCapture = this.DEF
  * Try to find one of the given entities which can be attacked,
  * and start attacking it.
  * Returns true if it found something to attack.
+ * @param {boolean} attackable - Whether all ents are already known to be attackable.
  */
-UnitAI.prototype.AttackVisibleEntity = function(ents)
+UnitAI.prototype.AttackVisibleEntity = function(ents, attackable = false)
 {
-	var target = ents.find(entity => this.CanAttack(entity));
+	const target = attackable ? ents[0] : ents.find(entity => this.CanAttack(entity));
 	if (!target)
 		return false;
 
@@ -5508,17 +5509,18 @@ UnitAI.prototype.AttackEntityInZone = function(ents)
  * Try to respond appropriately given our current stance,
  * given a list of entities that match our stance's target criteria.
  * Returns true if it responded.
+ * @param {boolean} attackable - Whether all ents are already known to be attackable.
  */
-UnitAI.prototype.RespondToTargetedEntities = function(ents)
+UnitAI.prototype.RespondToTargetedEntities = function(ents, attackable = false)
 {
 	if (!ents.length)
 		return false;
 
 	if (this.GetStance().respondChase)
-		return this.AttackVisibleEntity(ents);
+		return this.AttackVisibleEntity(ents, attackable);
 
 	if (this.GetStance().respondStandGround)
-		return this.AttackVisibleEntity(ents);
+		return this.AttackVisibleEntity(ents, attackable);
 
 	if (this.GetStance().respondHoldGround)
 		return this.AttackEntityInZone(ents);
@@ -7025,7 +7027,7 @@ UnitAI.prototype.AttackEntitiesByPreference = function(ents)
 		// or ships having 'Ship'. And if there are no such targets, this doesn't do much more work.
 		if (pref === 0)
 		{
-			if (this.RespondToTargetedEntities([ent]))
+			if (this.RespondToTargetedEntities([ent], true))
 				return true;
 		}
 		else if (pref === null || pref === undefined)
@@ -7043,11 +7045,11 @@ UnitAI.prototype.AttackEntitiesByPreference = function(ents)
 	{
 		preferences.sort((a, b) => a - b);
 		for (const pref of preferences)
-			if (this.RespondToTargetedEntities(entsByPreferences[pref]))
+			if (this.RespondToTargetedEntities(entsByPreferences[pref], true))
 				return true;
 	}
 
-	return this.RespondToTargetedEntities(entsWithoutPref);
+	return this.RespondToTargetedEntities(entsWithoutPref, true);
 };
 
 UnitAI.prototype.FindAndSetNextTarget = function(data)
