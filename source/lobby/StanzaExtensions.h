@@ -65,6 +65,7 @@ public:
 	std::string m_Password;
 	std::string m_ClientSalt;
 	std::string m_Error;
+	std::string m_Fingerprint;
 };
 
 class GameReport : public gloox::StanzaExtension

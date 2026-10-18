@@ -25,6 +25,7 @@
 #include <atomic>
 #include <boost/lockfree/queue.hpp>
 #include <ngtcp2/ngtcp2.h>
+#include <optional>
 
 class CNetClient;
 class CNetMessage;
@@ -55,7 +56,7 @@ public:
 	CNetClientSession(CNetClient& client);
 	~CNetClientSession();
 
-	bool Connect(const CreateSocketResult& socket);
+	bool Connect(const CreateSocketResult& socket, std::optional<std::string> expectedFingerprint);
 
 	/**
 	 * The client NetSession is threaded to avoid getting timeouts if the main thread hangs.

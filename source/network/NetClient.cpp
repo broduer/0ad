@@ -73,7 +73,7 @@ CNetClient::CNetClient(CGame* game, std::string serverAddressOrHostname, std::ui
 		std::move(hashedPassword), std::move(controllerSecret)}
 {
 	SetupConnection(CreateSocket(m_ServerAddressOrHostname.c_str(), m_ServerPort,
-		addrinfo{ .ai_flags{AF_UNSPEC} }, *[](int, const addrinfo&){ return true; }));
+		addrinfo{ .ai_flags{AF_UNSPEC} }, *[](int, const addrinfo&){ return true; }), std::nullopt);
 }
 
 CNetClient::CNetClient(PrivateTag, CGame* game, std::string serverAddressOrHostname,
@@ -208,10 +208,10 @@ CNetClient::~CNetClient()
 }
 
 
-void CNetClient::SetupConnection(const CreateSocketResult& socket)
+void CNetClient::SetupConnection(const CreateSocketResult& socket, std::optional<std::string> fingerprint)
 {
 	CNetClientSession* session = new CNetClientSession(*this);
-	bool ok = session->Connect(socket);
+	bool ok = session->Connect(socket, std::move(fingerprint));
 	SetAndOwnSession(session);
 	if (ok)
 		m_PollingThread = std::thread(Threading::HandleExceptions<CNetClientSession::RunNetLoop>::Wrapper, m_Session);
@@ -233,7 +233,7 @@ void CNetClient::HandleGetServerDataFailed(const CStr& error)
 
 #if CONFIG2_LOBBY
 bool CNetClient::TryToConnectWithSTUN(std::string serverAddressOrHostname, std::uint16_t serverPort,
-	const CStr& hostJID, bool localNetwork)
+	const CStr& hostJID, bool localNetwork, std::string certificateFingerprint)
 {
 	ENSURE(g_XmppClient);
 
@@ -336,7 +336,7 @@ bool CNetClient::TryToConnectWithSTUN(std::string serverAddressOrHostname, std::
 
 	try
 	{
-		g_NetClient->SetupConnection(socket);
+		g_NetClient->SetupConnection(socket, std::move(certificateFingerprint));
 	}
 	catch (...)
 	{

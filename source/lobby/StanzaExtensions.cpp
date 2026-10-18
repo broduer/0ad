@@ -308,6 +308,9 @@ ConnectionData::ConnectionData(const gloox::Tag* tag)
 	const gloox::Tag* cs = tag->findTag("connectiondata/clientsalt");
 	if (cs)
 		m_ClientSalt = cs->cdata();
+	const gloox::Tag* fp = tag->findTag("connectiondata/fingerprint");
+	if (fp)
+		m_Fingerprint = fp->cdata();
 	const gloox::Tag* e = tag->findTag("connectiondata/error");
 	if (e)
 		m_Error= e->cdata();
@@ -340,6 +343,8 @@ gloox::Tag* ConnectionData::tag() const
 		t->addChild(new gloox::Tag("password", m_Password));
 	if (!m_ClientSalt.empty())
 		t->addChild(new gloox::Tag("clientsalt", m_ClientSalt));
+	if (!m_Fingerprint.empty())
+		t->addChild(new gloox::Tag("fingerprint", m_Fingerprint));
 	if (!m_Error.empty())
 		t->addChild(new gloox::Tag("error", m_Error));
 	return t;

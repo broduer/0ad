@@ -28,6 +28,7 @@
 #include "network/Stream.h"
 #include "ps/CLogger.h"
 #include "ps/ProfileViewer.h"
+#include "ps/Util.h"
 
 #include <cstddef>
 #include <cstring>
@@ -60,6 +61,8 @@ struct CNetClientSessionImpl
 
 	std::optional<Stream> streams;
 
+	std::optional<std::string> m_ExpectedFingerprint;
+
 	// Net messages received and waiting for fetching.
 	struct ConnectionEstablished{};
 	struct Disconnect
@@ -89,7 +92,44 @@ AddressStorage ConnectSocket(const int fd, const AddressStorage& remoteAddress)
 	return {localAddress, localAddressLength};
 }
 
-void ClientGnutlsInit(CNetClientSessionImpl& impl)
+int VerifyPeerCertificate(gnutls_session_t tlsSession)
+{
+	CNetClientSessionImpl& impl{*static_cast<CNetClientSessionImpl*>(
+		static_cast<ngtcp2_crypto_conn_ref*>(gnutls_session_get_ptr(tlsSession))->user_data)};;
+
+	unsigned int listSize{0};
+	const gnutls_datum_t* peerCerts{gnutls_certificate_get_peers(impl.session.get(), &listSize)};
+	if (!peerCerts || listSize == 0)
+	{
+		LOGERROR("No certivicate received from the host.");
+		return -1;
+	}
+
+	// The peer sends its own certificate first in the list.
+	const gnutls_datum_t& peerCert{peerCerts[0]};
+
+	std::array<std::uint8_t, 64> fingerprint;
+	std::size_t fingerprintSize{sizeof(fingerprint)};
+	if (const int ret{gnutls_fingerprint(GNUTLS_DIG_SHA256, &peerCert, fingerprint.data(),
+		&fingerprintSize)})
+	{
+		LOGERROR("Failed to compute server certificate fingerprint: {}", gnutls_strerror(ret));
+		return -1;
+	}
+
+	const std::string actualFingerprint{Hexify(fingerprint.data(), fingerprintSize)};
+	if (actualFingerprint != impl.m_ExpectedFingerprint.value())
+	{
+		LOGERROR("Certificate fingerprint mismatch: expected {}, got {}",
+			impl.m_ExpectedFingerprint.value(), actualFingerprint);
+		return -1;
+	}
+
+	LOGMESSAGE("Host certificate verified");
+	return 0;
+}
+
+void ClientGnutlsInit(CNetClientSessionImpl& impl, std::optional<std::string> expectedFingerprint)
 {
 	gnutls_certificate_credentials_t tempCred;
 	const int allocRet{gnutls_certificate_allocate_credentials(&tempCred)};
@@ -102,6 +142,12 @@ void ClientGnutlsInit(CNetClientSessionImpl& impl)
 
 	impl.session = CreateTlsSession(GNUTLS_CLIENT, impl.credentials.get(),
 		ngtcp2_crypto_gnutls_configure_client_session, &impl.connectionReference);
+
+	if (expectedFingerprint.has_value())
+	{
+		impl.m_ExpectedFingerprint = std::move(expectedFingerprint);
+		gnutls_certificate_set_verify_function(impl.credentials.get(), VerifyPeerCertificate);
+	}
 }
 
 void ClientRead(CNetClientSessionImpl& impl)
@@ -184,14 +230,15 @@ CNetClientSession::~CNetClientSession()
 	close(m_Impl->socketDescriptor);
 }
 
-bool CNetClientSession::Connect(const CreateSocketResult& socket)
+bool CNetClientSession::Connect(const CreateSocketResult& socket,
+	std::optional<std::string> expectedFingerprint)
 {
 	ENSURE(!m_LoopRunning);
 
 	m_Impl->socketDescriptor = socket.descriptor;
 	m_Impl->localAddress = ConnectSocket(socket.descriptor, socket.address);
 
-	ClientGnutlsInit(*m_Impl);
+	ClientGnutlsInit(*m_Impl, std::move(expectedFingerprint));
 
 	const ngtcp2_path path{
 		.local{

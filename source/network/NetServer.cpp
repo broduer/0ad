@@ -42,6 +42,7 @@
 #include "ps/GameSetup/Paths.h"
 #include "ps/Hashing.h"
 #include "ps/ProfileViewer.h"
+#include "ps/Util.h"
 #include "ps/Profiler2.h"
 #include "ps/Threading.h"
 #include "ps/algorithm.h"
@@ -56,6 +57,7 @@
 #include <algorithm>
 #include <cstring>
 #include <fcntl.h>
+#include <fstream>
 #include <fmt/format.h>
 #include <functional>
 #include <gnutls/crypto.h>
@@ -283,18 +285,72 @@ std::unique_ptr<gnutls_certificate_credentials_st, CredentialsDeleter> CreateTls
 	}
 	std::unique_ptr<gnutls_certificate_credentials_st, CredentialsDeleter> cred{temp};
 
-	const auto keyfile = (Paths(g_CmdLineArgs).UserData() / "encryption.p12").fileSystemPath();
-	if (!std::filesystem::is_regular_file(keyfile))
-		GeneratePkcs12File(keyfile);
 
-	if (const int ret{gnutls_certificate_set_x509_simple_pkcs12_file(cred.get(), keyfile.c_str(),
-		GNUTLS_X509_FMT_DER, nullptr)})
+	const OsPath keyfile = Paths(g_CmdLineArgs).UserData() / "encryption.p12";
+
+	if (const int ret{gnutls_certificate_set_x509_simple_pkcs12_file(cred.get(),
+		keyfile.string8().c_str(), GNUTLS_X509_FMT_DER, nullptr)})
 	{
 		throw std::runtime_error{fmt::format(
 			"gnutls_certificate_set_x509_simple_pkcs12_file: {}", gnutls_strerror(ret))};
 	}
 
 	return cred;
+}
+
+std::string ComputeCertificateFingerprint(const std::filesystem::path& keyfile)
+{
+	const std::uintmax_t fileSize{std::filesystem::file_size(keyfile)};
+	std::ifstream file{keyfile, std::ios::binary};
+	std::vector<std::uint8_t> buffer(static_cast<std::size_t>(fileSize));
+	file.read(reinterpret_cast<char*>(buffer.data()), buffer.size());
+
+	gnutls_datum_t p12Data{ .data{buffer.data()}, .size{static_cast<unsigned int>(buffer.size())} };
+
+	gnutls_pkcs12_t p12;
+	if (const int ret{gnutls_pkcs12_init(&p12)})
+		throw std::runtime_error{fmt::format("gnutls_pkcs12_init: {}", gnutls_strerror(ret))};
+	const std::unique_ptr<gnutls_pkcs12_int, decltype(&gnutls_pkcs12_deinit)> p12Deleter{p12,
+		gnutls_pkcs12_deinit};
+
+	if (const int ret{gnutls_pkcs12_import(p12, &p12Data, GNUTLS_X509_FMT_DER, 0)})
+		throw std::runtime_error{fmt::format("gnutls_pkcs12_import: {}", gnutls_strerror(ret))};
+
+	if (const int ret{gnutls_pkcs12_verify_mac(p12, "")})
+		throw std::runtime_error{fmt::format("Corrupted PKCS #12 file: {}", gnutls_strerror(ret))};
+
+	gnutls_x509_privkey_t key{};
+	gnutls_x509_crt_t* chain{};
+	unsigned int chainLen{};
+	if (const int ret{gnutls_pkcs12_simple_parse(p12, nullptr, &key, &chain, &chainLen, nullptr, nullptr,
+		nullptr, GNUTLS_PKCS12_SP_INCLUDE_SELF_SIGNED)})
+	{
+		throw std::runtime_error{fmt::format("gnutls_pkcs12_simple_parse: {}", gnutls_strerror(ret))};
+	}
+	gnutls_x509_privkey_deinit(key);
+
+	const std::unique_ptr<gnutls_x509_crt_t, decltype(gnutls_free)> chainDeleter{chain, gnutls_free};
+
+	if (!chain || chainLen == 0)
+		throw std::runtime_error{"No certificate found in PKCS #12 file"};
+
+	const gnutls_x509_crt_t certificate = chain[0];
+	const std::unique_ptr<gnutls_x509_crt_int, decltype(&gnutls_x509_crt_deinit)> certificateDeleter{
+		certificate, &gnutls_x509_crt_deinit};
+
+	// Export the certificate to DER so that it can be fingerprinted.
+	gnutls_datum_t der{};
+	if (const int ret{gnutls_x509_crt_export2(certificate, GNUTLS_X509_FMT_DER, &der)})
+		throw std::runtime_error{fmt::format("gnutls_x509_crt_export2: {}", gnutls_strerror(ret))};
+
+	const std::unique_ptr<unsigned char, decltype(gnutls_free)> derDeleter{der.data, gnutls_free};
+
+	std::array<std::uint8_t, 64> fingerprint;
+	std::size_t fingerprintSize{sizeof(fingerprint)};
+	if (const int ret{gnutls_fingerprint(GNUTLS_DIG_SHA256, &der, fingerprint.data(), &fingerprintSize)})
+		throw std::runtime_error{fmt::format("gnutls_fingerprint: {}", gnutls_strerror(ret))};
+
+	return Hexify(fingerprint.data(), fingerprintSize);
 }
 } // anonymous namespace
 
@@ -437,6 +493,12 @@ CNetServerWorker::CNetServerWorker(const bool continueSavedGame, std::uint16_t p
 		addrinfo{ .ai_flags{AI_PASSIVE | AI_V4MAPPED }, .ai_family{AF_INET6} }, TestServerSocket)};
 	m_SocketDescriptor = socket.descriptor;
 	m_LocalPort = ntohs(socket.address.address.in6.sin6_port);
+
+	const auto keyfile = (Paths(g_CmdLineArgs).UserData() / "encryption.p12").fileSystemPath();
+	if (!std::filesystem::is_regular_file(keyfile))
+		GeneratePkcs12File(keyfile);
+	m_CertificateFingerprint = ComputeCertificateFingerprint(keyfile);
+
 	// Launch the worker thread
 	m_WorkerThread = std::thread(Threading::HandleExceptions<RunThread>::Wrapper, this,
 		std::move(initAttributes), socket);
@@ -1917,6 +1979,11 @@ std::uint16_t CNetServer::GetPublicPort() const
 std::uint16_t CNetServer::GetLocalPort() const
 {
 	return m_Worker.m_LocalPort;
+}
+
+std::string CNetServer::GetCertificateFingerprint() const
+{
+	return m_Worker.m_CertificateFingerprint;
 }
 
 bool CNetServer::CheckPasswordAndIncrement(const std::string& username, const std::string& password, const std::string& salt)

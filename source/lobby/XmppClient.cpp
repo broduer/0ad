@@ -1009,7 +1009,8 @@ bool XmppClient::Impl::handleIq(const gloox::IQ& iq)
 				return true;
 			}
 
-			g_NetClient->TryToConnectWithSTUN(cd->m_Ip, stoi(cd->m_Port), iq.from().full(), !cd->m_IsLocalIP.empty());
+			g_NetClient->TryToConnectWithSTUN(cd->m_Ip, stoi(cd->m_Port), iq.from().full(),
+				!cd->m_IsLocalIP.empty(), cd->m_Fingerprint);
 		}
 		if (gq)
 		{
@@ -1155,6 +1156,7 @@ bool XmppClient::Impl::handleIq(const gloox::IQ& iq)
 				else
 					connectionData->m_Error = "local_ip_failed";
 			}
+			connectionData->m_Fingerprint = g_NetServer->GetCertificateFingerprint();
 
 			response.addExtension(connectionData);
 

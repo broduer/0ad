@@ -109,7 +109,7 @@ public:
 	 */
 #if CONFIG2_LOBBY
 	bool TryToConnectWithSTUN(std::string serverAddressOrHostname, std::uint16_t serverPort,
-		const CStr& hostJID, bool localNetwork);
+		const CStr& hostJID, bool localNetwork, std::string certificateFingerprint);
 #endif
 
 	/**
@@ -291,7 +291,8 @@ private:
 	 * Set up a connection to the remote networked server.
 	 * @return true on success, false on connection failure
 	 */
-	void SetupConnection(const CreateSocketResult& socket);
+	void SetupConnection(const CreateSocketResult& socket,
+		std::optional<std::string> certificateFingerprint);
 
 	/**
 	 * Take ownership of a session object, and use it for all network communication.

@@ -261,6 +261,8 @@ public:
 	 */
 	const bool m_LobbyAuth;
 
+	std::string m_CertificateFingerprint;
+
 	class Impl;
 
 	std::vector<std::unique_ptr<CNetServerSession>> m_Sessions;
@@ -394,6 +396,11 @@ public:
 	 * Return the serving port on the local machine.
 	 */
 	std::uint16_t GetLocalPort() const;
+
+	/**
+	 * Return the SHA-256 fingerprint of the TLS certificate.
+	 */
+	std::string GetCertificateFingerprint() const;
 
 	/**
 	 * Check if password is valid. If is not, increase number of failed attempts of the lobby user.
