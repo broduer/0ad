@@ -205,12 +205,15 @@ void CCameraController::Update(const float deltaRealTime)
 
 	if (g_mouse_active && m_ViewScrollMouseDetectDistance > 0)
 	{
-		if (g_mouse_x >= g_VideoMode.GetWindowWidth() - m_ViewScrollMouseDetectDistance && g_mouse_x < g_VideoMode.GetWindowWidth())
+		int maxMouseX = g_VideoMode.GetMaxMouseX();
+		int maxMouseY = g_VideoMode.GetMaxMouseY();
+
+		if (g_mouse_x >= maxMouseX - m_ViewScrollMouseDetectDistance && g_mouse_x < maxMouseX)
 			moveRightward += m_ViewScrollSpeed * deltaRealTime;
 		else if (g_mouse_x < m_ViewScrollMouseDetectDistance && g_mouse_x >= 0)
 			moveRightward -= m_ViewScrollSpeed * deltaRealTime;
 
-		if (g_mouse_y >= g_VideoMode.GetWindowHeight() - m_ViewScrollMouseDetectDistance && g_mouse_y < g_VideoMode.GetWindowHeight())
+		if (g_mouse_y >= maxMouseY - m_ViewScrollMouseDetectDistance && g_mouse_y < maxMouseY)
 			moveForward -= m_ViewScrollSpeed * deltaRealTime;
 		else if (g_mouse_y < m_ViewScrollMouseDetectDistance && g_mouse_y >= 0)
 			moveForward += m_ViewScrollSpeed * deltaRealTime;

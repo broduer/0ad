@@ -287,8 +287,9 @@ Input::Reaction CVideoMode::InputHandler::operator()(const SDL_Event& ev)
 		if (static_cast<const char*>(ev.user.data1) == "mousegrabtoggle"sv)
 		{
 			SDL_Window* const window{videoMode.GetWindow()};
-			const SDL_bool willGrabMouse{SDL_GetWindowGrab(window) ? SDL_FALSE : SDL_TRUE};
-			SDL_SetWindowGrab(window, willGrabMouse);
+			const bool willGrabMouse{SDL_GetWindowGrab(window) ? false : true};
+			videoMode.SetWindowGrab(willGrabMouse);
+
 			return Input::Reaction::HANDLED;
 		}
 	}
@@ -543,13 +544,9 @@ bool CVideoMode::SetVideoMode(int w, int h, int bpp, bool fullscreen)
 
 	// #545: we need to constrain the window in fullscreen mode to avoid mouse
 	// "falling out" of the window in case of multiple displays.
-	if (fullscreen ? g_ConfigDB.Get("window.mousegrabinfullscreen", true) :
-		g_ConfigDB.Get("window.mousegrabinwindowmode", false))
-	{
-		SDL_SetWindowGrab(m_Window, SDL_TRUE);
-	}
-	else
-		SDL_SetWindowGrab(m_Window, SDL_FALSE);
+	bool grab = fullscreen ? g_ConfigDB.Get("window.mousegrabinfullscreen", true) :
+		g_ConfigDB.Get("window.mousegrabinwindowmode", false);
+	SetWindowGrab(grab);
 
 	return true;
 }
@@ -903,6 +900,11 @@ void CVideoMode::UpdateRenderer(int w, int h)
 
 	if (g_Game)
 		g_Game->GetView()->SetViewport(vp);
+
+	if (SDL_GetWindowGrab(m_Window))
+	{
+		UpdateGrabRect();
+	}
 }
 
 int CVideoMode::GetBestBPP()
@@ -924,6 +926,16 @@ int CVideoMode::GetWindowHeight() const
 {
 	ENSURE(m_IsInitialised);
 	return m_CurrentH;
+}
+
+int CVideoMode::GetMaxMouseX() const
+{
+	return SDL_GetWindowGrab(m_Window) ? (m_CurrentW - 1) : m_CurrentW;
+}
+
+int CVideoMode::GetMaxMouseY() const
+{
+	return SDL_GetWindowGrab(m_Window) ? (m_CurrentH - 1) : m_CurrentH;
 }
 
 int CVideoMode::GetBPP() const
@@ -1019,4 +1031,26 @@ void CVideoMode::ResetCursor()
 {
 	if (m_Cursor)
 		m_Cursor->ResetCursor();
+}
+
+void CVideoMode::SetWindowGrab(bool grab)
+{
+	SDL_SetWindowGrab(m_Window, grab ? SDL_TRUE : SDL_FALSE);
+
+	if (grab)
+		UpdateGrabRect();
+	else
+		// clear mouse rect if not grabbing
+		SDL_SetWindowMouseRect(m_Window, nullptr);
+}
+
+void CVideoMode::UpdateGrabRect()
+{
+	SDL_Rect rect;
+	rect.x = 0;
+	rect.y = 0;
+	rect.w = m_CurrentW - 1;
+	rect.h = m_CurrentH - 1;
+
+	SDL_SetWindowMouseRect(m_Window, &rect);
 }

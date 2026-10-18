@@ -92,6 +92,18 @@ public:
 
 	int GetWindowWidth() const;
 	int GetWindowHeight() const;
+	/**
+	 * Returns the maximum allowable mouse X coordinate within the window bounds.
+	 * When mouse grab is active, this is constrained to m_CurrentW - 1 to match
+	 * the active mouse grab rectangle.
+	 */
+	int GetMaxMouseX() const;
+	/**
+	 * Returns the maximum allowable mouse Y coordinate within the window bounds.
+	 * When mouse grab is active, this is constrained to m_CurrentH - 1 to match
+	 * the active mouse grab rectangle.
+	 */
+	int GetMaxMouseY() const;
 	int GetBPP() const;
 
 	bool IsVSyncEnabled() const;
@@ -110,6 +122,20 @@ public:
 
 	void SetCursor(const CStrW& name);
 	void ResetCursor();
+
+	/**
+	 * Sets SDL mouse grab for m_Window and updates the mouse grab rectangle accordingly.
+	 */
+	void SetWindowGrab(bool grab);
+	/**
+	 * Updates the SDL mouse rectangle for m_Window.
+	 *
+	 * Both width and height are set to 1 pixel less than m_CurrentW and m_CurrentH.
+	 * On Windows, placing the cursor directly at m_CurrentW or m_CurrentH triggers
+	 * resize area, and is detected as mouse leaving the window, even when mouse
+	 * grab is enabled. See: <https://github.com/libsdl-org/SDL/issues/16484>, <https://gitea.wildfiregames.com/0ad/0ad/issues/9324#issuecomment-148735>
+	 */
+	void UpdateGrabRect();
 
 	Renderer::Backend::IDevice* GetBackendDevice() { return m_BackendDevice.get(); }
 
