@@ -101,6 +101,7 @@
 #include <boost/algorithm/string/constants.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/split.hpp>
+#include <boost/random/linear_congruential.hpp>
 #include <chrono>
 #include <cstdlib>
 #include <ctime>
@@ -722,9 +723,17 @@ bool Autostart(const CmdLineArgs& args)
 	if (!args.Has("autostart-client") && !args.Has("autostart"))
 		return false;
 
+	// Seed the setup RNG (random civs, biome, ...); -1 keeps it random.
+	// Declared before the interface so it outlives it.
+	const int setupSeed{args.Has("autostart-seed") ? args.Get("autostart-seed").ToInt() : 0};
+	boost::rand48 setupRNG{static_cast<std::uint32_t>(setupSeed)};
+
 	// Create some scriptinterface to store the js values for the settings.
 	Script::Interface scriptInterface("Engine", "Game Setup", g_ScriptContext);
 	Script::Request rq(scriptInterface);
+
+	if (setupSeed != -1)
+		scriptInterface.ReplaceNondeterministicRNG(setupRNG);
 
 	// We use the javascript gameSettings to handle options, but that requires running JS.
 	// Since we don't want to use the full Gui manager, we load an entrypoint script
