@@ -159,7 +159,7 @@ function parseCmdLineArgs(settings, cmdLineArgs)
 			});
 	}
 
-	// Seeds default to random so we only need to set specific values.
+	// Default to seed 0; -1 keeps the "random" default of the Seeds setting.
 	if (cmdLineArgs['autostart-seed'] != -1)
 		settings.seeds.seed = +(cmdLineArgs['autostart-seed'] ?? 0);
 
