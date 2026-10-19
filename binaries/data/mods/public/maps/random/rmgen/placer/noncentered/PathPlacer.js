@@ -28,7 +28,9 @@ PathPlacer.prototype.place = function(constraint)
 	const pathLength = this.start.distanceTo(this.end);
 
 	const numStepsWaviness = 1 + Math.floor(pathLength / 4 * this.waviness);
-	const numStepsLength = 1 + Math.floor(pathLength / 4 * this.smoothness);
+	// Steps below half a tile only add cost
+	const numStepsLength = Math.clamp(Math.ceil(2 * pathLength / numStepsWaviness), 1,
+		1 + Math.floor(pathLength / 4 * this.smoothness));
 	const offset = 1 + Math.floor(pathLength / 4 * this.offset);
 
 	// Generate random offsets
